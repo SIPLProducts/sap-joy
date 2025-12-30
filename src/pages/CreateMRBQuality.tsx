@@ -6,12 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { materials, vendors, plants, defectCodes } from '@/data/mockData';
 import { MRBRecord, DefectCategory } from '@/types/mrb';
-import { Upload, X, FileText } from 'lucide-react';
+import { Upload, X, FileText, Save, Send, ArrowLeft } from 'lucide-react';
 
 const defectCategories: DefectCategory[] = ['dimensional', 'surface', 'material', 'functional', 'documentation', 'packaging', 'other'];
 
@@ -56,6 +56,10 @@ export default function CreateMRBQuality() {
 
   const removeAttachment = (index: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveDraft = () => {
+    toast({ title: "Draft Saved", description: "Your MRB draft has been saved." });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -117,286 +121,349 @@ export default function CreateMRBQuality() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Create MRB - Quality Inspection</h1>
-        <p className="text-muted-foreground">Create a new MRB from quality inspection findings</p>
+    <div className="min-h-screen bg-muted/30">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-50 bg-background border-b border-border shadow-sm">
+        <div className="px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => navigate('/worklist')}
+              className="shrink-0"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-semibold text-foreground">Create MRB – Quality Inspection</h1>
+              <p className="text-sm text-muted-foreground">Create a new Material Review Board record from quality inspection</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={handleSaveDraft}>
+              <Save className="h-4 w-4 mr-2" />
+              Save Draft
+            </Button>
+            <Button onClick={handleSubmit} className="bg-primary hover:bg-primary/90">
+              <Send className="h-4 w-4 mr-2" />
+              Submit
+            </Button>
+            <Button variant="ghost" onClick={() => navigate('/worklist')}>
+              Cancel
+            </Button>
+          </div>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Material Information Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Material Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="material">Material *</Label>
-                <Select value={formData.materialNumber} onValueChange={(v) => setFormData(prev => ({ ...prev, materialNumber: v }))}>
-                  <SelectTrigger id="material">
-                    <SelectValue placeholder="Select material" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {materials.map(m => (
-                      <SelectItem key={m.number} value={m.number}>
-                        {m.number} - {m.description}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="vendor">Vendor *</Label>
-                <Select value={formData.vendor} onValueChange={(v) => setFormData(prev => ({ ...prev, vendor: v }))}>
-                  <SelectTrigger id="vendor">
-                    <SelectValue placeholder="Select vendor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vendors.map(v => (
-                      <SelectItem key={v.code} value={v.code}>
-                        {v.code} - {v.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="plant">Plant *</Label>
-                <Select value={formData.plant} onValueChange={(v) => setFormData(prev => ({ ...prev, plant: v }))}>
-                  <SelectTrigger id="plant">
-                    <SelectValue placeholder="Select plant" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {plants.map(p => (
-                      <SelectItem key={p} value={p}>{p}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="poNumber">PO Number</Label>
-                <Input 
-                  id="poNumber"
-                  value={formData.poNumber} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, poNumber: e.target.value }))} 
-                  placeholder="e.g., PO-2024-001"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="grnNumber">GRN Number</Label>
-                <Input 
-                  id="grnNumber"
-                  value={formData.grnNumber} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, grnNumber: e.target.value }))} 
-                  placeholder="e.g., GRN-2024-001"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="inspectionLot">Inspection Lot</Label>
-                <Input 
-                  id="inspectionLot"
-                  value={formData.inspectionLot} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, inspectionLot: e.target.value }))} 
-                  placeholder="e.g., IL-2024-001"
-                />
-              </div>
+      {/* Page Content */}
+      <div className="p-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          
+          {/* Section 1: Material Information */}
+          <section className="bg-background rounded-lg border border-border shadow-sm">
+            <div className="px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-medium text-foreground">Material Information</h2>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Quality Decision Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Quality Decision</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="qualityDecision">Quality Decision *</Label>
-                <Select value={formData.qualityDecision} onValueChange={(v) => setFormData(prev => ({ ...prev, qualityDecision: v }))}>
-                  <SelectTrigger id="qualityDecision">
-                    <SelectValue placeholder="Select decision" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {qualityDecisions.map(d => (
-                      <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="totalQuantity">Total Quantity *</Label>
-                <Input 
-                  id="totalQuantity"
-                  type="number" 
-                  value={formData.totalQuantity} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, totalQuantity: e.target.value }))} 
-                  placeholder="Enter total quantity"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="acceptedQuantity">Accepted Quantity</Label>
-                <Input 
-                  id="acceptedQuantity"
-                  type="number" 
-                  value={formData.acceptedQuantity} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, acceptedQuantity: e.target.value }))} 
-                  placeholder="0"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="rejectedQuantity">Rejected Quantity</Label>
-                <Input 
-                  id="rejectedQuantity"
-                  type="number" 
-                  value={formData.rejectedQuantity} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, rejectedQuantity: e.target.value }))} 
-                  placeholder="0"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="blockedQuantity">Blocked Quantity</Label>
-                <Input 
-                  id="blockedQuantity"
-                  type="number" 
-                  value={formData.blockedQuantity} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, blockedQuantity: e.target.value }))} 
-                  placeholder="0"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Defect Details Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Defect Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="defectCategory">Defect Category *</Label>
-                <Select value={formData.defectCategory} onValueChange={(v: DefectCategory) => setFormData(prev => ({ ...prev, defectCategory: v }))}>
-                  <SelectTrigger id="defectCategory">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {defectCategories.map(c => (
-                      <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="defectCode">Defect Code</Label>
-                <Select value={formData.defectCode} onValueChange={(v) => setFormData(prev => ({ ...prev, defectCode: v }))}>
-                  <SelectTrigger id="defectCode">
-                    <SelectValue placeholder="Select code" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {defectCodes.map(d => (
-                      <SelectItem key={d.code} value={d.code}>
-                        {d.code} - {d.description}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="defectDescription">Defect Description *</Label>
-              <Textarea 
-                id="defectDescription"
-                value={formData.defectDescription} 
-                onChange={(e) => setFormData(prev => ({ ...prev, defectDescription: e.target.value }))} 
-                placeholder="Describe the defect in detail..."
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="qualityRemarks">Quality Remarks</Label>
-              <Textarea 
-                id="qualityRemarks"
-                value={formData.qualityRemarks} 
-                onChange={(e) => setFormData(prev => ({ ...prev, qualityRemarks: e.target.value }))} 
-                placeholder="Additional remarks..."
-                rows={2}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Attachments Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Attachments</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
-              <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground mb-2">
-                Upload inspection reports, test results, photos, or specifications
-              </p>
-              <Input
-                type="file"
-                multiple
-                onChange={handleFileChange}
-                className="max-w-xs mx-auto"
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx,.xls"
-              />
-            </div>
-
-            {attachments.length > 0 && (
-              <div className="space-y-2">
-                <Label>Uploaded Files</Label>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  {attachments.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-muted rounded-md">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">{file.name}</span>
-                        <span className="text-xs text-muted-foreground">({(file.size / 1024).toFixed(1)} KB)</span>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeAttachment(index)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+                  <Label htmlFor="material" className="text-sm font-medium">
+                    Material <span className="text-destructive">*</span>
+                  </Label>
+                  <Select value={formData.materialNumber} onValueChange={(v) => setFormData(prev => ({ ...prev, materialNumber: v }))}>
+                    <SelectTrigger id="material" className="w-full">
+                      <SelectValue placeholder="Select material" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {materials.map(m => (
+                        <SelectItem key={m.number} value={m.number}>
+                          {m.number} - {m.description}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="vendor" className="text-sm font-medium">
+                    Vendor <span className="text-destructive">*</span>
+                  </Label>
+                  <Select value={formData.vendor} onValueChange={(v) => setFormData(prev => ({ ...prev, vendor: v }))}>
+                    <SelectTrigger id="vendor" className="w-full">
+                      <SelectValue placeholder="Select vendor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vendors.map(v => (
+                        <SelectItem key={v.code} value={v.code}>
+                          {v.code} - {v.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="plant" className="text-sm font-medium">
+                    Plant <span className="text-destructive">*</span>
+                  </Label>
+                  <Select value={formData.plant} onValueChange={(v) => setFormData(prev => ({ ...prev, plant: v }))}>
+                    <SelectTrigger id="plant" className="w-full">
+                      <SelectValue placeholder="Select plant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {plants.map(p => (
+                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="poNumber" className="text-sm font-medium">PO Number</Label>
+                  <Input 
+                    id="poNumber"
+                    value={formData.poNumber} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, poNumber: e.target.value }))} 
+                    placeholder="e.g., PO-2024-001"
+                    className="w-full"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="grnNumber" className="text-sm font-medium">GRN Number</Label>
+                  <Input 
+                    id="grnNumber"
+                    value={formData.grnNumber} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, grnNumber: e.target.value }))} 
+                    placeholder="e.g., GRN-2024-001"
+                    className="w-full"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="inspectionLot" className="text-sm font-medium">Inspection Lot</Label>
+                  <Input 
+                    id="inspectionLot"
+                    value={formData.inspectionLot} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, inspectionLot: e.target.value }))} 
+                    placeholder="e.g., IL-2024-001"
+                    className="w-full"
+                  />
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          </section>
 
-        {/* Form Actions */}
-        <div className="flex gap-4">
-          <Button type="submit" className="bg-primary hover:bg-primary/90">
-            Create MRB
-          </Button>
-          <Button type="button" variant="outline" onClick={() => navigate('/worklist')}>
-            Cancel
-          </Button>
-        </div>
-      </form>
+          {/* Section 2: Quality Decision */}
+          <section className="bg-background rounded-lg border border-border shadow-sm">
+            <div className="px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-medium text-foreground">Quality Decision</h2>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="qualityDecision" className="text-sm font-medium">
+                    Quality Decision <span className="text-destructive">*</span>
+                  </Label>
+                  <Select value={formData.qualityDecision} onValueChange={(v) => setFormData(prev => ({ ...prev, qualityDecision: v }))}>
+                    <SelectTrigger id="qualityDecision" className="w-full">
+                      <SelectValue placeholder="Select decision" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {qualityDecisions.map(d => (
+                        <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="totalQuantity" className="text-sm font-medium">
+                    Total Quantity <span className="text-destructive">*</span>
+                  </Label>
+                  <Input 
+                    id="totalQuantity"
+                    type="number" 
+                    value={formData.totalQuantity} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, totalQuantity: e.target.value }))} 
+                    placeholder="Enter total quantity"
+                    className="w-full"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="acceptedQuantity" className="text-sm font-medium">Accepted Quantity</Label>
+                  <Input 
+                    id="acceptedQuantity"
+                    type="number" 
+                    value={formData.acceptedQuantity} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, acceptedQuantity: e.target.value }))} 
+                    placeholder="0"
+                    className="w-full"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="rejectedQuantity" className="text-sm font-medium">Rejected Quantity</Label>
+                  <Input 
+                    id="rejectedQuantity"
+                    type="number" 
+                    value={formData.rejectedQuantity} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, rejectedQuantity: e.target.value }))} 
+                    placeholder="0"
+                    className="w-full"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="blockedQuantity" className="text-sm font-medium">Blocked Quantity</Label>
+                  <Input 
+                    id="blockedQuantity"
+                    type="number" 
+                    value={formData.blockedQuantity} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, blockedQuantity: e.target.value }))} 
+                    placeholder="0"
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Section 3: Defect Details */}
+          <section className="bg-background rounded-lg border border-border shadow-sm">
+            <div className="px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-medium text-foreground">Defect Details</h2>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="defectCategory" className="text-sm font-medium">
+                    Defect Category <span className="text-destructive">*</span>
+                  </Label>
+                  <Select value={formData.defectCategory} onValueChange={(v: DefectCategory) => setFormData(prev => ({ ...prev, defectCategory: v }))}>
+                    <SelectTrigger id="defectCategory" className="w-full">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {defectCategories.map(c => (
+                        <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="defectCode" className="text-sm font-medium">Defect Code</Label>
+                  <Select value={formData.defectCode} onValueChange={(v) => setFormData(prev => ({ ...prev, defectCode: v }))}>
+                    <SelectTrigger id="defectCode" className="w-full">
+                      <SelectValue placeholder="Select code" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {defectCodes.map(d => (
+                        <SelectItem key={d.code} value={d.code}>
+                          {d.code} - {d.description}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="defectDescription" className="text-sm font-medium">
+                    Defect Description <span className="text-destructive">*</span>
+                  </Label>
+                  <Textarea 
+                    id="defectDescription"
+                    value={formData.defectDescription} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, defectDescription: e.target.value }))} 
+                    placeholder="Describe the defect in detail..."
+                    rows={4}
+                    className="w-full resize-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="qualityRemarks" className="text-sm font-medium">Quality Remarks</Label>
+                  <Textarea 
+                    id="qualityRemarks"
+                    value={formData.qualityRemarks} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, qualityRemarks: e.target.value }))} 
+                    placeholder="Additional remarks..."
+                    rows={4}
+                    className="w-full resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Section 4: Attachments */}
+          <section className="bg-background rounded-lg border border-border shadow-sm">
+            <div className="px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-medium text-foreground">Attachments</h2>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
+                <Upload className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+                <p className="text-sm text-muted-foreground mb-3">
+                  Upload inspection reports, test results, photos, or specifications
+                </p>
+                <label className="cursor-pointer">
+                  <span className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors">
+                    Choose Files
+                  </span>
+                  <Input
+                    type="file"
+                    multiple
+                    onChange={handleFileChange}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx,.xls"
+                  />
+                </label>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Supported: PDF, DOC, DOCX, JPG, PNG, XLS, XLSX
+                </p>
+              </div>
+
+              {attachments.length > 0 && (
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Uploaded Files ({attachments.length})</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {attachments.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <FileText className="h-5 w-5 text-primary shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{file.name}</p>
+                            <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeAttachment(index)}
+                          className="shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Bottom Spacer for better scroll experience */}
+          <div className="h-6" />
+        </form>
+      </div>
     </div>
   );
 }
