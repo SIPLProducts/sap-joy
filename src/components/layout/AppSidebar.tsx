@@ -1,4 +1,4 @@
-import { Home, ClipboardList, PlusCircle, Mail, Settings, Factory, Wrench } from 'lucide-react';
+import { Home, ClipboardList, PlusCircle, Mail, Settings, Factory, Wrench, FileSpreadsheet, FolderOpen } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { useRole } from '@/contexts/RoleContext';
 import {
@@ -20,6 +20,8 @@ const menuItems = [
   { title: 'MRB Worklist', url: '/worklist', icon: ClipboardList, roles: ['quality', 'purchase', 'engineering', 'plant_head', 'shop_floor'] },
   { title: 'Create MRB (Quality)', url: '/create/quality', icon: PlusCircle, roles: ['quality'] },
   { title: 'Create MRB (Shop Floor)', url: '/create/shop-floor', icon: Factory, roles: ['shop_floor'] },
+  { title: 'Inward Report', url: '/inward/report', icon: FileSpreadsheet, roles: ['quality', 'purchase', 'engineering', 'plant_head'] },
+  { title: 'Inward Worklist', url: '/inward/worklist', icon: FolderOpen, roles: ['quality', 'purchase', 'engineering', 'plant_head'] },
   { title: 'Email Log', url: '/emails', icon: Mail, roles: ['quality', 'purchase', 'engineering', 'plant_head'] },
 ];
 
