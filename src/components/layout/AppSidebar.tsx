@@ -1,5 +1,5 @@
-import { Home, ClipboardList, PlusCircle, Mail, Settings, Factory, Wrench, FileSpreadsheet, FolderOpen } from 'lucide-react';
-import { useLocation, Link } from 'react-router-dom';
+import { Home, ClipboardList, PlusCircle, Mail, Factory, Wrench, FileSpreadsheet, FolderOpen, BarChart3, LogOut } from 'lucide-react';
+import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useRole } from '@/contexts/RoleContext';
 import {
   Sidebar,
@@ -14,9 +14,10 @@ import {
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 const menuItems = [
-  { title: 'Dashboard', url: '/', icon: Home, roles: ['quality', 'purchase', 'engineering', 'plant_head', 'shop_floor'] },
+  { title: 'KPI Dashboard', url: '/', icon: BarChart3, roles: ['quality', 'purchase', 'engineering', 'plant_head', 'shop_floor'] },
   { title: 'MRB Worklist', url: '/worklist', icon: ClipboardList, roles: ['quality', 'purchase', 'engineering', 'plant_head', 'shop_floor'] },
   { title: 'Create MRB (Quality)', url: '/create/quality', icon: PlusCircle, roles: ['quality'] },
   { title: 'Create MRB (Shop Floor)', url: '/create/shop-floor', icon: Factory, roles: ['shop_floor'] },
@@ -27,11 +28,16 @@ const menuItems = [
 
 export function AppSidebar() {
   const location = useLocation();
-  const { currentRole } = useRole();
+  const navigate = useNavigate();
+  const { currentRole, roleDisplayName } = useRole();
 
   const filteredItems = menuItems.filter(item => 
     item.roles.includes(currentRole)
   );
+
+  const handleLogout = () => {
+    navigate('/login');
+  };
 
   return (
     <Sidebar className="border-r border-sidebar-border">
@@ -76,7 +82,21 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-4">
+      <SidebarFooter className="border-t border-sidebar-border p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-sidebar-foreground">{roleDisplayName}</p>
+            <p className="text-xs text-sidebar-foreground/60">Logged in</p>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleLogout}
+            className="text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+          >
+            <LogOut className="w-4 h-4" />
+          </Button>
+        </div>
         <p className="text-xs text-sidebar-foreground/50">© 2024 HBL Power Systems</p>
       </SidebarFooter>
     </Sidebar>

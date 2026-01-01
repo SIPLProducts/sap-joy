@@ -7,7 +7,8 @@ import { RoleProvider } from "@/contexts/RoleContext";
 import { MRBProvider } from "@/contexts/MRBContext";
 import { InwardMRBProvider } from "@/contexts/InwardMRBContext";
 import { AppLayout } from "@/components/layout/AppLayout";
-import Dashboard from "@/pages/Dashboard";
+import Login from "@/pages/Login";
+import KPIDashboard from "@/pages/KPIDashboard";
 import Worklist from "@/pages/Worklist";
 import MRBDetail from "@/pages/MRBDetail";
 import CreateMRBQuality from "@/pages/CreateMRBQuality";
@@ -30,21 +31,26 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
-              <AppLayout>
-                <Routes>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/worklist" element={<Worklist />} />
-                  <Route path="/mrb/:id" element={<MRBDetail />} />
-                  <Route path="/create/quality" element={<CreateMRBQuality />} />
-                  <Route path="/create/shop-floor" element={<CreateMRBShopFloor />} />
-                  <Route path="/emails" element={<EmailLog />} />
-                  <Route path="/inward/report" element={<InwardReport />} />
-                  <Route path="/inward/create-mrb" element={<CreateInwardMRB />} />
-                  <Route path="/inward/worklist" element={<InwardWorklist />} />
-                  <Route path="/inward/mrb/:id" element={<InwardMRBDetail />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </AppLayout>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/*" element={
+                  <AppLayout>
+                    <Routes>
+                      <Route path="/" element={<KPIDashboard />} />
+                      <Route path="/worklist" element={<Worklist />} />
+                      <Route path="/mrb/:id" element={<MRBDetail />} />
+                      <Route path="/create/quality" element={<CreateMRBQuality />} />
+                      <Route path="/create/shop-floor" element={<CreateMRBShopFloor />} />
+                      <Route path="/emails" element={<EmailLog />} />
+                      <Route path="/inward/report" element={<InwardReport />} />
+                      <Route path="/inward/create-mrb" element={<CreateInwardMRB />} />
+                      <Route path="/inward/worklist" element={<InwardWorklist />} />
+                      <Route path="/inward/mrb/:id" element={<InwardMRBDetail />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </AppLayout>
+                } />
+              </Routes>
             </BrowserRouter>
           </InwardMRBProvider>
         </MRBProvider>
