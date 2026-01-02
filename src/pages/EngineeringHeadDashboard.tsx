@@ -1,0 +1,357 @@
+import { useMemo, useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { format, parseISO, isWithinInterval, differenceInDays } from 'date-fns';
+import { useMRB } from '@/contexts/MRBContext';
+import { useInwardMRB } from '@/contexts/InwardMRBContext';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
+import { KPICard } from '@/components/dashboard/KPICard';
+import {
+  Wrench,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  GitBranch,
+  Activity,
+  RefreshCw,
+  ExternalLink,
+} from 'lucide-react';
+import {
+  PieChart as RechartsPie,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from 'recharts';
+
+const CHART_COLORS = ['hsl(210, 85%, 35%)', 'hsl(160, 60%, 40%)', 'hsl(38, 92%, 50%)', 'hsl(0, 72%, 51%)', 'hsl(270, 60%, 55%)'];
+const SLA_DAYS = 3;
+
+export default function EngineeringHeadDashboard() {
+  const { mrbRecords } = useMRB();
+  const { inwardMRBRecords } = useInwardMRB();
+  const [selectedPlant, setSelectedPlant] = useState('all');
+  const [selectedMaterial, setSelectedMaterial] = useState('all');
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [lastRefresh, setLastRefresh] = useState(new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => setLastRefresh(new Date()), 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const allMRBs = useMemo(() => [...mrbRecords, ...inwardMRBRecords], [mrbRecords, inwardMRBRecords]);
+
+  const filteredMRBs = useMemo(() => {
+    let filtered = [...allMRBs];
+    if (selectedPlant !== 'all') filtered = filtered.filter(mrb => mrb.plant === selectedPlant);
+    if (selectedMaterial !== 'all') filtered = filtered.filter(mrb => mrb.materialNumber === selectedMaterial);
+    if (dateFrom && dateTo) {
+      filtered = filtered.filter(mrb => isWithinInterval(parseISO(mrb.createdAt), { start: dateFrom, end: dateTo }));
+    } else if (dateFrom) {
+      filtered = filtered.filter(mrb => parseISO(mrb.createdAt) >= dateFrom);
+    } else if (dateTo) {
+      filtered = filtered.filter(mrb => parseISO(mrb.createdAt) <= dateTo);
+    }
+    return filtered;
+  }, [allMRBs, selectedPlant, selectedMaterial, dateFrom, dateTo]);
+
+  const kpis = useMemo(() => {
+    const pendingEngineering = filteredMRBs.filter(mrb => mrb.pendingWith === 'engineering').length;
+    
+    const reviewedMRBs = filteredMRBs.filter(mrb => mrb.engineeringApprovedAt);
+    const avgReviewTime = reviewedMRBs.length > 0
+      ? Math.round(reviewedMRBs.reduce((sum, mrb) => {
+          const history = mrb.approvalHistory?.find(h => h.performedByRole === 'purchase');
+          const purchaseDate = history?.performedAt ? parseISO(history.performedAt) : parseISO(mrb.createdAt);
+          const engDate = parseISO(mrb.engineeringApprovedAt!);
+          return sum + differenceInDays(engDate, purchaseDate);
+        }, 0) / reviewedMRBs.length)
+      : 0;
+
+    const slaCompliant = reviewedMRBs.filter(mrb => {
+      const history = mrb.approvalHistory?.find(h => h.performedByRole === 'purchase');
+      const purchaseDate = history?.performedAt ? parseISO(history.performedAt) : parseISO(mrb.createdAt);
+      const engDate = parseISO(mrb.engineeringApprovedAt!);
+      return differenceInDays(engDate, purchaseDate) <= SLA_DAYS;
+    }).length;
+    const slaPercent = reviewedMRBs.length > 0 ? Math.round((slaCompliant / reviewedMRBs.length) * 100) : 0;
+
+    const escalated = filteredMRBs.filter(mrb => mrb.escalationLevel && mrb.escalationLevel !== 'none').length;
+    const deviations = filteredMRBs.filter(mrb => mrb.engineeringDecision === 'use_with_deviation').length;
+    const deviationPercent = filteredMRBs.length > 0 ? Math.round((deviations / filteredMRBs.length) * 100) : 0;
+
+    return { pendingEngineering, avgReviewTime, slaPercent, escalated, deviationPercent };
+  }, [filteredMRBs]);
+
+  const decisionSplit = useMemo(() => {
+    const decisions: Record<string, number> = {
+      'Use As-Is': 0,
+      'Deviation': 0,
+      'Rework': 0,
+      'Return': 0,
+    };
+    filteredMRBs.forEach(mrb => {
+      if (mrb.engineeringDecision === 'use_as_is') decisions['Use As-Is']++;
+      else if (mrb.engineeringDecision === 'use_with_deviation') decisions['Deviation']++;
+      else if (mrb.engineeringDecision === 'rework') decisions['Rework']++;
+      else if (mrb.engineeringDecision === 'return_to_vendor' || mrb.qualityDecision === 'reject') decisions['Return']++;
+    });
+    return Object.entries(decisions).map(([name, value]) => ({ name, value }));
+  }, [filteredMRBs]);
+
+  const pendingAgeing = useMemo(() => {
+    const pending = filteredMRBs.filter(mrb => mrb.pendingWith === 'engineering');
+    return [
+      { range: '0-2 Days', count: pending.filter(mrb => mrb.pendingDays <= 2).length },
+      { range: '3-5 Days', count: pending.filter(mrb => mrb.pendingDays > 2 && mrb.pendingDays <= 5).length },
+      { range: '>5 Days', count: pending.filter(mrb => mrb.pendingDays > 5).length },
+    ];
+  }, [filteredMRBs]);
+
+  const repeatMaterials = useMemo(() => {
+    const materialCounts: Record<string, { material: string; count: number }> = {};
+    filteredMRBs.forEach(mrb => {
+      if (!materialCounts[mrb.materialNumber]) {
+        materialCounts[mrb.materialNumber] = { material: mrb.materialNumber, count: 0 };
+      }
+      materialCounts[mrb.materialNumber].count++;
+    });
+    return Object.values(materialCounts)
+      .filter(m => m.count > 1)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+  }, [filteredMRBs]);
+
+  const tableData = useMemo(() => {
+    return filteredMRBs
+      .filter(mrb => mrb.pendingWith === 'engineering' || mrb.engineeringDecision)
+      .slice(0, 20)
+      .map(mrb => ({
+        id: mrb.id,
+        mrbNumber: mrb.mrbNumber,
+        materialCode: mrb.materialNumber,
+        defectDescription: mrb.defectDescription || '-',
+        engineeringDecision: mrb.engineeringDecision || 'Pending',
+        pendingDays: mrb.pendingDays,
+        escalated: mrb.escalationLevel && mrb.escalationLevel !== 'none',
+        isSLABreached: mrb.pendingDays > SLA_DAYS && mrb.pendingWith === 'engineering',
+      }));
+  }, [filteredMRBs]);
+
+  const clearFilters = () => {
+    setSelectedPlant('all');
+    setSelectedMaterial('all');
+    setDateFrom(undefined);
+    setDateTo(undefined);
+  };
+
+  return (
+    <div className="min-h-screen bg-muted/30">
+      <div className="bg-card border-b border-border sticky top-0 z-10">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Engineering Head – MRB Review Effectiveness</h1>
+              <p className="text-muted-foreground">Technical review & deviation analytics</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Badge variant="outline" className="px-3 py-1">
+                <Activity className="w-3 h-3 mr-1" />
+                {filteredMRBs.length} Records
+              </Badge>
+              <Badge variant="outline" className="px-3 py-1">
+                <RefreshCw className="w-3 h-3 mr-1" />
+                {format(lastRefresh, 'HH:mm:ss')}
+              </Badge>
+            </div>
+          </div>
+        </div>
+        <DashboardFilters
+          selectedPlant={selectedPlant}
+          setSelectedPlant={setSelectedPlant}
+          dateFrom={dateFrom}
+          setDateFrom={setDateFrom}
+          dateTo={dateTo}
+          setDateTo={setDateTo}
+          selectedMaterial={selectedMaterial}
+          setSelectedMaterial={setSelectedMaterial}
+          showMaterial
+          onClear={clearFilters}
+        />
+      </div>
+
+      <div className="p-6 space-y-6">
+        {/* KPI Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          <KPICard
+            title="Pending with Engg"
+            value={kpis.pendingEngineering}
+            icon={Wrench}
+            variant="primary"
+            drillDownUrl="/worklist?pending=engineering"
+          />
+          <KPICard
+            title="Avg Review Time"
+            value={`${kpis.avgReviewTime} days`}
+            icon={Clock}
+            variant="info"
+          />
+          <KPICard
+            title="SLA Compliance"
+            value={`${kpis.slaPercent}%`}
+            icon={CheckCircle}
+            variant={kpis.slaPercent >= 80 ? 'success' : 'warning'}
+          />
+          <KPICard
+            title="Escalated MRBs"
+            value={kpis.escalated}
+            icon={AlertTriangle}
+            variant="destructive"
+          />
+          <KPICard
+            title="Deviation Approvals"
+            value={`${kpis.deviationPercent}%`}
+            icon={GitBranch}
+            variant="warning"
+          />
+        </div>
+
+        {/* Charts */}
+        <div className="grid gap-6 md:grid-cols-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Engineering Decisions Split</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <RechartsPie>
+                  <Pie
+                    data={decisionSplit}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                    label={({ name, value }) => value > 0 ? `${name}: ${value}` : ''}
+                  >
+                    {decisionSplit.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </RechartsPie>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Pending Ageing</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={pendingAgeing}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="range" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="hsl(38, 92%, 50%)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Repeat MRBs by Material</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={repeatMaterials} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" tick={{ fontSize: 10 }} />
+                  <YAxis type="category" dataKey="material" tick={{ fontSize: 10 }} width={70} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="hsl(0, 72%, 51%)" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Table */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Engineering Review Details</CardTitle>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/worklist">View All <ExternalLink className="w-4 h-4 ml-2" /></Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>MRB Number</TableHead>
+                    <TableHead>Material Code</TableHead>
+                    <TableHead className="max-w-[200px]">Defect Description</TableHead>
+                    <TableHead>Engg Decision</TableHead>
+                    <TableHead className="text-right">Pending Days</TableHead>
+                    <TableHead>Escalation</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tableData.map(row => (
+                    <TableRow
+                      key={row.id}
+                      className={row.escalated ? 'bg-destructive/10 hover:bg-destructive/15' : row.isSLABreached ? 'bg-yellow-500/10' : ''}
+                    >
+                      <TableCell>
+                        <Link to={`/mrb/${row.id}`} className="text-primary hover:underline font-medium">
+                          {row.mrbNumber}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{row.materialCode}</TableCell>
+                      <TableCell className="max-w-[200px] truncate" title={row.defectDescription}>
+                        {row.defectDescription}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={row.engineeringDecision === 'Pending' ? 'outline' : 'secondary'} className="capitalize">
+                          {row.engineeringDecision.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className={`text-right ${row.isSLABreached ? 'text-destructive font-semibold' : ''}`}>
+                        {row.pendingDays}
+                      </TableCell>
+                      <TableCell>
+                        {row.escalated ? (
+                          <Badge variant="destructive">
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                            Escalated
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
