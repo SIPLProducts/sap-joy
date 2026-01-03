@@ -103,7 +103,7 @@ export default function EngineeringHeadDashboard() {
     filteredMRBs.forEach(mrb => {
       if (mrb.engineeringDecision === 'use_as_is') decisions['Use As-Is']++;
       else if (mrb.engineeringDecision === 'use_with_deviation') decisions['Deviation']++;
-      else if (mrb.engineeringDecision === 'rework') decisions['Rework']++;
+      else if (mrb.engineeringDecision === 'rework_required') decisions['Rework']++;
       else if (mrb.engineeringDecision === 'return_to_vendor' || mrb.qualityDecision === 'reject') decisions['Return']++;
     });
     return Object.entries(decisions).map(([name, value]) => ({ name, value }));
