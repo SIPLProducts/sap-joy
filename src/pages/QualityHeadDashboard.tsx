@@ -77,13 +77,13 @@ export default function QualityHeadDashboard() {
   const filteredLots = useMemo(() => {
     let lots = [...inspectionLotRecords];
     if (selectedPlant !== 'all') lots = lots.filter(lot => lot.plant === selectedPlant);
-    if (selectedVendor !== 'all') lots = lots.filter(lot => lot.vendor === selectedVendor);
+    if (selectedVendor !== 'all') lots = lots.filter(lot => lot.vendorCode === selectedVendor);
     return lots;
   }, [inspectionLotRecords, selectedPlant, selectedVendor]);
 
   const kpis = useMemo(() => {
     const totalLots = filteredLots.length;
-    const rejectedLots = filteredLots.filter(lot => lot.decision === 'rejected').length;
+    const rejectedLots = filteredMRBs.filter(mrb => mrb.qualityDecision === 'reject').length;
     const rejectionRate = totalLots > 0 ? Math.round((rejectedLots / totalLots) * 100) : 0;
     const totalBlockedQty = filteredMRBs.reduce((sum, mrb) => sum + (mrb.blockedQuantity || 0), 0);
     const qualityRaised = filteredMRBs.filter(mrb => mrb.source === 'quality_inspection').length;
@@ -96,7 +96,7 @@ export default function QualityHeadDashboard() {
   }, [filteredLots, filteredMRBs]);
 
   const defectCategorySplit = useMemo(() => {
-    const electrical = filteredMRBs.filter(mrb => mrb.defectCategory === 'electrical' || mrb.defectCategory === 'functional').length;
+    const electrical = filteredMRBs.filter(mrb => mrb.defectCategory === 'functional').length;
     const mechanical = filteredMRBs.filter(mrb => ['dimensional', 'surface', 'material'].includes(mrb.defectCategory || '')).length;
     return [
       { name: 'Electrical/Functional', value: electrical },
@@ -146,14 +146,14 @@ export default function QualityHeadDashboard() {
 
   const tableData = useMemo(() => {
     return filteredLots.slice(0, 20).map(lot => ({
-      id: lot.inspectionLotNumber,
-      inspectionLot: lot.inspectionLotNumber,
-      materialCode: lot.materialNumber,
+      id: lot.inspectionLot,
+      inspectionLot: lot.inspectionLot,
+      materialCode: lot.materialCode,
       vendorName: lot.vendorName,
       blockedQuantity: lot.blockedQuantity,
-      defectCategory: lot.defectCategory || '-',
-      qualityDecision: lot.decision,
-      mrbStatus: lot.mrbCreated ? 'MRB Created' : 'Pending',
+      defectCategory: lot.blockReason || '-',
+      qualityDecision: 'Pending Review',
+      mrbStatus: 'Pending',
     }));
   }, [filteredLots]);
 
