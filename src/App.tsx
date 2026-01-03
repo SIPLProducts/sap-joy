@@ -18,6 +18,13 @@ import InwardReport from "@/pages/InwardReport";
 import CreateInwardMRB from "@/pages/CreateInwardMRB";
 import InwardWorklist from "@/pages/InwardWorklist";
 import InwardMRBDetail from "@/pages/InwardMRBDetail";
+import ShopFloorStockSelection from "@/pages/ShopFloorStockSelection";
+import ShopFloorMaterialBlocking from "@/pages/ShopFloorMaterialBlocking";
+import PlantHeadDashboard from "@/pages/PlantHeadDashboard";
+import QualityHeadDashboard from "@/pages/QualityHeadDashboard";
+import PurchaseHeadDashboard from "@/pages/PurchaseHeadDashboard";
+import EngineeringHeadDashboard from "@/pages/EngineeringHeadDashboard";
+import ExecutiveSummaryDashboard from "@/pages/ExecutiveSummaryDashboard";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +53,13 @@ const App = () => (
                       <Route path="/inward/create-mrb" element={<CreateInwardMRB />} />
                       <Route path="/inward/worklist" element={<InwardWorklist />} />
                       <Route path="/inward/mrb/:id" element={<InwardMRBDetail />} />
+                      <Route path="/shop-floor/stock-selection" element={<ShopFloorStockSelection />} />
+                      <Route path="/shop-floor/material-blocking" element={<ShopFloorMaterialBlocking />} />
+                      <Route path="/dashboard/plant-head" element={<PlantHeadDashboard />} />
+                      <Route path="/dashboard/quality-head" element={<QualityHeadDashboard />} />
+                      <Route path="/dashboard/purchase-head" element={<PurchaseHeadDashboard />} />
+                      <Route path="/dashboard/engineering-head" element={<EngineeringHeadDashboard />} />
+                      <Route path="/dashboard/executive-summary" element={<ExecutiveSummaryDashboard />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </AppLayout>
