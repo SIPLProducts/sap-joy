@@ -174,12 +174,13 @@ export const shopFloorBlockReasons = [
 ];
 
 // Next review departments
-export const shopFloorNextDepartments = [
+import type { UserRole } from '@/types/mrb';
+
+export const shopFloorNextDepartments: { value: UserRole; label: string }[] = [
   { value: 'quality', label: 'Quality' },
   { value: 'engineering', label: 'Engineering' },
   { value: 'purchase', label: 'Purchase' },
   { value: 'plant_head', label: 'Plant Head' },
-  { value: 'mrb_committee', label: 'MRB Committee' },
 ];
 
 // Attachment categories for shop floor
