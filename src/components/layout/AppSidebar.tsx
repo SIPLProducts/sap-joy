@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 const menuItems = [
   { title: 'KPI Dashboard', url: '/', icon: BarChart3, roles: ['quality', 'purchase', 'engineering', 'plant_head', 'shop_floor'] },
   { title: 'MRB Worklist', url: '/worklist', icon: ClipboardList, roles: ['quality', 'purchase', 'engineering', 'plant_head', 'shop_floor'] },
-  { title: 'Create MRB (Quality)', url: '/create/quality', icon: PlusCircle, roles: ['quality'] },
+  
   { title: 'Material Blocking', url: '/shop-floor/stock-selection', icon: Package, roles: ['shop_floor'] },
   { title: 'Inward Report', url: '/inward/report', icon: FileSpreadsheet, roles: ['quality', 'purchase', 'engineering', 'plant_head'] },
   { title: 'Inward Worklist', url: '/inward/worklist', icon: FolderOpen, roles: ['quality', 'purchase', 'engineering', 'plant_head'] },
