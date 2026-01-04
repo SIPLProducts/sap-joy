@@ -232,12 +232,13 @@ export const getUniqueInspectionLots = (): string[] => {
   return [...new Set(mockInspectionLotRecords.map(r => r.inspectionLot))];
 };
 
-// Next Review Departments
-export const nextReviewDepartments = [
+// Next Review Departments - typed for multi-select support
+import { NextReviewDepartment } from '@/types/inwardReport';
+
+export const nextReviewDepartments: { value: NextReviewDepartment; label: string }[] = [
   { value: 'engineering', label: 'Engineering / Design' },
   { value: 'purchase', label: 'Purchase' },
   { value: 'plant_head', label: 'Plant Head' },
-  { value: 'mrb_committee', label: 'MRB Committee' },
 ];
 
 // Quality Decisions for Inward

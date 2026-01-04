@@ -37,7 +37,7 @@ export default function InwardMRBDetail() {
     reviewComments: '',
     action: '',
     forwardToNext: false,
-    nextDepartment: undefined,
+    nextDepartments: [],
   });
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
@@ -89,10 +89,10 @@ export default function InwardMRBDetail() {
       return;
     }
 
-    if (reviewData.forwardToNext && !reviewData.nextDepartment) {
+    if (reviewData.forwardToNext && (!reviewData.nextDepartments || reviewData.nextDepartments.length === 0)) {
       toast({
         title: 'Validation Error',
-        description: 'Please select the next department to forward to',
+        description: 'Please select at least one department to forward to',
         variant: 'destructive',
       });
       return;
@@ -106,8 +106,8 @@ export default function InwardMRBDetail() {
       mrbId: mrb.id,
       mrbNumber: mrb.mrbNumber,
       subject: `MRB ${mrb.mrbNumber} - ${getActionLabel(reviewData.action)}`,
-      recipients: reviewData.forwardToNext && reviewData.nextDepartment 
-        ? [`${reviewData.nextDepartment}@company.com`]
+      recipients: reviewData.forwardToNext && reviewData.nextDepartments && reviewData.nextDepartments.length > 0
+        ? reviewData.nextDepartments.map(d => `${d}@company.com`)
         : ['quality@company.com'],
       template: 'engineering_decision',
       sentAt: new Date().toISOString(),
@@ -381,27 +381,44 @@ export default function InwardMRBDetail() {
                   </div>
                   
                   {reviewData.forwardToNext && (
-                    <div className="pl-6">
-                      <Select
-                        value={reviewData.nextDepartment || ''}
-                        onValueChange={(value) => 
-                          setReviewData({ ...reviewData, nextDepartment: value as NextReviewDepartment })
+                    <div className="pl-6 space-y-3">
+                      <Label>Select Departments to Forward</Label>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {nextReviewDepartments
+                          .filter(d => d.value !== currentRole)
+                          .map((dept) => (
+                            <label
+                              key={dept.value}
+                              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                                reviewData.nextDepartments?.includes(dept.value)
+                                  ? 'border-primary bg-primary/5'
+                                  : 'border-border hover:border-muted-foreground'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={reviewData.nextDepartments?.includes(dept.value) || false}
+                                onChange={(e) => {
+                                  const current = reviewData.nextDepartments || [];
+                                  if (e.target.checked) {
+                                    setReviewData({ 
+                                      ...reviewData, 
+                                      nextDepartments: [...current, dept.value] 
+                                    });
+                                  } else {
+                                    setReviewData({ 
+                                      ...reviewData, 
+                                      nextDepartments: current.filter(d => d !== dept.value) 
+                                    });
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                              />
+                              <span className="text-sm font-medium">{dept.label}</span>
+                            </label>
+                          ))
                         }
-                      >
-                        <SelectTrigger className="w-[250px] bg-background">
-                          <SelectValue placeholder="Select Department" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover border-border z-50">
-                          {nextReviewDepartments
-                            .filter(d => d.value !== currentRole)
-                            .map((dept) => (
-                              <SelectItem key={dept.value} value={dept.value}>
-                                {dept.label}
-                              </SelectItem>
-                            ))
-                          }
-                        </SelectContent>
-                      </Select>
+                      </div>
                     </div>
                   )}
                 </div>
