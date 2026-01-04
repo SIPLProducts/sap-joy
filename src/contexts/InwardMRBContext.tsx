@@ -7,7 +7,7 @@ interface InwardMRBRecord extends MRBRecord {
   qualityInspectionComments?: string;
   qualityInspectionDate?: string;
   qualityInspectorName?: string;
-  nextReviewDepartment?: string;
+  nextReviewDepartments?: string[];
   storageLocation?: string;
   batch?: string;
   blockReason?: string;
@@ -104,7 +104,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
       createdAt: now,
       createdBy: formData.qualityInspectorName || 'Quality User',
       updatedAt: now,
-      pendingWith: pendingWithMap[formData.nextReviewDepartment] || 'engineering',
+      pendingWith: pendingWithMap[formData.nextReviewDepartments[0]] || 'engineering',
       pendingDays: 0,
       slaStatus: 'green',
       escalationLevel: 'none',
@@ -144,7 +144,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
       qualityInspectionComments: formData.qualityInspectionComments,
       qualityInspectionDate: formData.qualityInspectionDate,
       qualityInspectorName: formData.qualityInspectorName,
-      nextReviewDepartment: formData.nextReviewDepartment,
+      nextReviewDepartments: formData.nextReviewDepartments,
       
       attachments,
       approvalHistory: [
@@ -155,7 +155,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
           performedBy: formData.qualityInspectorName || 'Quality User',
           performedByRole: 'quality',
           performedAt: now,
-          remarks: `Forwarded to ${formData.nextReviewDepartment}`,
+          remarks: `Forwarded to ${formData.nextReviewDepartments.join(', ')}`,
         },
       ],
       departmentReviews: [],
@@ -222,17 +222,17 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
     };
 
     // Update status based on action
-    if (review.forwardToNext && review.nextDepartment) {
+    if (review.forwardToNext && review.nextDepartments && review.nextDepartments.length > 0) {
       const pendingWithMap: Record<string, 'engineering' | 'purchase' | 'plant_head' | 'quality'> = {
         'engineering': 'engineering',
         'purchase': 'purchase',
         'plant_head': 'plant_head',
-        'mrb_committee': 'plant_head',
       };
-      updates.pendingWith = pendingWithMap[review.nextDepartment];
-      updates.status = review.nextDepartment === 'plant_head' || review.nextDepartment === 'mrb_committee' 
+      const firstDept = review.nextDepartments[0];
+      updates.pendingWith = pendingWithMap[firstDept];
+      updates.status = firstDept === 'plant_head' 
         ? 'final_approval' 
-        : review.nextDepartment === 'engineering' 
+        : firstDept === 'engineering' 
           ? 'engineering_review' 
           : 'purchase_review';
     } else if (review.action === 'approve' || review.action === 'approve_with_deviation' || review.action === 'return_to_vendor') {

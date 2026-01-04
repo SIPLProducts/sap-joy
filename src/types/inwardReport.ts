@@ -57,13 +57,13 @@ export interface InwardMRBFormData {
   qualityInspectionDate: string;
   qualityInspectorName: string;
   
-  // Next Review Department
-  nextReviewDepartment: NextReviewDepartment | '';
+  // Next Review Department(s) - supports multiple selection
+  nextReviewDepartments: NextReviewDepartment[];
 }
 
 export interface DepartmentReviewData {
   reviewComments: string;
   action: 'approve' | 'return_for_clarification' | 'approve_with_deviation' | 'return_to_vendor' | '';
   forwardToNext: boolean;
-  nextDepartment?: NextReviewDepartment;
+  nextDepartments?: NextReviewDepartment[];
 }

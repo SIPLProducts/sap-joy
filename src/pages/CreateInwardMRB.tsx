@@ -72,7 +72,7 @@ export default function CreateInwardMRB() {
     qualityInspectionComments: '',
     qualityInspectionDate: new Date().toISOString().split('T')[0],
     qualityInspectorName: '',
-    nextReviewDepartment: '',
+    nextReviewDepartments: [],
   });
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -118,10 +118,10 @@ export default function CreateInwardMRB() {
       });
       return;
     }
-    if (!formData.nextReviewDepartment) {
+    if (formData.nextReviewDepartments.length === 0) {
       toast({
         title: 'Validation Error',
-        description: 'Please select the Next Review Department',
+        description: 'Please select at least one Next Review Department',
         variant: 'destructive',
       });
       return;
@@ -130,14 +130,16 @@ export default function CreateInwardMRB() {
     // Create MRB
     const newMRB = createInwardMRB(formData, attachments);
 
-    // Create email log
-    const departmentLabel = nextReviewDepartments.find(d => d.value === formData.nextReviewDepartment)?.label || '';
+    // Create email log for each selected department
+    const departmentLabels = formData.nextReviewDepartments.map(d => 
+      nextReviewDepartments.find(dept => dept.value === d)?.label || d
+    ).join(', ');
     addEmailLog({
       id: `EMAIL-${Date.now()}`,
       mrbId: newMRB.id,
       mrbNumber: newMRB.mrbNumber,
       subject: `New MRB Created - ${newMRB.mrbNumber} - Action Required`,
-      recipients: [`${formData.nextReviewDepartment}@company.com`],
+      recipients: formData.nextReviewDepartments.map(d => `${d}@company.com`),
       cc: ['quality@company.com'],
       template: 'quality_to_engineering',
       sentAt: new Date().toISOString(),
@@ -157,7 +159,7 @@ Action Required: Please review and take appropriate action.
 
     toast({
       title: 'MRB Created Successfully',
-      description: `MRB ${newMRB.mrbNumber} has been created and routed to ${departmentLabel}. Email notification sent.`,
+      description: `MRB ${newMRB.mrbNumber} has been created and routed to ${departmentLabels}. Email notification sent.`,
     });
 
     navigate('/inward/worklist');
@@ -459,38 +461,74 @@ Action Required: Please review and take appropriate action.
 
         <Separator />
 
-        {/* Section 4: Next Review Department */}
+        {/* Section 4: Next Review Departments (Multi-Select) */}
         <div className="bg-background rounded-lg border border-border shadow-sm">
           <div className="px-6 py-4 border-b border-border bg-muted/30">
             <h2 className="text-lg font-semibold text-foreground">
               Workflow Routing
             </h2>
             <p className="text-sm text-muted-foreground">
-              Select the next review department for this MRB
+              Select one or more review departments for this MRB
             </p>
           </div>
           <div className="p-6">
-            <div className="max-w-md">
+            <div className="space-y-3">
               <Label className="text-foreground">
-                Next Review Department <span className="text-destructive">*</span>
+                Next Review Departments <span className="text-destructive">*</span>
               </Label>
-              <Select
-                value={formData.nextReviewDepartment}
-                onValueChange={(value) => setFormData({ ...formData, nextReviewDepartment: value as NextReviewDepartment })}
-              >
-                <SelectTrigger className="bg-background mt-2">
-                  <SelectValue placeholder="Select Department" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover border-border z-50">
-                  {nextReviewDepartments.map((dept) => (
-                    <SelectItem key={dept.value} value={dept.value}>
-                      {dept.label}
-                    </SelectItem>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
+                {nextReviewDepartments.map((dept) => (
+                  <label
+                    key={dept.value}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      formData.nextReviewDepartments.includes(dept.value)
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-muted-foreground'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formData.nextReviewDepartments.includes(dept.value)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFormData({ 
+                            ...formData, 
+                            nextReviewDepartments: [...formData.nextReviewDepartments, dept.value] 
+                          });
+                        } else {
+                          setFormData({ 
+                            ...formData, 
+                            nextReviewDepartments: formData.nextReviewDepartments.filter(d => d !== dept.value) 
+                          });
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                    />
+                    <span className="text-sm font-medium">{dept.label}</span>
+                  </label>
+                ))}
+              </div>
+              {formData.nextReviewDepartments.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {formData.nextReviewDepartments.map(d => (
+                    <span 
+                      key={d} 
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary text-xs rounded-full"
+                    >
+                      {nextReviewDepartments.find(dept => dept.value === d)?.label}
+                      <X
+                        className="w-3 h-3 cursor-pointer hover:text-destructive"
+                        onClick={() => setFormData({ 
+                          ...formData, 
+                          nextReviewDepartments: formData.nextReviewDepartments.filter(dept => dept !== d) 
+                        })}
+                      />
+                    </span>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground mt-2">
-                The selected department will receive an email notification and the MRB will be routed for their review.
+                Selected departments will receive email notifications and the MRB will be routed for their review.
               </p>
             </div>
           </div>
