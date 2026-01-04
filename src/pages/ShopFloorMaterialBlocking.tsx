@@ -49,7 +49,7 @@ export default function ShopFloorMaterialBlocking() {
   const [blockQuantity, setBlockQuantity] = useState<number>(0);
   const [blockReason, setBlockReason] = useState('');
   const [issueDescription, setIssueDescription] = useState('');
-  const [nextReviewDepartment, setNextReviewDepartment] = useState<UserRole | ''>('');
+  const [nextReviewDepartments, setNextReviewDepartments] = useState<UserRole[]>([]);
   const [attachments, setAttachments] = useState<AttachmentUpload[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -91,8 +91,8 @@ export default function ShopFloorMaterialBlocking() {
     if (!issueDescription.trim()) {
       newErrors.issueDescription = 'Issue description is required';
     }
-    if (!nextReviewDepartment) {
-      newErrors.nextReviewDepartment = 'Next review department is required';
+    if (nextReviewDepartments.length === 0) {
+      newErrors.nextReviewDepartment = 'At least one review department is required';
     }
 
     setErrors(newErrors);
@@ -151,7 +151,7 @@ export default function ShopFloorMaterialBlocking() {
         createdAt: now,
         createdBy: currentUser?.name || 'Shop Floor User',
         updatedAt: now,
-        pendingWith: nextReviewDepartment as UserRole,
+        pendingWith: nextReviewDepartments[0],
         pendingDays: 0,
         slaStatus: 'green',
         escalationLevel: 'none',
@@ -190,7 +190,7 @@ export default function ShopFloorMaterialBlocking() {
             performedBy: currentUser?.name || 'Shop Floor User',
             performedByRole: 'shop_floor',
             performedAt: now,
-            remarks: `Material blocked and forwarded to ${shopFloorNextDepartments.find(d => d.value === nextReviewDepartment)?.label}`,
+            remarks: `Material blocked and forwarded to ${nextReviewDepartments.map(d => shopFloorNextDepartments.find(dept => dept.value === d)?.label).join(', ')}`,
           },
         ],
       };
@@ -198,9 +198,9 @@ export default function ShopFloorMaterialBlocking() {
       // Create MRB
       createMRB(newMRB);
 
-      // Create email log
-      const deptLabel = shopFloorNextDepartments.find(d => d.value === nextReviewDepartment)?.label || nextReviewDepartment;
-      const recipientEmails = mockUsers.filter(u => u.role === nextReviewDepartment).map(u => u.email);
+      // Create email log for each selected department
+      const deptLabels = nextReviewDepartments.map(d => shopFloorNextDepartments.find(dept => dept.value === d)?.label || d).join(', ');
+      const recipientEmails = mockUsers.filter(u => nextReviewDepartments.includes(u.role)).map(u => u.email);
       const ccEmails = mockUsers.filter(u => u.role === 'shop_floor' || u.role === 'quality').map(u => u.email);
 
       addEmailLog({
@@ -208,7 +208,7 @@ export default function ShopFloorMaterialBlocking() {
         mrbId: newMRB.id,
         mrbNumber,
         subject: `[MRB] Shop Floor Material Blocking - ${mrbNumber}`,
-        recipients: recipientEmails.length > 0 ? recipientEmails : [`${nextReviewDepartment}@hbl.com`],
+        recipients: recipientEmails.length > 0 ? recipientEmails : nextReviewDepartments.map(d => `${d}@hbl.com`),
         cc: ccEmails,
         template: 'quality_to_engineering',
         sentAt: now,
@@ -265,7 +265,7 @@ Please review and take appropriate action.
             </div>
             <div className="text-sm text-muted-foreground space-y-1">
               <p>• Material blocked: {blockQuantity} {stockItem.uom}</p>
-              <p>• Routed to: {shopFloorNextDepartments.find(d => d.value === nextReviewDepartment)?.label}</p>
+              <p>• Routed to: {nextReviewDepartments.map(d => shopFloorNextDepartments.find(dept => dept.value === d)?.label).join(', ')}</p>
               <p>• Email notification sent</p>
             </div>
             <div className="flex gap-3 justify-center pt-4">
@@ -412,27 +412,54 @@ Please review and take appropriate action.
           </CardContent>
         </Card>
 
-        {/* PART 5: Next Review Department */}
+        {/* PART 5: Next Review Departments (Multi-Select) */}
         <Card>
           <CardHeader>
-            <CardTitle>Next Review Department</CardTitle>
-            <CardDescription>Select department to review this MRB</CardDescription>
+            <CardTitle>Next Review Departments</CardTitle>
+            <CardDescription>Select one or more departments to review this MRB</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <Label htmlFor="nextDept">Review Department *</Label>
-              <Select value={nextReviewDepartment} onValueChange={(val) => setNextReviewDepartment(val as UserRole)}>
-                <SelectTrigger className={`max-w-md ${errors.nextReviewDepartment ? 'border-destructive' : ''}`}>
-                  <SelectValue placeholder="Select department..." />
-                </SelectTrigger>
-                <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                  {shopFloorNextDepartments.map((dept) => (
-                    <SelectItem key={dept.value} value={dept.value}>
-                      {dept.label}
-                    </SelectItem>
+            <div className="space-y-3">
+              <Label>Review Departments *</Label>
+              <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                {shopFloorNextDepartments.map((dept) => (
+                  <label
+                    key={dept.value}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      nextReviewDepartments.includes(dept.value)
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-muted-foreground'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={nextReviewDepartments.includes(dept.value)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setNextReviewDepartments(prev => [...prev, dept.value] as UserRole[]);
+                        } else {
+                          setNextReviewDepartments(prev => prev.filter(d => d !== dept.value) as UserRole[]);
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                    />
+                    <span className="text-sm font-medium">{dept.label}</span>
+                  </label>
+                ))}
+              </div>
+              {nextReviewDepartments.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {nextReviewDepartments.map(d => (
+                    <Badge key={d} variant="secondary" className="gap-1">
+                      {shopFloorNextDepartments.find(dept => dept.value === d)?.label}
+                      <X
+                        className="w-3 h-3 cursor-pointer"
+                        onClick={() => setNextReviewDepartments(prev => prev.filter(dept => dept !== d))}
+                      />
+                    </Badge>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
               {errors.nextReviewDepartment && (
                 <p className="text-sm text-destructive">{errors.nextReviewDepartment}</p>
               )}
