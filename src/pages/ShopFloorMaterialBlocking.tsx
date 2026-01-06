@@ -24,6 +24,7 @@ import {
   StickyNote,
   X,
   Loader2,
+  Printer,
 } from 'lucide-react';
 import { AvailableStockRecord, shopFloorBlockReasons, shopFloorNextDepartments, shopFloorAttachmentCategories } from '@/data/shopFloorStockData';
 import { MRBRecord, Attachment, UserRole } from '@/types/mrb';
@@ -47,6 +48,7 @@ export default function ShopFloorMaterialBlocking() {
 
   // Form states
   const [blockQuantity, setBlockQuantity] = useState<number>(0);
+  const [productionOrder, setProductionOrder] = useState('');
   const [blockReason, setBlockReason] = useState('');
   const [issueDescription, setIssueDescription] = useState('');
   const [nextReviewDepartments, setNextReviewDepartments] = useState<UserRole[]>([]);
@@ -165,7 +167,7 @@ export default function ShopFloorMaterialBlocking() {
         rejectedQuantity: 0,
         blockedQuantity: blockQuantity,
         uom: stockItem.uom,
-        productionOrderNumber: `PRD-${format(new Date(), 'yyyy')}-${Math.floor(1000 + Math.random() * 9000)}`,
+        productionOrderNumber: productionOrder || `PRD-${format(new Date(), 'yyyy')}-${Math.floor(1000 + Math.random() * 9000)}`,
         issuedQuantity: blockQuantity,
         issueIdentifiedBy: currentUser?.name || 'Shop Floor User',
         issueIdentifiedDate: now,
@@ -218,6 +220,7 @@ export default function ShopFloorMaterialBlocking() {
 Material Blocking Notification
 
 MRB Number: ${mrbNumber}
+Production Order: ${productionOrder || 'N/A'}
 Plant: ${stockItem.plant}
 Material: ${stockItem.materialCode} - ${stockItem.materialDescription}
 Batch: ${stockItem.batch}
@@ -244,10 +247,88 @@ Please review and take appropriate action.
     }
   };
 
+  const handlePrintConfirmation = () => {
+    const printContent = `
+      <html>
+        <head>
+          <title>MRB Confirmation - ${createdMRBNumber}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+            .logo { font-size: 24px; font-weight: bold; color: #1e40af; }
+            .title { font-size: 18px; margin-top: 10px; color: #333; }
+            .mrb-number { font-size: 28px; font-weight: bold; color: #16a34a; margin: 20px 0; }
+            .section { margin-bottom: 25px; }
+            .section-title { font-weight: bold; font-size: 14px; color: #666; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+            .info-item { }
+            .info-label { font-size: 12px; color: #888; }
+            .info-value { font-size: 14px; font-weight: 500; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #888; text-align: center; }
+            .status { background: #dcfce7; color: #166534; padding: 8px 16px; border-radius: 4px; display: inline-block; margin-top: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">HBL Power Systems</div>
+            <div class="title">Material Blocking Confirmation</div>
+          </div>
+          
+          <div style="text-align: center;">
+            <div style="font-size: 14px; color: #666;">MRB Number</div>
+            <div class="mrb-number">${createdMRBNumber}</div>
+            <div class="status">✓ Material Blocked Successfully</div>
+          </div>
+          
+          <div class="section" style="margin-top: 30px;">
+            <div class="section-title">Stock Information</div>
+            <div class="info-grid">
+              <div class="info-item"><div class="info-label">Plant</div><div class="info-value">${stockItem.plant}</div></div>
+              <div class="info-item"><div class="info-label">Material Code</div><div class="info-value">${stockItem.materialCode}</div></div>
+              <div class="info-item"><div class="info-label">Material Description</div><div class="info-value">${stockItem.materialDescription}</div></div>
+              <div class="info-item"><div class="info-label">Batch</div><div class="info-value">${stockItem.batch}</div></div>
+              <div class="info-item"><div class="info-label">Storage Location</div><div class="info-value">${stockItem.storageLocation}</div></div>
+              <div class="info-item"><div class="info-label">Production Order</div><div class="info-value">${productionOrder || 'N/A'}</div></div>
+            </div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">Blocking Details</div>
+            <div class="info-grid">
+              <div class="info-item"><div class="info-label">Block Quantity</div><div class="info-value">${blockQuantity} ${stockItem.uom}</div></div>
+              <div class="info-item"><div class="info-label">Block Reason</div><div class="info-value">${blockReason}</div></div>
+              <div class="info-item" style="grid-column: span 2;"><div class="info-label">Issue Description</div><div class="info-value">${issueDescription}</div></div>
+            </div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">Routing Information</div>
+            <div class="info-grid">
+              <div class="info-item"><div class="info-label">Routed To</div><div class="info-value">${nextReviewDepartments.map(d => shopFloorNextDepartments.find(dept => dept.value === d)?.label).join(', ')}</div></div>
+              <div class="info-item"><div class="info-label">Created Date</div><div class="info-value">${format(new Date(), 'dd MMM yyyy HH:mm')}</div></div>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>This is a system-generated document. Email notifications have been sent to respective departments.</p>
+            <p>Generated on: ${format(new Date(), 'dd MMM yyyy HH:mm:ss')}</p>
+          </div>
+        </body>
+      </html>
+    `;
+    
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
   // Success screen after submission
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-muted/30 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4 sm:p-6">
         <Card className="max-w-lg w-full text-center">
           <CardContent className="pt-8 pb-6 space-y-6">
             <div className="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center">
@@ -263,12 +344,18 @@ Please review and take appropriate action.
               <p className="text-sm text-muted-foreground">MRB Number</p>
               <p className="text-xl font-bold text-primary">{createdMRBNumber}</p>
             </div>
-            <div className="text-sm text-muted-foreground space-y-1">
-              <p>• Material blocked: {blockQuantity} {stockItem.uom}</p>
-              <p>• Routed to: {nextReviewDepartments.map(d => shopFloorNextDepartments.find(dept => dept.value === d)?.label).join(', ')}</p>
-              <p>• Email notification sent</p>
+            <div className="text-sm text-muted-foreground space-y-1 text-left bg-muted/30 rounded-lg p-4">
+              <p>• <strong>Material:</strong> {stockItem.materialCode}</p>
+              <p>• <strong>Block Quantity:</strong> {blockQuantity} {stockItem.uom}</p>
+              {productionOrder && <p>• <strong>Production Order:</strong> {productionOrder}</p>}
+              <p>• <strong>Routed to:</strong> {nextReviewDepartments.map(d => shopFloorNextDepartments.find(dept => dept.value === d)?.label).join(', ')}</p>
+              <p>• <strong>Email notification:</strong> Sent</p>
             </div>
-            <div className="flex gap-3 justify-center pt-4">
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
+              <Button variant="outline" onClick={handlePrintConfirmation} className="gap-2">
+                <Printer className="w-4 h-4" />
+                Print Confirmation
+              </Button>
               <Button variant="outline" asChild>
                 <Link to="/shop-floor/stock-selection">Block Another</Link>
               </Button>
@@ -354,7 +441,20 @@ Please review and take appropriate action.
             <CardDescription>Enter blocking information</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="productionOrder">Production Order (PO)</Label>
+                <Input
+                  id="productionOrder"
+                  value={productionOrder}
+                  onChange={(e) => setProductionOrder(e.target.value)}
+                  placeholder="Enter PO number..."
+                />
+                <p className="text-xs text-muted-foreground">
+                  Optional: Link to production order
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="blockQty">Block Quantity *</Label>
                 <Input
