@@ -285,26 +285,26 @@ Please review and take appropriate action.
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Header */}
-      <div className="bg-card border-b border-border">
-        <div className="px-6 py-4">
+      <div className="sticky top-0 z-40 bg-card border-b border-border shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate('/shop-floor/stock-selection')}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shrink-0">
                 <Factory className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">Material Blocking & MRB Creation</h1>
-                <p className="text-muted-foreground">Block material and create MRB for review</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Material Blocking & MRB Creation</h1>
+                <p className="text-sm text-muted-foreground hidden sm:block">Block material and create MRB for review</p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="p-6 space-y-6 max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         {/* PART 3: Read-Only Stock Information */}
         <Card>
           <CardHeader>
@@ -315,30 +315,30 @@ Please review and take appropriate action.
             <CardDescription>Auto-populated from selected stock (Read-Only)</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Plant</Label>
-                <Input value={stockItem.plant} disabled className="bg-muted" />
+                <Input value={stockItem.plant} disabled className="bg-muted h-9" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Material</Label>
-                <Input value={stockItem.materialCode} disabled className="bg-muted" />
+                <Input value={stockItem.materialCode} disabled className="bg-muted h-9" />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 sm:col-span-2 lg:col-span-1">
                 <Label className="text-xs text-muted-foreground">Material Description</Label>
-                <Input value={stockItem.materialDescription} disabled className="bg-muted" />
+                <Input value={stockItem.materialDescription} disabled className="bg-muted h-9" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Batch</Label>
-                <Input value={stockItem.batch} disabled className="bg-muted" />
+                <Input value={stockItem.batch} disabled className="bg-muted h-9" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Storage Location</Label>
-                <Input value={stockItem.storageLocation} disabled className="bg-muted" />
+                <Input value={stockItem.storageLocation} disabled className="bg-muted h-9" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Available Quantity</Label>
-                <Input value={`${stockItem.availableQuantity} ${stockItem.uom}`} disabled className="bg-muted font-medium" />
+                <Input value={`${stockItem.availableQuantity} ${stockItem.uom}`} disabled className="bg-muted h-9 font-medium" />
               </div>
             </div>
           </CardContent>
@@ -354,7 +354,7 @@ Please review and take appropriate action.
             <CardDescription>Enter blocking information</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="blockQty">Block Quantity *</Label>
                 <Input
@@ -421,7 +421,7 @@ Please review and take appropriate action.
           <CardContent>
             <div className="space-y-3">
               <Label>Review Departments *</Label>
-              <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {shopFloorNextDepartments.map((dept) => (
                   <label
                     key={dept.value}
@@ -477,7 +477,7 @@ Please review and take appropriate action.
             <CardDescription>Upload supporting documents</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-3">
               {shopFloorAttachmentCategories.map((cat) => (
                 <Button
                   key={cat.value}
@@ -520,11 +520,11 @@ Please review and take appropriate action.
         </Card>
 
         {/* PART 7: Submit */}
-        <Card className="border-primary/30">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="py-4 sm:py-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="space-y-1">
-                <p className="font-medium">Ready to submit?</p>
+                <p className="font-medium text-foreground">Ready to submit?</p>
                 <p className="text-sm text-muted-foreground">
                   This will block the material and create an MRB for review.
                 </p>
@@ -533,7 +533,7 @@ Please review and take appropriate action.
                 size="lg"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="gap-2"
+                className="gap-2 w-full sm:w-auto"
               >
                 {isSubmitting ? (
                   <>
