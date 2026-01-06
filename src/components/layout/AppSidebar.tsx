@@ -1,4 +1,4 @@
-import { Home, ClipboardList, PlusCircle, Mail, Factory, Wrench, FileSpreadsheet, FolderOpen, BarChart3, LogOut, Package, Building2, Users, Settings, PieChart, Printer } from 'lucide-react';
+import { ClipboardList, Mail, Wrench, FileSpreadsheet, BarChart3, LogOut, Package, Building2, Users, Settings, PieChart, Printer } from 'lucide-react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useRole } from '@/contexts/RoleContext';
 import {
@@ -22,7 +22,6 @@ const menuItems = [
   
   { title: 'Material Blocking', url: '/shop-floor/stock-selection', icon: Package, roles: ['shop_floor'] },
   { title: 'Inward Report', url: '/inward/report', icon: FileSpreadsheet, roles: ['quality', 'purchase', 'engineering', 'plant_head'] },
-  { title: 'Inward Worklist', url: '/inward/worklist', icon: FolderOpen, roles: ['quality', 'purchase', 'engineering', 'plant_head'] },
   { title: 'MRB Print', url: '/mrb-print', icon: Printer, roles: ['quality', 'purchase', 'engineering', 'plant_head', 'shop_floor'] },
   { title: 'Email Log', url: '/emails', icon: Mail, roles: ['quality', 'purchase', 'engineering', 'plant_head'] },
 ];
