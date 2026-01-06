@@ -16,7 +16,7 @@ import CreateMRBShopFloor from "@/pages/CreateMRBShopFloor";
 import EmailLog from "@/pages/EmailLog";
 import InwardReport from "@/pages/InwardReport";
 import CreateInwardMRB from "@/pages/CreateInwardMRB";
-import InwardWorklist from "@/pages/InwardWorklist";
+
 import InwardMRBDetail from "@/pages/InwardMRBDetail";
 import ShopFloorStockSelection from "@/pages/ShopFloorStockSelection";
 import ShopFloorMaterialBlocking from "@/pages/ShopFloorMaterialBlocking";
@@ -52,7 +52,7 @@ const App = () => (
                       <Route path="/emails" element={<EmailLog />} />
                       <Route path="/inward/report" element={<InwardReport />} />
                       <Route path="/inward/create-mrb" element={<CreateInwardMRB />} />
-                      <Route path="/inward/worklist" element={<InwardWorklist />} />
+                      
                       <Route path="/inward/mrb/:id" element={<InwardMRBDetail />} />
                       <Route path="/shop-floor/stock-selection" element={<ShopFloorStockSelection />} />
                       <Route path="/shop-floor/material-blocking" element={<ShopFloorMaterialBlocking />} />
