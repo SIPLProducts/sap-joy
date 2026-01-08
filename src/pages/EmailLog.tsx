@@ -33,11 +33,16 @@ export default function EmailLog() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Email Notification Log</h1>
-        <p className="text-muted-foreground">View all workflow email notifications</p>
+    <div className="min-h-screen bg-muted/30">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm">
+        <div className="px-6 py-4">
+          <h1 className="text-2xl font-bold">Email Notification Log</h1>
+          <p className="text-muted-foreground">View all workflow email notifications</p>
+        </div>
       </div>
+
+      <div className="p-6 space-y-6">
 
       <Card>
         <CardHeader>
@@ -81,6 +86,7 @@ export default function EmailLog() {
           </Table>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

@@ -24,11 +24,16 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back, {roleDisplayName}</p>
+    <div className="min-h-screen bg-muted/30">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm">
+        <div className="px-6 py-4">
+          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground">Welcome back, {roleDisplayName}</p>
+        </div>
       </div>
+
+      <div className="p-6 space-y-6">
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
@@ -104,6 +109,7 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+      </div>
       </div>
     </div>
   );

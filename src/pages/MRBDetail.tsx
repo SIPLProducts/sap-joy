@@ -39,18 +39,23 @@ export default function MRBDetail() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
-          <Link to="/worklist"><ArrowLeft className="h-5 w-5" /></Link>
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">{mrb.mrbNumber}</h1>
-          <p className="text-muted-foreground">{mrb.materialDescription}</p>
+    <div className="min-h-screen bg-muted/30">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm">
+        <div className="px-6 py-4 flex items-center gap-4">
+          <Button variant="ghost" size="icon" asChild>
+            <Link to="/worklist"><ArrowLeft className="h-5 w-5" /></Link>
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold">{mrb.mrbNumber}</h1>
+            <p className="text-muted-foreground">{mrb.materialDescription}</p>
+          </div>
+          <Badge className={getStatusColor(mrb.status)}>{getStatusDisplayName(mrb.status)}</Badge>
+          <Badge className={getSLAColor(mrb.slaStatus)}>{mrb.pendingDays} days pending</Badge>
         </div>
-        <Badge className={getStatusColor(mrb.status)}>{getStatusDisplayName(mrb.status)}</Badge>
-        <Badge className={getSLAColor(mrb.slaStatus)}>{mrb.pendingDays} days pending</Badge>
       </div>
+
+      <div className="p-6 space-y-6">
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Material</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.materialNumber}</p></CardContent></Card>
@@ -161,6 +166,7 @@ export default function MRBDetail() {
           </Card>
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }
