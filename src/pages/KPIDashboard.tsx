@@ -353,7 +353,7 @@ export default function KPIDashboard() {
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Page Header */}
-      <div className="bg-card border-b border-border sticky top-0 z-10">
+      <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
