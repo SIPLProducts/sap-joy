@@ -130,21 +130,20 @@ export default function Worklist() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm">
+    <div className="h-screen flex flex-col bg-muted/30 overflow-hidden">
+      {/* Sticky Header with Title and Filters */}
+      <div className="flex-shrink-0 sticky top-0 z-40 bg-background border-b border-border shadow-sm">
         <div className="px-6 py-4">
           <h1 className="text-2xl font-bold text-foreground">MRB Worklist</h1>
           <p className="text-muted-foreground">View and manage all Material Review Board records</p>
         </div>
-      </div>
-
-      <div className="p-6 space-y-6">
-
-      <Card>
-        <CardHeader>
+        
+        {/* Filters Section */}
+        <div className="px-6 pb-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle>All MRB Records ({sortedRecords.length})</CardTitle>
+            <div className="text-sm font-medium text-foreground">
+              All MRB Records ({sortedRecords.length})
+            </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -180,85 +179,92 @@ export default function Worklist() {
               </Select>
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>MRB Number</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Material</TableHead>
-                  <TableHead>Vendor</TableHead>
-                  <TableHead>Plant</TableHead>
-                  <TableHead>Pending With</TableHead>
-                  <TableHead>SLA</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Escalation</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+        </div>
+      </div>
+
+      {/* Scrollable Table Container */}
+      <div className="flex-1 overflow-hidden px-6 py-4">
+        <div className="h-full rounded-md border bg-background overflow-hidden flex flex-col">
+          {/* Table with sticky header */}
+          <div className="flex-1 overflow-auto">
+            <table className="w-full caption-bottom text-sm">
+              <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm border-b">
+                <tr>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">MRB Number</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Source</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Status</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Material</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Vendor</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Plant</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Pending With</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">SLA</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Created</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Escalation</th>
+                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground whitespace-nowrap">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="[&_tr:last-child]:border-0">
                 {sortedRecords.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={11} className="text-center py-12 text-muted-foreground">
+                  <tr className="border-b">
+                    <td colSpan={11} className="p-4 text-center py-12 text-muted-foreground">
                       No MRB records found matching your criteria
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 ) : (
                   sortedRecords.map((mrb) => (
-                    <TableRow key={`${mrb.source}-${mrb.id}`} className={mrb.escalationLevel !== 'none' ? 'bg-red-50/50' : ''}>
-                      <TableCell className="font-medium text-primary">
+                    <tr 
+                      key={`${mrb.source}-${mrb.id}`} 
+                      className={`border-b transition-colors hover:bg-muted/50 ${mrb.escalationLevel !== 'none' ? 'bg-red-50/50' : ''}`}
+                    >
+                      <td className="p-4 align-middle font-medium text-primary whitespace-nowrap">
                         {mrb.mrbNumber}
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-4 align-middle">
                         {getSourceBadge(mrb.source)}
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-4 align-middle">
                         <Badge className={getStatusColor(mrb.status)}>
                           {getStatusDisplayName(mrb.status)}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-4 align-middle">
                         <div>
                           <p className="font-medium">{mrb.materialNumber}</p>
                           <p className="text-xs text-muted-foreground truncate max-w-[150px]">{mrb.materialDescription}</p>
                         </div>
-                      </TableCell>
-                      <TableCell className="max-w-[120px] truncate">{mrb.vendorName}</TableCell>
-                      <TableCell>{mrb.plant}</TableCell>
-                      <TableCell>{getRoleDisplayName(mrb.pendingWith)}</TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-4 align-middle max-w-[120px] truncate">{mrb.vendorName}</td>
+                      <td className="p-4 align-middle whitespace-nowrap">{mrb.plant}</td>
+                      <td className="p-4 align-middle whitespace-nowrap">{getRoleDisplayName(mrb.pendingWith)}</td>
+                      <td className="p-4 align-middle">
                         <Badge className={getSLAColor(mrb.slaStatus)}>
                           {mrb.pendingDays} days
                         </Badge>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
+                      </td>
+                      <td className="p-4 align-middle whitespace-nowrap">
                         {formatDate(mrb.createdAt)}
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="p-4 align-middle">
                         {mrb.escalationLevel !== 'none' && (
                           <Badge className={`${getEscalationColor(mrb.escalationLevel)} animate-pulse-slow`}>
                             <AlertTriangle className="mr-1 h-3 w-3" />
                             {mrb.escalationLevel}
                           </Badge>
                         )}
-                      </TableCell>
-                      <TableCell className="text-right">
+                      </td>
+                      <td className="p-4 align-middle text-right">
                         <Button variant="outline" size="sm" onClick={() => handleViewClick(mrb)}>
                           <Eye className="h-4 w-4 mr-1" />
                           View
                         </Button>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))
                 )}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           </div>
-        </CardContent>
-      </Card>
+        </div>
       </div>
     </div>
   );
