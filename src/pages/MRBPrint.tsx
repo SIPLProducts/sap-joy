@@ -17,12 +17,15 @@ const MRBPrint = () => {
   const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
   
-  const [searchNumber, setSearchNumber] = useState('');
-  const [selectedMRBId, setSelectedMRBId] = useState<string>('');
-  const [selectedMRB, setSelectedMRB] = useState<MRBRecord | null>(null);
-
   // Combine all MRB records
   const allMRBs = [...mrbRecords, ...inwardMRBRecords];
+  
+  // Find a sample MRB with comprehensive data for demo (prefer MRB-2024-0004 which has full workflow)
+  const sampleMRB = allMRBs.find(m => m.mrbNumber === 'MRB-2024-0004') || allMRBs.find(m => m.status === 'final_approval' || m.status === 'closed') || allMRBs[0];
+  
+  const [searchNumber, setSearchNumber] = useState(sampleMRB?.mrbNumber || '');
+  const [selectedMRBId, setSelectedMRBId] = useState<string>(sampleMRB?.id || '');
+  const [selectedMRB, setSelectedMRB] = useState<MRBRecord | null>(sampleMRB || null);
 
   const handleSearch = () => {
     const found = allMRBs.find(
