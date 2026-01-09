@@ -61,38 +61,241 @@ const MRBPrint = () => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>MRB Print - ${selectedMRB?.mrbNumber}</title>
+          <title>Non-Conformance Report (IQC) - ${selectedMRB?.mrbNumber}</title>
           <style>
-            @page { size: A4; margin: 15mm; }
+            @page { size: A4; margin: 10mm; }
             * { box-sizing: border-box; margin: 0; padding: 0; }
-            body { font-family: Arial, sans-serif; font-size: 11px; color: #1a1a1a; line-height: 1.4; }
+            body { font-family: Arial, sans-serif; font-size: 10px; color: #000; line-height: 1.3; }
             .print-container { max-width: 210mm; margin: 0 auto; }
-            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1a365d; padding-bottom: 12px; margin-bottom: 16px; }
-            .logo { height: 40px; }
-            .title-section { text-align: center; flex: 1; }
-            .title { font-size: 18px; font-weight: bold; color: #1a365d; margin-bottom: 4px; }
-            .subtitle { font-size: 12px; color: #4a5568; }
-            .mrb-info { text-align: right; font-size: 10px; }
-            .mrb-number { font-size: 14px; font-weight: bold; color: #1a365d; }
-            .section { margin-bottom: 16px; page-break-inside: avoid; }
-            .section-title { font-size: 12px; font-weight: bold; background: #edf2f7; padding: 6px 10px; border-left: 4px solid #1a365d; margin-bottom: 8px; color: #1a365d; }
-            .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-            .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-            .field { padding: 4px 0; }
-            .field-label { font-size: 9px; color: #718096; text-transform: uppercase; font-weight: 600; }
-            .field-value { font-size: 11px; color: #1a1a1a; margin-top: 2px; }
-            .table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-            .table th, .table td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; font-size: 10px; }
-            .table th { background: #f7fafc; font-weight: 600; color: #4a5568; }
-            .footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
-            .signature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 16px; }
-            .signature-box { text-align: center; }
-            .signature-line { border-top: 1px solid #1a1a1a; margin-top: 40px; padding-top: 6px; font-size: 10px; }
-            .audit-footer { display: flex; justify-content: space-between; font-size: 9px; color: #718096; margin-top: 16px; padding-top: 8px; border-top: 1px dashed #e2e8f0; }
-            .status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
-            .status-green { background: #c6f6d5; color: #22543d; }
-            .status-yellow { background: #fefcbf; color: #744210; }
-            .status-red { background: #fed7d7; color: #822727; }
+            
+            /* Header styles */
+            .header { 
+              display: flex; 
+              justify-content: space-between; 
+              align-items: center; 
+              margin-bottom: 8px;
+            }
+            .header-left { text-align: center; flex: 1; }
+            .header-left h1 { font-size: 16px; font-weight: bold; margin-bottom: 2px; }
+            .header-left p { font-size: 10px; color: #666; }
+            .logo { height: 35px; }
+            
+            /* Title bar */
+            .title-bar { 
+              text-align: center; 
+              font-size: 14px; 
+              font-weight: bold; 
+              padding: 6px; 
+              border: 1px solid #000;
+              border-bottom: 2px solid #000;
+              background: #f5f5f5;
+              margin-bottom: 8px;
+            }
+            
+            /* Form sections */
+            .form-section { 
+              border: 1px solid #000; 
+              margin-bottom: 8px; 
+            }
+            .form-row { 
+              display: flex; 
+              border-bottom: 1px solid #000; 
+            }
+            .form-row:last-child { border-bottom: none; }
+            .form-cell { 
+              padding: 4px 8px; 
+              border-right: 1px solid #000; 
+              min-height: 24px;
+              display: flex;
+              align-items: center;
+            }
+            .form-cell:last-child { border-right: none; }
+            .form-cell.label { 
+              font-weight: normal; 
+              width: 120px; 
+              flex-shrink: 0;
+            }
+            .form-cell.value { 
+              flex: 1; 
+              font-weight: normal;
+            }
+            .form-cell.half { width: 50%; }
+            
+            /* Quantity row */
+            .qty-row { display: flex; border-bottom: 1px solid #000; }
+            .qty-cell { 
+              flex: 1; 
+              padding: 4px 8px; 
+              border-right: 1px solid #000;
+              text-align: center;
+            }
+            .qty-cell:last-child { border-right: none; }
+            
+            /* NC Details section */
+            .nc-section { 
+              border: 1px solid #000; 
+              margin-bottom: 8px;
+            }
+            .nc-header { 
+              font-weight: bold; 
+              padding: 4px 8px; 
+              border-bottom: 1px solid #000;
+              background: #f9f9f9;
+            }
+            .nc-content { 
+              min-height: 80px; 
+              padding: 8px; 
+            }
+            .nc-footer { 
+              display: flex; 
+              justify-content: space-between; 
+              padding: 4px 8px;
+              border-top: 1px solid #000;
+            }
+            
+            /* MRB Check */
+            .mrb-check { 
+              text-align: center; 
+              padding: 8px; 
+              font-weight: bold; 
+              border: 1px solid #000;
+              margin-bottom: 8px;
+            }
+            
+            /* Instructions Table */
+            .instructions-section { 
+              border: 1px solid #000; 
+              margin-bottom: 8px;
+            }
+            .instructions-title { 
+              text-align: center; 
+              font-weight: bold; 
+              padding: 6px; 
+              border-bottom: 1px solid #000;
+              background: #f5f5f5;
+            }
+            .instructions-table { width: 100%; border-collapse: collapse; }
+            .instructions-table th, 
+            .instructions-table td { 
+              border: 1px solid #000; 
+              padding: 4px 8px; 
+              text-align: left; 
+            }
+            .instructions-table th { 
+              background: #f9f9f9; 
+              font-weight: bold;
+              text-align: center;
+            }
+            .instructions-table td { min-height: 30px; }
+            
+            /* Disposition Section */
+            .disposition-section { 
+              border: 1px solid #000; 
+              margin-bottom: 8px;
+            }
+            .disposition-header { 
+              font-weight: bold; 
+              padding: 4px 8px; 
+              border-bottom: 1px solid #000;
+              background: #f5f5f5;
+            }
+            .disposition-options { 
+              display: grid; 
+              grid-template-columns: 1fr 1fr 1fr; 
+              padding: 8px; 
+            }
+            .disposition-item { 
+              display: flex; 
+              align-items: center; 
+              gap: 6px; 
+              padding: 4px 0;
+            }
+            .checkbox { 
+              width: 12px; 
+              height: 12px; 
+              border: 1px solid #000; 
+              display: inline-block;
+            }
+            .checkbox.checked { 
+              background: #000;
+              position: relative;
+            }
+            .checkbox.checked::after {
+              content: '✓';
+              color: #fff;
+              font-size: 10px;
+              position: absolute;
+              top: -2px;
+              left: 1px;
+            }
+            
+            /* MRB Approvals Table */
+            .approvals-section { 
+              border: 1px solid #000; 
+              margin-bottom: 8px;
+            }
+            .approvals-header { 
+              font-weight: bold; 
+              padding: 4px 8px; 
+              border-bottom: 1px solid #000;
+              background: #f5f5f5;
+            }
+            .approvals-table { width: 100%; border-collapse: collapse; }
+            .approvals-table th, 
+            .approvals-table td { 
+              border: 1px solid #000; 
+              padding: 6px 8px; 
+              text-align: left; 
+            }
+            .approvals-table th { background: #f9f9f9; font-weight: bold; }
+            
+            /* NCR Status */
+            .ncr-status { 
+              border: 1px solid #000; 
+              margin-bottom: 8px;
+              padding: 8px;
+            }
+            .ncr-status-header { font-weight: bold; margin-bottom: 6px; }
+            .ncr-status-comments { 
+              border-bottom: 1px dotted #000; 
+              min-height: 40px; 
+              margin-bottom: 8px;
+              padding: 4px;
+            }
+            .ncr-status-boxes { display: flex; gap: 16px; }
+            .status-box { 
+              border: 1px solid #000; 
+              padding: 4px 16px; 
+              font-weight: bold;
+            }
+            .status-box.active { background: #e0e0e0; }
+            
+            /* Quality Control Footer */
+            .qc-footer { 
+              display: flex; 
+              justify-content: space-between; 
+              padding: 8px 0;
+              margin-top: 8px;
+            }
+            .qc-signature { display: flex; gap: 8px; align-items: flex-end; }
+            .signature-line { 
+              border-bottom: 1px solid #000; 
+              width: 150px; 
+              height: 20px;
+            }
+            
+            /* Document footer */
+            .doc-footer { 
+              display: flex; 
+              justify-content: space-between; 
+              font-size: 9px; 
+              margin-top: 16px;
+              padding-top: 8px;
+              border-top: 1px solid #ccc;
+            }
+            
+            /* Page break */
+            .page-break { page-break-before: always; }
           </style>
         </head>
         <body>
@@ -105,7 +308,6 @@ const MRBPrint = () => {
   };
 
   const handleDownloadPDF = () => {
-    // For PDF download, we'll use the browser's print to PDF functionality
     handlePrint();
     toast({ 
       title: 'Print Dialog Opened', 
@@ -114,7 +316,7 @@ const MRBPrint = () => {
   };
 
   const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return '';
     return new Date(dateString).toLocaleDateString('en-IN', {
       day: '2-digit',
       month: 'short',
@@ -122,22 +324,8 @@ const MRBPrint = () => {
     });
   };
 
-  const getStatusDisplayName = (status: string) => {
-    const statusMap: Record<string, string> = {
-      draft: 'Draft',
-      quality_review: 'Quality Review',
-      purchase_review: 'Purchase Review',
-      engineering_review: 'Engineering Review',
-      final_approval: 'Final Approval',
-      approved: 'Approved',
-      rejected: 'Rejected',
-      closed: 'Closed',
-    };
-    return statusMap[status] || status;
-  };
-
   const getDecisionDisplayName = (decision: string | undefined) => {
-    if (!decision) return 'N/A';
+    if (!decision) return '';
     const decisionMap: Record<string, string> = {
       accept: 'Accept',
       reject: 'Reject',
@@ -152,6 +340,18 @@ const MRBPrint = () => {
     return decisionMap[decision] || decision;
   };
 
+  const getDispositionChecked = (decision: string | undefined) => {
+    const dispositions = {
+      use_as_is: decision === 'use_as_is' || decision === 'accept',
+      sort: false,
+      return_to_vendor: decision === 'return_to_vendor',
+      rework: decision === 'rework_required',
+      scrap: decision === 'scrap_material' || decision === 'reject',
+      others: decision === 'use_with_deviation' || decision === 'partial_accept',
+    };
+    return dispositions;
+  };
+
   return (
     <div className="space-y-6">
       {/* Search Section */}
@@ -159,10 +359,10 @@ const MRBPrint = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            MRB Print
+            Non-Conformance Report (IQC) Print
           </CardTitle>
           <CardDescription>
-            Generate professional, audit-ready MRB print document
+            Generate HBL standard Non-Conformance Report format
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -213,314 +413,287 @@ const MRBPrint = () => {
         </CardContent>
       </Card>
 
-      {/* Print Preview */}
+      {/* Print Preview - HBL Non-Conformance Report Format */}
       {selectedMRB && (
         <Card>
           <CardHeader>
-            <CardTitle>Print Preview</CardTitle>
+            <CardTitle>Print Preview - Non-Conformance Report (IQC)</CardTitle>
           </CardHeader>
           <CardContent className="bg-white p-8 overflow-auto">
-            <div ref={printRef} className="max-w-[210mm] mx-auto bg-white text-foreground">
+            <div ref={printRef} className="max-w-[210mm] mx-auto bg-white text-black" style={{ fontFamily: 'Arial, sans-serif', fontSize: '10px' }}>
+              
+              {/* Page 1 */}
               {/* Header */}
-              <div className="flex justify-between items-start border-b-2 border-primary pb-3 mb-4">
-                <img src={hblLogo} alt="HBL Logo" className="h-10" />
+              <div className="flex justify-between items-center mb-2">
                 <div className="text-center flex-1">
-                  <h1 className="text-lg font-bold text-primary">MATERIAL REVIEW BOARD (MRB)</h1>
-                  <p className="text-xs text-muted-foreground">HBL Power Systems Limited</p>
+                  <h1 className="text-base font-bold">HBL Power Systems Ltd.</h1>
+                  <p className="text-[10px] text-gray-600">Electronics Group</p>
                 </div>
-                <div className="text-right text-xs">
-                  <div className="text-sm font-bold text-primary">{selectedMRB.mrbNumber}</div>
-                  <div className="text-muted-foreground">Plant: {selectedMRB.plant}</div>
-                  <div className="text-muted-foreground">Date: {formatDate(selectedMRB.createdAt)}</div>
+                <img src={hblLogo} alt="HBL Logo" className="h-8" />
+              </div>
+
+              {/* Title Bar */}
+              <div className="text-center font-bold py-1.5 border border-black border-b-2 bg-gray-100 mb-2 text-sm">
+                NON-CONFORMANCE REPORT (IQC)
+              </div>
+
+              {/* GRN & NC Report Info */}
+              <div className="border border-black mb-2">
+                <div className="flex border-b border-black">
+                  <div className="w-24 px-2 py-1 border-r border-black">GRN No.:</div>
+                  <div className="flex-1 px-2 py-1 border-r border-black font-medium">{selectedMRB.grnNumber || '_________________'}</div>
+                  <div className="w-28 px-2 py-1 border-r border-black">NC Report No:</div>
+                  <div className="flex-1 px-2 py-1 font-medium">{selectedMRB.mrbNumber}</div>
+                </div>
+                <div className="flex border-b border-black">
+                  <div className="w-24 px-2 py-1 border-r border-black">GRN DATE:</div>
+                  <div className="flex-1 px-2 py-1 border-r border-black">{formatDate(selectedMRB.createdAt) || '_________________'}</div>
+                  <div className="w-28 px-2 py-1 border-r border-black">NC Report Date:</div>
+                  <div className="flex-1 px-2 py-1">{formatDate(selectedMRB.createdAt)}</div>
+                </div>
+                <div className="flex border-b border-black">
+                  <div className="w-24 px-2 py-1 border-r border-black">DC / INV No:</div>
+                  <div className="flex-1 px-2 py-1 border-r border-black">{selectedMRB.poNumber || '_________________'}</div>
+                  <div className="w-28 px-2 py-1 border-r border-black">DC / INV Date:</div>
+                  <div className="flex-1 px-2 py-1">_________________</div>
+                </div>
+                <div className="flex border-b border-black">
+                  <div className="w-24 px-2 py-1 border-r border-black">Supplier Name:</div>
+                  <div className="flex-1 px-2 py-1 font-medium">{selectedMRB.vendorName}</div>
+                </div>
+                <div className="flex border-b border-black">
+                  <div className="w-24 px-2 py-1 border-r border-black">P O No.:</div>
+                  <div className="flex-1 px-2 py-1 border-r border-black font-medium">{selectedMRB.poNumber || '_________________'}</div>
+                  <div className="w-28 px-2 py-1 border-r border-black">Item Code:</div>
+                  <div className="flex-1 px-2 py-1 font-medium">{selectedMRB.materialNumber}</div>
+                </div>
+                <div className="flex border-b border-black">
+                  <div className="w-28 px-2 py-1 border-r border-black">Item Desc. & Make:</div>
+                  <div className="flex-1 px-2 py-1 font-medium">{selectedMRB.materialDescription}</div>
+                </div>
+                <div className="flex">
+                  <div className="w-24 px-2 py-1 border-r border-black">Received Qty:</div>
+                  <div className="w-24 px-2 py-1 border-r border-black font-medium">{selectedMRB.totalQuantity} {selectedMRB.uom}</div>
+                  <div className="w-24 px-2 py-1 border-r border-black">Accepted Qty:</div>
+                  <div className="w-24 px-2 py-1 border-r border-black font-medium">{selectedMRB.acceptedQuantity} {selectedMRB.uom}</div>
+                  <div className="w-24 px-2 py-1 border-r border-black">Rejected Qty:</div>
+                  <div className="flex-1 px-2 py-1 font-medium">{selectedMRB.rejectedQuantity} {selectedMRB.uom}</div>
                 </div>
               </div>
 
-              {/* Section 1: Material & GRN Details */}
-              <div className="mb-4">
-                <h2 className="text-xs font-bold bg-muted px-2 py-1 border-l-4 border-primary mb-2 text-primary">
-                  1. MATERIAL & GRN DETAILS
-                </h2>
-                <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs px-2">
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Material Number:</span>
-                    <span className="font-medium">{selectedMRB.materialNumber}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">GRN Number:</span>
-                    <span className="font-medium">{selectedMRB.grnNumber || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Material Description:</span>
-                    <span className="font-medium">{selectedMRB.materialDescription}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Inspection Lot:</span>
-                    <span className="font-medium">{selectedMRB.inspectionLot || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Vendor Code:</span>
-                    <span className="font-medium">{selectedMRB.vendor}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">PO Number:</span>
-                    <span className="font-medium">{selectedMRB.poNumber || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Vendor Name:</span>
-                    <span className="font-medium">{selectedMRB.vendorName}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Source:</span>
-                    <span className="font-medium">{selectedMRB.source === 'quality_inspection' ? 'Quality Inspection' : 'Shop Floor'}</span>
-                  </div>
+              {/* Non-Conformance Details */}
+              <div className="border border-black mb-2">
+                <div className="px-2 py-1 border-b border-black font-bold bg-gray-50">Non-Conformance Details:-</div>
+                <div className="min-h-[80px] p-2 text-[10px]">
+                  <p><strong>Defect Category:</strong> {selectedMRB.defectCategory || 'N/A'}</p>
+                  <p><strong>Defect Code:</strong> {selectedMRB.defectCode || 'N/A'}</p>
+                  <p className="mt-1"><strong>Description:</strong></p>
+                  <p>{selectedMRB.defectDescription || selectedMRB.qualityRemarks || 'N/A'}</p>
+                </div>
+                <div className="flex justify-between px-2 py-1 border-t border-black">
+                  <span>Initiator Name: {selectedMRB.qualityApprovedBy || '_________________'}</span>
+                  <span>Sign: _________________</span>
                 </div>
               </div>
 
-              {/* Section 2: Quantity Details */}
-              <div className="mb-4">
-                <h2 className="text-xs font-bold bg-muted px-2 py-1 border-l-4 border-primary mb-2 text-primary">
-                  2. QUANTITY DETAILS
-                </h2>
-                <table className="w-full text-xs border-collapse">
+              {/* MRB Applicable */}
+              <div className="text-center py-2 border border-black mb-2 font-bold">
+                Material Review Board (If applicable) <span className="underline">Yes</span> / No
+                <div className="text-[9px] font-normal mt-1">Initiator has to tick</div>
+              </div>
+
+              {/* Detailed Instructions of MRB */}
+              <div className="border border-black mb-2">
+                <div className="text-center font-bold py-1 border-b border-black bg-gray-100">
+                  DETAILED INSTRUCTIONS OF MRB
+                </div>
+                <table className="w-full" style={{ borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr className="bg-muted">
-                      <th className="border border-border px-2 py-1 text-left">Total Qty</th>
-                      <th className="border border-border px-2 py-1 text-left">Accepted Qty</th>
-                      <th className="border border-border px-2 py-1 text-left">Rejected Qty</th>
-                      <th className="border border-border px-2 py-1 text-left">Blocked Qty</th>
-                      <th className="border border-border px-2 py-1 text-left">UoM</th>
+                    <tr>
+                      <th className="border border-black px-2 py-1 bg-gray-50 w-12 text-center">S. No.</th>
+                      <th className="border border-black px-2 py-1 bg-gray-50">Instructions</th>
+                      <th className="border border-black px-2 py-1 bg-gray-50 w-32 text-center">Responsibility<br/>Name & Sign</th>
+                      <th className="border border-black px-2 py-1 bg-gray-50 w-24 text-center">Target Date</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td className="border border-border px-2 py-1">{selectedMRB.totalQuantity}</td>
-                      <td className="border border-border px-2 py-1">{selectedMRB.acceptedQuantity}</td>
-                      <td className="border border-border px-2 py-1">{selectedMRB.rejectedQuantity}</td>
-                      <td className="border border-border px-2 py-1">{selectedMRB.blockedQuantity}</td>
-                      <td className="border border-border px-2 py-1">{selectedMRB.uom}</td>
+                      <td className="border border-black px-2 py-3 text-center">1</td>
+                      <td className="border border-black px-2 py-3">{selectedMRB.engineeringRemarks || ''}</td>
+                      <td className="border border-black px-2 py-3 text-center">{selectedMRB.engineeringApprovedBy || ''}</td>
+                      <td className="border border-black px-2 py-3 text-center">{formatDate(selectedMRB.engineeringApprovedAt)}</td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-2 py-3 text-center">2</td>
+                      <td className="border border-black px-2 py-3">{selectedMRB.purchaseRemarks || ''}</td>
+                      <td className="border border-black px-2 py-3 text-center">{selectedMRB.purchaseApprovedBy || ''}</td>
+                      <td className="border border-black px-2 py-3 text-center">{formatDate(selectedMRB.purchaseApprovedAt)}</td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-2 py-3 text-center">3</td>
+                      <td className="border border-black px-2 py-3">{selectedMRB.finalRemarks || ''}</td>
+                      <td className="border border-black px-2 py-3 text-center">{selectedMRB.finalApprovedBy || ''}</td>
+                      <td className="border border-black px-2 py-3 text-center">{formatDate(selectedMRB.finalApprovedAt)}</td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-2 py-3 text-center">4</td>
+                      <td className="border border-black px-2 py-3"></td>
+                      <td className="border border-black px-2 py-3"></td>
+                      <td className="border border-black px-2 py-3"></td>
                     </tr>
                   </tbody>
                 </table>
               </div>
 
-              {/* Section 3: Quality Inspection Details */}
-              <div className="mb-4">
-                <h2 className="text-xs font-bold bg-muted px-2 py-1 border-l-4 border-primary mb-2 text-primary">
-                  3. QUALITY INSPECTION DETAILS
-                </h2>
-                <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs px-2">
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Quality Decision:</span>
-                    <span className="font-medium">{getDecisionDisplayName(selectedMRB.qualityDecision)}</span>
+              {/* Document Footer Page 1 */}
+              <div className="flex justify-between text-[9px] text-gray-600 mt-4">
+                <span>EG-QC-FT-25 Rev2</span>
+                <span>Page 1 of 2</span>
+              </div>
+
+              {/* Page 2 */}
+              <div style={{ pageBreakBefore: 'always' }} className="pt-4">
+                {/* Header Page 2 */}
+                <div className="flex justify-between items-center mb-2">
+                  <div className="text-center flex-1">
+                    <h1 className="text-base font-bold">HBL Power Systems Ltd.</h1>
+                    <p className="text-[10px] text-gray-600">Electronics Group</p>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Defect Category:</span>
-                    <span className="font-medium capitalize">{selectedMRB.defectCategory || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Defect Code:</span>
-                    <span className="font-medium">{selectedMRB.defectCode || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Approved By:</span>
-                    <span className="font-medium">{selectedMRB.qualityApprovedBy || 'N/A'}</span>
-                  </div>
-                  <div className="col-span-2 py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Defect Description:</span>
-                    <p className="font-medium mt-1">{selectedMRB.defectDescription || 'N/A'}</p>
-                  </div>
-                  <div className="col-span-2 py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Quality Remarks:</span>
-                    <p className="font-medium mt-1">{selectedMRB.qualityRemarks || 'N/A'}</p>
+                  <img src={hblLogo} alt="HBL Logo" className="h-8" />
+                </div>
+
+                {/* Title Bar Page 2 */}
+                <div className="text-center font-bold py-1.5 border border-black border-b-2 bg-gray-100 mb-2 text-sm">
+                  NON-CONFORMANCE REPORT (IQC)
+                </div>
+
+                {/* Material/Product Disposition */}
+                <div className="border border-black mb-2">
+                  <div className="px-2 py-1 font-bold border-b border-black bg-gray-50">Material/Product Disposition:</div>
+                  <div className="grid grid-cols-3 gap-2 p-2">
+                    {(() => {
+                      const checked = getDispositionChecked(selectedMRB.finalDecision || selectedMRB.qualityDecision);
+                      return (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <span className={`w-3 h-3 border border-black inline-block ${checked.use_as_is ? 'bg-black' : ''}`}></span>
+                            <span>Use as Is (documented rationale required)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`w-3 h-3 border border-black inline-block ${checked.sort ? 'bg-black' : ''}`}></span>
+                            <span>Sort(attach instructions)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`w-3 h-3 border border-black inline-block ${checked.return_to_vendor ? 'bg-black' : ''}`}></span>
+                            <span>Return to supplier</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`w-3 h-3 border border-black inline-block ${checked.rework ? 'bg-black' : ''}`}></span>
+                            <span>Rework(attach instructions)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`w-3 h-3 border border-black inline-block ${checked.scrap ? 'bg-black' : ''}`}></span>
+                            <span>Scrap(attach scrap report)</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`w-3 h-3 border border-black inline-block ${checked.others ? 'bg-black' : ''}`}></span>
+                            <span>Others(attach instructions)</span>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
-              </div>
 
-              {/* Section 4: Department Review Details */}
-              <div className="mb-4">
-                <h2 className="text-xs font-bold bg-muted px-2 py-1 border-l-4 border-primary mb-2 text-primary">
-                  4. DEPARTMENT REVIEW DETAILS
-                </h2>
-                
-                {/* Engineering Review */}
-                {(selectedMRB.engineeringDecision || selectedMRB.engineeringRemarks) && (
-                  <div className="mb-3 px-2">
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-1">Engineering Review</h3>
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs">
-                      <div className="flex justify-between py-1 border-b border-muted">
-                        <span className="text-muted-foreground">Decision:</span>
-                        <span className="font-medium">{getDecisionDisplayName(selectedMRB.engineeringDecision)}</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-muted">
-                        <span className="text-muted-foreground">Approved By:</span>
-                        <span className="font-medium">{selectedMRB.engineeringApprovedBy || 'N/A'}</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-muted">
-                        <span className="text-muted-foreground">Tech Ref Number:</span>
-                        <span className="font-medium">{selectedMRB.technicalReferenceNumber || 'N/A'}</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-muted">
-                        <span className="text-muted-foreground">Approved Date:</span>
-                        <span className="font-medium">{formatDate(selectedMRB.engineeringApprovedAt)}</span>
-                      </div>
-                      <div className="col-span-2 py-1 border-b border-muted">
-                        <span className="text-muted-foreground">Remarks:</span>
-                        <p className="font-medium mt-1">{selectedMRB.engineeringRemarks || 'N/A'}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Purchase Review */}
-                {(selectedMRB.purchaseAction || selectedMRB.purchaseRemarks) && (
-                  <div className="mb-3 px-2">
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-1">Purchase Review</h3>
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs">
-                      <div className="flex justify-between py-1 border-b border-muted">
-                        <span className="text-muted-foreground">Vendor Responsibility:</span>
-                        <span className="font-medium">{selectedMRB.vendorResponsibility || 'N/A'}</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-muted">
-                        <span className="text-muted-foreground">Approved By:</span>
-                        <span className="font-medium">{selectedMRB.purchaseApprovedBy || 'N/A'}</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-muted">
-                        <span className="text-muted-foreground">Replacement Required:</span>
-                        <span className="font-medium">{selectedMRB.vendorReplacementRequired ? 'Yes' : 'No'}</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-muted">
-                        <span className="text-muted-foreground">Expected Replacement:</span>
-                        <span className="font-medium">{formatDate(selectedMRB.expectedReplacementDate)}</span>
-                      </div>
-                      <div className="col-span-2 py-1 border-b border-muted">
-                        <span className="text-muted-foreground">Purchase Action:</span>
-                        <p className="font-medium mt-1">{selectedMRB.purchaseAction || 'N/A'}</p>
-                      </div>
-                      <div className="col-span-2 py-1 border-b border-muted">
-                        <span className="text-muted-foreground">Remarks:</span>
-                        <p className="font-medium mt-1">{selectedMRB.purchaseRemarks || 'N/A'}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* No reviews yet */}
-                {!selectedMRB.engineeringDecision && !selectedMRB.engineeringRemarks && 
-                 !selectedMRB.purchaseAction && !selectedMRB.purchaseRemarks && (
-                  <p className="text-xs text-muted-foreground italic px-2">No department reviews recorded yet.</p>
-                )}
-              </div>
-
-              {/* Section 5: Final MRB Decision */}
-              <div className="mb-4">
-                <h2 className="text-xs font-bold bg-muted px-2 py-1 border-l-4 border-primary mb-2 text-primary">
-                  5. FINAL MRB DECISION
-                </h2>
-                <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs px-2">
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Current Status:</span>
-                    <span className="font-medium">{getStatusDisplayName(selectedMRB.status)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Final Decision:</span>
-                    <span className="font-medium capitalize">{selectedMRB.finalDecision || 'Pending'}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Final Approved Qty:</span>
-                    <span className="font-medium">{selectedMRB.finalApprovedQuantity ?? 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Final Rejected Qty:</span>
-                    <span className="font-medium">{selectedMRB.finalRejectedQuantity ?? 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Deviation Number:</span>
-                    <span className="font-medium">{selectedMRB.deviationApprovalNumber || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Approved By:</span>
-                    <span className="font-medium">{selectedMRB.finalApprovedBy || 'N/A'}</span>
-                  </div>
-                  <div className="col-span-2 py-1 border-b border-muted">
-                    <span className="text-muted-foreground">Final Remarks:</span>
-                    <p className="font-medium mt-1">{selectedMRB.finalRemarks || 'N/A'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Section 6: Attachments Summary */}
-              <div className="mb-4">
-                <h2 className="text-xs font-bold bg-muted px-2 py-1 border-l-4 border-primary mb-2 text-primary">
-                  6. ATTACHMENTS SUMMARY
-                </h2>
-                {selectedMRB.attachments.length > 0 ? (
-                  <table className="w-full text-xs border-collapse">
+                {/* Material Review Board Approvals */}
+                <div className="border border-black mb-2">
+                  <div className="px-2 py-1 font-bold border-b border-black bg-gray-50">Material Review Board Approvals:</div>
+                  <table className="w-full" style={{ borderCollapse: 'collapse' }}>
                     <thead>
-                      <tr className="bg-muted">
-                        <th className="border border-border px-2 py-1 text-left">S.No</th>
-                        <th className="border border-border px-2 py-1 text-left">Document Name</th>
-                        <th className="border border-border px-2 py-1 text-left">Category</th>
-                        <th className="border border-border px-2 py-1 text-left">Uploaded By</th>
-                        <th className="border border-border px-2 py-1 text-left">Date</th>
+                      <tr>
+                        <th className="border border-black px-2 py-1 bg-gray-50 text-left w-40">Department</th>
+                        <th className="border border-black px-2 py-1 bg-gray-50">Name</th>
+                        <th className="border border-black px-2 py-1 bg-gray-50 w-24">Sign</th>
+                        <th className="border border-black px-2 py-1 bg-gray-50 w-24">Date</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedMRB.attachments.map((att, idx) => (
-                        <tr key={att.id}>
-                          <td className="border border-border px-2 py-1">{idx + 1}</td>
-                          <td className="border border-border px-2 py-1">{att.name}</td>
-                          <td className="border border-border px-2 py-1 capitalize">{att.category.replace(/_/g, ' ')}</td>
-                          <td className="border border-border px-2 py-1">{att.uploadedBy}</td>
-                          <td className="border border-border px-2 py-1">{formatDate(att.uploadedAt)}</td>
-                        </tr>
-                      ))}
+                      <tr>
+                        <td className="border border-black px-2 py-2 font-medium">R & D / Safety Engineering</td>
+                        <td className="border border-black px-2 py-2">{selectedMRB.engineeringApprovedBy || ''}</td>
+                        <td className="border border-black px-2 py-2"></td>
+                        <td className="border border-black px-2 py-2">{formatDate(selectedMRB.engineeringApprovedAt)}</td>
+                      </tr>
+                      <tr>
+                        <td className="border border-black px-2 py-2 font-medium">RE Operations</td>
+                        <td className="border border-black px-2 py-2"></td>
+                        <td className="border border-black px-2 py-2"></td>
+                        <td className="border border-black px-2 py-2"></td>
+                      </tr>
+                      <tr>
+                        <td className="border border-black px-2 py-2 font-medium">I & C</td>
+                        <td className="border border-black px-2 py-2"></td>
+                        <td className="border border-black px-2 py-2"></td>
+                        <td className="border border-black px-2 py-2"></td>
+                      </tr>
+                      <tr>
+                        <td className="border border-black px-2 py-2 font-medium">Quality Assurance</td>
+                        <td className="border border-black px-2 py-2">{selectedMRB.qualityApprovedBy || ''}</td>
+                        <td className="border border-black px-2 py-2"></td>
+                        <td className="border border-black px-2 py-2">{formatDate(selectedMRB.qualityApprovedAt)}</td>
+                      </tr>
+                      <tr>
+                        <td className="border border-black px-2 py-2 font-medium">Quality Control</td>
+                        <td className="border border-black px-2 py-2"></td>
+                        <td className="border border-black px-2 py-2"></td>
+                        <td className="border border-black px-2 py-2"></td>
+                      </tr>
+                      <tr>
+                        <td className="border border-black px-2 py-2 font-medium">Purchase</td>
+                        <td className="border border-black px-2 py-2">{selectedMRB.purchaseApprovedBy || ''}</td>
+                        <td className="border border-black px-2 py-2"></td>
+                        <td className="border border-black px-2 py-2">{formatDate(selectedMRB.purchaseApprovedAt)}</td>
+                      </tr>
                     </tbody>
                   </table>
-                ) : (
-                  <p className="text-xs text-muted-foreground italic px-2">No attachments</p>
-                )}
-              </div>
+                </div>
 
-              {/* Section 7: Authorization & Audit Footer */}
-              <div className="mb-4">
-                <h2 className="text-xs font-bold bg-muted px-2 py-1 border-l-4 border-primary mb-2 text-primary">
-                  7. AUTHORIZATION
-                </h2>
-                <div className="grid grid-cols-3 gap-6 mt-4 px-2">
-                  <div className="text-center">
-                    <div className="border-t border-foreground mt-12 pt-2 text-xs">
-                      <p className="font-medium">Quality Inspector</p>
-                      <p className="text-muted-foreground text-[10px]">{selectedMRB.qualityApprovedBy || '________________'}</p>
+                {/* NCR Status */}
+                <div className="border border-black mb-2 p-2">
+                  <div className="font-bold mb-2">NCR Status:</div>
+                  <div className="mb-2">
+                    <span>Comments:-</span>
+                    <div className="border-b border-dotted border-black min-h-[30px] mt-1 px-1">
+                      {selectedMRB.finalRemarks || ''}
                     </div>
                   </div>
-                  <div className="text-center">
-                    <div className="border-t border-foreground mt-12 pt-2 text-xs">
-                      <p className="font-medium">Dept. Head</p>
-                      <p className="text-muted-foreground text-[10px]">
-                        {selectedMRB.engineeringApprovedBy || selectedMRB.purchaseApprovedBy || '________________'}
-                      </p>
+                  <div className="flex gap-4 mt-2">
+                    <div className={`border border-black px-4 py-1 ${selectedMRB.status !== 'closed' ? 'bg-gray-200 font-bold' : ''}`}>
+                      Open
                     </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="border-t border-foreground mt-12 pt-2 text-xs">
-                      <p className="font-medium">Plant Head</p>
-                      <p className="text-muted-foreground text-[10px]">{selectedMRB.finalApprovedBy || '________________'}</p>
+                    <div className={`border border-black px-4 py-1 ${selectedMRB.status === 'closed' ? 'bg-gray-200 font-bold' : ''}`}>
+                      Close
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Audit Footer */}
-              <div className="border-t border-dashed border-muted pt-2 mt-4 flex justify-between text-[10px] text-muted-foreground">
-                <div>
-                  <span>Document ID: {selectedMRB.id}</span>
-                  <span className="mx-2">|</span>
-                  <span>Created: {formatDate(selectedMRB.createdAt)}</span>
+                {/* Quality Control Footer */}
+                <div className="flex justify-between items-end py-2 mt-4">
+                  <div className="flex items-end gap-2">
+                    <span>Quality Control:</span>
+                    <div className="border-b border-black w-40 h-5"></div>
+                    <span className="text-[9px]">Name and Sign</span>
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <span>Date:</span>
+                    <div className="border-b border-black w-32 h-5"></div>
+                  </div>
                 </div>
-                <div>
-                  <span>Last Updated: {formatDate(selectedMRB.updatedAt)}</span>
-                  <span className="mx-2">|</span>
-                  <span>Printed: {formatDate(new Date().toISOString())}</span>
+
+                {/* Document Footer Page 2 */}
+                <div className="flex justify-between text-[9px] text-gray-600 mt-8 pt-4 border-t border-gray-300">
+                  <span>EG-QC-FT-25 Rev2</span>
+                  <span>Page 2 of 2</span>
                 </div>
               </div>
             </div>
