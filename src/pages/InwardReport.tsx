@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, RotateCcw, PlusCircle, FileSpreadsheet } from 'lucide-react';
+import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -17,12 +17,25 @@ import { MultiSelectFilter } from '@/components/inward/MultiSelectFilter';
 import { plants, vendors, materials } from '@/data/mockData';
 import { storageLocations } from '@/data/inwardReportData';
 import { InspectionLotRecord } from '@/types/inwardReport';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 export default function InwardReport() {
   const navigate = useNavigate();
   const { inspectionLotRecords, filters, setFilters, getFilteredRecords } = useInwardMRB();
   const [hasSearched, setHasSearched] = useState(false);
   const [searchResults, setSearchResults] = useState<InspectionLotRecord[]>([]);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Build options for filters
   const plantOptions = plants.map(p => ({ value: p, label: p }));
@@ -34,10 +47,20 @@ export default function InwardReport() {
     label: r.inspectionLot 
   }));
 
+  // Pagination logic
+  const totalPages = Math.ceil(searchResults.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedResults = useMemo(() => 
+    searchResults.slice(startIndex, endIndex),
+    [searchResults, startIndex, endIndex]
+  );
+
   const handleSearch = () => {
     const results = getFilteredRecords();
     setSearchResults(results);
     setHasSearched(true);
+    setCurrentPage(1); // Reset to first page on new search
   };
 
   const handleReset = () => {
@@ -50,6 +73,7 @@ export default function InwardReport() {
     });
     setSearchResults([]);
     setHasSearched(false);
+    setCurrentPage(1);
   };
 
   const handleCreateMRB = (record: InspectionLotRecord) => {
@@ -64,10 +88,48 @@ export default function InwardReport() {
     });
   };
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
+  };
+
+  // Generate page numbers to display
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push('...');
+        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+      } else {
+        pages.push(1);
+        pages.push('...');
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+    return pages;
+  };
+
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="flex flex-col h-[calc(100vh-64px)]">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm">
+      <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm flex-shrink-0">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -93,69 +155,94 @@ export default function InwardReport() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="p-6 space-y-6">
-        {/* Selection Screen */}
-        <Card className="border-border shadow-sm">
-          <CardHeader className="border-b border-border bg-muted/30 py-3">
-            <CardTitle className="text-base font-semibold">Selection Criteria</CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-              <MultiSelectFilter
-                label="Plant"
-                options={plantOptions}
-                selectedValues={filters.plants}
-                onSelectionChange={(values) => setFilters({ ...filters, plants: values })}
-                placeholder="Select Plant(s)"
-              />
-              <MultiSelectFilter
-                label="Material Code"
-                options={materialOptions}
-                selectedValues={filters.materialCodes}
-                onSelectionChange={(values) => setFilters({ ...filters, materialCodes: values })}
-                placeholder="Select Material(s)"
-              />
-              <MultiSelectFilter
-                label="Vendor"
-                options={vendorOptions}
-                selectedValues={filters.vendors}
-                onSelectionChange={(values) => setFilters({ ...filters, vendors: values })}
-                placeholder="Select Vendor(s)"
-              />
-              <MultiSelectFilter
-                label="Storage Location"
-                options={slocOptions}
-                selectedValues={filters.storageLocations}
-                onSelectionChange={(values) => setFilters({ ...filters, storageLocations: values })}
-                placeholder="Select SLoc(s)"
-              />
-              <MultiSelectFilter
-                label="Inspection Lot"
-                options={inspectionLotOptions}
-                selectedValues={filters.inspectionLots}
-                onSelectionChange={(values) => setFilters({ ...filters, inspectionLots: values })}
-                placeholder="Select Lot(s)"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Results Table */}
-        {hasSearched && (
+      {/* Sticky Filter Section */}
+      <div className="sticky top-[73px] z-30 bg-background border-b border-border shadow-sm flex-shrink-0">
+        <div className="px-6 py-4">
           <Card className="border-border shadow-sm">
             <CardHeader className="border-b border-border bg-muted/30 py-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold">
-                  Search Results ({searchResults.length} records)
-                </CardTitle>
-              </div>
+              <CardTitle className="text-base font-semibold">Selection Criteria</CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
+            <CardContent className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                <MultiSelectFilter
+                  label="Plant"
+                  options={plantOptions}
+                  selectedValues={filters.plants}
+                  onSelectionChange={(values) => setFilters({ ...filters, plants: values })}
+                  placeholder="Select Plant(s)"
+                />
+                <MultiSelectFilter
+                  label="Material Code"
+                  options={materialOptions}
+                  selectedValues={filters.materialCodes}
+                  onSelectionChange={(values) => setFilters({ ...filters, materialCodes: values })}
+                  placeholder="Select Material(s)"
+                />
+                <MultiSelectFilter
+                  label="Vendor"
+                  options={vendorOptions}
+                  selectedValues={filters.vendors}
+                  onSelectionChange={(values) => setFilters({ ...filters, vendors: values })}
+                  placeholder="Select Vendor(s)"
+                />
+                <MultiSelectFilter
+                  label="Storage Location"
+                  options={slocOptions}
+                  selectedValues={filters.storageLocations}
+                  onSelectionChange={(values) => setFilters({ ...filters, storageLocations: values })}
+                  placeholder="Select SLoc(s)"
+                />
+                <MultiSelectFilter
+                  label="Inspection Lot"
+                  options={inspectionLotOptions}
+                  selectedValues={filters.inspectionLots}
+                  onSelectionChange={(values) => setFilters({ ...filters, inspectionLots: values })}
+                  placeholder="Select Lot(s)"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-hidden bg-muted/30">
+        {hasSearched && (
+          <div className="h-full flex flex-col px-6 py-4">
+            <Card className="border-border shadow-sm flex-1 flex flex-col overflow-hidden">
+              <CardHeader className="border-b border-border bg-muted/30 py-3 flex-shrink-0">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-semibold">
+                    Search Results ({searchResults.length} records)
+                  </CardTitle>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Rows per page:</span>
+                      <Select value={String(itemsPerPage)} onValueChange={handleItemsPerPageChange}>
+                        <SelectTrigger className="w-[80px] h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ITEMS_PER_PAGE_OPTIONS.map(option => (
+                            <SelectItem key={option} value={String(option)}>
+                              {option}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <span className="text-sm text-muted-foreground">
+                      {startIndex + 1}-{Math.min(endIndex, searchResults.length)} of {searchResults.length}
+                    </span>
+                  </div>
+                </div>
+              </CardHeader>
+              
+              {/* Scrollable Table Container */}
+              <div className="flex-1 overflow-auto">
                 <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
+                  <TableHeader className="sticky top-0 z-20 bg-muted/80 backdrop-blur-sm">
+                    <TableRow>
                       <TableHead className="font-semibold whitespace-nowrap">Action</TableHead>
                       <TableHead className="font-semibold whitespace-nowrap">Inspection Lot</TableHead>
                       <TableHead className="font-semibold whitespace-nowrap">Material Code</TableHead>
@@ -175,14 +262,14 @@ export default function InwardReport() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {searchResults.length === 0 ? (
+                    {paginatedResults.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={16} className="text-center py-12 text-muted-foreground">
                           No records found matching the selection criteria
                         </TableCell>
                       </TableRow>
                     ) : (
-                      searchResults.map((record) => (
+                      paginatedResults.map((record) => (
                         <TableRow 
                           key={record.id} 
                           className="hover:bg-muted/30 transition-colors"
@@ -244,26 +331,76 @@ export default function InwardReport() {
                   </TableBody>
                 </Table>
               </div>
-            </CardContent>
-          </Card>
+
+              {/* Pagination Footer */}
+              {searchResults.length > 0 && (
+                <div className="border-t border-border bg-background px-4 py-3 flex-shrink-0">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {startIndex + 1} to {Math.min(endIndex, searchResults.length)} of {searchResults.length} entries
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                      </Button>
+                      
+                      {getPageNumbers().map((page, index) => (
+                        typeof page === 'number' ? (
+                          <Button
+                            key={index}
+                            variant={currentPage === page ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => handlePageChange(page)}
+                            className="w-9"
+                          >
+                            {page}
+                          </Button>
+                        ) : (
+                          <span key={index} className="px-2 text-muted-foreground">...</span>
+                        )
+                      ))}
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </div>
         )}
 
         {/* Initial State Message */}
         {!hasSearched && (
-          <Card className="border-border shadow-sm">
-            <CardContent className="py-16">
-              <div className="text-center">
-                <FileSpreadsheet className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">
-                  Search for Inspection Lots
-                </h3>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                  Use the selection criteria above to filter blocked inspection lots. 
-                  Click "Search / Execute" to view results.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="p-6">
+            <Card className="border-border shadow-sm">
+              <CardContent className="py-16">
+                <div className="text-center">
+                  <FileSpreadsheet className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">
+                    Search for Inspection Lots
+                  </h3>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    Use the selection criteria above to filter blocked inspection lots. 
+                    Click "Search / Execute" to view results.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
     </div>
