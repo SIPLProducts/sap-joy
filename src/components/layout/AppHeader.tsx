@@ -1,22 +1,35 @@
-import { Bell, User } from 'lucide-react';
+import { Bell, User, LogOut, Building2 } from 'lucide-react';
 import { useRole } from '@/contexts/RoleContext';
-import { UserRole } from '@/types/mrb';
-import { getRoleDisplayName } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Badge } from '@/components/ui/badge';
-
-const roles: UserRole[] = ['quality', 'purchase', 'engineering', 'plant_head', 'shop_floor'];
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 export function AppHeader() {
-  const { currentRole, currentUser, setRole } = useRole();
+  const { currentUser, roleDisplayName } = useRole();
+  const { signOut, profile, userRole } = useAuth();
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   return (
     <header className="sticky top-0 z-50 flex h-14 items-center gap-4 border-b bg-background px-4">
@@ -25,31 +38,56 @@ export function AppHeader() {
       <div className="flex-1" />
 
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Role:</span>
-          <Select value={currentRole} onValueChange={(value: UserRole) => setRole(value)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {roles.map((role) => (
-                <SelectItem key={role} value={role}>
-                  {getRoleDisplayName(role)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Role Badge */}
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10">
+          <Building2 className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium text-primary">{roleDisplayName}</span>
         </div>
 
+        {/* Notifications */}
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           <Badge className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs">3</Badge>
         </Button>
 
-        <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-1.5">
-          <User className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">{currentUser.name}</span>
-        </div>
+        {/* User Menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="flex items-center gap-2 px-2">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                  {getInitials(profile?.full_name || currentUser.name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="hidden md:flex flex-col items-start">
+                <span className="text-sm font-medium">{profile?.full_name || currentUser.name}</span>
+                <span className="text-xs text-muted-foreground">{profile?.plant || currentUser.plant}</span>
+              </div>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium">{profile?.full_name || currentUser.name}</p>
+                <p className="text-xs text-muted-foreground">{profile?.email || currentUser.email}</p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-muted-foreground">
+              <User className="mr-2 h-4 w-4" />
+              <span>Role: {roleDisplayName}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-muted-foreground">
+              <Building2 className="mr-2 h-4 w-4" />
+              <span>Plant: {profile?.plant || currentUser.plant}</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Sign Out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
