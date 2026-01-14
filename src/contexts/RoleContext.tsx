@@ -1,6 +1,16 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { UserRole, User } from '@/types/mrb';
-import { mockUsers, getRoleDisplayName } from '@/data/mockData';
+import React, { createContext, useContext, ReactNode } from 'react';
+import { useAuth, AppRole } from '@/contexts/AuthContext';
+
+// Legacy UserRole type for backward compatibility with existing code
+export type UserRole = 'quality' | 'purchase' | 'engineering' | 'plant_head' | 'shop_floor';
+
+export interface User {
+  id: string;
+  name: string;
+  role: UserRole;
+  email: string;
+  plant: string;
+}
 
 interface RoleContextType {
   currentRole: UserRole;
@@ -13,37 +23,93 @@ interface RoleContextType {
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
+// Map new AppRole to legacy UserRole for backward compatibility
+const mapAppRoleToUserRole = (appRole: AppRole | null): UserRole => {
+  if (!appRole) return 'quality';
+  
+  const roleMap: Record<AppRole, UserRole> = {
+    quality: 'quality',
+    quality_head: 'quality',
+    purchase: 'purchase',
+    purchase_head: 'purchase',
+    engineering: 'engineering',
+    engineering_head: 'engineering',
+    shop_floor: 'shop_floor',
+    executive: 'plant_head',
+    admin: 'plant_head',
+  };
+  
+  return roleMap[appRole] || 'quality';
+};
+
+export const getRoleDisplayName = (role: UserRole | AppRole): string => {
+  const displayNames: Record<string, string> = {
+    quality: 'Quality Inspector',
+    quality_head: 'Quality Head',
+    purchase: 'Purchase Team',
+    purchase_head: 'Purchase Head',
+    engineering: 'Engineering',
+    engineering_head: 'Engineering Head',
+    plant_head: 'Plant Head',
+    shop_floor: 'Shop Floor',
+    executive: 'Executive',
+    admin: 'Administrator',
+  };
+  return displayNames[role] || role;
+};
+
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [currentRole, setCurrentRole] = useState<UserRole>('quality');
+  const { user, profile, userRole } = useAuth();
+  
+  // Map the authenticated user's role to legacy format
+  const currentRole = mapAppRoleToUserRole(userRole);
 
-  const currentUser = mockUsers.find(u => u.role === currentRole) || mockUsers[0];
+  // Create a user object from authenticated user data
+  const currentUser: User = {
+    id: user?.id || 'guest',
+    name: profile?.full_name || user?.email?.split('@')[0] || 'Guest User',
+    role: currentRole,
+    email: profile?.email || user?.email || 'guest@hbl.com',
+    plant: profile?.plant || 'Plant-1000',
+  };
 
+  // setRole is now a no-op since role comes from database
   const setRole = (role: UserRole) => {
-    setCurrentRole(role);
+    console.log('Role change requested:', role, '- Roles are now managed via authentication');
   };
 
   const canEdit = (stage: 'quality' | 'purchase' | 'engineering' | 'final_approval'): boolean => {
-    const permissions: Record<UserRole, string[]> = {
+    // Check against the actual AppRole from auth
+    if (!userRole) return false;
+    
+    const permissions: Record<AppRole, string[]> = {
       quality: ['quality'],
+      quality_head: ['quality', 'final_approval'],
       purchase: ['purchase'],
+      purchase_head: ['purchase', 'final_approval'],
       engineering: ['engineering'],
-      plant_head: ['final_approval'],
+      engineering_head: ['engineering', 'final_approval'],
       shop_floor: [],
+      executive: ['final_approval'],
+      admin: ['quality', 'purchase', 'engineering', 'final_approval'],
     };
-    return permissions[currentRole].includes(stage);
+    
+    return permissions[userRole]?.includes(stage) || false;
   };
 
   const canCreate = (source: 'quality_inspection' | 'shop_floor'): boolean => {
+    if (!userRole) return false;
+    
     if (source === 'quality_inspection') {
-      return currentRole === 'quality';
+      return ['quality', 'quality_head', 'admin'].includes(userRole);
     }
     if (source === 'shop_floor') {
-      return currentRole === 'shop_floor';
+      return ['shop_floor', 'admin'].includes(userRole);
     }
     return false;
   };
 
-  const roleDisplayName = getRoleDisplayName(currentRole);
+  const roleDisplayName = getRoleDisplayName(userRole || currentRole);
 
   return (
     <RoleContext.Provider

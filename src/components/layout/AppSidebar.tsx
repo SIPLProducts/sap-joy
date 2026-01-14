@@ -1,6 +1,7 @@
 import { ClipboardList, Mail, Wrench, FileSpreadsheet, BarChart3, LogOut, Package, Building2, Users, Settings, PieChart, Printer } from 'lucide-react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useRole } from '@/contexts/RoleContext';
+import { useAuth, AppRole } from '@/contexts/AuthContext';
 import {
   Sidebar,
   SidebarContent,
@@ -16,38 +17,41 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
+// Menu items with role-based access (using new AppRole types)
 const menuItems = [
-  { title: 'KPI Dashboard', url: '/', icon: BarChart3, roles: ['quality', 'purchase', 'engineering', 'plant_head', 'shop_floor'] },
-  { title: 'MRB Worklist', url: '/worklist', icon: ClipboardList, roles: ['quality', 'purchase', 'engineering', 'plant_head', 'shop_floor'] },
-  
-  { title: 'Material Blocking', url: '/shop-floor/stock-selection', icon: Package, roles: ['shop_floor'] },
-  { title: 'Inward Report', url: '/inward/report', icon: FileSpreadsheet, roles: ['quality', 'purchase', 'engineering', 'plant_head'] },
-  { title: 'MRB Print', url: '/mrb-print', icon: Printer, roles: ['quality', 'purchase', 'engineering', 'plant_head', 'shop_floor'] },
-  { title: 'Email Log', url: '/emails', icon: Mail, roles: ['quality', 'purchase', 'engineering', 'plant_head'] },
+  { title: 'KPI Dashboard', url: '/', icon: BarChart3, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin'] },
+  { title: 'MRB Worklist', url: '/worklist', icon: ClipboardList, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin'] },
+  { title: 'Material Blocking', url: '/shop-floor/stock-selection', icon: Package, roles: ['shop_floor', 'admin'] },
+  { title: 'Inward Report', url: '/inward/report', icon: FileSpreadsheet, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin'] },
+  { title: 'MRB Print', url: '/mrb-print', icon: Printer, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin'] },
+  { title: 'Email Log', url: '/emails', icon: Mail, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin'] },
 ];
 
+// Role-specific dashboards
 const dashboardItems = [
-  { title: 'Plant Head Dashboard', url: '/dashboard/plant-head', icon: Building2, roles: ['plant_head'] },
-  { title: 'Quality Dashboard', url: '/dashboard/quality-head', icon: Settings, roles: ['quality', 'plant_head'] },
-  { title: 'Purchase Dashboard', url: '/dashboard/purchase-head', icon: Users, roles: ['purchase', 'plant_head'] },
-  { title: 'Engineering Dashboard', url: '/dashboard/engineering-head', icon: Wrench, roles: ['engineering', 'plant_head'] },
-  { title: 'Executive Summary', url: '/dashboard/executive-summary', icon: PieChart, roles: ['plant_head'] },
+  { title: 'Quality Dashboard', url: '/dashboard/quality-head', icon: Settings, roles: ['quality', 'quality_head', 'executive', 'admin'] },
+  { title: 'Purchase Dashboard', url: '/dashboard/purchase-head', icon: Users, roles: ['purchase', 'purchase_head', 'executive', 'admin'] },
+  { title: 'Engineering Dashboard', url: '/dashboard/engineering-head', icon: Wrench, roles: ['engineering', 'engineering_head', 'executive', 'admin'] },
+  { title: 'Executive Summary', url: '/dashboard/executive-summary', icon: PieChart, roles: ['executive', 'admin'] },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentRole, roleDisplayName } = useRole();
+  const { roleDisplayName } = useRole();
+  const { signOut, userRole } = useAuth();
 
+  // Filter items based on authenticated user's role
   const filteredItems = menuItems.filter(item => 
-    item.roles.includes(currentRole)
+    userRole && item.roles.includes(userRole)
   );
 
   const filteredDashboards = dashboardItems.filter(item =>
-    item.roles.includes(currentRole)
+    userRole && item.roles.includes(userRole)
   );
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOut();
     navigate('/login');
   };
 

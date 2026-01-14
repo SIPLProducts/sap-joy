@@ -1,42 +1,79 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useRole } from '@/contexts/RoleContext';
-import { UserRole } from '@/types/mrb';
-import { mockUsers } from '@/data/mockData';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth, AppRole } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award, UserPlus, Eye, EyeOff } from 'lucide-react';
 import loginHeroImage from '@/assets/login-hero.jpg';
 import hblLogo from '@/assets/hbl-logo.png';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { setRole } = useRole();
-  const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
+  const location = useLocation();
+  const { signIn, signUp, isAuthenticated } = useAuth();
+  
+  // Sign In state
+  const [signInEmail, setSignInEmail] = useState('');
+  const [signInPassword, setSignInPassword] = useState('');
+  const [showSignInPassword, setShowSignInPassword] = useState(false);
+  
+  // Sign Up state
+  const [signUpEmail, setSignUpEmail] = useState('');
+  const [signUpPassword, setSignUpPassword] = useState('');
+  const [signUpFullName, setSignUpFullName] = useState('');
+  const [signUpRole, setSignUpRole] = useState<AppRole | ''>('');
+  const [showSignUpPassword, setShowSignUpPassword] = useState(false);
+  
   const [isLoading, setIsLoading] = useState(false);
 
-  const roles: { value: UserRole; label: string; description: string; icon: typeof Shield }[] = [
+  const roles: { value: AppRole; label: string; description: string; icon: typeof Shield }[] = [
     { value: 'quality', label: 'Quality Inspector', description: 'Create and review MRBs from quality inspection', icon: Shield },
+    { value: 'quality_head', label: 'Quality Head', description: 'Oversee quality operations and approvals', icon: Award },
     { value: 'purchase', label: 'Purchase Team', description: 'Handle vendor communications and replacements', icon: Building2 },
+    { value: 'purchase_head', label: 'Purchase Head', description: 'Manage purchase operations and vendor relations', icon: Building2 },
     { value: 'engineering', label: 'Engineering', description: 'Technical evaluation and deviation decisions', icon: Users },
-    { value: 'plant_head', label: 'Plant Head', description: 'Final approval authority for MRBs', icon: Shield },
-    { value: 'shop_floor', label: 'Shop Floor', description: 'Report production issues and material defects', icon: Building2 },
+    { value: 'engineering_head', label: 'Engineering Head', description: 'Oversee engineering reviews and approvals', icon: Users },
+    { value: 'shop_floor', label: 'Shop Floor', description: 'Report production issues and material defects', icon: Factory },
+    { value: 'executive', label: 'Executive', description: 'View executive summaries and final approvals', icon: Award },
   ];
 
-  const handleLogin = async () => {
-    if (!selectedRole) return;
+  // Redirect if already authenticated
+  if (isAuthenticated) {
+    const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
+    navigate(from, { replace: true });
+    return null;
+  }
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!signInEmail || !signInPassword) return;
     
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setRole(selectedRole);
+    const { error } = await signIn(signInEmail, signInPassword);
     setIsLoading(false);
-    navigate('/');
+    
+    if (!error) {
+      const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
+      navigate(from, { replace: true });
+    }
   };
 
-  const selectedUser = mockUsers.find(u => u.role === selectedRole);
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!signUpEmail || !signUpPassword || !signUpFullName || !signUpRole) return;
+    
+    setIsLoading(true);
+    const { error } = await signUp(signUpEmail, signUpPassword, signUpFullName, signUpRole);
+    setIsLoading(false);
+    
+    if (!error) {
+      navigate('/', { replace: true });
+    }
+  };
 
   const features = [
     { icon: ClipboardCheck, text: 'Streamlined Quality Reviews' },
@@ -45,28 +82,38 @@ export default function Login() {
     { icon: Award, text: 'Audit-Ready Documentation' },
   ];
 
+  const getRolePermissions = (role: AppRole) => {
+    const permissions: Record<AppRole, string[]> = {
+      quality: ['Create MRB', 'Quality Review', 'Inward Report'],
+      quality_head: ['Quality Oversight', 'Final Approval', 'All Quality MRBs'],
+      purchase: ['Purchase Review', 'Vendor Action'],
+      purchase_head: ['Purchase Oversight', 'Vendor Management'],
+      engineering: ['Engineering Review', 'Deviation Approval'],
+      engineering_head: ['Engineering Oversight', 'Technical Decisions'],
+      shop_floor: ['Shop Floor MRB', 'Report Issues'],
+      executive: ['Executive Dashboard', 'Final Approvals', 'All MRBs'],
+      admin: ['Full Access', 'User Management', 'System Config'],
+    };
+    return permissions[role] || [];
+  };
+
   return (
     <div className="min-h-screen w-full flex">
       {/* Left Side - Hero Image */}
       <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 relative overflow-hidden">
-        {/* Hero Image */}
         <img 
           src={loginHeroImage} 
           alt="Manufacturing Quality Control" 
           className="absolute inset-0 w-full h-full object-cover"
         />
         
-        {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-primary/90 via-primary/70 to-primary/50" />
         
-        {/* Content Overlay */}
         <div className="relative z-10 flex flex-col justify-between p-10 xl:p-16 text-primary-foreground">
-          {/* Logo */}
           <div className="flex items-center gap-3">
             <img src={hblLogo} alt="HBL Logo" className="h-12 w-auto bg-white rounded p-1" />
           </div>
           
-          {/* Main Hero Content */}
           <div className="space-y-8">
             <div className="space-y-4">
               <h1 className="text-4xl xl:text-5xl font-bold leading-tight">
@@ -77,7 +124,6 @@ export default function Login() {
               </p>
             </div>
             
-            {/* Features Grid */}
             <div className="grid grid-cols-2 gap-4">
               {features.map((feature, index) => (
                 <div 
@@ -91,7 +137,6 @@ export default function Login() {
             </div>
           </div>
           
-          {/* Footer Quote */}
           <div className="space-y-2">
             <p className="text-lg italic text-primary-foreground/80">
               "Quality is not an act, it is a habit."
@@ -101,9 +146,9 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Right Side - Login Form */}
+      {/* Right Side - Login/Signup Form */}
       <div className="w-full lg:w-1/2 xl:w-2/5 flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 p-6 sm:p-8">
-        <div className="w-full max-w-md space-y-8">
+        <div className="w-full max-w-md space-y-6">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center">
             <img src={hblLogo} alt="HBL Logo" className="h-16 w-auto mx-auto mb-4" />
@@ -114,128 +159,192 @@ export default function Login() {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary text-primary-foreground mb-4 shadow-lg lg:hidden">
               <Shield className="w-8 h-8" />
             </div>
-            <h2 className="text-3xl font-bold text-foreground">Welcome Back!</h2>
+            <h2 className="text-3xl font-bold text-foreground">Welcome!</h2>
             <p className="text-muted-foreground">
-              Sign in to access your MRB dashboard
+              Sign in or create an account to continue
             </p>
           </div>
 
           <Card className="shadow-xl border-0 bg-card/80 backdrop-blur">
-            <CardHeader className="space-y-1 pb-4">
-              <CardTitle className="text-xl font-semibold text-center">Sign In</CardTitle>
-              <CardDescription className="text-center">
-                Select your role to continue
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {/* Email Field */}
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={selectedUser?.email || ''}
-                  placeholder="Select a role to see user email"
-                  disabled
-                  className="bg-muted/50 h-11"
-                />
-              </div>
-
-              {/* Role Selection */}
-              <div className="space-y-2">
-                <Label htmlFor="role">Select Role *</Label>
-                <Select value={selectedRole} onValueChange={(val) => setSelectedRole(val as UserRole)}>
-                  <SelectTrigger id="role" className="h-11">
-                    <SelectValue placeholder="Choose your role..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                    {roles.map((role) => (
-                      <SelectItem key={role.value} value={role.value} className="py-3">
-                        <div className="flex items-center gap-3">
-                          <role.icon className="w-4 h-4 text-primary" />
-                          <span className="font-medium">{role.label}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Selected Role Info */}
-              {selectedRole && (
-                <div className="rounded-lg bg-accent/50 p-4 border border-accent">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Users className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground truncate">{selectedUser?.name}</p>
-                      <p className="text-sm text-muted-foreground truncate">{selectedUser?.email}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{selectedUser?.plant}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Role Permissions */}
-              {selectedRole && (
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground uppercase tracking-wide">Permissions</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedRole === 'quality' && (
-                      <>
-                        <span className="px-2.5 py-1 text-xs rounded-full bg-primary/10 text-primary font-medium">Create MRB</span>
-                        <span className="px-2.5 py-1 text-xs rounded-full bg-primary/10 text-primary font-medium">Quality Review</span>
-                        <span className="px-2.5 py-1 text-xs rounded-full bg-primary/10 text-primary font-medium">Inward Report</span>
-                      </>
-                    )}
-                    {selectedRole === 'purchase' && (
-                      <>
-                        <span className="px-2.5 py-1 text-xs rounded-full bg-primary/10 text-primary font-medium">Purchase Review</span>
-                        <span className="px-2.5 py-1 text-xs rounded-full bg-primary/10 text-primary font-medium">Vendor Action</span>
-                      </>
-                    )}
-                    {selectedRole === 'engineering' && (
-                      <>
-                        <span className="px-2.5 py-1 text-xs rounded-full bg-primary/10 text-primary font-medium">Engineering Review</span>
-                        <span className="px-2.5 py-1 text-xs rounded-full bg-primary/10 text-primary font-medium">Deviation Approval</span>
-                      </>
-                    )}
-                    {selectedRole === 'plant_head' && (
-                      <>
-                        <span className="px-2.5 py-1 text-xs rounded-full bg-primary/10 text-primary font-medium">Final Approval</span>
-                        <span className="px-2.5 py-1 text-xs rounded-full bg-primary/10 text-primary font-medium">All MRBs</span>
-                      </>
-                    )}
-                    {selectedRole === 'shop_floor' && (
-                      <>
-                        <span className="px-2.5 py-1 text-xs rounded-full bg-primary/10 text-primary font-medium">Shop Floor MRB</span>
-                        <span className="px-2.5 py-1 text-xs rounded-full bg-primary/10 text-primary font-medium">Report Issues</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Login Button */}
-              <Button
-                onClick={handleLogin}
-                disabled={!selectedRole || isLoading}
-                className="w-full h-11 text-base font-medium"
-              >
-                {isLoading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                    Signing in...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
+            <Tabs defaultValue="signin" className="w-full">
+              <CardHeader className="pb-4">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="signin" className="flex items-center gap-2">
                     <LogIn className="w-4 h-4" />
                     Sign In
-                  </span>
-                )}
-              </Button>
-            </CardContent>
+                  </TabsTrigger>
+                  <TabsTrigger value="signup" className="flex items-center gap-2">
+                    <UserPlus className="w-4 h-4" />
+                    Sign Up
+                  </TabsTrigger>
+                </TabsList>
+              </CardHeader>
+              
+              <CardContent>
+                {/* Sign In Tab */}
+                <TabsContent value="signin" className="mt-0">
+                  <form onSubmit={handleSignIn} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="signin-email">Email Address</Label>
+                      <Input
+                        id="signin-email"
+                        type="email"
+                        value={signInEmail}
+                        onChange={(e) => setSignInEmail(e.target.value)}
+                        placeholder="Enter your email"
+                        className="h-11"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="signin-password">Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="signin-password"
+                          type={showSignInPassword ? 'text' : 'password'}
+                          value={signInPassword}
+                          onChange={(e) => setSignInPassword(e.target.value)}
+                          placeholder="Enter your password"
+                          className="h-11 pr-10"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSignInPassword(!showSignInPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          {showSignInPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={isLoading || !signInEmail || !signInPassword}
+                      className="w-full h-11 text-base font-medium"
+                    >
+                      {isLoading ? (
+                        <span className="flex items-center gap-2">
+                          <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                          Signing in...
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          <LogIn className="w-4 h-4" />
+                          Sign In
+                        </span>
+                      )}
+                    </Button>
+                  </form>
+                </TabsContent>
+
+                {/* Sign Up Tab */}
+                <TabsContent value="signup" className="mt-0">
+                  <form onSubmit={handleSignUp} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-name">Full Name</Label>
+                      <Input
+                        id="signup-name"
+                        type="text"
+                        value={signUpFullName}
+                        onChange={(e) => setSignUpFullName(e.target.value)}
+                        placeholder="Enter your full name"
+                        className="h-11"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-email">Email Address</Label>
+                      <Input
+                        id="signup-email"
+                        type="email"
+                        value={signUpEmail}
+                        onChange={(e) => setSignUpEmail(e.target.value)}
+                        placeholder="Enter your email"
+                        className="h-11"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-password">Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="signup-password"
+                          type={showSignUpPassword ? 'text' : 'password'}
+                          value={signUpPassword}
+                          onChange={(e) => setSignUpPassword(e.target.value)}
+                          placeholder="Create a password (min 6 characters)"
+                          className="h-11 pr-10"
+                          minLength={6}
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSignUpPassword(!showSignUpPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          {showSignUpPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-role">Select Your Role *</Label>
+                      <Select value={signUpRole} onValueChange={(val) => setSignUpRole(val as AppRole)}>
+                        <SelectTrigger id="signup-role" className="h-11">
+                          <SelectValue placeholder="Choose your role..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-popover border border-border shadow-lg z-50">
+                          {roles.map((role) => (
+                            <SelectItem key={role.value} value={role.value} className="py-3">
+                              <div className="flex items-center gap-3">
+                                <role.icon className="w-4 h-4 text-primary" />
+                                <span className="font-medium">{role.label}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Role Permissions */}
+                    {signUpRole && (
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Permissions</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {getRolePermissions(signUpRole).map((permission, index) => (
+                            <span key={index} className="px-2.5 py-1 text-xs rounded-full bg-primary/10 text-primary font-medium">
+                              {permission}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <Button
+                      type="submit"
+                      disabled={isLoading || !signUpEmail || !signUpPassword || !signUpFullName || !signUpRole}
+                      className="w-full h-11 text-base font-medium"
+                    >
+                      {isLoading ? (
+                        <span className="flex items-center gap-2">
+                          <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                          Creating account...
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          <UserPlus className="w-4 h-4" />
+                          Create Account
+                        </span>
+                      )}
+                    </Button>
+                  </form>
+                </TabsContent>
+              </CardContent>
+            </Tabs>
           </Card>
 
           {/* Footer */}
