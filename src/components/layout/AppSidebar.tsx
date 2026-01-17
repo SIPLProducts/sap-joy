@@ -162,11 +162,20 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-sidebar-foreground">{roleDisplayName}</p>
-            <p className="text-xs text-sidebar-foreground/60">Logged in</p>
+        <Link 
+          to="/profile" 
+          className="flex items-center gap-3 p-2 rounded-md hover:bg-sidebar-accent transition-colors"
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sidebar-primary text-sidebar-primary-foreground text-sm font-medium">
+            {roleDisplayName.charAt(0)}
           </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-sidebar-foreground truncate">{roleDisplayName}</p>
+            <p className="text-xs text-sidebar-foreground/60">View Profile</p>
+          </div>
+        </Link>
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-sidebar-foreground/50">© 2024 HBL Power Systems</p>
           <Button 
             variant="ghost" 
             size="icon" 
@@ -176,7 +185,6 @@ export function AppSidebar() {
             <LogOut className="w-4 h-4" />
           </Button>
         </div>
-        <p className="text-xs text-sidebar-foreground/50">© 2024 HBL Power Systems</p>
       </SidebarFooter>
     </Sidebar>
   );

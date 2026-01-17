@@ -27,6 +27,7 @@ import EngineeringHeadDashboard from "@/pages/EngineeringHeadDashboard";
 import ExecutiveSummaryDashboard from "@/pages/ExecutiveSummaryDashboard";
 import MRBPrint from "@/pages/MRBPrint";
 import UserManagement from "@/pages/UserManagement";
+import UserProfile from "@/pages/UserProfile";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,7 @@ const App = () => (
                           <Route path="/dashboard/executive-summary" element={<ExecutiveSummaryDashboard />} />
                           <Route path="/mrb-print" element={<MRBPrint />} />
                           <Route path="/admin/users" element={<UserManagement />} />
+                          <Route path="/profile" element={<UserProfile />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
                       </AppLayout>
