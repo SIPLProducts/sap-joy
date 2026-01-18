@@ -1,0 +1,267 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import type { Database } from '@/integrations/supabase/types';
+
+type MRBRecord = Database['public']['Tables']['mrb_records']['Row'];
+type MRBInsert = Database['public']['Tables']['mrb_records']['Insert'];
+type MRBUpdate = Database['public']['Tables']['mrb_records']['Update'];
+type ApprovalHistoryInsert = Database['public']['Tables']['mrb_approval_history']['Insert'];
+type MRBStatus = Database['public']['Enums']['mrb_status'];
+type AppRole = Database['public']['Enums']['app_role'];
+
+export function useMRBDatabase() {
+  const [mrbRecords, setMRBRecords] = useState<MRBRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { user, userRole } = useAuth();
+  const { toast } = useToast();
+
+  // Fetch all MRB records
+  const fetchMRBRecords = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('mrb_records')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMRBRecords(data || []);
+    } catch (error) {
+      console.error('Error fetching MRB records:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch MRB records',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchMRBRecords();
+  }, [fetchMRBRecords]);
+
+  // Get MRB by ID
+  const getMRBById = useCallback(async (id: string): Promise<MRBRecord | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('mrb_records')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error fetching MRB:', error);
+      return null;
+    }
+  }, []);
+
+  // Create new MRB
+  const createMRB = useCallback(async (mrb: MRBInsert): Promise<MRBRecord | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('mrb_records')
+        .insert(mrb)
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      // Add to approval history
+      await supabase.from('mrb_approval_history').insert({
+        mrb_id: data.id,
+        stage: 'Creation',
+        action: 'created',
+        performed_by: user?.id || '',
+        performed_by_role: userRole || 'shop_floor',
+        remarks: `MRB created from ${mrb.source}`,
+      });
+
+      await fetchMRBRecords();
+      return data;
+    } catch (error) {
+      console.error('Error creating MRB:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create MRB',
+        variant: 'destructive',
+      });
+      return null;
+    }
+  }, [user, userRole, fetchMRBRecords, toast]);
+
+  // Update MRB status and add to approval history
+  const updateMRBStatus = useCallback(async (
+    id: string,
+    newStatus: MRBStatus,
+    action: string,
+    remarks: string,
+    additionalUpdates?: MRBUpdate
+  ): Promise<boolean> => {
+    try {
+      const updates: MRBUpdate = {
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+        ...additionalUpdates,
+      };
+
+      // Set pending_with based on new status
+      const statusToPendingWith: Record<MRBStatus, AppRole | null> = {
+        draft: null,
+        quality_review: 'quality',
+        purchase_review: 'purchase',
+        engineering_review: 'engineering',
+        final_approval: 'executive',
+        approved: null,
+        rejected: null,
+        closed: null,
+      };
+      
+      if (statusToPendingWith[newStatus] !== undefined) {
+        updates.pending_with = statusToPendingWith[newStatus];
+      }
+
+      // Set approval timestamps based on stage
+      if (newStatus === 'purchase_review' && userRole?.includes('quality')) {
+        updates.quality_approved_at = new Date().toISOString();
+        updates.quality_approved_by = user?.id;
+      } else if (newStatus === 'engineering_review' && userRole?.includes('purchase')) {
+        updates.purchase_approved_at = new Date().toISOString();
+        updates.purchase_approved_by = user?.id;
+      } else if (newStatus === 'final_approval' && userRole?.includes('engineering')) {
+        updates.engineering_approved_at = new Date().toISOString();
+        updates.engineering_approved_by = user?.id;
+      } else if ((newStatus === 'approved' || newStatus === 'rejected') && (userRole === 'executive' || userRole === 'admin')) {
+        updates.final_approved_at = new Date().toISOString();
+        updates.final_approved_by = user?.id;
+        updates.final_decision = newStatus === 'approved' ? 'approved' : 'rejected';
+      }
+
+      const { error } = await supabase
+        .from('mrb_records')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Add to approval history
+      await supabase.from('mrb_approval_history').insert({
+        mrb_id: id,
+        stage: getStageFromStatus(newStatus),
+        action: action,
+        performed_by: user?.id || '',
+        performed_by_role: userRole || 'quality',
+        remarks: remarks,
+      });
+
+      await fetchMRBRecords();
+      return true;
+    } catch (error) {
+      console.error('Error updating MRB status:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update MRB status',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  }, [user, userRole, fetchMRBRecords, toast]);
+
+  // Update MRB fields without changing status
+  const updateMRB = useCallback(async (id: string, updates: MRBUpdate): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('mrb_records')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) throw error;
+      await fetchMRBRecords();
+      return true;
+    } catch (error) {
+      console.error('Error updating MRB:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update MRB',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  }, [fetchMRBRecords, toast]);
+
+  // Get approval history for an MRB
+  const getApprovalHistory = useCallback(async (mrbId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('mrb_approval_history')
+        .select('*')
+        .eq('mrb_id', mrbId)
+        .order('performed_at', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching approval history:', error);
+      return [];
+    }
+  }, []);
+
+  // Generate next MRB number
+  const getNextMRBNumber = useCallback(async (): Promise<string> => {
+    const year = new Date().getFullYear();
+    const prefix = `MRB-${year}-`;
+    
+    try {
+      const { data } = await supabase
+        .from('mrb_records')
+        .select('mrb_number')
+        .like('mrb_number', `${prefix}%`)
+        .order('mrb_number', { ascending: false })
+        .limit(1);
+
+      let nextNumber = 1;
+      if (data && data.length > 0) {
+        const lastNumber = parseInt(data[0].mrb_number.replace(prefix, ''), 10);
+        if (!isNaN(lastNumber)) {
+          nextNumber = lastNumber + 1;
+        }
+      }
+      
+      return `${prefix}${String(nextNumber).padStart(4, '0')}`;
+    } catch (error) {
+      console.error('Error generating MRB number:', error);
+      return `${prefix}${String(Date.now()).slice(-4)}`;
+    }
+  }, []);
+
+  return {
+    mrbRecords,
+    isLoading,
+    fetchMRBRecords,
+    getMRBById,
+    createMRB,
+    updateMRB,
+    updateMRBStatus,
+    getApprovalHistory,
+    getNextMRBNumber,
+  };
+}
+
+function getStageFromStatus(status: MRBStatus): string {
+  const stageMap: Record<MRBStatus, string> = {
+    draft: 'Draft',
+    quality_review: 'Quality Review',
+    purchase_review: 'Purchase Review',
+    engineering_review: 'Engineering Review',
+    final_approval: 'Final Approval',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    closed: 'Closed',
+  };
+  return stageMap[status] || status;
+}

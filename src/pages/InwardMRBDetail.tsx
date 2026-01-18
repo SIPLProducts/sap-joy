@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Send, Upload, FileText, Trash2, History, Mail, Paperclip, CheckCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams, Link } from 'react-router-dom';
+import { ArrowLeft, Send, Upload, FileText, Trash2, History, Paperclip, CheckCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,37 +16,79 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useInwardMRB } from '@/contexts/InwardMRBContext';
+import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { useRole } from '@/contexts/RoleContext';
-import { Attachment } from '@/types/mrb';
-import { DepartmentReviewData, NextReviewDepartment } from '@/types/inwardReport';
+import { useAuth } from '@/contexts/AuthContext';
+import { getStatusDisplayName, getStatusColor, getRoleDisplayName } from '@/data/mockData';
 import { nextReviewDepartments } from '@/data/inwardReportData';
-import { getStatusDisplayName, getStatusColor, mockUsers } from '@/data/mockData';
+import type { Database } from '@/integrations/supabase/types';
+
+type MRBRecord = Database['public']['Tables']['mrb_records']['Row'];
+type ApprovalHistory = Database['public']['Tables']['mrb_approval_history']['Row'];
+type MRBStatus = Database['public']['Enums']['mrb_status'];
 
 export default function InwardMRBDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
-  const { getInwardMRBById, addDepartmentReview, addEmailLog } = useInwardMRB();
-  const { currentRole } = useRole();
+  const { getMRBById, updateMRBStatus, getApprovalHistory } = useMRBDatabase();
+  const { currentRole, canEdit } = useRole();
+  const { userRole, profile } = useAuth();
   
-  const mrb = getInwardMRBById(id || '');
-
-  const [reviewData, setReviewData] = useState<DepartmentReviewData>({
+  const [mrb, setMRB] = useState<MRBRecord | null>(null);
+  const [approvalHistory, setApprovalHistory] = useState<ApprovalHistory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [reviewData, setReviewData] = useState({
     reviewComments: '',
     action: '',
     forwardToNext: false,
-    nextDepartments: [],
+    nextDepartments: [] as string[],
   });
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  
+  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (!id) return;
+      setIsLoading(true);
+      
+      const [mrbData, historyData] = await Promise.all([
+        getMRBById(id),
+        getApprovalHistory(id),
+      ]);
+      
+      if (mrbData) {
+        setMRB(mrbData);
+      }
+      
+      setApprovalHistory(historyData);
+      setIsLoading(false);
+    };
+    
+    loadData();
+  }, [id, getMRBById, getApprovalHistory]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading MRB details...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!mrb) {
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-4">MRB Not Found</h2>
-          <Button onClick={() => navigate('/inward/worklist')}>
+          <Button onClick={() => navigate('/worklist')}>
             Go to Worklist
           </Button>
         </div>
@@ -54,32 +96,9 @@ export default function InwardMRBDetail() {
     );
   }
 
-  const canReview = mrb.pendingWith === currentRole || currentRole === 'plant_head';
-  const currentUser = mockUsers.find(u => u.role === currentRole);
+  const canReview = mrb.pending_with === userRole || userRole === 'admin' || userRole === 'executive';
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      const newAttachments: Attachment[] = Array.from(files).map((file) => ({
-        id: `ATT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        url: URL.createObjectURL(file),
-        uploadedBy: currentUser?.name || 'User',
-        uploadedAt: new Date().toISOString(),
-        category: 'other',
-      }));
-      setAttachments([...attachments, ...newAttachments]);
-    }
-    e.target.value = '';
-  };
-
-  const removeAttachment = (attId: string) => {
-    setAttachments(attachments.filter((att) => att.id !== attId));
-  };
-
-  const handleSubmitReview = () => {
+  const handleOpenApprovalDialog = () => {
     if (!reviewData.action) {
       toast({
         title: 'Validation Error',
@@ -89,7 +108,7 @@ export default function InwardMRBDetail() {
       return;
     }
 
-    if (reviewData.forwardToNext && (!reviewData.nextDepartments || reviewData.nextDepartments.length === 0)) {
+    if (reviewData.forwardToNext && reviewData.nextDepartments.length === 0) {
       toast({
         title: 'Validation Error',
         description: 'Please select at least one department to forward to',
@@ -97,30 +116,85 @@ export default function InwardMRBDetail() {
       });
       return;
     }
+    
+    setShowApprovalDialog(true);
+  };
 
-    addDepartmentReview(mrb.id, reviewData, attachments, currentUser?.name || 'User');
-
-    // Add email log
-    addEmailLog({
-      id: `EMAIL-${Date.now()}`,
-      mrbId: mrb.id,
-      mrbNumber: mrb.mrbNumber,
-      subject: `MRB ${mrb.mrbNumber} - ${getActionLabel(reviewData.action)}`,
-      recipients: reviewData.forwardToNext && reviewData.nextDepartments && reviewData.nextDepartments.length > 0
-        ? reviewData.nextDepartments.map(d => `${d}@company.com`)
-        : ['quality@company.com'],
-      template: 'engineering_decision',
-      sentAt: new Date().toISOString(),
-      sentBy: currentUser?.name || 'User',
-      status: 'sent',
-    });
-
-    toast({
-      title: 'Review Submitted',
-      description: `Your review has been submitted successfully.`,
-    });
-
-    navigate('/inward/worklist');
+  const handleSubmitReview = async () => {
+    if (!mrb) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      let newStatus: MRBStatus = mrb.status;
+      let additionalUpdates: Partial<MRBRecord> = {};
+      
+      // Determine next status based on action and forward settings
+      if (reviewData.forwardToNext && reviewData.nextDepartments.length > 0) {
+        const firstDept = reviewData.nextDepartments[0];
+        switch (firstDept) {
+          case 'engineering':
+            newStatus = 'engineering_review';
+            break;
+          case 'purchase':
+            newStatus = 'purchase_review';
+            break;
+          case 'plant_head':
+            newStatus = 'final_approval';
+            break;
+          default:
+            newStatus = 'quality_review';
+        }
+      } else if (reviewData.action === 'approve' || reviewData.action === 'approve_with_deviation' || reviewData.action === 'return_to_vendor') {
+        newStatus = 'final_approval';
+      }
+      
+      // Set additional updates based on current stage
+      if (userRole?.includes('quality')) {
+        additionalUpdates = { quality_remarks: reviewData.reviewComments };
+      } else if (userRole?.includes('purchase')) {
+        additionalUpdates = { purchase_remarks: reviewData.reviewComments };
+      } else if (userRole?.includes('engineering')) {
+        additionalUpdates = { engineering_remarks: reviewData.reviewComments };
+      } else if (userRole === 'executive' || userRole === 'admin') {
+        additionalUpdates = { 
+          final_remarks: reviewData.reviewComments,
+          final_decision: reviewData.action === 'approve' ? 'approved' : reviewData.action,
+        };
+        if (reviewData.action === 'approve') {
+          newStatus = 'approved';
+          additionalUpdates.closure_status = 'completed';
+          additionalUpdates.closed_at = new Date().toISOString();
+        }
+      }
+      
+      const actionLabel = getActionLabel(reviewData.action);
+      const success = await updateMRBStatus(
+        mrb.id,
+        newStatus,
+        reviewData.action === 'approve' || reviewData.action === 'approve_with_deviation' ? 'approved' : 'forwarded',
+        `${actionLabel}: ${reviewData.reviewComments || 'No comments'}`,
+        additionalUpdates as any
+      );
+      
+      if (success) {
+        toast({
+          title: 'Review Submitted',
+          description: 'Your review has been submitted successfully.',
+        });
+        navigate('/worklist');
+      }
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to submit review',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+      setShowApprovalDialog(false);
+    }
   };
 
   const getActionLabel = (action: string) => {
@@ -133,7 +207,8 @@ export default function InwardMRBDetail() {
     return labels[action] || action;
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('en-GB', {
       day: '2-digit',
       month: 'short',
@@ -150,29 +225,25 @@ export default function InwardMRBDetail() {
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate('/inward/worklist')}
-              >
-                <ArrowLeft className="h-5 w-5" />
+              <Button variant="ghost" size="icon" asChild>
+                <Link to="/worklist"><ArrowLeft className="h-5 w-5" /></Link>
               </Button>
               <div>
                 <div className="flex items-center gap-3">
                   <h1 className="text-xl font-bold text-foreground">
-                    {mrb.mrbNumber}
+                    {mrb.mrb_number}
                   </h1>
                   <Badge className={getStatusColor(mrb.status)}>
                     {getStatusDisplayName(mrb.status)}
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Created by {mrb.createdBy} on {formatDate(mrb.createdAt)}
+                  Created on {formatDate(mrb.created_at)}
                 </p>
               </div>
             </div>
-            {canReview && (
-              <Button onClick={handleSubmitReview}>
+            {canReview && mrb.status !== 'approved' && mrb.status !== 'rejected' && mrb.status !== 'closed' && (
+              <Button onClick={handleOpenApprovalDialog} disabled={!reviewData.action}>
                 <Send className="h-4 w-4 mr-2" />
                 Submit Review
               </Button>
@@ -192,15 +263,15 @@ export default function InwardMRBDetail() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Inspection Lot</Label>
-                <p className="font-medium">{mrb.inspectionLot}</p>
+                <p className="font-medium">{mrb.inspection_lot || '-'}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Material Code</Label>
-                <p className="font-medium font-mono">{mrb.materialNumber}</p>
+                <p className="font-medium font-mono">{mrb.material_number}</p>
               </div>
               <div className="space-y-1 lg:col-span-2">
                 <Label className="text-muted-foreground text-xs">Material Description</Label>
-                <p className="font-medium">{mrb.materialDescription}</p>
+                <p className="font-medium">{mrb.material_description}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Plant</Label>
@@ -208,15 +279,19 @@ export default function InwardMRBDetail() {
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Vendor</Label>
-                <p className="font-medium">{mrb.vendorName}</p>
+                <p className="font-medium">{mrb.vendor_name || '-'}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Blocked Quantity</Label>
-                <p className="font-medium text-destructive">{mrb.blockedQuantity} {mrb.uom}</p>
+                <p className="font-medium text-destructive">{mrb.blocked_quantity} {mrb.uom}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">PO Number</Label>
-                <p className="font-medium font-mono">{mrb.poNumber}</p>
+                <p className="font-medium font-mono">{mrb.po_number || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Pending With</Label>
+                <p className="font-medium">{mrb.pending_with ? getRoleDisplayName(mrb.pending_with as any) : 'N/A'}</p>
               </div>
             </div>
           </CardContent>
@@ -231,53 +306,23 @@ export default function InwardMRBDetail() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Quality Decision</Label>
-                <p className="font-medium capitalize">{mrb.qualityDecision?.replace(/_/g, ' ')}</p>
+                <p className="font-medium capitalize">{mrb.quality_decision?.replace(/_/g, ' ') || '-'}</p>
               </div>
               <div className="space-y-1">
-                <Label className="text-muted-foreground text-xs">Inspector</Label>
-                <p className="font-medium">{mrb.qualityApprovedBy}</p>
+                <Label className="text-muted-foreground text-xs">Defect Category</Label>
+                <p className="font-medium capitalize">{mrb.defect_category || '-'}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Inspection Date</Label>
-                <p className="font-medium">{mrb.qualityApprovedAt ? formatDate(mrb.qualityApprovedAt) : '-'}</p>
+                <p className="font-medium">{formatDate(mrb.quality_approved_at)}</p>
               </div>
               <div className="space-y-1 lg:col-span-3">
                 <Label className="text-muted-foreground text-xs">Quality Comments</Label>
-                <p className="text-sm bg-muted/50 p-3 rounded-md">{mrb.qualityRemarks || 'No comments'}</p>
+                <p className="text-sm bg-muted/50 p-3 rounded-md">{mrb.quality_remarks || 'No comments'}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-
-        {/* Attachments */}
-        {mrb.attachments.length > 0 && (
-          <Card className="border-border shadow-sm">
-            <CardHeader className="border-b border-border bg-muted/30 py-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Paperclip className="h-4 w-4" />
-                Attachments ({mrb.attachments.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {mrb.attachments.map((att) => (
-                  <div
-                    key={att.id}
-                    className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border border-border"
-                  >
-                    <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{att.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(att.size / 1024).toFixed(1)} KB
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Approval History */}
         <Card className="border-border shadow-sm">
@@ -288,17 +333,17 @@ export default function InwardMRBDetail() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
-            {mrb.approvalHistory.length === 0 ? (
+            {approvalHistory.length === 0 ? (
               <p className="text-muted-foreground text-center py-6">No history yet</p>
             ) : (
               <div className="space-y-4">
-                {mrb.approvalHistory.map((item, index) => (
+                {approvalHistory.map((item, index) => (
                   <div key={item.id} className="flex gap-4">
                     <div className="flex flex-col items-center">
                       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                         <CheckCircle className="h-4 w-4 text-primary" />
                       </div>
-                      {index < mrb.approvalHistory.length - 1 && (
+                      {index < approvalHistory.length - 1 && (
                         <div className="w-0.5 h-full bg-border mt-2" />
                       )}
                     </div>
@@ -308,9 +353,12 @@ export default function InwardMRBDetail() {
                         <Badge variant="outline" className="text-xs capitalize">
                           {item.action}
                         </Badge>
+                        <Badge variant="secondary" className="text-xs">
+                          {getRoleDisplayName(item.performed_by_role as any)}
+                        </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {item.performedBy} • {formatDate(item.performedAt)}
+                        {formatDate(item.performed_at)}
                       </p>
                       {item.remarks && (
                         <p className="text-sm mt-1 bg-muted/50 p-2 rounded">{item.remarks}</p>
@@ -324,13 +372,13 @@ export default function InwardMRBDetail() {
         </Card>
 
         {/* Department Review Form (if can review) */}
-        {canReview && (
+        {canReview && mrb.status !== 'approved' && mrb.status !== 'rejected' && mrb.status !== 'closed' && (
           <>
             <Separator />
             <Card className="border-border shadow-sm border-primary/20">
               <CardHeader className="border-b border-border bg-primary/5 py-3">
                 <CardTitle className="text-base font-semibold">
-                  Your Review ({currentRole.charAt(0).toUpperCase() + currentRole.slice(1).replace('_', ' ')})
+                  Your Review ({getRoleDisplayName((userRole || 'quality') as any)})
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
@@ -341,7 +389,7 @@ export default function InwardMRBDetail() {
                     </Label>
                     <Select
                       value={reviewData.action}
-                      onValueChange={(value) => setReviewData({ ...reviewData, action: value as DepartmentReviewData['action'] })}
+                      onValueChange={(value) => setReviewData({ ...reviewData, action: value })}
                     >
                       <SelectTrigger className="bg-background">
                         <SelectValue placeholder="Select Action" />
@@ -422,51 +470,37 @@ export default function InwardMRBDetail() {
                     </div>
                   )}
                 </div>
-
-                {/* Attachments */}
-                <div className="space-y-3">
-                  <Label>Upload Documents</Label>
-                  <div className="flex items-center gap-3">
-                    <Button variant="outline" className="relative">
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload File
-                      <input
-                        type="file"
-                        multiple
-                        onChange={handleFileChange}
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                      />
-                    </Button>
-                  </div>
-                  {attachments.length > 0 && (
-                    <div className="space-y-2 mt-3">
-                      {attachments.map((att) => (
-                        <div
-                          key={att.id}
-                          className="flex items-center justify-between p-2 bg-muted/50 rounded border border-border"
-                        >
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">{att.name}</span>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeAttachment(att.id)}
-                            className="h-6 w-6"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
               </CardContent>
             </Card>
           </>
         )}
       </div>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={showApprovalDialog} onOpenChange={setShowApprovalDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Review Submission</DialogTitle>
+            <DialogDescription>
+              You are about to submit your review with action: <strong>{getActionLabel(reviewData.action)}</strong>
+              {reviewData.forwardToNext && reviewData.nextDepartments.length > 0 && (
+                <span> and forward to {reviewData.nextDepartments.map(d => 
+                  nextReviewDepartments.find(dept => dept.value === d)?.label
+                ).join(', ')}</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowApprovalDialog(false)} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitReview} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Submit Review
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
