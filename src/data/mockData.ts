@@ -774,15 +774,20 @@ export const mockEmailLogs: EmailLog[] = [
 ];
 
 // Helper function to get role display name
-export const getRoleDisplayName = (role: UserRole): string => {
-  const names: Record<UserRole, string> = {
-    quality: 'Quality Inspector',
+export const getRoleDisplayName = (role: string): string => {
+  const names: Record<string, string> = {
+    quality: 'Quality',
+    quality_head: 'Quality Head',
     purchase: 'Purchase/SCM',
+    purchase_head: 'Purchase Head',
     engineering: 'Engineering',
+    engineering_head: 'Engineering Head',
     plant_head: 'Plant Head',
     shop_floor: 'Shop Floor',
+    executive: 'Executive',
+    admin: 'Admin',
   };
-  return names[role];
+  return names[role] || role || 'N/A';
 };
 
 // Helper function to get status display name
