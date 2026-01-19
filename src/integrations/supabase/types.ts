@@ -607,6 +607,56 @@ export type Database = {
         }
         Relationships: []
       }
+      sap_sync_history: {
+        Row: {
+          batch_id: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          mrb_id: string
+          mrb_number: string
+          sap_response: Json | null
+          status: string
+          sync_type: string
+          synced_at: string
+          synced_by: string
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          mrb_id: string
+          mrb_number: string
+          sap_response?: Json | null
+          status?: string
+          sync_type?: string
+          synced_at?: string
+          synced_by: string
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          mrb_id?: string
+          mrb_number?: string
+          sap_response?: Json | null
+          status?: string
+          sync_type?: string
+          synced_at?: string
+          synced_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sap_sync_history_mrb_id_fkey"
+            columns: ["mrb_id"]
+            isOneToOne: false
+            referencedRelation: "mrb_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
