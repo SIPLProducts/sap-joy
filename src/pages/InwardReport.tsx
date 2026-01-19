@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, Upload, RefreshCw, Database, FileUp, AlertCircle, CheckCircle2, Download, Loader2, Layers } from 'lucide-react';
+import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, Upload, RefreshCw, Database, FileUp, AlertCircle, CheckCircle2, Download, Loader2, Layers, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -408,14 +408,33 @@ export default function InwardReport() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
-        return <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30">Pending</Badge>;
+        return (
+          <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+            <CheckCircle2 className="h-3 w-3 mr-1" />
+            Eligible
+          </Badge>
+        );
       case 'mrb_created':
-        return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">MRB Created</Badge>;
+        return (
+          <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">
+            <AlertCircle className="h-3 w-3 mr-1" />
+            MRB Created
+          </Badge>
+        );
       case 'cleared':
-        return <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">Cleared</Badge>;
+        return (
+          <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/30">
+            <XCircle className="h-3 w-3 mr-1" />
+            Cleared
+          </Badge>
+        );
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
+  };
+
+  const isEligibleForMRB = (record: InspectionLotRecord) => {
+    return record.status === 'pending';
   };
 
   return (
@@ -673,17 +692,25 @@ export default function InwardReport() {
                               </TableCell>
                             </TableRow>
                           ) : (
-                            paginatedResults.map((record) => (
+                            paginatedResults.map((record) => {
+                              const eligible = isEligibleForMRB(record);
+                              return (
                               <TableRow 
                                 key={record.id} 
-                                className={`hover:bg-muted/30 transition-colors ${selectedIds.has(record.id) ? 'bg-primary/5' : ''}`}
+                                className={`transition-colors ${
+                                  selectedIds.has(record.id) 
+                                    ? 'bg-primary/5' 
+                                    : eligible 
+                                      ? 'hover:bg-muted/30' 
+                                      : 'bg-muted/20 opacity-60'
+                                }`}
                                 data-state={selectedIds.has(record.id) ? 'selected' : undefined}
                               >
                                 <TableCell>
                                   <Checkbox
                                     checked={selectedIds.has(record.id)}
                                     onCheckedChange={(checked) => handleSelectRow(record.id, !!checked)}
-                                    disabled={record.status === 'mrb_created'}
+                                    disabled={!eligible}
                                     aria-label={`Select ${record.inspectionLot}`}
                                   />
                                 </TableCell>
@@ -692,10 +719,11 @@ export default function InwardReport() {
                                     size="sm"
                                     onClick={() => handleCreateMRB(record)}
                                     className="whitespace-nowrap"
-                                    disabled={record.status === 'mrb_created'}
+                                    disabled={!eligible}
+                                    variant={eligible ? "default" : "outline"}
                                   >
                                     <PlusCircle className="h-4 w-4 mr-1" />
-                                    Create MRB
+                                    {eligible ? 'Create MRB' : 'Not Eligible'}
                                   </Button>
                                 </TableCell>
                                 <TableCell>
@@ -745,7 +773,8 @@ export default function InwardReport() {
                                   {record.poNumber || '-'}
                                 </TableCell>
                               </TableRow>
-                            ))
+                              );
+                            })
                           )}
                         </TableBody>
                       </Table>
