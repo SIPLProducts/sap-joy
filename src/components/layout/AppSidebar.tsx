@@ -22,7 +22,7 @@ const menuItems = [
   { title: 'KPI Dashboard', url: '/', icon: BarChart3, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin'] },
   { title: 'MRB Worklist', url: '/worklist', icon: ClipboardList, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin'] },
   { title: 'Material Blocking', url: '/shop-floor/stock-selection', icon: Package, roles: ['shop_floor', 'admin'] },
-  { title: 'Inward Report', url: '/inward/report', icon: FileSpreadsheet, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin'] },
+  { title: 'MRB - Inward Materials', url: '/inward/report', icon: FileSpreadsheet, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin'] },
   { title: 'MRB Print', url: '/mrb-print', icon: Printer, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin'] },
   { title: 'Email Log', url: '/emails', icon: Mail, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin'] },
 ];
