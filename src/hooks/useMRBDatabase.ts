@@ -241,7 +241,7 @@ export function useMRBDatabase() {
     }
   }, [fetchMRBRecords, toast]);
 
-  // Get approval history for an MRB
+  // Get approval history for an MRB with user names
   const getApprovalHistory = useCallback(async (mrbId: string) => {
     try {
       const { data, error } = await supabase
@@ -251,6 +251,23 @@ export function useMRBDatabase() {
         .order('performed_at', { ascending: true });
 
       if (error) throw error;
+      
+      // Fetch user names for all performers
+      if (data && data.length > 0) {
+        const userIds = [...new Set(data.map(item => item.performed_by))];
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name')
+          .in('user_id', userIds);
+        
+        const userNameMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
+        
+        return data.map(item => ({
+          ...item,
+          performer_name: userNameMap.get(item.performed_by) || 'Unknown User',
+        }));
+      }
+      
       return data || [];
     } catch (error) {
       console.error('Error fetching approval history:', error);

@@ -349,17 +349,16 @@ export default function InwardMRBDetail() {
                       )}
                     </div>
                     <div className="flex-1 pb-4">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium">{item.stage}</p>
                         <Badge variant="outline" className="text-xs capitalize">
                           {item.action}
                         </Badge>
-                        <Badge variant="secondary" className="text-xs">
-                          {getRoleDisplayName(item.performed_by_role as any)}
-                        </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(item.performed_at)}
+                      <p className="text-sm text-muted-foreground mt-1">
+                        by <span className="font-medium text-foreground">{(item as any).performer_name || 'Unknown'}</span>
+                        {' '}({getRoleDisplayName(item.performed_by_role as any)})
+                        {' • '}{formatDate(item.performed_at)}
                       </p>
                       {item.remarks && (
                         <p className="text-sm mt-1 bg-muted/50 p-2 rounded">{item.remarks}</p>
