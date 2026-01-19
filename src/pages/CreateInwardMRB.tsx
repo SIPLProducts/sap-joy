@@ -172,10 +172,11 @@ export default function CreateInwardMRB() {
       'reject': ['purchase', 'quality_head'],
       'partial_accept': ['purchase', 'engineering'],
       'accept_with_deviation': ['engineering', 'quality_head'],
-      'hold_for_review': ['engineering', 'quality_head'],
+      'hold_for_review': ['engineering', 'quality_head', 'mrb_committee'],
       'rework_required': ['engineering'],
       'return_to_vendor': ['purchase'],
       'conditional_release': ['engineering', 'plant_head'],
+      'blocked': ['quality_head', 'mrb_committee'],
     };
     return routingMap[decision] || [];
   }, []);
@@ -622,72 +623,74 @@ export default function CreateInwardMRB() {
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="space-y-2 lg:col-span-2">
+              <div className="space-y-2">
                 <Label className="text-foreground">
                   Quality Inspection Decision <span className="text-destructive">*</span>
                 </Label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {inwardQualityDecisions.map((decision) => (
-                    <label
-                      key={decision.value}
-                      className={`relative flex flex-col p-3 rounded-lg border cursor-pointer transition-all ${
-                        formData.qualityDecision === decision.value
-                          ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                          : 'border-border hover:bg-muted/50'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="qualityDecision"
+                <Select
+                  value={formData.qualityDecision}
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, qualityDecision: value });
+                    handleFieldBlur('qualityDecision');
+                  }}
+                >
+                  <SelectTrigger className={`bg-background h-11 ${getFieldError('qualityDecision') ? 'border-destructive' : formData.qualityDecision ? 'border-green-500' : ''}`}>
+                    <SelectValue placeholder="Select Quality Decision" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border-border z-50 max-h-[350px]">
+                    {inwardQualityDecisions.map((decision) => (
+                      <SelectItem 
+                        key={decision.value} 
                         value={decision.value}
-                        checked={formData.qualityDecision === decision.value}
-                        onChange={(e) => {
-                          setFormData({ ...formData, qualityDecision: e.target.value });
-                          handleFieldBlur('qualityDecision');
-                        }}
-                        className="sr-only"
-                      />
-                      <span className={`font-medium text-sm ${
-                        formData.qualityDecision === decision.value ? 'text-primary' : 'text-foreground'
-                      }`}>
-                        {decision.label}
-                      </span>
-                      <span className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                        {decision.description}
-                      </span>
-                      {formData.qualityDecision === decision.value && (
-                        <CheckCircle2 className="absolute top-2 right-2 h-4 w-4 text-primary" />
-                      )}
-                    </label>
-                  ))}
-                </div>
+                        className="py-3"
+                      >
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium">{decision.label}</span>
+                          <span className="text-xs text-muted-foreground">{decision.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {getFieldError('qualityDecision') && (
-                  <p className="text-xs text-destructive flex items-center gap-1">
+                  <p className="text-xs text-destructive flex items-center gap-1 mt-1">
                     <AlertCircle className="h-3 w-3" />
                     {getFieldError('qualityDecision')}
                   </p>
                 )}
+                {formData.qualityDecision && !getFieldError('qualityDecision') && (
+                  <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    {inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label}
+                  </p>
+                )}
               </div>
-              <div className="space-y-2 lg:col-span-1">
+              <div className="space-y-2">
                 <Label className="text-foreground">Defect Category</Label>
                 <Select
                   value={formData.defectCategory}
                   onValueChange={(value) => setFormData({ ...formData, defectCategory: value })}
                 >
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Select Category" />
+                  <SelectTrigger className={`bg-background h-11 ${formData.defectCategory ? 'border-green-500' : ''}`}>
+                    <SelectValue placeholder="Select Defect Category" />
                   </SelectTrigger>
-                  <SelectContent className="bg-popover border-border z-50 max-h-[300px]">
+                  <SelectContent className="bg-popover border-border z-50 max-h-[350px]">
                     {inwardDefectCategories.map((category) => (
-                      <SelectItem key={category.value} value={category.value}>
-                        <div className="flex flex-col">
-                          <span>{category.label}</span>
+                      <SelectItem key={category.value} value={category.value} className="py-3">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium">{category.label}</span>
                           <span className="text-xs text-muted-foreground">{category.description}</span>
                         </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {formData.defectCategory && (
+                  <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    {inwardDefectCategories.find(c => c.value === formData.defectCategory)?.label}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label className="text-foreground">

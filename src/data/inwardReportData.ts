@@ -240,6 +240,7 @@ export const nextReviewDepartments: { value: NextReviewDepartment; label: string
   { value: 'purchase', label: 'Purchase', description: 'Vendor coordination and replacement/return' },
   { value: 'plant_head', label: 'Plant Head', description: 'Final approval for critical decisions' },
   { value: 'quality_head', label: 'Quality Head', description: 'Quality escalation and policy decisions' },
+  { value: 'mrb_committee', label: 'MRB Committee', description: 'Cross-functional review committee for complex decisions' },
 ];
 
 // Quality Decisions for Inward Inspection
