@@ -21,6 +21,7 @@ import CreateInwardMRB from "@/pages/CreateInwardMRB";
 import InwardMRBDetail from "@/pages/InwardMRBDetail";
 import ShopFloorStockSelection from "@/pages/ShopFloorStockSelection";
 import ShopFloorMaterialBlocking from "@/pages/ShopFloorMaterialBlocking";
+import ShopFloorMRBDetail from "@/pages/ShopFloorMRBDetail";
 import QualityHeadDashboard from "@/pages/QualityHeadDashboard";
 import PurchaseHeadDashboard from "@/pages/PurchaseHeadDashboard";
 import EngineeringHeadDashboard from "@/pages/EngineeringHeadDashboard";
@@ -62,6 +63,7 @@ const App = () => (
                           <Route path="/inward/mrb/:id" element={<InwardMRBDetail />} />
                           <Route path="/shop-floor/stock-selection" element={<ShopFloorStockSelection />} />
                           <Route path="/shop-floor/material-blocking" element={<ShopFloorMaterialBlocking />} />
+                          <Route path="/shop-floor/mrb/:id" element={<ShopFloorMRBDetail />} />
                           <Route path="/dashboard/quality-head" element={<QualityHeadDashboard />} />
                           <Route path="/dashboard/purchase-head" element={<PurchaseHeadDashboard />} />
                           <Route path="/dashboard/engineering-head" element={<EngineeringHeadDashboard />} />
