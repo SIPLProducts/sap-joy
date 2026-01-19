@@ -115,6 +115,67 @@ export interface ParseResult {
   validRows: number;
 }
 
+/**
+ * Parse date string from various formats to ISO format (YYYY-MM-DD)
+ * Supports: DD-MM-YYYY, DD/MM/YYYY, MM-DD-YYYY, MM/DD/YYYY, YYYY-MM-DD, Excel serial dates
+ */
+function parseDateToISO(dateValue: unknown): string | undefined {
+  if (!dateValue) return undefined;
+  
+  // Handle Excel serial date numbers
+  if (typeof dateValue === 'number') {
+    // Excel serial date: days since 1900-01-01 (with Excel bug for 1900 leap year)
+    const excelEpoch = new Date(1899, 11, 30); // Dec 30, 1899
+    const date = new Date(excelEpoch.getTime() + dateValue * 24 * 60 * 60 * 1000);
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split('T')[0];
+    }
+  }
+  
+  const dateStr = String(dateValue).trim();
+  if (!dateStr) return undefined;
+  
+  // Already in ISO format (YYYY-MM-DD)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return dateStr;
+  }
+  
+  // DD-MM-YYYY or DD/MM/YYYY format
+  const ddmmyyyyMatch = dateStr.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (ddmmyyyyMatch) {
+    const [, day, month, year] = ddmmyyyyMatch;
+    const dayNum = parseInt(day, 10);
+    const monthNum = parseInt(month, 10);
+    
+    // Validate day and month ranges
+    if (dayNum >= 1 && dayNum <= 31 && monthNum >= 1 && monthNum <= 12) {
+      // Assume DD-MM-YYYY if day > 12 or if day <= 12 and month <= 12 (prefer DD-MM-YYYY for ambiguous cases)
+      const paddedDay = day.padStart(2, '0');
+      const paddedMonth = month.padStart(2, '0');
+      return `${year}-${paddedMonth}-${paddedDay}`;
+    }
+  }
+  
+  // YYYY/MM/DD format
+  const yyyymmddSlashMatch = dateStr.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (yyyymmddSlashMatch) {
+    const [, year, month, day] = yyyymmddSlashMatch;
+    const paddedDay = day.padStart(2, '0');
+    const paddedMonth = month.padStart(2, '0');
+    return `${year}-${paddedMonth}-${paddedDay}`;
+  }
+  
+  // Try native Date parsing as fallback
+  const parsed = new Date(dateStr);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().split('T')[0];
+  }
+  
+  // Return undefined if parsing fails
+  console.warn(`Could not parse date: ${dateStr}`);
+  return undefined;
+}
+
 export function validateParsedData(data: Record<string, unknown>[]): ParseResult {
   const result: ParseResult = {
     success: true,
@@ -139,6 +200,21 @@ export function validateParsedData(data: Record<string, unknown>[]): ParseResult
       errors.push(`Row ${rowNum}: Missing plant`);
     }
 
+    // Parse and validate dates
+    const rawInspectionDate = row.inspection_date || row['Inspection Date'] || row['INSPECTION_DATE'];
+    const rawPostingDate = row.posting_date || row['Posting Date'] || row['POSTING_DATE'];
+    
+    const parsedInspectionDate = parseDateToISO(rawInspectionDate);
+    const parsedPostingDate = parseDateToISO(rawPostingDate);
+    
+    // Warn if date couldn't be parsed but was provided
+    if (rawInspectionDate && !parsedInspectionDate) {
+      errors.push(`Row ${rowNum}: Invalid inspection_date format "${rawInspectionDate}". Use DD-MM-YYYY or YYYY-MM-DD`);
+    }
+    if (rawPostingDate && !parsedPostingDate) {
+      errors.push(`Row ${rowNum}: Invalid posting_date format "${rawPostingDate}". Use DD-MM-YYYY or YYYY-MM-DD`);
+    }
+
     if (errors.length > 0) {
       result.errors.push(...errors);
       result.success = false;
@@ -154,12 +230,8 @@ export function validateParsedData(data: Record<string, unknown>[]): ParseResult
         blocked_quantity: Number(row.blocked_quantity || row['Blocked Quantity'] || row['BLOCKED_QUANTITY'] || 0),
         transaction_quantity: Number(row.transaction_quantity || row['Transaction Quantity'] || row['TRANSACTION_QUANTITY'] || 0),
         uom: String(row.uom || row['UoM'] || row['UOM'] || 'EA'),
-        inspection_date: row.inspection_date || row['Inspection Date'] || row['INSPECTION_DATE'] 
-          ? String(row.inspection_date || row['Inspection Date'] || row['INSPECTION_DATE']) 
-          : undefined,
-        posting_date: row.posting_date || row['Posting Date'] || row['POSTING_DATE']
-          ? String(row.posting_date || row['Posting Date'] || row['POSTING_DATE'])
-          : undefined,
+        inspection_date: parsedInspectionDate,
+        posting_date: parsedPostingDate,
         block_reason: String(row.block_reason || row['Block Reason'] || row['BLOCK_REASON'] || ''),
         vendor_code: String(row.vendor_code || row['Vendor Code'] || row['VENDOR_CODE'] || ''),
         vendor_name: String(row.vendor_name || row['Vendor Name'] || row['VENDOR_NAME'] || ''),
