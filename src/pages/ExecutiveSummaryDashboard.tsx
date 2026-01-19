@@ -62,14 +62,14 @@ export default function ExecutiveSummaryDashboard() {
   const filteredMRBs = useMemo(() => {
     let filtered = [...allMRBs];
     if (selectedPlant !== 'all') filtered = filtered.filter(mrb => mrb.plant === selectedPlant);
-    if (selectedVendor !== 'all') filtered = filtered.filter(mrb => mrb.vendor === selectedVendor);
-    if (selectedMaterial !== 'all') filtered = filtered.filter(mrb => mrb.materialNumber === selectedMaterial);
+    if (selectedVendor !== 'all') filtered = filtered.filter(mrb => mrb.vendor_code === selectedVendor);
+    if (selectedMaterial !== 'all') filtered = filtered.filter(mrb => mrb.material_number === selectedMaterial);
     if (dateFrom && dateTo) {
-      filtered = filtered.filter(mrb => isWithinInterval(parseISO(mrb.createdAt), { start: dateFrom, end: dateTo }));
+      filtered = filtered.filter(mrb => mrb.created_at && isWithinInterval(parseISO(mrb.created_at), { start: dateFrom, end: dateTo }));
     } else if (dateFrom) {
-      filtered = filtered.filter(mrb => parseISO(mrb.createdAt) >= dateFrom);
+      filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) >= dateFrom);
     } else if (dateTo) {
-      filtered = filtered.filter(mrb => parseISO(mrb.createdAt) <= dateTo);
+      filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) <= dateTo);
     }
     return filtered;
   }, [allMRBs, selectedPlant, selectedVendor, selectedMaterial, dateFrom, dateTo]);
@@ -77,29 +77,29 @@ export default function ExecutiveSummaryDashboard() {
   // YTD MRBs
   const ytdMRBs = useMemo(() => {
     const currentYear = getYear(new Date());
-    return allMRBs.filter(mrb => getYear(parseISO(mrb.createdAt)) === currentYear);
+    return allMRBs.filter(mrb => mrb.created_at && getYear(parseISO(mrb.created_at)) === currentYear);
   }, [allMRBs]);
 
   const kpis = useMemo(() => {
     const totalYTD = ytdMRBs.length;
 
-    const closedMRBs = filteredMRBs.filter(mrb => mrb.closureStatus === 'closed' && mrb.closedAt);
+    const closedMRBs = filteredMRBs.filter(mrb => mrb.closure_status === 'closed' && mrb.closed_at);
     const avgLifecycle = closedMRBs.length > 0
       ? Math.round(closedMRBs.reduce((sum, mrb) => {
-          const created = parseISO(mrb.createdAt);
-          const closed = parseISO(mrb.closedAt!);
+          const created = parseISO(mrb.created_at);
+          const closed = parseISO(mrb.closed_at!);
           return sum + differenceInDays(closed, created);
         }, 0) / closedMRBs.length)
       : 0;
 
-    const slaCompliant = closedMRBs.filter(mrb => differenceInDays(parseISO(mrb.closedAt!), parseISO(mrb.createdAt)) <= 5).length;
+    const slaCompliant = closedMRBs.filter(mrb => differenceInDays(parseISO(mrb.closed_at!), parseISO(mrb.created_at)) <= 5).length;
     const slaPercent = closedMRBs.length > 0 ? Math.round((slaCompliant / closedMRBs.length) * 100) : 0;
 
-    const deviations = filteredMRBs.filter(mrb => mrb.engineeringDecision === 'use_with_deviation').length;
-    const rejections = filteredMRBs.filter(mrb => mrb.qualityDecision === 'reject' || mrb.finalDecision === 'rejected').length;
+    const deviations = filteredMRBs.filter(mrb => mrb.engineering_decision === 'use_with_deviation').length;
+    const rejections = filteredMRBs.filter(mrb => mrb.quality_decision === 'reject' || mrb.final_decision === 'rejected').length;
     const deviationRatio = rejections > 0 ? `${deviations}:${rejections}` : `${deviations}:0`;
 
-    const productionImpact = filteredMRBs.filter(mrb => mrb.impactOnProduction || mrb.immediateBlockRequired).length;
+    const productionImpact = filteredMRBs.filter(mrb => mrb.impact_on_production || mrb.immediate_block_required).length;
 
     return { totalYTD, avgLifecycle, slaPercent, deviationRatio, productionImpact };
   }, [filteredMRBs, ytdMRBs]);
@@ -111,7 +111,8 @@ export default function ExecutiveSummaryDashboard() {
       months[format(date, 'MMM')] = 0;
     }
     filteredMRBs.forEach(mrb => {
-      const month = format(parseISO(mrb.createdAt), 'MMM');
+      if (!mrb.created_at) return;
+      const month = format(parseISO(mrb.created_at), 'MMM');
       if (months[month] !== undefined) months[month]++;
     });
     return Object.entries(months).map(([month, count]) => ({ month, count }));
@@ -133,9 +134,9 @@ export default function ExecutiveSummaryDashboard() {
       'Pending': 0,
     };
     filteredMRBs.forEach(mrb => {
-      if (mrb.finalDecision === 'approved' || mrb.status === 'closed') decisions['Approved']++;
-      else if (mrb.engineeringDecision === 'use_with_deviation') decisions['Deviation']++;
-      else if (mrb.finalDecision === 'rejected' || mrb.qualityDecision === 'reject') decisions['Rejected']++;
+      if (mrb.final_decision === 'approved' || mrb.status === 'closed') decisions['Approved']++;
+      else if (mrb.engineering_decision === 'use_with_deviation') decisions['Deviation']++;
+      else if (mrb.final_decision === 'rejected' || mrb.quality_decision === 'reject') decisions['Rejected']++;
       else decisions['Pending']++;
     });
     return Object.entries(decisions).map(([name, value]) => ({ name, value }));
@@ -144,14 +145,14 @@ export default function ExecutiveSummaryDashboard() {
   const top10Materials = useMemo(() => {
     const materialCounts: Record<string, { material: string; description: string; count: number }> = {};
     filteredMRBs.forEach(mrb => {
-      if (!materialCounts[mrb.materialNumber]) {
-        materialCounts[mrb.materialNumber] = {
-          material: mrb.materialNumber,
-          description: mrb.materialDescription || '',
+      if (!materialCounts[mrb.material_number]) {
+        materialCounts[mrb.material_number] = {
+          material: mrb.material_number,
+          description: mrb.material_description || '',
           count: 0,
         };
       }
-      materialCounts[mrb.materialNumber].count++;
+      materialCounts[mrb.material_number].count++;
     });
     return Object.values(materialCounts)
       .sort((a, b) => b.count - a.count)
@@ -160,16 +161,16 @@ export default function ExecutiveSummaryDashboard() {
 
   const tableData = useMemo(() => {
     return filteredMRBs.slice(0, 25).map(mrb => {
-      const closureTime = mrb.closedAt
-        ? differenceInDays(parseISO(mrb.closedAt), parseISO(mrb.createdAt))
-        : mrb.pendingDays;
+      const closureTime = mrb.closed_at
+        ? differenceInDays(parseISO(mrb.closed_at), parseISO(mrb.created_at))
+        : mrb.pending_days || 0;
       return {
         id: mrb.id,
-        mrbNumber: mrb.mrbNumber,
+        mrbNumber: mrb.mrb_number,
         plant: mrb.plant,
-        materialCode: mrb.materialNumber,
-        vendorName: mrb.vendorName,
-        finalDecision: mrb.finalDecision || mrb.engineeringDecision || 'Pending',
+        materialCode: mrb.material_number,
+        vendorName: mrb.vendor_name,
+        finalDecision: mrb.final_decision || mrb.engineering_decision || 'Pending',
         closureTime,
         isSLABreached: closureTime > 5,
       };

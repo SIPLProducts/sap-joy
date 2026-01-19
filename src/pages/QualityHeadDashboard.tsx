@@ -59,17 +59,18 @@ export default function QualityHeadDashboard() {
   const filteredMRBs = useMemo(() => {
     let filtered = [...allMRBs];
     if (selectedPlant !== 'all') filtered = filtered.filter(mrb => mrb.plant === selectedPlant);
-    if (selectedVendor !== 'all') filtered = filtered.filter(mrb => mrb.vendor === selectedVendor);
-    if (selectedMaterial !== 'all') filtered = filtered.filter(mrb => mrb.materialNumber === selectedMaterial);
+    if (selectedVendor !== 'all') filtered = filtered.filter(mrb => mrb.vendor_code === selectedVendor);
+    if (selectedMaterial !== 'all') filtered = filtered.filter(mrb => mrb.material_number === selectedMaterial);
     if (dateFrom && dateTo) {
       filtered = filtered.filter(mrb => {
-        const createdDate = parseISO(mrb.createdAt);
+        if (!mrb.created_at) return false;
+        const createdDate = parseISO(mrb.created_at);
         return isWithinInterval(createdDate, { start: dateFrom, end: dateTo });
       });
     } else if (dateFrom) {
-      filtered = filtered.filter(mrb => parseISO(mrb.createdAt) >= dateFrom);
+      filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) >= dateFrom);
     } else if (dateTo) {
-      filtered = filtered.filter(mrb => parseISO(mrb.createdAt) <= dateTo);
+      filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) <= dateTo);
     }
     return filtered;
   }, [allMRBs, selectedPlant, selectedVendor, selectedMaterial, dateFrom, dateTo]);
@@ -83,21 +84,21 @@ export default function QualityHeadDashboard() {
 
   const kpis = useMemo(() => {
     const totalLots = filteredLots.length;
-    const rejectedLots = filteredMRBs.filter(mrb => mrb.qualityDecision === 'reject').length;
+    const rejectedLots = filteredMRBs.filter(mrb => mrb.quality_decision === 'reject').length;
     const rejectionRate = totalLots > 0 ? Math.round((rejectedLots / totalLots) * 100) : 0;
-    const totalBlockedQty = filteredMRBs.reduce((sum, mrb) => sum + (mrb.blockedQuantity || 0), 0);
+    const totalBlockedQty = filteredMRBs.reduce((sum, mrb) => sum + (mrb.blocked_quantity || 0), 0);
     const qualityRaised = filteredMRBs.filter(mrb => mrb.source === 'quality_inspection').length;
     
     const avgTimeToRaise = filteredMRBs.length > 0
-      ? Math.round(filteredMRBs.reduce((sum, mrb) => sum + Math.min(mrb.pendingDays, 3), 0) / filteredMRBs.length)
+      ? Math.round(filteredMRBs.reduce((sum, mrb) => sum + Math.min(mrb.pending_days || 0, 3), 0) / filteredMRBs.length)
       : 0;
 
     return { totalLots, rejectionRate, totalBlockedQty, qualityRaised, avgTimeToRaise };
   }, [filteredLots, filteredMRBs]);
 
   const defectCategorySplit = useMemo(() => {
-    const electrical = filteredMRBs.filter(mrb => mrb.defectCategory === 'functional').length;
-    const mechanical = filteredMRBs.filter(mrb => ['dimensional', 'surface', 'material'].includes(mrb.defectCategory || '')).length;
+    const electrical = filteredMRBs.filter(mrb => mrb.defect_category === 'functional').length;
+    const mechanical = filteredMRBs.filter(mrb => ['dimensional', 'surface', 'material'].includes(mrb.defect_category || '')).length;
     return [
       { name: 'Electrical/Functional', value: electrical },
       { name: 'Mechanical', value: mechanical },
@@ -107,7 +108,7 @@ export default function QualityHeadDashboard() {
   const topRejectionReasons = useMemo(() => {
     const reasons: Record<string, number> = {};
     filteredMRBs.forEach(mrb => {
-      const reason = mrb.defectCode || mrb.defectCategory || 'Other';
+      const reason = mrb.defect_code || mrb.defect_category || 'Other';
       reasons[reason] = (reasons[reason] || 0) + 1;
     });
     return Object.entries(reasons)
@@ -119,9 +120,10 @@ export default function QualityHeadDashboard() {
   const vendorRejectionTrend = useMemo(() => {
     const vendorData: Record<string, Record<string, number>> = {};
     filteredMRBs.forEach(mrb => {
-      if (mrb.qualityDecision === 'reject' || mrb.status === 'rejected') {
-        const month = format(parseISO(mrb.createdAt), 'MMM');
-        const vendor = mrb.vendorName?.split(' ')[0] || 'Unknown';
+      if (mrb.quality_decision === 'reject' || mrb.status === 'rejected') {
+        if (!mrb.created_at) return;
+        const month = format(parseISO(mrb.created_at), 'MMM');
+        const vendor = mrb.vendor_name?.split(' ')[0] || 'Unknown';
         if (!vendorData[month]) vendorData[month] = {};
         vendorData[month][vendor] = (vendorData[month][vendor] || 0) + 1;
       }
@@ -136,9 +138,10 @@ export default function QualityHeadDashboard() {
       months[format(date, 'MMM yyyy')] = 0;
     }
     filteredMRBs.forEach(mrb => {
-      const month = format(parseISO(mrb.createdAt), 'MMM yyyy');
+      if (!mrb.created_at) return;
+      const month = format(parseISO(mrb.created_at), 'MMM yyyy');
       if (months[month] !== undefined) {
-        months[month] += mrb.blockedQuantity || 0;
+        months[month] += mrb.blocked_quantity || 0;
       }
     });
     return Object.entries(months).map(([month, qty]) => ({ month, quantity: qty }));

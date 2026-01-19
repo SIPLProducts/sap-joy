@@ -58,38 +58,38 @@ export default function PurchaseHeadDashboard() {
   const filteredMRBs = useMemo(() => {
     let filtered = [...allMRBs];
     if (selectedPlant !== 'all') filtered = filtered.filter(mrb => mrb.plant === selectedPlant);
-    if (selectedVendor !== 'all') filtered = filtered.filter(mrb => mrb.vendor === selectedVendor);
-    if (selectedMaterial !== 'all') filtered = filtered.filter(mrb => mrb.materialNumber === selectedMaterial);
+    if (selectedVendor !== 'all') filtered = filtered.filter(mrb => mrb.vendor_code === selectedVendor);
+    if (selectedMaterial !== 'all') filtered = filtered.filter(mrb => mrb.material_number === selectedMaterial);
     if (dateFrom && dateTo) {
-      filtered = filtered.filter(mrb => isWithinInterval(parseISO(mrb.createdAt), { start: dateFrom, end: dateTo }));
+      filtered = filtered.filter(mrb => mrb.created_at && isWithinInterval(parseISO(mrb.created_at), { start: dateFrom, end: dateTo }));
     } else if (dateFrom) {
-      filtered = filtered.filter(mrb => parseISO(mrb.createdAt) >= dateFrom);
+      filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) >= dateFrom);
     } else if (dateTo) {
-      filtered = filtered.filter(mrb => parseISO(mrb.createdAt) <= dateTo);
+      filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) <= dateTo);
     }
     return filtered;
   }, [allMRBs, selectedPlant, selectedVendor, selectedMaterial, dateFrom, dateTo]);
 
   const kpis = useMemo(() => {
-    const vendorMRBs = filteredMRBs.filter(mrb => mrb.vendorResponsibility);
-    const vendorReplaceRequired = filteredMRBs.filter(mrb => mrb.vendorReplacementRequired).length;
+    const vendorMRBs = filteredMRBs.filter(mrb => mrb.vendor_responsibility);
+    const vendorReplaceRequired = filteredMRBs.filter(mrb => mrb.vendor_replacement_required).length;
     const replacePercent = filteredMRBs.length > 0 ? Math.round((vendorReplaceRequired / filteredMRBs.length) * 100) : 0;
     
     const replacementLeadTimes = filteredMRBs
-      .filter(mrb => mrb.vendorReplacementRequired && mrb.expectedReplacementDate)
+      .filter(mrb => mrb.vendor_replacement_required && mrb.expected_replacement_date)
       .map(mrb => {
-        const created = parseISO(mrb.createdAt);
-        const expected = parseISO(mrb.expectedReplacementDate!);
+        const created = parseISO(mrb.created_at);
+        const expected = parseISO(mrb.expected_replacement_date!);
         return differenceInDays(expected, created);
       });
     const avgLeadTime = replacementLeadTimes.length > 0
       ? Math.round(replacementLeadTimes.reduce((a, b) => a + b, 0) / replacementLeadTimes.length)
       : 0;
 
-    const pendingPurchase = filteredMRBs.filter(mrb => mrb.pendingWith === 'purchase').length;
+    const pendingPurchase = filteredMRBs.filter(mrb => mrb.pending_with === 'purchase').length;
     const scrapCost = filteredMRBs
-      .filter(mrb => mrb.purchaseAction?.toLowerCase().includes('scrap'))
-      .reduce((sum, mrb) => sum + (mrb.blockedQuantity || 0) * 100, 0); // Estimated cost per unit
+      .filter(mrb => mrb.purchase_action?.toLowerCase().includes('scrap'))
+      .reduce((sum, mrb) => sum + (mrb.blocked_quantity || 0) * 100, 0); // Estimated cost per unit
 
     return { vendorMRBs: vendorMRBs.length, replacePercent, avgLeadTime, pendingPurchase, scrapCost };
   }, [filteredMRBs]);
@@ -97,10 +97,11 @@ export default function PurchaseHeadDashboard() {
   const top10Vendors = useMemo(() => {
     const vendorCounts: Record<string, { name: string; count: number }> = {};
     filteredMRBs.forEach(mrb => {
-      if (!vendorCounts[mrb.vendor]) {
-        vendorCounts[mrb.vendor] = { name: mrb.vendorName || mrb.vendor, count: 0 };
+      const vendorCode = mrb.vendor_code || 'unknown';
+      if (!vendorCounts[vendorCode]) {
+        vendorCounts[vendorCode] = { name: mrb.vendor_name || vendorCode, count: 0 };
       }
-      vendorCounts[mrb.vendor].count++;
+      vendorCounts[vendorCode].count++;
     });
     return Object.entries(vendorCounts)
       .map(([_, data]) => ({ vendor: data.name.split(' ')[0], count: data.count }))
@@ -115,10 +116,10 @@ export default function PurchaseHeadDashboard() {
       monthData[month] = { total: 0, count: 0 };
     }
     filteredMRBs.forEach(mrb => {
-      if (mrb.vendorReplacementRequired && mrb.expectedReplacementDate) {
-        const month = format(parseISO(mrb.createdAt), 'MMM');
+      if (mrb.vendor_replacement_required && mrb.expected_replacement_date && mrb.created_at) {
+        const month = format(parseISO(mrb.created_at), 'MMM');
         if (monthData[month]) {
-          const days = differenceInDays(parseISO(mrb.expectedReplacementDate), parseISO(mrb.createdAt));
+          const days = differenceInDays(parseISO(mrb.expected_replacement_date), parseISO(mrb.created_at));
           monthData[month].total += days;
           monthData[month].count++;
         }
@@ -133,9 +134,9 @@ export default function PurchaseHeadDashboard() {
   const purchaseActionSplit = useMemo(() => {
     const actions: Record<string, number> = { Replace: 0, Return: 0, Accept: 0 };
     filteredMRBs.forEach(mrb => {
-      if (mrb.vendorReplacementRequired) actions['Replace']++;
-      else if (mrb.qualityDecision === 'reject') actions['Return']++;
-      else if (mrb.qualityDecision === 'accept' || mrb.qualityDecision === 'partial_accept') actions['Accept']++;
+      if (mrb.vendor_replacement_required) actions['Replace']++;
+      else if (mrb.quality_decision === 'reject') actions['Return']++;
+      else if (mrb.quality_decision === 'accept' || mrb.quality_decision === 'partial_accept') actions['Accept']++;
     });
     return Object.entries(actions).map(([name, value]) => ({ name, value }));
   }, [filteredMRBs]);
@@ -144,7 +145,8 @@ export default function PurchaseHeadDashboard() {
   const repeatVendors = useMemo(() => {
     const vendorCounts: Record<string, number> = {};
     filteredMRBs.forEach(mrb => {
-      vendorCounts[mrb.vendor] = (vendorCounts[mrb.vendor] || 0) + 1;
+      const vendorCode = mrb.vendor_code || 'unknown';
+      vendorCounts[vendorCode] = (vendorCounts[vendorCode] || 0) + 1;
     });
     return new Set(Object.entries(vendorCounts).filter(([_, count]) => count > 1).map(([vendor]) => vendor));
   }, [filteredMRBs]);
@@ -152,15 +154,15 @@ export default function PurchaseHeadDashboard() {
   const tableData = useMemo(() => {
     return filteredMRBs.slice(0, 20).map(mrb => ({
       id: mrb.id,
-      mrbNumber: mrb.mrbNumber,
-      vendorCode: mrb.vendor,
-      vendorName: mrb.vendorName,
-      materialCode: mrb.materialNumber,
-      blockedQuantity: mrb.blockedQuantity,
-      purchaseAction: mrb.purchaseAction || '-',
-      expectedReplacement: mrb.expectedReplacementDate ? format(parseISO(mrb.expectedReplacementDate), 'dd/MM/yyyy') : '-',
+      mrbNumber: mrb.mrb_number,
+      vendorCode: mrb.vendor_code,
+      vendorName: mrb.vendor_name,
+      materialCode: mrb.material_number,
+      blockedQuantity: mrb.blocked_quantity,
+      purchaseAction: mrb.purchase_action || '-',
+      expectedReplacement: mrb.expected_replacement_date ? format(parseISO(mrb.expected_replacement_date), 'dd/MM/yyyy') : '-',
       status: mrb.status,
-      isRepeatVendor: repeatVendors.has(mrb.vendor),
+      isRepeatVendor: repeatVendors.has(mrb.vendor_code || ''),
     }));
   }, [filteredMRBs, repeatVendors]);
 

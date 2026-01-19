@@ -109,7 +109,8 @@ export default function KPIDashboard() {
       const monthStart = startOfMonth(new Date(year, month - 1));
       const monthEnd = endOfMonth(new Date(year, month - 1));
       filtered = filtered.filter(mrb => {
-        const createdDate = parseISO(mrb.createdAt);
+        if (!mrb.created_at) return false;
+        const createdDate = parseISO(mrb.created_at);
         return isWithinInterval(createdDate, { start: monthStart, end: monthEnd });
       });
     }
@@ -117,13 +118,14 @@ export default function KPIDashboard() {
     // Filter by date range
     if (dateFrom && dateTo) {
       filtered = filtered.filter(mrb => {
-        const createdDate = parseISO(mrb.createdAt);
+        if (!mrb.created_at) return false;
+        const createdDate = parseISO(mrb.created_at);
         return isWithinInterval(createdDate, { start: dateFrom, end: dateTo });
       });
     } else if (dateFrom) {
-      filtered = filtered.filter(mrb => parseISO(mrb.createdAt) >= dateFrom);
+      filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) >= dateFrom);
     } else if (dateTo) {
-      filtered = filtered.filter(mrb => parseISO(mrb.createdAt) <= dateTo);
+      filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) <= dateTo);
     }
 
     return filtered;
@@ -138,20 +140,20 @@ export default function KPIDashboard() {
     // Basic Counts
     const totalMRBs = filteredMRBs.length;
     const openMRBs = filteredMRBs.filter(mrb => mrb.status !== 'closed' && mrb.status !== 'approved' && mrb.status !== 'rejected');
-    const closedMRBs = filteredMRBs.filter(mrb => mrb.closureStatus === 'closed');
-    const rejectedMRBs = filteredMRBs.filter(mrb => mrb.qualityDecision === 'reject' || mrb.status === 'rejected');
+    const closedMRBs = filteredMRBs.filter(mrb => mrb.closure_status === 'closed');
+    const rejectedMRBs = filteredMRBs.filter(mrb => mrb.quality_decision === 'reject' || mrb.status === 'rejected');
 
     // SLA Status
-    const slaGreen = filteredMRBs.filter(mrb => mrb.slaStatus === 'green').length;
-    const slaYellow = filteredMRBs.filter(mrb => mrb.slaStatus === 'yellow').length;
-    const slaRed = filteredMRBs.filter(mrb => mrb.slaStatus === 'red').length;
+    const slaGreen = filteredMRBs.filter(mrb => mrb.sla_status === 'green').length;
+    const slaYellow = filteredMRBs.filter(mrb => mrb.sla_status === 'yellow').length;
+    const slaRed = filteredMRBs.filter(mrb => mrb.sla_status === 'red').length;
 
     // My Pending
-    const myPending = filteredMRBs.filter(mrb => mrb.pendingWith === currentRole && mrb.status !== 'closed').length;
+    const myPending = filteredMRBs.filter(mrb => mrb.pending_with === currentRole && mrb.status !== 'closed').length;
 
     // Average Pending Days
     const avgPendingDays = openMRBs.length > 0 
-      ? Math.round(openMRBs.reduce((sum, mrb) => sum + mrb.pendingDays, 0) / openMRBs.length)
+      ? Math.round(openMRBs.reduce((sum, mrb) => sum + (mrb.pending_days || 0), 0) / openMRBs.length)
       : 0;
 
     return {
@@ -172,9 +174,9 @@ export default function KPIDashboard() {
     const reasonCounts: Record<string, { count: number; description: string }> = {};
     
     filteredMRBs.forEach(mrb => {
-      if (mrb.qualityDecision === 'reject' || mrb.status === 'rejected') {
-        const reason = mrb.defectCode || mrb.defectCategory || 'Unknown';
-        const description = mrb.defectDescription || mrb.defectCategory || 'Not specified';
+      if (mrb.quality_decision === 'reject' || mrb.status === 'rejected') {
+        const reason = mrb.defect_code || mrb.defect_category || 'Unknown';
+        const description = mrb.defect_description || mrb.defect_category || 'Not specified';
         if (!reasonCounts[reason]) {
           reasonCounts[reason] = { count: 0, description };
         }
@@ -193,9 +195,9 @@ export default function KPIDashboard() {
     const plantData: Record<string, Record<string, number>> = {};
     
     filteredMRBs.forEach(mrb => {
-      if (mrb.qualityDecision === 'reject' || mrb.status === 'rejected') {
+      if (mrb.quality_decision === 'reject' || mrb.status === 'rejected') {
         const plant = mrb.plant;
-        const reason = mrb.defectCategory || 'Other';
+        const reason = mrb.defect_category || 'Other';
         
         if (!plantData[plant]) {
           plantData[plant] = {};
@@ -216,9 +218,10 @@ export default function KPIDashboard() {
     const monthData: Record<string, Record<string, number>> = {};
     
     filteredMRBs.forEach(mrb => {
-      if (mrb.qualityDecision === 'reject' || mrb.status === 'rejected') {
-        const month = format(parseISO(mrb.createdAt), 'MMM yyyy');
-        const reason = mrb.defectCategory || 'Other';
+      if (mrb.quality_decision === 'reject' || mrb.status === 'rejected') {
+        if (!mrb.created_at) return;
+        const month = format(parseISO(mrb.created_at), 'MMM yyyy');
+        const reason = mrb.defect_category || 'Other';
         
         if (!monthData[month]) {
           monthData[month] = {};
@@ -244,9 +247,9 @@ export default function KPIDashboard() {
     }> = {};
     
     filteredMRBs.forEach(mrb => {
-      if (mrb.qualityDecision === 'reject' || mrb.status === 'rejected' || mrb.rejectedQuantity > 0) {
-        const vendorCode = mrb.vendor;
-        const vendorName = mrb.vendorName;
+      if (mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0) {
+        const vendorCode = mrb.vendor_code || 'unknown';
+        const vendorName = mrb.vendor_name || vendorCode;
         
         if (!vendorCounts[vendorCode]) {
           vendorCounts[vendorCode] = { 
@@ -257,8 +260,8 @@ export default function KPIDashboard() {
           };
         }
         vendorCounts[vendorCode].count++;
-        vendorCounts[vendorCode].totalQuantity += mrb.totalQuantity;
-        vendorCounts[vendorCode].rejectedQuantity += mrb.rejectedQuantity || mrb.blockedQuantity || 0;
+        vendorCounts[vendorCode].totalQuantity += mrb.total_quantity || 0;
+        vendorCounts[vendorCode].rejectedQuantity += mrb.rejected_quantity || mrb.blocked_quantity || 0;
       }
     });
 
@@ -274,10 +277,11 @@ export default function KPIDashboard() {
     const top5Vendors = topVendorsByDamage.map(v => v.vendorCode);
     
     filteredMRBs.forEach(mrb => {
-      if ((mrb.qualityDecision === 'reject' || mrb.status === 'rejected' || mrb.rejectedQuantity > 0) 
-          && top5Vendors.includes(mrb.vendor)) {
-        const month = format(parseISO(mrb.createdAt), 'MMM yyyy');
-        const vendor = mrb.vendorName.split(' ')[0]; // Short name
+      if ((mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0) 
+          && top5Vendors.includes(mrb.vendor_code || '')) {
+        if (!mrb.created_at) return;
+        const month = format(parseISO(mrb.created_at), 'MMM yyyy');
+        const vendor = (mrb.vendor_name || '').split(' ')[0]; // Short name
         
         if (!monthData[month]) {
           monthData[month] = {};
@@ -297,9 +301,9 @@ export default function KPIDashboard() {
     const plantData: Record<string, { plant: string; vendors: Record<string, number> }> = {};
     
     filteredMRBs.forEach(mrb => {
-      if (mrb.qualityDecision === 'reject' || mrb.status === 'rejected' || mrb.rejectedQuantity > 0) {
+      if (mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0) {
         const plant = mrb.plant;
-        const vendor = mrb.vendorName;
+        const vendor = mrb.vendor_name || '';
         
         if (!plantData[plant]) {
           plantData[plant] = { plant, vendors: {} };
@@ -323,8 +327,8 @@ export default function KPIDashboard() {
     const categories: Record<string, number> = {};
     
     filteredMRBs.forEach(mrb => {
-      if (mrb.defectCategory) {
-        categories[mrb.defectCategory] = (categories[mrb.defectCategory] || 0) + 1;
+      if (mrb.defect_category) {
+        categories[mrb.defect_category] = (categories[mrb.defect_category] || 0) + 1;
       }
     });
 

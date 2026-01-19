@@ -8,7 +8,7 @@ import { Mail, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 export default function EmailLog() {
   const { emailLogs } = useMRB();
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: string | null) => {
     switch (status) {
       case 'sent': return <CheckCircle className="h-4 w-4 text-green-600" />;
       case 'pending': return <Clock className="h-4 w-4 text-yellow-600" />;
@@ -68,8 +68,8 @@ export default function EmailLog() {
                 <TableRow key={log.id}>
                   <TableCell>{getStatusIcon(log.status)}</TableCell>
                   <TableCell>
-                    <Link to={`/mrb/${log.mrbId}`} className="text-primary hover:underline font-medium">
-                      {log.mrbNumber}
+                    <Link to={`/mrb/${log.mrb_id}`} className="text-primary hover:underline font-medium">
+                      {log.mrb_number}
                     </Link>
                   </TableCell>
                   <TableCell className="max-w-xs truncate">{log.subject}</TableCell>
@@ -78,7 +78,7 @@ export default function EmailLog() {
                   </TableCell>
                   <TableCell className="text-sm">{log.recipients.join(', ')}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {new Date(log.sentAt).toLocaleString()}
+                    {new Date(log.sent_at).toLocaleString()}
                   </TableCell>
                 </TableRow>
               ))}
