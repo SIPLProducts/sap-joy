@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Send, X, Upload, FileText, Trash2, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { ArrowLeft, Save, Send, X, Upload, FileText, Trash2, CheckCircle2, AlertCircle, Clock, Lightbulb, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -164,6 +164,42 @@ export default function CreateInwardMRB() {
   const [lastSaved, setLastSaved] = useState<Date | null>(savedDraft ? new Date() : null);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
+
+  // Smart routing suggestions based on quality decision
+  const getRecommendedDepartments = useCallback((decision: string): string[] => {
+    const routingMap: Record<string, string[]> = {
+      'accept': [], // No routing needed for simple accept
+      'reject': ['purchase', 'quality_head'],
+      'partial_accept': ['purchase', 'engineering'],
+      'accept_with_deviation': ['engineering', 'quality_head'],
+      'hold_for_review': ['engineering', 'quality_head'],
+      'rework_required': ['engineering'],
+      'return_to_vendor': ['purchase'],
+      'conditional_release': ['engineering', 'plant_head'],
+    };
+    return routingMap[decision] || [];
+  }, []);
+
+  const recommendedDepartments = useMemo(() => {
+    return getRecommendedDepartments(formData.qualityDecision);
+  }, [formData.qualityDecision, getRecommendedDepartments]);
+
+  // Check if a department is recommended
+  const isDepartmentRecommended = useCallback((deptValue: string): boolean => {
+    return recommendedDepartments.includes(deptValue);
+  }, [recommendedDepartments]);
+
+  // Auto-apply recommended departments
+  const handleApplyRecommendations = useCallback(() => {
+    if (recommendedDepartments.length > 0) {
+      const newDepartments = [...new Set([...formData.nextReviewDepartments, ...recommendedDepartments])];
+      setFormData(prev => ({
+        ...prev,
+        nextReviewDepartments: newDepartments,
+      }));
+      setTouchedFields(prev => new Set(prev).add('nextReviewDepartments'));
+    }
+  }, [recommendedDepartments, formData.nextReviewDepartments]);
 
   // Real-time validation
   const validateField = useCallback((field: keyof FormData, value: any): string | undefined => {
@@ -803,6 +839,37 @@ export default function CreateInwardMRB() {
           </div>
           <div className="p-6">
             <div className="space-y-4">
+              {/* Smart Routing Suggestion Banner */}
+              {recommendedDepartments.length > 0 && (
+                <div className="flex items-center justify-between p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900">
+                      <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                        Smart Routing Suggestion
+                      </p>
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        Based on "{inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label}" decision, 
+                        we recommend: {recommendedDepartments.map(d => 
+                          nextReviewDepartments.find(dept => dept.value === d)?.label
+                        ).join(', ')}
+                      </p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleApplyRecommendations}
+                    className="border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900"
+                  >
+                    <Lightbulb className="h-4 w-4 mr-1 text-amber-600" />
+                    Apply
+                  </Button>
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <Label className="text-foreground">
                   Next Review Department(s) <span className="text-destructive">*</span>
@@ -821,51 +888,66 @@ export default function CreateInwardMRB() {
                 )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {nextReviewDepartments.map((dept) => (
-                  <label
-                    key={dept.value}
-                    className={`relative flex flex-col p-4 rounded-lg border cursor-pointer transition-all ${
-                      formData.nextReviewDepartments.includes(dept.value)
-                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                        : 'border-border hover:bg-muted/50'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={formData.nextReviewDepartments.includes(dept.value)}
-                        onChange={(e) => {
-                          handleFieldBlur('nextReviewDepartments');
-                          if (e.target.checked) {
-                            setFormData({
-                              ...formData,
-                              nextReviewDepartments: [...formData.nextReviewDepartments, dept.value],
-                            });
-                          } else {
-                            setFormData({
-                              ...formData,
-                              nextReviewDepartments: formData.nextReviewDepartments.filter(
-                                (d) => d !== dept.value
-                              ),
-                            });
-                          }
-                        }}
-                        className="h-4 w-4 text-primary mt-0.5"
-                      />
-                      <div className="flex-1">
-                        <span className={`font-medium text-sm ${
-                          formData.nextReviewDepartments.includes(dept.value) ? 'text-primary' : 'text-foreground'
-                        }`}>
-                          {dept.label}
-                        </span>
-                        <p className="text-xs text-muted-foreground mt-1">{dept.description}</p>
+                {nextReviewDepartments.map((dept) => {
+                  const isSelected = formData.nextReviewDepartments.includes(dept.value);
+                  const isRecommended = isDepartmentRecommended(dept.value);
+                  
+                  return (
+                    <label
+                      key={dept.value}
+                      className={`relative flex flex-col p-4 rounded-lg border cursor-pointer transition-all ${
+                        isSelected
+                          ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                          : isRecommended
+                          ? 'border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/20'
+                          : 'border-border hover:bg-muted/50'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            handleFieldBlur('nextReviewDepartments');
+                            if (e.target.checked) {
+                              setFormData({
+                                ...formData,
+                                nextReviewDepartments: [...formData.nextReviewDepartments, dept.value],
+                              });
+                            } else {
+                              setFormData({
+                                ...formData,
+                                nextReviewDepartments: formData.nextReviewDepartments.filter(
+                                  (d) => d !== dept.value
+                                ),
+                              });
+                            }
+                          }}
+                          className="h-4 w-4 text-primary mt-0.5"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`font-medium text-sm ${
+                              isSelected ? 'text-primary' : 'text-foreground'
+                            }`}>
+                              {dept.label}
+                            </span>
+                            {isRecommended && !isSelected && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                                <Sparkles className="h-3 w-3" />
+                                Recommended
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">{dept.description}</p>
+                        </div>
                       </div>
-                    </div>
-                    {formData.nextReviewDepartments.includes(dept.value) && (
-                      <CheckCircle2 className="absolute top-3 right-3 h-4 w-4 text-primary" />
-                    )}
-                  </label>
-                ))}
+                      {isSelected && (
+                        <CheckCircle2 className="absolute top-3 right-3 h-4 w-4 text-primary" />
+                      )}
+                    </label>
+                  );
+                })}
               </div>
             </div>
           </div>
