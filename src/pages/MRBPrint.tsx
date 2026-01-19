@@ -267,110 +267,83 @@ const MRBPrint = () => {
     }
   `;
 
-  const handlePrint = (formType: 'ncr' | 'mrb') => {
+  const handlePrint = (formType: 'ncr' | 'mrb', orientation: 'portrait' | 'landscape' = 'portrait') => {
     const printRef = formType === 'ncr' ? ncrPrintRef : mrbPrintRef;
     if (!printRef.current) return;
-    
-    // Add print-specific class to body
-    document.body.classList.add('printing');
-    
-    // Create a style element for print media
-    const printStyleElement = document.createElement('style');
-    printStyleElement.id = 'mrb-print-styles';
-    printStyleElement.innerHTML = `
-      @media print {
-        /* Hide everything except print content */
-        body * {
-          visibility: hidden !important;
-        }
-        
-        /* Show the print content */
-        #print-content-wrapper,
-        #print-content-wrapper * {
-          visibility: visible !important;
-        }
-        
-        #print-content-wrapper {
-          position: absolute !important;
-          left: 0 !important;
-          top: 0 !important;
-          width: 100% !important;
-          background: white !important;
-        }
-        
-        /* Print configuration */
-        @page {
-          size: A4 portrait;
-          margin: 10mm;
-        }
-        
-        /* Table styles for print */
-        table {
-          border-collapse: collapse !important;
-          width: 100% !important;
-        }
-        
-        th, td {
-          border: 1px solid #000 !important;
-          padding: 4px 6px !important;
-          font-size: 10px !important;
-        }
-        
-        /* Headers */
-        th {
-          background-color: #f5f5f5 !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-        
-        /* Checkbox styles */
-        .checkbox {
-          width: 12px !important;
-          height: 12px !important;
-          border: 1px solid #000 !important;
-          display: inline-block !important;
-        }
-        
-        .checkbox.checked {
-          background: #000 !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-        
-        /* Ensure backgrounds print */
-        * {
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-      }
-    `;
-    document.head.appendChild(printStyleElement);
-    
-    // Wrap content for printing
-    const wrapper = document.createElement('div');
-    wrapper.id = 'print-content-wrapper';
-    wrapper.innerHTML = `
-      <style>${getPrintStyles()}</style>
-      ${printRef.current.innerHTML}
-    `;
-    document.body.appendChild(wrapper);
-    
-    // Trigger print
-    setTimeout(() => {
-      window.print();
-      
-      // Cleanup after print dialog closes
+
+    // Create print window
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) {
+      toast({
+        title: 'Print Blocked',
+        description: 'Please allow popups to print the document.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const title = formType === 'ncr'
+      ? `Non-Conformance Report (IQC) - ${selectedMRB?.mrb_number}`
+      : `MRB Committee Form - ${selectedMRB?.mrb_number}`;
+
+    // Write full HTML document to print window
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            ${getPrintStyles()}
+            
+            @page {
+              size: A4 ${orientation};
+              margin: 10mm;
+            }
+            
+            @media print {
+              body {
+                margin: 0;
+                padding: 0;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+            }
+            
+            body {
+              font-family: Arial, sans-serif;
+              margin: 0;
+              padding: 10px;
+              background: white;
+            }
+          </style>
+        </head>
+        <body>
+          ${printRef.current.innerHTML}
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+
+    // Wait for content to load then print
+    printWindow.onload = () => {
       setTimeout(() => {
-        document.body.classList.remove('printing');
-        const styleEl = document.getElementById('mrb-print-styles');
-        if (styleEl) styleEl.remove();
-        const wrapperEl = document.getElementById('print-content-wrapper');
-        if (wrapperEl) wrapperEl.remove();
-      }, 500);
-    }, 100);
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
+      }, 250);
+    };
+
+    // Fallback if onload doesn't fire
+    setTimeout(() => {
+      if (!printWindow.closed) {
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
+      }
+    }, 1000);
   };
 
-  const handleDownloadPDF = async (formType: 'ncr' | 'mrb') => {
+  const handleDownloadPDF = async (formType: 'ncr' | 'mrb', orientation: 'portrait' | 'landscape' = 'portrait') => {
     const printRef = formType === 'ncr' ? ncrPrintRef : mrbPrintRef;
     if (!printRef.current) return;
 
@@ -397,7 +370,7 @@ const MRBPrint = () => {
         jsPDF: { 
           unit: 'mm', 
           format: 'a4', 
-          orientation: 'portrait' 
+          orientation: orientation 
         }
       };
 
@@ -770,14 +743,22 @@ const MRBPrint = () => {
                   </TabsTrigger>
                 </TabsList>
                 
-                <div className="flex gap-2">
-                  <Button onClick={() => handlePrint(activeForm)} className="gap-2">
+                <div className="flex gap-2 flex-wrap">
+                  <Button onClick={() => handlePrint(activeForm, 'portrait')} className="gap-2">
                     <Printer className="h-4 w-4" />
-                    Print
+                    Print (Portrait)
                   </Button>
-                  <Button onClick={() => handleDownloadPDF(activeForm)} variant="outline" className="gap-2">
+                  <Button onClick={() => handlePrint(activeForm, 'landscape')} variant="secondary" className="gap-2">
+                    <Printer className="h-4 w-4" />
+                    Print (Landscape)
+                  </Button>
+                  <Button onClick={() => handleDownloadPDF(activeForm, 'portrait')} variant="outline" className="gap-2">
                     <Download className="h-4 w-4" />
-                    Download PDF
+                    PDF (Portrait)
+                  </Button>
+                  <Button onClick={() => handleDownloadPDF(activeForm, 'landscape')} variant="outline" className="gap-2">
+                    <Download className="h-4 w-4" />
+                    PDF (Landscape)
                   </Button>
                 </div>
               </div>
