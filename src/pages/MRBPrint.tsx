@@ -271,70 +271,103 @@ const MRBPrint = () => {
     const printRef = formType === 'ncr' ? ncrPrintRef : mrbPrintRef;
     if (!printRef.current) return;
     
-    const printContent = printRef.current.innerHTML;
+    // Add print-specific class to body
+    document.body.classList.add('printing');
     
-    const title = formType === 'ncr' 
-      ? `Non-Conformance Report (IQC) - ${selectedMRB?.mrb_number}`
-      : `MRB Committee Form - ${selectedMRB?.mrb_number}`;
-
-    // Create an iframe for printing (works better in embedded contexts)
-    const printFrame = document.createElement('iframe');
-    printFrame.style.position = 'absolute';
-    printFrame.style.top = '-10000px';
-    printFrame.style.left = '-10000px';
-    printFrame.style.width = '210mm';
-    printFrame.style.height = '297mm';
-    document.body.appendChild(printFrame);
-
-    const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
-    if (!frameDoc) {
-      document.body.removeChild(printFrame);
-      toast({ 
-        title: 'Print Error', 
-        description: 'Could not create print frame. Please try again.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    frameDoc.open();
-    frameDoc.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${title}</title>
-          <style>${getPrintStyles()}</style>
-        </head>
-        <body>
-          ${printContent}
-        </body>
-      </html>
-    `);
-    frameDoc.close();
-
-    // Wait for content to load then print
-    setTimeout(() => {
-      try {
-        printFrame.contentWindow?.focus();
-        printFrame.contentWindow?.print();
-        toast({ 
-          title: 'Print Dialog Opened', 
-          description: 'Select "Save as PDF" in the print dialog to download as PDF' 
-        });
-      } catch (error) {
-        console.error('Print error:', error);
-        toast({ 
-          title: 'Print Error', 
-          description: 'Could not open print dialog. Try right-clicking and selecting Print.',
-          variant: 'destructive'
-        });
-      } finally {
-        // Clean up after a delay to allow print dialog to complete
-        setTimeout(() => {
-          document.body.removeChild(printFrame);
-        }, 1000);
+    // Create a style element for print media
+    const printStyleElement = document.createElement('style');
+    printStyleElement.id = 'mrb-print-styles';
+    printStyleElement.innerHTML = `
+      @media print {
+        /* Hide everything except print content */
+        body * {
+          visibility: hidden !important;
+        }
+        
+        /* Show the print content */
+        #print-content-wrapper,
+        #print-content-wrapper * {
+          visibility: visible !important;
+        }
+        
+        #print-content-wrapper {
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
+          background: white !important;
+        }
+        
+        /* Print configuration */
+        @page {
+          size: A4 portrait;
+          margin: 10mm;
+        }
+        
+        /* Table styles for print */
+        table {
+          border-collapse: collapse !important;
+          width: 100% !important;
+        }
+        
+        th, td {
+          border: 1px solid #000 !important;
+          padding: 4px 6px !important;
+          font-size: 10px !important;
+        }
+        
+        /* Headers */
+        th {
+          background-color: #f5f5f5 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        
+        /* Checkbox styles */
+        .checkbox {
+          width: 12px !important;
+          height: 12px !important;
+          border: 1px solid #000 !important;
+          display: inline-block !important;
+        }
+        
+        .checkbox.checked {
+          background: #000 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        
+        /* Ensure backgrounds print */
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
       }
-    }, 250);
+    `;
+    document.head.appendChild(printStyleElement);
+    
+    // Wrap content for printing
+    const wrapper = document.createElement('div');
+    wrapper.id = 'print-content-wrapper';
+    wrapper.innerHTML = `
+      <style>${getPrintStyles()}</style>
+      ${printRef.current.innerHTML}
+    `;
+    document.body.appendChild(wrapper);
+    
+    // Trigger print
+    setTimeout(() => {
+      window.print();
+      
+      // Cleanup after print dialog closes
+      setTimeout(() => {
+        document.body.classList.remove('printing');
+        const styleEl = document.getElementById('mrb-print-styles');
+        if (styleEl) styleEl.remove();
+        const wrapperEl = document.getElementById('print-content-wrapper');
+        if (wrapperEl) wrapperEl.remove();
+      }, 500);
+    }, 100);
   };
 
   const handleDownloadPDF = async (formType: 'ncr' | 'mrb') => {
