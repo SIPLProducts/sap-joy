@@ -50,6 +50,7 @@ const App = () => (
                         <Routes>
                           <Route path="/" element={<KPIDashboard />} />
                           <Route path="/worklist" element={<Worklist />} />
+                          <Route path="/inward/worklist" element={<Worklist />} />
                           <Route path="/mrb/:id" element={<MRBDetail />} />
                           <Route path="/create/quality" element={<CreateMRBQuality />} />
                           <Route path="/create/shop-floor" element={<CreateMRBShopFloor />} />
