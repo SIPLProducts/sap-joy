@@ -363,6 +363,8 @@ export default function Worklist() {
   const handleViewClick = (mrb: UnifiedMRBRecord) => {
     if (mrb.source === 'quality_inspection') {
       navigate(`/inward/mrb/${mrb.id}`);
+    } else if (mrb.source === 'shop_floor') {
+      navigate(`/shop-floor/mrb/${mrb.id}`);
     } else {
       navigate(`/mrb/${mrb.id}`);
     }
