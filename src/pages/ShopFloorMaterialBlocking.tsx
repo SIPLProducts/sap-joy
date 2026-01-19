@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { useMRB } from '@/contexts/MRBContext';
+import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { useRole } from '@/contexts/RoleContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,8 +28,9 @@ import {
   Printer,
 } from 'lucide-react';
 import { AvailableStockRecord, shopFloorBlockReasons, shopFloorNextDepartments, shopFloorAttachmentCategories } from '@/data/shopFloorStockData';
-import { MRBRecord, Attachment, UserRole } from '@/types/mrb';
-import { mockUsers } from '@/data/mockData';
+import type { Database } from '@/integrations/supabase/types';
+
+type AppRole = Database['public']['Enums']['app_role'];
 
 interface AttachmentUpload {
   id: string;
@@ -41,8 +43,9 @@ interface AttachmentUpload {
 export default function ShopFloorMaterialBlocking() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { createMRB, addEmailLog, getNextMRBNumber } = useMRB();
+  const { createMRB, getNextMRBNumber } = useMRBDatabase();
   const { currentRole } = useRole();
+  const { user } = useAuth();
   
   const stockItem = location.state?.stockItem as AvailableStockRecord | undefined;
 
@@ -51,7 +54,7 @@ export default function ShopFloorMaterialBlocking() {
   const [productionOrder, setProductionOrder] = useState('');
   const [blockReason, setBlockReason] = useState('');
   const [issueDescription, setIssueDescription] = useState('');
-  const [nextReviewDepartments, setNextReviewDepartments] = useState<UserRole[]>([]);
+  const [nextReviewDepartments, setNextReviewDepartments] = useState<AppRole[]>([]);
   const [attachments, setAttachments] = useState<AttachmentUpload[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -140,104 +143,43 @@ export default function ShopFloorMaterialBlocking() {
 
     try {
       // Generate MRB number
-      const mrbNumber = getNextMRBNumber();
-      const now = new Date().toISOString();
-      const currentUser = mockUsers.find(u => u.role === currentRole);
+      const mrbNumber = await getNextMRBNumber();
 
-      // Create MRB record
-      const newMRB: MRBRecord = {
-        id: Math.random().toString(36).substr(2, 9),
-        mrbNumber,
+      // Create MRB record using database hook
+      const mrbResult = await createMRB({
+        mrb_number: mrbNumber,
         status: 'quality_review',
         source: 'shop_floor',
-        createdAt: now,
-        createdBy: currentUser?.name || 'Shop Floor User',
-        updatedAt: now,
-        pendingWith: nextReviewDepartments[0],
-        pendingDays: 0,
-        slaStatus: 'green',
-        escalationLevel: 'none',
-        materialNumber: stockItem.materialCode,
-        materialDescription: stockItem.materialDescription,
+        created_by: user?.id || 'shop_floor_user',
+        pending_with: nextReviewDepartments[0] || 'quality',
+        pending_days: 0,
+        sla_status: 'green',
+        escalation_level: 'none',
+        material_number: stockItem.materialCode,
+        material_description: stockItem.materialDescription,
         plant: stockItem.plant,
-        vendor: '',
-        vendorName: 'N/A (Shop Floor)',
-        totalQuantity: blockQuantity,
-        acceptedQuantity: 0,
-        rejectedQuantity: 0,
-        blockedQuantity: blockQuantity,
+        vendor_name: 'N/A (Shop Floor)',
+        total_quantity: blockQuantity,
+        accepted_quantity: 0,
+        rejected_quantity: 0,
+        blocked_quantity: blockQuantity,
         uom: stockItem.uom,
-        productionOrderNumber: productionOrder || `PRD-${format(new Date(), 'yyyy')}-${Math.floor(1000 + Math.random() * 9000)}`,
-        issuedQuantity: blockQuantity,
-        issueIdentifiedBy: currentUser?.name || 'Shop Floor User',
-        issueIdentifiedDate: now,
-        issueDescription: `${blockReason}: ${issueDescription}`,
-        impactOnProduction: 'Material blocked for review',
-        immediateBlockRequired: true,
-        attachments: attachments.map(a => ({
-          id: a.id,
-          name: a.name,
-          type: a.type,
-          size: a.size,
-          url: '#',
-          uploadedBy: currentUser?.name || 'Shop Floor User',
-          uploadedAt: now,
-          category: a.category as Attachment['category'],
-        })),
-        approvalHistory: [
-          {
-            id: Math.random().toString(36).substr(2, 9),
-            stage: 'Shop Floor Blocking',
-            action: 'forwarded',
-            performedBy: currentUser?.name || 'Shop Floor User',
-            performedByRole: 'shop_floor',
-            performedAt: now,
-            remarks: `Material blocked and forwarded to ${nextReviewDepartments.map(d => shopFloorNextDepartments.find(dept => dept.value === d)?.label).join(', ')}`,
-          },
-        ],
-      };
-
-      // Create MRB
-      createMRB(newMRB);
-
-      // Create email log for each selected department
-      const deptLabels = nextReviewDepartments.map(d => shopFloorNextDepartments.find(dept => dept.value === d)?.label || d).join(', ');
-      const recipientEmails = mockUsers.filter(u => nextReviewDepartments.includes(u.role)).map(u => u.email);
-      const ccEmails = mockUsers.filter(u => u.role === 'shop_floor' || u.role === 'quality').map(u => u.email);
-
-      addEmailLog({
-        id: Math.random().toString(36).substr(2, 9),
-        mrbId: newMRB.id,
-        mrbNumber,
-        subject: `[MRB] Shop Floor Material Blocking - ${mrbNumber}`,
-        recipients: recipientEmails.length > 0 ? recipientEmails : nextReviewDepartments.map(d => `${d}@hbl.com`),
-        cc: ccEmails,
-        template: 'quality_to_engineering',
-        sentAt: now,
-        sentBy: currentUser?.name || 'Shop Floor User',
-        status: 'sent',
-        body: `
-Material Blocking Notification
-
-MRB Number: ${mrbNumber}
-Production Order: ${productionOrder || 'N/A'}
-Plant: ${stockItem.plant}
-Material: ${stockItem.materialCode} - ${stockItem.materialDescription}
-Batch: ${stockItem.batch}
-Storage Location: ${stockItem.storageLocation}
-Block Quantity: ${blockQuantity} ${stockItem.uom}
-Block Reason: ${blockReason}
-Issue Description: ${issueDescription}
-
-Attachments: ${attachments.length > 0 ? attachments.map(a => a.name).join(', ') : 'None'}
-
-Please review and take appropriate action.
-        `,
+        production_order_number: productionOrder || `PRD-${format(new Date(), 'yyyy')}-${Math.floor(1000 + Math.random() * 9000)}`,
+        issued_quantity: blockQuantity,
+        issue_identified_by: user?.email || 'Shop Floor User',
+        issue_identified_date: new Date().toISOString(),
+        issue_description: `${blockReason}: ${issueDescription}`,
+        impact_on_production: 'Material blocked for review',
+        immediate_block_required: true,
       });
 
-      setCreatedMRBNumber(mrbNumber);
-      setIsSubmitted(true);
-      toast.success(`MRB ${mrbNumber} created successfully!`);
+      if (mrbResult) {
+        setCreatedMRBNumber(mrbNumber);
+        setIsSubmitted(true);
+        toast.success(`MRB ${mrbNumber} created successfully!`);
+      } else {
+        throw new Error('Failed to create MRB');
+      }
 
     } catch (error) {
       console.error('Error creating MRB:', error);
@@ -425,40 +367,27 @@ Please review and take appropriate action.
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Available Quantity</Label>
-                <Input value={`${stockItem.availableQuantity} ${stockItem.uom}`} disabled className="bg-muted h-9 font-medium" />
+                <Input value={`${stockItem.availableQuantity} ${stockItem.uom}`} disabled className="bg-muted h-9" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* PART 4: Material Blocking Input */}
+        {/* PART 4: Blocking Details */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-warning" />
-              Material Blocking Details
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Blocking Details
             </CardTitle>
-            <CardDescription>Enter blocking information</CardDescription>
+            <CardDescription>Specify the quantity and reason for blocking</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="productionOrder">Production Order (PO)</Label>
+                <Label htmlFor="blockQuantity">Block Quantity *</Label>
                 <Input
-                  id="productionOrder"
-                  value={productionOrder}
-                  onChange={(e) => setProductionOrder(e.target.value)}
-                  placeholder="Enter PO number..."
-                />
-                <p className="text-xs text-muted-foreground">
-                  Optional: Link to production order
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="blockQty">Block Quantity *</Label>
-                <Input
-                  id="blockQty"
+                  id="blockQuantity"
                   type="number"
                   min={1}
                   max={stockItem.availableQuantity}
@@ -468,37 +397,41 @@ Please review and take appropriate action.
                   className={errors.blockQuantity ? 'border-destructive' : ''}
                 />
                 {errors.blockQuantity && (
-                  <p className="text-sm text-destructive">{errors.blockQuantity}</p>
+                  <p className="text-xs text-destructive">{errors.blockQuantity}</p>
                 )}
-                <p className="text-xs text-muted-foreground">
-                  Available: {stockItem.availableQuantity} {stockItem.uom}
-                </p>
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="blockReason">Block Reason *</Label>
-                <Select value={blockReason} onValueChange={setBlockReason}>
-                  <SelectTrigger className={errors.blockReason ? 'border-destructive' : ''}>
-                    <SelectValue placeholder="Select reason..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                    {shopFloorBlockReasons.map((reason) => (
-                      <SelectItem key={reason} value={reason}>
-                        {reason}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.blockReason && (
-                  <p className="text-sm text-destructive">{errors.blockReason}</p>
-                )}
+                <Label htmlFor="productionOrder">Production Order (Optional)</Label>
+                <Input
+                  id="productionOrder"
+                  value={productionOrder}
+                  onChange={(e) => setProductionOrder(e.target.value)}
+                  placeholder="e.g., PRD-2024-1234"
+                />
               </div>
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="issueDesc">Issue Description *</Label>
+              <Label htmlFor="blockReason">Block Reason *</Label>
+              <Select value={blockReason} onValueChange={setBlockReason}>
+                <SelectTrigger className={errors.blockReason ? 'border-destructive' : ''}>
+                  <SelectValue placeholder="Select block reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {shopFloorBlockReasons.map((reason) => (
+                    <SelectItem key={reason} value={reason}>
+                      {reason}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.blockReason && (
+                <p className="text-xs text-destructive">{errors.blockReason}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="issueDescription">Issue Description *</Label>
               <Textarea
-                id="issueDesc"
+                id="issueDescription"
                 value={issueDescription}
                 onChange={(e) => setIssueDescription(e.target.value)}
                 placeholder="Describe the issue in detail..."
@@ -506,112 +439,99 @@ Please review and take appropriate action.
                 className={errors.issueDescription ? 'border-destructive' : ''}
               />
               {errors.issueDescription && (
-                <p className="text-sm text-destructive">{errors.issueDescription}</p>
+                <p className="text-xs text-destructive">{errors.issueDescription}</p>
               )}
             </div>
           </CardContent>
         </Card>
 
-        {/* PART 5: Next Review Departments (Multi-Select) */}
+        {/* Next Review Departments */}
         <Card>
           <CardHeader>
-            <CardTitle>Next Review Departments</CardTitle>
-            <CardDescription>Select one or more departments to review this MRB</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Send className="w-5 h-5" />
+              Route for Review
+            </CardTitle>
+            <CardDescription>Select departments to receive MRB for review</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <Label>Review Departments *</Label>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {shopFloorNextDepartments.map((dept) => (
-                  <label
-                    key={dept.value}
-                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                      nextReviewDepartments.includes(dept.value)
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-muted-foreground'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={nextReviewDepartments.includes(dept.value)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setNextReviewDepartments(prev => [...prev, dept.value] as UserRole[]);
-                        } else {
-                          setNextReviewDepartments(prev => prev.filter(d => d !== dept.value) as UserRole[]);
-                        }
-                      }}
-                      className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
-                    />
-                    <span className="text-sm font-medium">{dept.label}</span>
-                  </label>
-                ))}
-              </div>
-              {nextReviewDepartments.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {nextReviewDepartments.map(d => (
-                    <Badge key={d} variant="secondary" className="gap-1">
-                      {shopFloorNextDepartments.find(dept => dept.value === d)?.label}
-                      <X
-                        className="w-3 h-3 cursor-pointer"
-                        onClick={() => setNextReviewDepartments(prev => prev.filter(dept => dept !== d))}
-                      />
-                    </Badge>
-                  ))}
-                </div>
-              )}
+              {shopFloorNextDepartments.map((dept) => (
+                <label
+                  key={dept.value}
+                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    nextReviewDepartments.includes(dept.value as AppRole)
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:bg-muted/50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={nextReviewDepartments.includes(dept.value as AppRole)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setNextReviewDepartments([...nextReviewDepartments, dept.value as AppRole]);
+                      } else {
+                        setNextReviewDepartments(nextReviewDepartments.filter((d) => d !== dept.value));
+                      }
+                    }}
+                    className="w-4 h-4 accent-primary"
+                  />
+                  <div>
+                    <span className="font-medium">{dept.label}</span>
+                  </div>
+                </label>
+              ))}
               {errors.nextReviewDepartment && (
-                <p className="text-sm text-destructive">{errors.nextReviewDepartment}</p>
+                <p className="text-xs text-destructive">{errors.nextReviewDepartment}</p>
               )}
             </div>
           </CardContent>
         </Card>
 
-        {/* PART 6: Attachments */}
+        {/* Attachments */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="w-5 h-5" />
-              Attachments (Optional)
+              Attachments
             </CardTitle>
-            <CardDescription>Upload supporting documents</CardDescription>
+            <CardDescription>Upload images and documents related to the issue</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-3">
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {shopFloorAttachmentCategories.map((cat) => (
                 <Button
                   key={cat.value}
                   variant="outline"
-                  className="h-auto py-4 flex flex-col gap-2"
+                  className="h-auto py-4 flex flex-col items-center gap-2"
                   onClick={() => handleFileUpload(cat.value)}
                 >
-                  {cat.value === 'shop_floor_images' && <Image className="w-6 h-6" />}
-                  {cat.value === 'failure_evidence' && <FileText className="w-6 h-6" />}
-                  {cat.value === 'operator_notes' && <StickyNote className="w-6 h-6" />}
+                  {cat.value.includes('image') ? (
+                    <Image className="w-6 h-6 text-muted-foreground" />
+                  ) : cat.value.includes('note') ? (
+                    <StickyNote className="w-6 h-6 text-muted-foreground" />
+                  ) : (
+                    <FileText className="w-6 h-6 text-muted-foreground" />
+                  )}
                   <span className="text-sm">{cat.label}</span>
                 </Button>
               ))}
             </div>
-
             {attachments.length > 0 && (
-              <div className="border rounded-lg p-4 space-y-2">
-                <p className="text-sm font-medium">Uploaded Files ({attachments.length})</p>
-                <div className="space-y-2">
+              <div className="mt-4 space-y-2">
+                <Label>Uploaded Files</Label>
+                <div className="flex flex-wrap gap-2">
                   {attachments.map((att) => (
-                    <div key={att.id} className="flex items-center justify-between bg-muted/50 rounded p-2">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {shopFloorAttachmentCategories.find(c => c.value === att.category)?.label}
-                        </Badge>
-                        <span className="text-sm">{att.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          ({(att.size / 1024).toFixed(1)} KB)
-                        </span>
-                      </div>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeAttachment(att.id)}>
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    <Badge key={att.id} variant="secondary" className="gap-1 pr-1">
+                      {att.name}
+                      <button
+                        onClick={() => removeAttachment(att.id)}
+                        className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
                   ))}
                 </div>
               </div>
@@ -619,37 +539,25 @@ Please review and take appropriate action.
           </CardContent>
         </Card>
 
-        {/* PART 7: Submit */}
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="py-4 sm:py-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <p className="font-medium text-foreground">Ready to submit?</p>
-                <p className="text-sm text-muted-foreground">
-                  This will block the material and create an MRB for review.
-                </p>
-              </div>
-              <Button
-                size="lg"
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="gap-2 w-full sm:w-auto"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Creating MRB...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    Submit & Block Material
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Submit Button */}
+        <div className="flex justify-end gap-3 pb-6">
+          <Button variant="outline" onClick={() => navigate('/shop-floor/stock-selection')}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting} className="gap-2">
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Creating MRB...
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4" />
+                Create MRB & Route
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );
