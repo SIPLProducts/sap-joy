@@ -607,6 +607,110 @@ export type Database = {
         }
         Relationships: []
       }
+      sap_api_config: {
+        Row: {
+          api_endpoint: string
+          api_key: string | null
+          auth_type: string | null
+          client_id: string | null
+          client_secret: string | null
+          config_name: string
+          created_at: string
+          encrypted_password: string | null
+          id: string
+          is_active: boolean | null
+          last_sync_at: string | null
+          sync_frequency: string | null
+          token_url: string | null
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          api_endpoint: string
+          api_key?: string | null
+          auth_type?: string | null
+          client_id?: string | null
+          client_secret?: string | null
+          config_name: string
+          created_at?: string
+          encrypted_password?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          sync_frequency?: string | null
+          token_url?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          api_endpoint?: string
+          api_key?: string | null
+          auth_type?: string | null
+          client_id?: string | null
+          client_secret?: string | null
+          config_name?: string
+          created_at?: string
+          encrypted_password?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          sync_frequency?: string | null
+          token_url?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      sap_stock_sync_history: {
+        Row: {
+          completed_at: string | null
+          config_id: string | null
+          error_message: string | null
+          id: string
+          records_fetched: number | null
+          records_inserted: number | null
+          records_updated: number | null
+          started_at: string
+          status: string | null
+          sync_type: string | null
+          synced_by: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          config_id?: string | null
+          error_message?: string | null
+          id?: string
+          records_fetched?: number | null
+          records_inserted?: number | null
+          records_updated?: number | null
+          started_at?: string
+          status?: string | null
+          sync_type?: string | null
+          synced_by?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          config_id?: string | null
+          error_message?: string | null
+          id?: string
+          records_fetched?: number | null
+          records_inserted?: number | null
+          records_updated?: number | null
+          started_at?: string
+          status?: string | null
+          sync_type?: string | null
+          synced_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sap_stock_sync_history_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "sap_api_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sap_sync_history: {
         Row: {
           batch_id: string | null
@@ -656,6 +760,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      shop_floor_stock: {
+        Row: {
+          available_quantity: number
+          batch: string | null
+          created_at: string
+          id: string
+          material_code: string
+          material_description: string | null
+          plant: string
+          production_order: string | null
+          reservation_number: string | null
+          sap_sync_id: string | null
+          source: string | null
+          status: string | null
+          storage_location: string | null
+          uom: string | null
+          updated_at: string
+          upload_batch_id: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          available_quantity?: number
+          batch?: string | null
+          created_at?: string
+          id?: string
+          material_code: string
+          material_description?: string | null
+          plant: string
+          production_order?: string | null
+          reservation_number?: string | null
+          sap_sync_id?: string | null
+          source?: string | null
+          status?: string | null
+          storage_location?: string | null
+          uom?: string | null
+          updated_at?: string
+          upload_batch_id?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          available_quantity?: number
+          batch?: string | null
+          created_at?: string
+          id?: string
+          material_code?: string
+          material_description?: string | null
+          plant?: string
+          production_order?: string | null
+          reservation_number?: string | null
+          sap_sync_id?: string | null
+          source?: string | null
+          status?: string | null
+          storage_location?: string | null
+          uom?: string | null
+          updated_at?: string
+          upload_batch_id?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
