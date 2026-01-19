@@ -1,47 +1,144 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { MRBRecord, EmailLog, MRBFilters } from '@/types/mrb';
-import { mockMRBRecords, mockEmailLogs } from '@/data/mockData';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
+
+type MRBRecord = Database['public']['Tables']['mrb_records']['Row'];
+type EmailLog = Database['public']['Tables']['email_logs']['Row'];
+
+interface MRBFilters {
+  status?: string[];
+  source?: string[];
+  plant?: string[];
+  vendor?: string[];
+  slaStatus?: string[];
+  escalationLevel?: string[];
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
 
 interface MRBContextType {
   mrbRecords: MRBRecord[];
   emailLogs: EmailLog[];
   filters: MRBFilters;
+  isLoading: boolean;
   setFilters: (filters: MRBFilters) => void;
   getMRBById: (id: string) => MRBRecord | undefined;
-  updateMRB: (id: string, updates: Partial<MRBRecord>) => void;
-  createMRB: (mrb: MRBRecord) => void;
-  addEmailLog: (log: EmailLog) => void;
   getFilteredMRBs: () => MRBRecord[];
-  getNextMRBNumber: () => string;
+  refreshData: () => Promise<void>;
 }
 
 const MRBContext = createContext<MRBContextType | undefined>(undefined);
 
 export function MRBProvider({ children }: { children: ReactNode }) {
-  const [mrbRecords, setMRBRecords] = useState<MRBRecord[]>(mockMRBRecords);
-  const [emailLogs, setEmailLogs] = useState<EmailLog[]>(mockEmailLogs);
+  const [mrbRecords, setMRBRecords] = useState<MRBRecord[]>([]);
+  const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
   const [filters, setFilters] = useState<MRBFilters>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      
+      const [mrbResult, emailResult] = await Promise.all([
+        supabase
+          .from('mrb_records')
+          .select('*')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('email_logs')
+          .select('*')
+          .order('sent_at', { ascending: false }),
+      ]);
+
+      if (mrbResult.data) {
+        setMRBRecords(mrbResult.data);
+      }
+      if (emailResult.data) {
+        setEmailLogs(emailResult.data);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+
+    // Subscribe to real-time updates for MRB records
+    const mrbChannel = supabase
+      .channel('mrb_context_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'mrb_records',
+        },
+        (payload) => {
+          console.log('Real-time MRB context update:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            setMRBRecords((prev) => [payload.new as MRBRecord, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setMRBRecords((prev) =>
+              prev.map((record) =>
+                record.id === (payload.new as MRBRecord).id
+                  ? (payload.new as MRBRecord)
+                  : record
+              )
+            );
+          } else if (payload.eventType === 'DELETE') {
+            setMRBRecords((prev) =>
+              prev.filter((record) => record.id !== (payload.old as MRBRecord).id)
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to real-time updates for email logs
+    const emailChannel = supabase
+      .channel('email_context_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'email_logs',
+        },
+        (payload) => {
+          console.log('Real-time email context update:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            setEmailLogs((prev) => [payload.new as EmailLog, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setEmailLogs((prev) =>
+              prev.map((record) =>
+                record.id === (payload.new as EmailLog).id
+                  ? (payload.new as EmailLog)
+                  : record
+              )
+            );
+          } else if (payload.eventType === 'DELETE') {
+            setEmailLogs((prev) =>
+              prev.filter((record) => record.id !== (payload.old as EmailLog).id)
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(mrbChannel);
+      supabase.removeChannel(emailChannel);
+    };
+  }, [fetchData]);
 
   const getMRBById = (id: string): MRBRecord | undefined => {
     return mrbRecords.find(mrb => mrb.id === id);
-  };
-
-  const updateMRB = (id: string, updates: Partial<MRBRecord>) => {
-    setMRBRecords(prev =>
-      prev.map(mrb =>
-        mrb.id === id
-          ? { ...mrb, ...updates, updatedAt: new Date().toISOString() }
-          : mrb
-      )
-    );
-  };
-
-  const createMRB = (mrb: MRBRecord) => {
-    setMRBRecords(prev => [mrb, ...prev]);
-  };
-
-  const addEmailLog = (log: EmailLog) => {
-    setEmailLogs(prev => [log, ...prev]);
   };
 
   const getFilteredMRBs = (): MRBRecord[] => {
@@ -60,49 +157,37 @@ export function MRBProvider({ children }: { children: ReactNode }) {
     }
 
     if (filters.vendor && filters.vendor.length > 0) {
-      filtered = filtered.filter(mrb => filters.vendor!.includes(mrb.vendor));
+      filtered = filtered.filter(mrb => mrb.vendor_code && filters.vendor!.includes(mrb.vendor_code));
     }
 
     if (filters.slaStatus && filters.slaStatus.length > 0) {
-      filtered = filtered.filter(mrb => filters.slaStatus!.includes(mrb.slaStatus));
+      filtered = filtered.filter(mrb => mrb.sla_status && filters.slaStatus!.includes(mrb.sla_status));
     }
 
     if (filters.escalationLevel && filters.escalationLevel.length > 0) {
-      filtered = filtered.filter(mrb => filters.escalationLevel!.includes(mrb.escalationLevel));
+      filtered = filtered.filter(mrb => mrb.escalation_level && filters.escalationLevel!.includes(mrb.escalation_level));
     }
 
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       filtered = filtered.filter(
         mrb =>
-          mrb.mrbNumber.toLowerCase().includes(searchLower) ||
-          mrb.materialNumber.toLowerCase().includes(searchLower) ||
-          mrb.materialDescription.toLowerCase().includes(searchLower) ||
-          mrb.vendorName.toLowerCase().includes(searchLower)
+          mrb.mrb_number.toLowerCase().includes(searchLower) ||
+          mrb.material_number.toLowerCase().includes(searchLower) ||
+          mrb.material_description.toLowerCase().includes(searchLower) ||
+          (mrb.vendor_name && mrb.vendor_name.toLowerCase().includes(searchLower))
       );
     }
 
     if (filters.dateFrom) {
-      filtered = filtered.filter(mrb => mrb.createdAt >= filters.dateFrom!);
+      filtered = filtered.filter(mrb => mrb.created_at >= filters.dateFrom!);
     }
 
     if (filters.dateTo) {
-      filtered = filtered.filter(mrb => mrb.createdAt <= filters.dateTo!);
+      filtered = filtered.filter(mrb => mrb.created_at <= filters.dateTo!);
     }
 
     return filtered;
-  };
-
-  const getNextMRBNumber = (): string => {
-    const year = new Date().getFullYear();
-    const existingNumbers = mrbRecords
-      .filter(mrb => mrb.mrbNumber.startsWith(`MRB-${year}`))
-      .map(mrb => {
-        const num = parseInt(mrb.mrbNumber.split('-')[2], 10);
-        return isNaN(num) ? 0 : num;
-      });
-    const maxNumber = Math.max(0, ...existingNumbers);
-    return `MRB-${year}-${String(maxNumber + 1).padStart(4, '0')}`;
   };
 
   return (
@@ -111,13 +196,11 @@ export function MRBProvider({ children }: { children: ReactNode }) {
         mrbRecords,
         emailLogs,
         filters,
+        isLoading,
         setFilters,
         getMRBById,
-        updateMRB,
-        createMRB,
-        addEmailLog,
         getFilteredMRBs,
-        getNextMRBNumber,
+        refreshData: fetchData,
       }}
     >
       {children}

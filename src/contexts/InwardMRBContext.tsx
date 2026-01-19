@@ -1,47 +1,52 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { InspectionLotRecord, InwardReportFilters, InwardMRBFormData, DepartmentReviewData } from '@/types/inwardReport';
-import { MRBRecord, EmailLog, Attachment } from '@/types/mrb';
-import { mockInspectionLotRecords } from '@/data/inwardReportData';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 
-interface InwardMRBRecord extends MRBRecord {
-  qualityInspectionComments?: string;
-  qualityInspectionDate?: string;
-  qualityInspectorName?: string;
-  nextReviewDepartments?: string[];
-  storageLocation?: string;
-  batch?: string;
-  blockReason?: string;
-  departmentReviews?: {
-    department: string;
-    reviewComments: string;
-    action: string;
-    reviewedBy: string;
-    reviewedAt: string;
-    attachments: Attachment[];
-  }[];
+type MRBRecord = Database['public']['Tables']['mrb_records']['Row'];
+
+interface InspectionLotRecord {
+  id: string;
+  inspectionLot: string;
+  plant: string;
+  materialCode: string;
+  materialDescription: string;
+  vendorCode: string;
+  vendorName: string;
+  storageLocation: string;
+  batch: string;
+  poNumber: string;
+  transactionQuantity: number;
+  uom: string;
+  blockedQuantity: number;
+  blockReason: string;
+  inspectionDate: string;
+  status: 'pending' | 'mrb_created' | 'cleared';
+}
+
+interface InwardReportFilters {
+  plants: string[];
+  materialCodes: string[];
+  vendors: string[];
+  storageLocations: string[];
+  inspectionLots: string[];
 }
 
 interface InwardMRBContextType {
   inspectionLotRecords: InspectionLotRecord[];
-  inwardMRBRecords: InwardMRBRecord[];
-  emailLogs: EmailLog[];
+  inwardMRBRecords: MRBRecord[];
+  isLoading: boolean;
   filters: InwardReportFilters;
   setFilters: (filters: InwardReportFilters) => void;
   getFilteredRecords: () => InspectionLotRecord[];
-  createInwardMRB: (formData: InwardMRBFormData, attachments: Attachment[]) => InwardMRBRecord;
-  getInwardMRBById: (id: string) => InwardMRBRecord | undefined;
-  updateInwardMRB: (id: string, updates: Partial<InwardMRBRecord>) => void;
-  addDepartmentReview: (mrbId: string, review: DepartmentReviewData, attachments: Attachment[], reviewerName: string) => void;
-  addEmailLog: (log: EmailLog) => void;
-  getNextMRBNumber: () => string;
+  refreshData: () => Promise<void>;
 }
 
 const InwardMRBContext = createContext<InwardMRBContextType | undefined>(undefined);
 
 export function InwardMRBProvider({ children }: { children: ReactNode }) {
-  const [inspectionLotRecords] = useState<InspectionLotRecord[]>(mockInspectionLotRecords);
-  const [inwardMRBRecords, setInwardMRBRecords] = useState<InwardMRBRecord[]>([]);
-  const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
+  const [inspectionLotRecords, setInspectionLotRecords] = useState<InspectionLotRecord[]>([]);
+  const [inwardMRBRecords, setInwardMRBRecords] = useState<MRBRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<InwardReportFilters>({
     plants: [],
     materialCodes: [],
@@ -49,6 +54,94 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
     storageLocations: [],
     inspectionLots: [],
   });
+
+  const fetchData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch inward MRB records (source = quality_inspection)
+      const { data: mrbData, error } = await supabase
+        .from('mrb_records')
+        .select('*')
+        .eq('source', 'quality_inspection')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      if (mrbData) {
+        setInwardMRBRecords(mrbData);
+        
+        // Create inspection lot records from MRB data for display
+        const lotRecords: InspectionLotRecord[] = mrbData
+          .filter(mrb => mrb.inspection_lot)
+          .map(mrb => ({
+            id: mrb.id,
+            inspectionLot: mrb.inspection_lot || '',
+            plant: mrb.plant,
+            materialCode: mrb.material_number,
+            materialDescription: mrb.material_description,
+            vendorCode: mrb.vendor_code || '',
+            vendorName: mrb.vendor_name || '',
+            storageLocation: '',
+            batch: '',
+            poNumber: mrb.po_number || '',
+            transactionQuantity: mrb.total_quantity,
+            uom: mrb.uom || 'EA',
+            blockedQuantity: mrb.blocked_quantity || 0,
+            blockReason: mrb.defect_description || '',
+            inspectionDate: mrb.created_at,
+            status: 'mrb_created' as const,
+          }));
+        
+        setInspectionLotRecords(lotRecords);
+      }
+    } catch (error) {
+      console.error('Error fetching inward MRB data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel('inward_mrb_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'mrb_records',
+          filter: 'source=eq.quality_inspection',
+        },
+        (payload) => {
+          console.log('Real-time inward MRB update:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            setInwardMRBRecords((prev) => [payload.new as MRBRecord, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setInwardMRBRecords((prev) =>
+              prev.map((record) =>
+                record.id === (payload.new as MRBRecord).id
+                  ? (payload.new as MRBRecord)
+                  : record
+              )
+            );
+          } else if (payload.eventType === 'DELETE') {
+            setInwardMRBRecords((prev) =>
+              prev.filter((record) => record.id !== (payload.old as MRBRecord).id)
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchData]);
 
   const getFilteredRecords = (): InspectionLotRecord[] => {
     let filtered = [...inspectionLotRecords];
@@ -72,196 +165,16 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
     return filtered;
   };
 
-  const getNextMRBNumber = (): string => {
-    const year = new Date().getFullYear();
-    const existingNumbers = inwardMRBRecords
-      .filter(mrb => mrb.mrbNumber.startsWith(`MRB-${year}`))
-      .map(mrb => {
-        const num = parseInt(mrb.mrbNumber.split('-')[2], 10);
-        return isNaN(num) ? 0 : num;
-      });
-    const maxNumber = Math.max(0, ...existingNumbers);
-    return `MRB-${year}-${String(maxNumber + 1).padStart(4, '0')}`;
-  };
-
-  const createInwardMRB = (formData: InwardMRBFormData, attachments: Attachment[]): InwardMRBRecord => {
-    const mrbNumber = getNextMRBNumber();
-    const now = new Date().toISOString();
-    
-    // Map next review department to pending role
-    const pendingWithMap: Record<string, 'engineering' | 'purchase' | 'plant_head' | 'quality'> = {
-      'engineering': 'engineering',
-      'purchase': 'purchase',
-      'plant_head': 'plant_head',
-      'mrb_committee': 'plant_head',
-    };
-
-    const newMRB: InwardMRBRecord = {
-      id: `INWARD-${Date.now()}`,
-      mrbNumber,
-      status: 'quality_review',
-      source: 'quality_inspection',
-      createdAt: now,
-      createdBy: formData.qualityInspectorName || 'Quality User',
-      updatedAt: now,
-      pendingWith: pendingWithMap[formData.nextReviewDepartments[0]] || 'engineering',
-      pendingDays: 0,
-      slaStatus: 'green',
-      escalationLevel: 'none',
-      
-      // Material Info from form
-      materialNumber: formData.materialCode,
-      materialDescription: formData.materialDescription,
-      plant: formData.plant,
-      vendor: formData.vendorCode,
-      vendorName: formData.vendorName,
-      
-      // Additional Inward fields
-      inspectionLot: formData.inspectionLot,
-      poNumber: formData.purchaseOrderNumber,
-      storageLocation: formData.storageLocation,
-      batch: formData.batch,
-      blockReason: formData.blockReason,
-      
-      // Quantities
-      totalQuantity: formData.transactionQuantity,
-      acceptedQuantity: formData.qualityDecision === 'accept' ? formData.transactionQuantity : 0,
-      rejectedQuantity: formData.qualityDecision === 'reject' ? formData.blockedQuantity : 0,
-      blockedQuantity: formData.blockedQuantity,
-      uom: formData.uom,
-      
-      // Quality Stage
-      qualityDecision: formData.qualityDecision === 'accept' ? 'accept' : 
-                       formData.qualityDecision === 'reject' ? 'reject' : 'partial_accept',
-      defectCategory: formData.defectCategory === 'electrical' ? 'functional' : 
-                      formData.defectCategory === 'mechanical' ? 'dimensional' : undefined,
-      defectDescription: formData.defectDescription,
-      qualityRemarks: formData.qualityInspectionComments,
-      qualityApprovedBy: formData.qualityInspectorName,
-      qualityApprovedAt: now,
-      
-      // Inward-specific fields
-      qualityInspectionComments: formData.qualityInspectionComments,
-      qualityInspectionDate: formData.qualityInspectionDate,
-      qualityInspectorName: formData.qualityInspectorName,
-      nextReviewDepartments: formData.nextReviewDepartments,
-      
-      attachments,
-      approvalHistory: [
-        {
-          id: `AH-${Date.now()}`,
-          stage: 'Quality Inspection',
-          action: 'forwarded',
-          performedBy: formData.qualityInspectorName || 'Quality User',
-          performedByRole: 'quality',
-          performedAt: now,
-          remarks: `Forwarded to ${formData.nextReviewDepartments.join(', ')}`,
-        },
-      ],
-      departmentReviews: [],
-    };
-
-    setInwardMRBRecords(prev => [newMRB, ...prev]);
-    return newMRB;
-  };
-
-  const getInwardMRBById = (id: string): InwardMRBRecord | undefined => {
-    return inwardMRBRecords.find(mrb => mrb.id === id);
-  };
-
-  const updateInwardMRB = (id: string, updates: Partial<InwardMRBRecord>) => {
-    setInwardMRBRecords(prev =>
-      prev.map(mrb =>
-        mrb.id === id
-          ? { ...mrb, ...updates, updatedAt: new Date().toISOString() }
-          : mrb
-      )
-    );
-  };
-
-  const addDepartmentReview = (
-    mrbId: string, 
-    review: DepartmentReviewData, 
-    attachments: Attachment[], 
-    reviewerName: string
-  ) => {
-    const mrb = getInwardMRBById(mrbId);
-    if (!mrb) return;
-
-    const now = new Date().toISOString();
-    const departmentReview = {
-      department: mrb.pendingWith,
-      reviewComments: review.reviewComments,
-      action: review.action,
-      reviewedBy: reviewerName,
-      reviewedAt: now,
-      attachments,
-    };
-
-    const statusMap: Record<string, 'approved' | 'rejected' | 'forwarded' | 'returned'> = {
-      'approve': 'approved',
-      'return_for_clarification': 'returned',
-      'approve_with_deviation': 'approved',
-      'return_to_vendor': 'approved',
-    };
-
-    const newHistoryItem = {
-      id: `AH-${Date.now()}`,
-      stage: `${mrb.pendingWith} Review`,
-      action: statusMap[review.action] || 'approved',
-      performedBy: reviewerName,
-      performedByRole: mrb.pendingWith,
-      performedAt: now,
-      remarks: review.reviewComments,
-    };
-
-    const updates: Partial<InwardMRBRecord> = {
-      departmentReviews: [...(mrb.departmentReviews || []), departmentReview],
-      approvalHistory: [...mrb.approvalHistory, newHistoryItem],
-      attachments: [...mrb.attachments, ...attachments],
-    };
-
-    // Update status based on action
-    if (review.forwardToNext && review.nextDepartments && review.nextDepartments.length > 0) {
-      const pendingWithMap: Record<string, 'engineering' | 'purchase' | 'plant_head' | 'quality'> = {
-        'engineering': 'engineering',
-        'purchase': 'purchase',
-        'plant_head': 'plant_head',
-      };
-      const firstDept = review.nextDepartments[0];
-      updates.pendingWith = pendingWithMap[firstDept];
-      updates.status = firstDept === 'plant_head' 
-        ? 'final_approval' 
-        : firstDept === 'engineering' 
-          ? 'engineering_review' 
-          : 'purchase_review';
-    } else if (review.action === 'approve' || review.action === 'approve_with_deviation' || review.action === 'return_to_vendor') {
-      updates.status = 'final_approval';
-      updates.pendingWith = 'plant_head';
-    }
-
-    updateInwardMRB(mrbId, updates);
-  };
-
-  const addEmailLog = (log: EmailLog) => {
-    setEmailLogs(prev => [log, ...prev]);
-  };
-
   return (
     <InwardMRBContext.Provider
       value={{
         inspectionLotRecords,
         inwardMRBRecords,
-        emailLogs,
+        isLoading,
         filters,
         setFilters,
         getFilteredRecords,
-        createInwardMRB,
-        getInwardMRBById,
-        updateInwardMRB,
-        addDepartmentReview,
-        addEmailLog,
-        getNextMRBNumber,
+        refreshData: fetchData,
       }}
     >
       {children}
