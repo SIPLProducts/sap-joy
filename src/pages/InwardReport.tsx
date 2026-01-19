@@ -28,6 +28,16 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { downloadCSVTemplate, validateParsedData, ParseResult } from '@/lib/csvTemplates';
@@ -61,6 +71,11 @@ export default function InwardReport() {
   // Selection state for bulk actions
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isCreatingBatchMRBs, setIsCreatingBatchMRBs] = useState(false);
+
+  // Confirmation dialog state
+  const [showSingleConfirm, setShowSingleConfirm] = useState(false);
+  const [showBatchConfirm, setShowBatchConfirm] = useState(false);
+  const [pendingSingleRecord, setPendingSingleRecord] = useState<InspectionLotRecord | null>(null);
 
   // Build options for filters - include both mock data and actual uploaded data
   const allPlants = [...new Set([...plants, ...inspectionLotRecords.map(r => r.plant)])];
@@ -114,7 +129,16 @@ export default function InwardReport() {
   };
 
   const handleCreateMRB = (record: InspectionLotRecord) => {
-    navigate('/inward/create-mrb', { state: { inspectionLot: record } });
+    setPendingSingleRecord(record);
+    setShowSingleConfirm(true);
+  };
+
+  const confirmSingleMRB = () => {
+    if (pendingSingleRecord) {
+      navigate('/inward/create-mrb', { state: { inspectionLot: pendingSingleRecord } });
+    }
+    setShowSingleConfirm(false);
+    setPendingSingleRecord(null);
   };
 
   // Bulk selection helpers
@@ -168,9 +192,13 @@ export default function InwardReport() {
     setSelectedIds(newSelected);
   };
 
-  const handleBatchCreateMRBs = async () => {
+  const handleBatchCreateMRBs = () => {
     if (selectedIds.size === 0) return;
+    setShowBatchConfirm(true);
+  };
 
+  const confirmBatchMRBs = async () => {
+    setShowBatchConfirm(false);
     setIsCreatingBatchMRBs(true);
     try {
       const selectedRecords = searchResults.filter(r => selectedIds.has(r.id));
@@ -1122,6 +1150,56 @@ export default function InwardReport() {
           isUploading={isUploading}
         />
       )}
+
+      {/* Single MRB Creation Confirmation Dialog */}
+      <AlertDialog open={showSingleConfirm} onOpenChange={setShowSingleConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Create MRB?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>You are about to create an MRB for:</p>
+              {pendingSingleRecord && (
+                <div className="bg-muted p-3 rounded-md text-sm space-y-1">
+                  <p><span className="font-medium">Inspection Lot:</span> {pendingSingleRecord.inspectionLot}</p>
+                  <p><span className="font-medium">Material:</span> {pendingSingleRecord.materialCode}</p>
+                  <p><span className="font-medium">Blocked Qty:</span> {pendingSingleRecord.blockedQuantity} {pendingSingleRecord.uom}</p>
+                </div>
+              )}
+              <p className="text-muted-foreground">This action will open the MRB creation form.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSingleMRB}>
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Batch MRB Creation Confirmation Dialog */}
+      <AlertDialog open={showBatchConfirm} onOpenChange={setShowBatchConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Create {selectedIds.size} MRB(s)?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>You are about to create <span className="font-semibold text-foreground">{selectedIds.size}</span> MRB record(s) for the selected inspection lots.</p>
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 rounded-md text-sm">
+                <p className="text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  This action cannot be undone.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBatchMRBs}>
+              Create {selectedIds.size} MRB(s)
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
