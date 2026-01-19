@@ -220,7 +220,7 @@ export default function InwardMRBDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 pb-20">
+    <div className="min-h-full bg-muted/30 flex flex-col">
       {/* Sticky Header */}
       <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm">
         <div className="px-6 py-4">
@@ -248,7 +248,7 @@ export default function InwardMRBDetail() {
       </div>
 
       {/* Content */}
-      <div className="p-6 space-y-6">
+      <div className="p-6 space-y-6 flex-1 pb-6">
         {/* Workflow Progress Indicator */}
         <WorkflowProgressIndicator 
           currentStatus={mrb.status} 
@@ -478,8 +478,8 @@ export default function InwardMRBDetail() {
 
       {/* Sticky Footer with Submit Button */}
       {canReview && mrb.status !== 'approved' && mrb.status !== 'rejected' && mrb.status !== 'closed' && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border shadow-lg">
-          <div className="px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
+        <div className="sticky bottom-0 z-40 bg-background border-t border-border shadow-lg mt-auto">
+          <div className="px-6 py-4 flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
               {reviewData.action ? (
                 <span>
