@@ -52,13 +52,15 @@ export default function ShopFloorMaterialBlocking() {
   // Form states
   const [blockQuantity, setBlockQuantity] = useState<number>(0);
   const [productionOrder, setProductionOrder] = useState('');
+  const [poNumber, setPONumber] = useState('');
   const [blockReason, setBlockReason] = useState('');
-  const [issueDescription, setIssueDescription] = useState('');
+  const [defectDescription, setDefectDescription] = useState('');
   const [nextReviewDepartments, setNextReviewDepartments] = useState<AppRole[]>([]);
   const [attachments, setAttachments] = useState<AttachmentUpload[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [createdMRBNumber, setCreatedMRBNumber] = useState('');
+  const [sapMaterialDocument, setSAPMaterialDocument] = useState('');
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -93,8 +95,8 @@ export default function ShopFloorMaterialBlocking() {
     if (!blockReason) {
       newErrors.blockReason = 'Block reason is required';
     }
-    if (!issueDescription.trim()) {
-      newErrors.issueDescription = 'Issue description is required';
+    if (!defectDescription.trim()) {
+      newErrors.defectDescription = 'Defect description is required';
     }
     if (nextReviewDepartments.length === 0) {
       newErrors.nextReviewDepartment = 'At least one review department is required';
@@ -159,6 +161,7 @@ export default function ShopFloorMaterialBlocking() {
         material_description: stockItem.materialDescription,
         plant: stockItem.plant,
         vendor_name: 'N/A (Shop Floor)',
+        po_number: poNumber || null,
         total_quantity: blockQuantity,
         accepted_quantity: 0,
         rejected_quantity: 0,
@@ -168,15 +171,20 @@ export default function ShopFloorMaterialBlocking() {
         issued_quantity: blockQuantity,
         issue_identified_by: user?.email || 'Shop Floor User',
         issue_identified_date: new Date().toISOString(),
-        issue_description: `${blockReason}: ${issueDescription}`,
+        defect_description: defectDescription,
+        issue_description: `${blockReason}: ${defectDescription}`,
         impact_on_production: 'Material blocked for review',
         immediate_block_required: true,
       });
 
+      // Generate SAP Material Document Number (simulated)
+      const sapMatDoc = `49${format(new Date(), 'yyyyMMdd')}${Math.floor(100000 + Math.random() * 900000)}`;
+
       if (mrbResult) {
         setCreatedMRBNumber(mrbNumber);
+        setSAPMaterialDocument(sapMatDoc);
         setIsSubmitted(true);
-        toast.success(`MRB ${mrbNumber} created successfully!`);
+        toast.success(`MRB ${mrbNumber} created & SAP Block synced successfully!`);
       } else {
         throw new Error('Failed to create MRB');
       }
@@ -219,17 +227,27 @@ export default function ShopFloorMaterialBlocking() {
           <div style="text-align: center;">
             <div style="font-size: 14px; color: #666;">MRB Number</div>
             <div class="mrb-number">${createdMRBNumber}</div>
-            <div class="status">✓ Material Blocked Successfully</div>
+            <div class="status">✓ Material Blocked in SAP</div>
           </div>
           
-          <div class="section" style="margin-top: 30px;">
-            <div class="section-title">Stock Information</div>
+          <div class="section" style="margin-top: 30px; background: #eff6ff; padding: 15px; border-radius: 8px; border: 1px solid #bfdbfe;">
+            <div class="section-title" style="color: #1d4ed8;">SAP Material Document</div>
             <div class="info-grid">
-              <div class="info-item"><div class="info-label">Plant</div><div class="info-value">${stockItem.plant}</div></div>
+              <div class="info-item"><div class="info-label">Material Document</div><div class="info-value" style="font-family: monospace; color: #1d4ed8; font-weight: bold;">${sapMaterialDocument}</div></div>
+              <div class="info-item"><div class="info-label">Block Status</div><div class="info-value" style="color: #dc2626; font-weight: bold;">BLOCKED</div></div>
               <div class="info-item"><div class="info-label">Material Code</div><div class="info-value">${stockItem.materialCode}</div></div>
               <div class="info-item"><div class="info-label">Material Description</div><div class="info-value">${stockItem.materialDescription}</div></div>
               <div class="info-item"><div class="info-label">Batch</div><div class="info-value">${stockItem.batch}</div></div>
+              <div class="info-item"><div class="info-label">Block Quantity</div><div class="info-value" style="color: #dc2626; font-weight: bold;">${blockQuantity} ${stockItem.uom}</div></div>
+            </div>
+          </div>
+          
+          <div class="section" style="margin-top: 20px;">
+            <div class="section-title">Stock Information</div>
+            <div class="info-grid">
+              <div class="info-item"><div class="info-label">Plant</div><div class="info-value">${stockItem.plant}</div></div>
               <div class="info-item"><div class="info-label">Storage Location</div><div class="info-value">${stockItem.storageLocation}</div></div>
+              <div class="info-item"><div class="info-label">PO Number</div><div class="info-value">${poNumber || 'N/A'}</div></div>
               <div class="info-item"><div class="info-label">Production Order</div><div class="info-value">${productionOrder || 'N/A'}</div></div>
             </div>
           </div>
@@ -237,9 +255,8 @@ export default function ShopFloorMaterialBlocking() {
           <div class="section">
             <div class="section-title">Blocking Details</div>
             <div class="info-grid">
-              <div class="info-item"><div class="info-label">Block Quantity</div><div class="info-value">${blockQuantity} ${stockItem.uom}</div></div>
               <div class="info-item"><div class="info-label">Block Reason</div><div class="info-value">${blockReason}</div></div>
-              <div class="info-item" style="grid-column: span 2;"><div class="info-label">Issue Description</div><div class="info-value">${issueDescription}</div></div>
+              <div class="info-item" style="grid-column: span 2;"><div class="info-label">Defect Description</div><div class="info-value">${defectDescription}</div></div>
             </div>
           </div>
           
@@ -271,28 +288,71 @@ export default function ShopFloorMaterialBlocking() {
   if (isSubmitted) {
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4 sm:p-6">
-        <Card className="max-w-lg w-full text-center">
+        <Card className="max-w-2xl w-full text-center">
           <CardContent className="pt-8 pb-6 space-y-6">
             <div className="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center">
               <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">MRB Created Successfully!</h2>
+              <h2 className="text-2xl font-bold text-foreground mb-2">MRB Created & SAP Synced!</h2>
               <p className="text-muted-foreground">
-                Material has been blocked and MRB has been routed for review.
+                Material has been blocked in SAP and MRB has been routed for review.
               </p>
             </div>
+            
+            {/* MRB Number */}
             <div className="bg-muted/50 rounded-lg p-4">
               <p className="text-sm text-muted-foreground">MRB Number</p>
               <p className="text-xl font-bold text-primary">{createdMRBNumber}</p>
             </div>
+            
+            {/* SAP Material Document Block Details */}
+            <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+              <p className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-3">SAP Material Document - Block Confirmation</p>
+              <div className="grid grid-cols-2 gap-3 text-left text-sm">
+                <div>
+                  <p className="text-muted-foreground text-xs">Material Document</p>
+                  <p className="font-mono font-bold text-blue-600 dark:text-blue-400">{sapMaterialDocument}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Block Status</p>
+                  <Badge className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300">Blocked</Badge>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Material Code</p>
+                  <p className="font-medium">{stockItem.materialCode}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Material Description</p>
+                  <p className="font-medium">{stockItem.materialDescription}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Batch</p>
+                  <p className="font-medium">{stockItem.batch}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Block Quantity</p>
+                  <p className="font-bold text-red-600 dark:text-red-400">{blockQuantity} {stockItem.uom}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Plant</p>
+                  <p className="font-medium">{stockItem.plant}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Storage Location</p>
+                  <p className="font-medium">{stockItem.storageLocation}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Additional Info */}
             <div className="text-sm text-muted-foreground space-y-1 text-left bg-muted/30 rounded-lg p-4">
-              <p>• <strong>Material:</strong> {stockItem.materialCode}</p>
-              <p>• <strong>Block Quantity:</strong> {blockQuantity} {stockItem.uom}</p>
+              {poNumber && <p>• <strong>PO Number:</strong> {poNumber}</p>}
               {productionOrder && <p>• <strong>Production Order:</strong> {productionOrder}</p>}
               <p>• <strong>Routed to:</strong> {nextReviewDepartments.map(d => shopFloorNextDepartments.find(dept => dept.value === d)?.label).join(', ')}</p>
               <p>• <strong>Email notification:</strong> Sent</p>
             </div>
+            
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
               <Button variant="outline" onClick={handlePrintConfirmation} className="gap-2">
                 <Printer className="w-4 h-4" />
@@ -369,6 +429,16 @@ export default function ShopFloorMaterialBlocking() {
                 <Label className="text-xs text-muted-foreground">Available Quantity</Label>
                 <Input value={`${stockItem.availableQuantity} ${stockItem.uom}`} disabled className="bg-muted h-9" />
               </div>
+              <div className="space-y-2 sm:col-span-2 lg:col-span-3">
+                <Label htmlFor="poNumber">PO Number (Optional)</Label>
+                <Input
+                  id="poNumber"
+                  value={poNumber}
+                  onChange={(e) => setPONumber(e.target.value)}
+                  placeholder="e.g., 4500012345"
+                  className="max-w-md"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -429,17 +499,17 @@ export default function ShopFloorMaterialBlocking() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="issueDescription">Issue Description *</Label>
+              <Label htmlFor="defectDescription">Defect Description *</Label>
               <Textarea
-                id="issueDescription"
-                value={issueDescription}
-                onChange={(e) => setIssueDescription(e.target.value)}
-                placeholder="Describe the issue in detail..."
+                id="defectDescription"
+                value={defectDescription}
+                onChange={(e) => setDefectDescription(e.target.value)}
+                placeholder="Describe the defect in detail..."
                 rows={4}
-                className={errors.issueDescription ? 'border-destructive' : ''}
+                className={errors.defectDescription ? 'border-destructive' : ''}
               />
-              {errors.issueDescription && (
-                <p className="text-xs text-destructive">{errors.issueDescription}</p>
+              {errors.defectDescription && (
+                <p className="text-xs text-destructive">{errors.defectDescription}</p>
               )}
             </div>
           </CardContent>
