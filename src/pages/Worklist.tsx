@@ -1,20 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, AlertTriangle, Eye } from 'lucide-react';
-import { useMRB } from '@/contexts/MRBContext';
-import { useInwardMRB } from '@/contexts/InwardMRBContext';
+import { Search, AlertTriangle, Eye, Loader2 } from 'lucide-react';
+import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -23,11 +13,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { getStatusDisplayName, getStatusColor, getSLAColor, getEscalationColor, getRoleDisplayName } from '@/data/mockData';
-import { MRBStatus, UserRole, SLAStatus, EscalationLevel } from '@/types/mrb';
+import type { Database } from '@/integrations/supabase/types';
+
+type MRBStatus = Database['public']['Enums']['mrb_status'];
+type MRBSource = Database['public']['Enums']['mrb_source'];
+type SLAStatus = Database['public']['Enums']['sla_status'];
+type EscalationLevel = Database['public']['Enums']['escalation_level'];
+type AppRole = Database['public']['Enums']['app_role'];
 
 const statuses: MRBStatus[] = ['draft', 'quality_review', 'purchase_review', 'engineering_review', 'final_approval', 'approved', 'rejected', 'closed'];
 
-type SourceType = 'all' | 'inward' | 'shop_floor';
+type SourceType = 'all' | 'quality_inspection' | 'shop_floor';
 
 interface UnifiedMRBRecord {
   id: string;
@@ -37,57 +33,37 @@ interface UnifiedMRBRecord {
   materialDescription: string;
   vendorName: string;
   plant: string;
-  pendingWith: UserRole;
+  pendingWith: AppRole | null;
   pendingDays: number;
-  slaStatus: SLAStatus;
-  escalationLevel: EscalationLevel;
+  slaStatus: SLAStatus | null;
+  escalationLevel: EscalationLevel | null;
   createdAt: string;
-  source: 'inward' | 'shop_floor';
+  source: MRBSource;
 }
 
 export default function Worklist() {
   const navigate = useNavigate();
-  const { mrbRecords } = useMRB();
-  const { inwardMRBRecords } = useInwardMRB();
+  const { mrbRecords, isLoading } = useMRBDatabase();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<SourceType>('all');
 
-  // Combine both MRB sources into unified records
-  const unifiedRecords: UnifiedMRBRecord[] = [
-    // Shop Floor MRBs (from MRBContext)
-    ...mrbRecords.map(mrb => ({
-      id: mrb.id,
-      mrbNumber: mrb.mrbNumber,
-      status: mrb.status,
-      materialNumber: mrb.materialNumber,
-      materialDescription: mrb.materialDescription,
-      vendorName: mrb.vendorName,
-      plant: mrb.plant,
-      pendingWith: mrb.pendingWith as UserRole,
-      pendingDays: mrb.pendingDays,
-      slaStatus: mrb.slaStatus as SLAStatus,
-      escalationLevel: mrb.escalationLevel as EscalationLevel,
-      createdAt: mrb.createdAt,
-      source: 'shop_floor' as const,
-    })),
-    // Inward MRBs (from InwardMRBContext)
-    ...inwardMRBRecords.map(mrb => ({
-      id: mrb.id,
-      mrbNumber: mrb.mrbNumber,
-      status: mrb.status,
-      materialNumber: mrb.materialNumber,
-      materialDescription: mrb.materialDescription,
-      vendorName: mrb.vendorName,
-      plant: mrb.plant,
-      pendingWith: mrb.pendingWith as UserRole,
-      pendingDays: mrb.pendingDays || 0,
-      slaStatus: mrb.slaStatus as SLAStatus,
-      escalationLevel: (mrb.escalationLevel || 'none') as EscalationLevel,
-      createdAt: mrb.createdAt,
-      source: 'inward' as const,
-    })),
-  ];
+  // Transform database records to unified format
+  const unifiedRecords: UnifiedMRBRecord[] = mrbRecords.map(mrb => ({
+    id: mrb.id,
+    mrbNumber: mrb.mrb_number,
+    status: mrb.status,
+    materialNumber: mrb.material_number,
+    materialDescription: mrb.material_description,
+    vendorName: mrb.vendor_name || 'N/A',
+    plant: mrb.plant,
+    pendingWith: mrb.pending_with,
+    pendingDays: mrb.pending_days || 0,
+    slaStatus: mrb.sla_status,
+    escalationLevel: mrb.escalation_level,
+    createdAt: mrb.created_at,
+    source: mrb.source,
+  }));
 
   const filteredRecords = unifiedRecords.filter(mrb => {
     const matchesSearch = !searchTerm || 
@@ -114,20 +90,31 @@ export default function Worklist() {
     });
   };
 
-  const getSourceBadge = (source: 'inward' | 'shop_floor') => {
-    if (source === 'inward') {
+  const getSourceBadge = (source: MRBSource) => {
+    if (source === 'quality_inspection') {
       return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Inward</Badge>;
     }
     return <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">Shop Floor</Badge>;
   };
 
   const handleViewClick = (mrb: UnifiedMRBRecord) => {
-    if (mrb.source === 'inward') {
+    if (mrb.source === 'quality_inspection') {
       navigate(`/inward/mrb/${mrb.id}`);
     } else {
       navigate(`/mrb/${mrb.id}`);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-muted/30">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading MRB records...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-muted/30 overflow-hidden">
@@ -160,7 +147,7 @@ export default function Worklist() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Sources</SelectItem>
-                  <SelectItem value="inward">Inward</SelectItem>
+                  <SelectItem value="quality_inspection">Inward</SelectItem>
                   <SelectItem value="shop_floor">Shop Floor</SelectItem>
                 </SelectContent>
               </Select>
@@ -213,8 +200,8 @@ export default function Worklist() {
                 ) : (
                   sortedRecords.map((mrb) => (
                     <tr 
-                      key={`${mrb.source}-${mrb.id}`} 
-                      className={`border-b transition-colors hover:bg-muted/50 ${mrb.escalationLevel !== 'none' ? 'bg-red-50/50' : ''}`}
+                      key={mrb.id} 
+                      className={`border-b transition-colors hover:bg-muted/50 ${mrb.escalationLevel && mrb.escalationLevel !== 'none' ? 'bg-red-50/50' : ''}`}
                     >
                       <td className="p-4 align-middle font-medium text-primary whitespace-nowrap">
                         {mrb.mrbNumber}
@@ -235,18 +222,24 @@ export default function Worklist() {
                       </td>
                       <td className="p-4 align-middle max-w-[120px] truncate">{mrb.vendorName}</td>
                       <td className="p-4 align-middle whitespace-nowrap">{mrb.plant}</td>
-                      <td className="p-4 align-middle whitespace-nowrap">{getRoleDisplayName(mrb.pendingWith)}</td>
+                      <td className="p-4 align-middle whitespace-nowrap">
+                        {mrb.pendingWith ? getRoleDisplayName(mrb.pendingWith as any) : '-'}
+                      </td>
                       <td className="p-4 align-middle">
-                        <Badge className={getSLAColor(mrb.slaStatus)}>
-                          {mrb.pendingDays} days
-                        </Badge>
+                        {mrb.slaStatus ? (
+                          <Badge className={getSLAColor(mrb.slaStatus as any)}>
+                            {mrb.pendingDays} days
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </td>
                       <td className="p-4 align-middle whitespace-nowrap">
                         {formatDate(mrb.createdAt)}
                       </td>
                       <td className="p-4 align-middle">
-                        {mrb.escalationLevel !== 'none' && (
-                          <Badge className={`${getEscalationColor(mrb.escalationLevel)} animate-pulse-slow`}>
+                        {mrb.escalationLevel && mrb.escalationLevel !== 'none' && (
+                          <Badge className={`${getEscalationColor(mrb.escalationLevel as any)} animate-pulse-slow`}>
                             <AlertTriangle className="mr-1 h-3 w-3" />
                             {mrb.escalationLevel}
                           </Badge>
