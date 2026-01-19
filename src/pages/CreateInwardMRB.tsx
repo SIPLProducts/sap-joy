@@ -14,21 +14,56 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { useInwardMRB } from '@/contexts/InwardMRBContext';
-import { InspectionLotRecord, InwardMRBFormData, InwardQualityDecision, InwardDefectCategory, NextReviewDepartment } from '@/types/inwardReport';
-import { Attachment } from '@/types/mrb';
+import { useMRBDatabase } from '@/hooks/useMRBDatabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   nextReviewDepartments, 
   inwardQualityDecisions, 
   inwardDefectCategories,
   inwardAttachmentCategories 
 } from '@/data/inwardReportData';
+import type { Database } from '@/integrations/supabase/types';
+
+type QualityDecision = Database['public']['Enums']['quality_decision'];
+type DefectCategory = Database['public']['Enums']['defect_category'];
+
+interface InspectionLotRecord {
+  id: string;
+  inspectionLot: string;
+  plant: string;
+  materialCode: string;
+  materialDescription: string;
+  vendorCode: string;
+  vendorName: string;
+  storageLocation: string;
+  batch: string;
+  poNumber: string;
+  transactionQuantity: number;
+  uom: string;
+  blockedQuantity: number;
+  blockReason: string;
+  inspectionDate: string;
+  status: 'pending' | 'mrb_created' | 'cleared';
+  purchaseOrderNumber?: string;
+}
+
+interface Attachment {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  url: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  category: string;
+}
 
 export default function CreateInwardMRB() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { createInwardMRB, addEmailLog, getNextMRBNumber } = useInwardMRB();
+  const { createMRB, getNextMRBNumber } = useMRBDatabase();
+  const { user, profile, userRole } = useAuth();
   
   const inspectionLot = location.state?.inspectionLot as InspectionLotRecord | undefined;
 
@@ -49,7 +84,7 @@ export default function CreateInwardMRB() {
     );
   }
 
-  const [formData, setFormData] = useState<InwardMRBFormData>({
+  const [formData, setFormData] = useState({
     // Auto-populated from inspection lot
     inspectionLot: inspectionLot.inspectionLot,
     materialCode: inspectionLot.materialCode,
@@ -63,20 +98,21 @@ export default function CreateInwardMRB() {
     blockReason: inspectionLot.blockReason,
     vendorCode: inspectionLot.vendorCode,
     vendorName: inspectionLot.vendorName,
-    purchaseOrderNumber: inspectionLot.purchaseOrderNumber,
+    purchaseOrderNumber: inspectionLot.purchaseOrderNumber || inspectionLot.poNumber || '',
     
     // Quality inspection input (empty)
-    qualityDecision: '',
-    defectCategory: '',
+    qualityDecision: '' as string,
+    defectCategory: '' as string,
     defectDescription: '',
     qualityInspectionComments: '',
     qualityInspectionDate: new Date().toISOString().split('T')[0],
-    qualityInspectorName: '',
-    nextReviewDepartments: [],
+    qualityInspectorName: profile?.full_name || '',
+    nextReviewDepartments: [] as string[],
   });
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('inspection_report');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -89,7 +125,7 @@ export default function CreateInwardMRB() {
         url: URL.createObjectURL(file),
         uploadedBy: formData.qualityInspectorName || 'Quality User',
         uploadedAt: new Date().toISOString(),
-        category: selectedCategory as Attachment['category'],
+        category: selectedCategory,
       }));
       setAttachments([...attachments, ...newAttachments]);
     }
@@ -100,7 +136,7 @@ export default function CreateInwardMRB() {
     setAttachments(attachments.filter((att) => att.id !== id));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Validation
     if (!formData.qualityDecision) {
       toast({
@@ -127,42 +163,92 @@ export default function CreateInwardMRB() {
       return;
     }
 
-    // Create MRB
-    const newMRB = createInwardMRB(formData, attachments);
+    setIsSubmitting(true);
 
-    // Create email log for each selected department
-    const departmentLabels = formData.nextReviewDepartments.map(d => 
-      nextReviewDepartments.find(dept => dept.value === d)?.label || d
-    ).join(', ');
-    addEmailLog({
-      id: `EMAIL-${Date.now()}`,
-      mrbId: newMRB.id,
-      mrbNumber: newMRB.mrbNumber,
-      subject: `New MRB Created - ${newMRB.mrbNumber} - Action Required`,
-      recipients: formData.nextReviewDepartments.map(d => `${d}@company.com`),
-      cc: ['quality@company.com'],
-      template: 'quality_to_engineering',
-      sentAt: new Date().toISOString(),
-      sentBy: formData.qualityInspectorName,
-      status: 'sent',
-      body: `
-MRB Number: ${newMRB.mrbNumber}
-Inspection Lot: ${formData.inspectionLot}
-Material: ${formData.materialCode} - ${formData.materialDescription}
-Blocked Quantity: ${formData.blockedQuantity} ${formData.uom}
-Block Reason: ${formData.blockReason}
-Quality Comments: ${formData.qualityInspectionComments}
+    try {
+      const mrbNumber = await getNextMRBNumber();
+      
+      // Map quality decision to database enum
+      const qualityDecisionMap: Record<string, QualityDecision> = {
+        'accept': 'accept',
+        'reject': 'reject',
+        'partial_accept': 'partial_accept',
+        'block': 'blocked',
+      };
+      
+      // Map defect category
+      const defectCategoryMap: Record<string, DefectCategory> = {
+        'electrical': 'functional',
+        'mechanical': 'dimensional',
+        'dimensional': 'dimensional',
+        'surface': 'surface',
+        'material': 'material',
+        'documentation': 'documentation',
+        'packaging': 'packaging',
+        'other': 'other',
+      };
 
-Action Required: Please review and take appropriate action.
-      `.trim(),
-    });
+      // Determine pending_with based on next review department
+      const pendingWithMap: Record<string, Database['public']['Enums']['app_role']> = {
+        'engineering': 'engineering',
+        'purchase': 'purchase',
+        'plant_head': 'executive',
+      };
 
-    toast({
-      title: 'MRB Created Successfully',
-      description: `MRB ${newMRB.mrbNumber} has been created and routed to ${departmentLabels}. Email notification sent.`,
-    });
+      const firstDept = formData.nextReviewDepartments[0];
+      const pendingWith = pendingWithMap[firstDept] || 'engineering';
 
-    navigate('/inward/worklist');
+      const newMRB = await createMRB({
+        mrb_number: mrbNumber,
+        status: 'quality_review',
+        source: 'quality_inspection',
+        created_by: user?.id || '',
+        pending_with: pendingWith,
+        pending_days: 0,
+        sla_status: 'green',
+        escalation_level: 'none',
+        material_number: formData.materialCode,
+        material_description: formData.materialDescription,
+        plant: formData.plant,
+        vendor_code: formData.vendorCode,
+        vendor_name: formData.vendorName,
+        inspection_lot: formData.inspectionLot,
+        po_number: formData.purchaseOrderNumber,
+        total_quantity: formData.transactionQuantity,
+        blocked_quantity: formData.blockedQuantity,
+        accepted_quantity: formData.qualityDecision === 'accept' ? formData.transactionQuantity : 0,
+        rejected_quantity: formData.qualityDecision === 'reject' ? formData.blockedQuantity : 0,
+        uom: formData.uom,
+        quality_decision: qualityDecisionMap[formData.qualityDecision] || 'blocked',
+        defect_category: defectCategoryMap[formData.defectCategory] || null,
+        defect_description: formData.defectDescription || formData.blockReason,
+        quality_remarks: formData.qualityInspectionComments,
+        quality_approved_by: user?.id,
+        quality_approved_at: new Date().toISOString(),
+      });
+
+      if (newMRB) {
+        const departmentLabels = formData.nextReviewDepartments.map(d => 
+          nextReviewDepartments.find(dept => dept.value === d)?.label || d
+        ).join(', ');
+
+        toast({
+          title: 'MRB Created Successfully',
+          description: `MRB ${mrbNumber} has been created and routed to ${departmentLabels}.`,
+        });
+
+        navigate('/worklist');
+      }
+    } catch (error) {
+      console.error('Error creating MRB:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create MRB. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSaveDraft = () => {
@@ -200,9 +286,9 @@ Action Required: Please review and take appropriate action.
                 <Save className="h-4 w-4 mr-2" />
                 Save Draft
               </Button>
-              <Button onClick={handleSubmit}>
+              <Button onClick={handleSubmit} disabled={isSubmitting}>
                 <Send className="h-4 w-4 mr-2" />
-                Submit
+                {isSubmitting ? 'Submitting...' : 'Submit'}
               </Button>
               <Button variant="ghost" onClick={() => navigate('/inward/report')}>
                 <X className="h-4 w-4 mr-2" />
@@ -303,7 +389,7 @@ Action Required: Please review and take appropriate action.
                 </Label>
                 <Select
                   value={formData.qualityDecision}
-                  onValueChange={(value) => setFormData({ ...formData, qualityDecision: value as InwardQualityDecision })}
+                  onValueChange={(value) => setFormData({ ...formData, qualityDecision: value })}
                 >
                   <SelectTrigger className="bg-background">
                     <SelectValue placeholder="Select Decision" />
@@ -321,7 +407,7 @@ Action Required: Please review and take appropriate action.
                 <Label className="text-foreground">Defect Category</Label>
                 <Select
                   value={formData.defectCategory}
-                  onValueChange={(value) => setFormData({ ...formData, defectCategory: value as InwardDefectCategory })}
+                  onValueChange={(value) => setFormData({ ...formData, defectCategory: value })}
                 >
                   <SelectTrigger className="bg-background">
                     <SelectValue placeholder="Select Category" />
@@ -427,14 +513,14 @@ Action Required: Please review and take appropriate action.
                 {attachments.map((att) => (
                   <div
                     key={att.id}
-                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border"
+                    className="flex items-center justify-between px-4 py-3 rounded-lg bg-muted/50 border border-border"
                   >
                     <div className="flex items-center gap-3">
-                      <FileText className="h-5 w-5 text-muted-foreground" />
+                      <FileText className="h-5 w-5 text-primary" />
                       <div>
-                        <p className="text-sm font-medium text-foreground">{att.name}</p>
+                        <p className="font-medium text-sm">{att.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {inwardAttachmentCategories.find(c => c.value === att.category)?.label || att.category} • {(att.size / 1024).toFixed(1)} KB
+                          {(att.size / 1024).toFixed(1)} KB • {att.category}
                         </p>
                       </div>
                     </div>
@@ -450,40 +536,38 @@ Action Required: Please review and take appropriate action.
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-muted-foreground border-2 border-dashed border-border rounded-lg">
-                <Upload className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                <p>No attachments uploaded yet</p>
-                <p className="text-xs mt-1">Supported: PDF, DOC, DOCX, JPG, PNG, XLS, XLSX</p>
-              </div>
+              <p className="text-center text-muted-foreground py-8">
+                No attachments uploaded yet
+              </p>
             )}
           </div>
         </div>
 
         <Separator />
 
-        {/* Section 4: Next Review Departments (Multi-Select) */}
+        {/* Section 4: Next Review Department */}
         <div className="bg-background rounded-lg border border-border shadow-sm">
           <div className="px-6 py-4 border-b border-border bg-muted/30">
             <h2 className="text-lg font-semibold text-foreground">
               Workflow Routing
             </h2>
             <p className="text-sm text-muted-foreground">
-              Select one or more review departments for this MRB
+              Select department(s) for next review
             </p>
           </div>
           <div className="p-6">
-            <div className="space-y-3">
+            <div className="space-y-4">
               <Label className="text-foreground">
-                Next Review Departments <span className="text-destructive">*</span>
+                Next Review Department(s) <span className="text-destructive">*</span>
               </Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {nextReviewDepartments.map((dept) => (
                   <label
                     key={dept.value}
-                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition-colors ${
                       formData.nextReviewDepartments.includes(dept.value)
                         ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-muted-foreground'
+                        : 'border-border hover:bg-muted/50'
                     }`}
                   >
                     <input
@@ -491,45 +575,25 @@ Action Required: Please review and take appropriate action.
                       checked={formData.nextReviewDepartments.includes(dept.value)}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setFormData({ 
-                            ...formData, 
-                            nextReviewDepartments: [...formData.nextReviewDepartments, dept.value] 
+                          setFormData({
+                            ...formData,
+                            nextReviewDepartments: [...formData.nextReviewDepartments, dept.value],
                           });
                         } else {
-                          setFormData({ 
-                            ...formData, 
-                            nextReviewDepartments: formData.nextReviewDepartments.filter(d => d !== dept.value) 
+                          setFormData({
+                            ...formData,
+                            nextReviewDepartments: formData.nextReviewDepartments.filter(
+                              (d) => d !== dept.value
+                            ),
                           });
                         }
                       }}
-                      className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                      className="h-4 w-4 text-primary"
                     />
-                    <span className="text-sm font-medium">{dept.label}</span>
+                    <span className="font-medium text-sm">{dept.label}</span>
                   </label>
                 ))}
               </div>
-              {formData.nextReviewDepartments.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {formData.nextReviewDepartments.map(d => (
-                    <span 
-                      key={d} 
-                      className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary text-xs rounded-full"
-                    >
-                      {nextReviewDepartments.find(dept => dept.value === d)?.label}
-                      <X
-                        className="w-3 h-3 cursor-pointer hover:text-destructive"
-                        onClick={() => setFormData({ 
-                          ...formData, 
-                          nextReviewDepartments: formData.nextReviewDepartments.filter(dept => dept !== d) 
-                        })}
-                      />
-                    </span>
-                  ))}
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground mt-2">
-                Selected departments will receive email notifications and the MRB will be routed for their review.
-              </p>
             </div>
           </div>
         </div>

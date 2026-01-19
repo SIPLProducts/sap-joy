@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMRB } from '@/contexts/MRBContext';
+import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { useRole } from '@/contexts/RoleContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,21 +11,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { materials, vendors, plants, defectCodes } from '@/data/mockData';
-import { MRBRecord, DefectCategory } from '@/types/mrb';
 import { Upload, X, FileText, Save, Send, ArrowLeft } from 'lucide-react';
+import type { Database } from '@/integrations/supabase/types';
+
+type DefectCategory = Database['public']['Enums']['defect_category'];
 
 const defectCategories: DefectCategory[] = ['dimensional', 'surface', 'material', 'functional', 'documentation', 'packaging', 'other'];
 
 const qualityDecisions = [
   { value: 'accept', label: 'Accept' },
   { value: 'reject', label: 'Reject' },
-  { value: 'block', label: 'Block for Review' },
+  { value: 'blocked', label: 'Block for Review' },
 ];
 
 export default function CreateMRBQuality() {
   const navigate = useNavigate();
-  const { createMRB, getNextMRBNumber } = useMRB();
+  const { createMRB, getNextMRBNumber } = useMRBDatabase();
   const { currentUser } = useRole();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -46,6 +50,7 @@ export default function CreateMRBQuality() {
   });
 
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -62,7 +67,7 @@ export default function CreateMRBQuality() {
     toast({ title: "Draft Saved", description: "Your MRB draft has been saved." });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.materialNumber || !formData.vendor || !formData.plant || !formData.totalQuantity || !formData.qualityDecision || !formData.defectCategory || !formData.defectDescription) {
@@ -70,54 +75,52 @@ export default function CreateMRBQuality() {
       return;
     }
 
-    const material = materials.find(m => m.number === formData.materialNumber);
-    const vendorData = vendors.find(v => v.code === formData.vendor);
-    
-    const newMRB: MRBRecord = {
-      id: Date.now().toString(),
-      mrbNumber: getNextMRBNumber(),
-      status: 'quality_review',
-      source: 'quality_inspection',
-      createdAt: new Date().toISOString(),
-      createdBy: currentUser.name,
-      updatedAt: new Date().toISOString(),
-      pendingWith: 'quality',
-      pendingDays: 0,
-      slaStatus: 'green',
-      escalationLevel: 'none',
-      materialNumber: formData.materialNumber,
-      materialDescription: material?.description || '',
-      plant: formData.plant,
-      vendor: formData.vendor,
-      vendorName: vendorData?.name || '',
-      grnNumber: formData.grnNumber,
-      inspectionLot: formData.inspectionLot,
-      poNumber: formData.poNumber,
-      totalQuantity: parseInt(formData.totalQuantity) || 0,
-      acceptedQuantity: parseInt(formData.acceptedQuantity) || 0,
-      rejectedQuantity: parseInt(formData.rejectedQuantity) || 0,
-      blockedQuantity: parseInt(formData.blockedQuantity) || 0,
-      uom: 'EA',
-      defectCategory: formData.defectCategory,
-      defectCode: formData.defectCode,
-      defectDescription: formData.defectDescription,
-      qualityRemarks: formData.qualityRemarks,
-      attachments: attachments.map(f => ({
-        id: Date.now().toString() + Math.random().toString(),
-        name: f.name,
-        type: f.type.includes('image') ? 'image' : 'document',
-        size: f.size,
-        url: URL.createObjectURL(f),
-        uploadedBy: currentUser.name,
-        uploadedAt: new Date().toISOString(),
-        category: 'inspection_report' as const,
-      })),
-      approvalHistory: [],
-    };
+    setIsSubmitting(true);
 
-    createMRB(newMRB);
-    toast({ title: "MRB Created", description: `${newMRB.mrbNumber} has been created successfully.` });
-    navigate('/worklist');
+    try {
+      const material = materials.find(m => m.number === formData.materialNumber);
+      const vendorData = vendors.find(v => v.code === formData.vendor);
+      const mrbNumber = await getNextMRBNumber();
+      
+      const newMRB = await createMRB({
+        mrb_number: mrbNumber,
+        status: 'quality_review',
+        source: 'quality_inspection',
+        created_by: user?.id || '',
+        pending_with: 'quality',
+        pending_days: 0,
+        sla_status: 'green',
+        escalation_level: 'none',
+        material_number: formData.materialNumber,
+        material_description: material?.description || '',
+        plant: formData.plant,
+        vendor_code: formData.vendor,
+        vendor_name: vendorData?.name || '',
+        grn_number: formData.grnNumber || null,
+        inspection_lot: formData.inspectionLot || null,
+        po_number: formData.poNumber || null,
+        total_quantity: parseInt(formData.totalQuantity) || 0,
+        accepted_quantity: parseInt(formData.acceptedQuantity) || 0,
+        rejected_quantity: parseInt(formData.rejectedQuantity) || 0,
+        blocked_quantity: parseInt(formData.blockedQuantity) || 0,
+        uom: 'EA',
+        defect_category: formData.defectCategory,
+        defect_code: formData.defectCode || null,
+        defect_description: formData.defectDescription,
+        quality_remarks: formData.qualityRemarks || null,
+        quality_decision: formData.qualityDecision as Database['public']['Enums']['quality_decision'],
+      });
+
+      if (newMRB) {
+        toast({ title: "MRB Created", description: `${mrbNumber} has been created successfully.` });
+        navigate('/worklist');
+      }
+    } catch (error) {
+      console.error('Error creating MRB:', error);
+      toast({ title: "Error", description: "Failed to create MRB. Please try again.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -144,9 +147,9 @@ export default function CreateMRBQuality() {
               <Save className="h-4 w-4 mr-2" />
               Save Draft
             </Button>
-            <Button onClick={handleSubmit} className="bg-primary hover:bg-primary/90">
+            <Button onClick={handleSubmit} className="bg-primary hover:bg-primary/90" disabled={isSubmitting}>
               <Send className="h-4 w-4 mr-2" />
-              Submit
+              {isSubmitting ? 'Submitting...' : 'Submit'}
             </Button>
             <Button variant="ghost" onClick={() => navigate('/worklist')}>
               Cancel
@@ -411,7 +414,7 @@ export default function CreateMRBQuality() {
               <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
                 <Upload className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
                 <p className="text-sm text-muted-foreground mb-3">
-                  Upload inspection reports, test results, photos, or specifications
+                  Upload inspection reports, test results, or related documents
                 </p>
                 <label className="cursor-pointer">
                   <span className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors">
@@ -425,9 +428,6 @@ export default function CreateMRBQuality() {
                     accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx,.xls"
                   />
                 </label>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Supported: PDF, DOC, DOCX, JPG, PNG, XLS, XLSX
-                </p>
               </div>
 
               {attachments.length > 0 && (
@@ -460,7 +460,7 @@ export default function CreateMRBQuality() {
             </div>
           </section>
 
-          {/* Bottom Spacer for better scroll experience */}
+          {/* Bottom Spacer */}
           <div className="h-6" />
         </form>
       </div>

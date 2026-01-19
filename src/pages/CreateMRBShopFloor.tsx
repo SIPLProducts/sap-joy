@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMRB } from '@/contexts/MRBContext';
+import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { useRole } from '@/contexts/RoleContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,13 +12,13 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { materials, vendors, plants } from '@/data/mockData';
-import { MRBRecord } from '@/types/mrb';
 import { Upload, X, FileText, Save, Send, ArrowLeft } from 'lucide-react';
 
 export default function CreateMRBShopFloor() {
   const navigate = useNavigate();
-  const { createMRB, getNextMRBNumber } = useMRB();
+  const { createMRB, getNextMRBNumber } = useMRBDatabase();
   const { currentUser } = useRole();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -33,6 +34,7 @@ export default function CreateMRBShopFloor() {
   });
 
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -49,7 +51,7 @@ export default function CreateMRBShopFloor() {
     toast({ title: "Draft Saved", description: "Your MRB draft has been saved." });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.productionOrderNumber || !formData.materialNumber || !formData.vendor || !formData.plant || !formData.issuedQuantity || !formData.issueDescription) {
@@ -57,55 +59,52 @@ export default function CreateMRBShopFloor() {
       return;
     }
 
-    const material = materials.find(m => m.number === formData.materialNumber);
-    const vendorData = vendors.find(v => v.code === formData.vendor);
-    
-    const newMRB: MRBRecord = {
-      id: Date.now().toString(),
-      mrbNumber: getNextMRBNumber(),
-      status: 'quality_review',
-      source: 'shop_floor',
-      createdAt: new Date().toISOString(),
-      createdBy: currentUser.name,
-      updatedAt: new Date().toISOString(),
-      pendingWith: 'quality',
-      pendingDays: 0,
-      slaStatus: 'green',
-      escalationLevel: 'none',
-      materialNumber: formData.materialNumber,
-      materialDescription: material?.description || '',
-      plant: formData.plant,
-      vendor: formData.vendor,
-      vendorName: vendorData?.name || '',
-      totalQuantity: parseInt(formData.issuedQuantity) || 0,
-      acceptedQuantity: 0,
-      rejectedQuantity: 0,
-      blockedQuantity: parseInt(formData.issuedQuantity) || 0,
-      uom: 'EA',
-      productionOrderNumber: formData.productionOrderNumber,
-      issuedQuantity: parseInt(formData.issuedQuantity) || 0,
-      issueIdentifiedBy: currentUser.name,
-      issueIdentifiedDate: new Date().toISOString(),
-      issueDescription: formData.issueDescription,
-      impactOnProduction: formData.impactOnProduction,
-      immediateBlockRequired: formData.immediateBlockRequired,
-      deviationRequested: formData.deviationRequested,
-      attachments: attachments.map(f => ({
-        id: Date.now().toString() + Math.random().toString(),
-        name: f.name,
-        type: f.type.includes('image') ? 'image' : 'document',
-        size: f.size,
-        url: URL.createObjectURL(f),
-        uploadedBy: currentUser.name,
-        uploadedAt: new Date().toISOString(),
-        category: 'shop_floor_images' as const,
-      })),
-      approvalHistory: [],
-    };
+    setIsSubmitting(true);
 
-    createMRB(newMRB);
-    toast({ title: "MRB Created", description: `${newMRB.mrbNumber} has been created from shop floor.` });
-    navigate('/worklist');
+    try {
+      const material = materials.find(m => m.number === formData.materialNumber);
+      const vendorData = vendors.find(v => v.code === formData.vendor);
+      const mrbNumber = await getNextMRBNumber();
+      
+      const newMRB = await createMRB({
+        mrb_number: mrbNumber,
+        status: 'quality_review',
+        source: 'shop_floor',
+        created_by: user?.id || '',
+        pending_with: 'quality',
+        pending_days: 0,
+        sla_status: 'green',
+        escalation_level: 'none',
+        material_number: formData.materialNumber,
+        material_description: material?.description || '',
+        plant: formData.plant,
+        vendor_code: formData.vendor,
+        vendor_name: vendorData?.name || '',
+        total_quantity: parseInt(formData.issuedQuantity) || 0,
+        accepted_quantity: 0,
+        rejected_quantity: 0,
+        blocked_quantity: parseInt(formData.issuedQuantity) || 0,
+        uom: 'EA',
+        production_order_number: formData.productionOrderNumber,
+        issued_quantity: parseInt(formData.issuedQuantity) || 0,
+        issue_identified_by: profile?.full_name || currentUser.name,
+        issue_identified_date: new Date().toISOString(),
+        issue_description: formData.issueDescription,
+        impact_on_production: formData.impactOnProduction || null,
+        immediate_block_required: formData.immediateBlockRequired,
+        deviation_requested: formData.deviationRequested,
+      });
+
+      if (newMRB) {
+        toast({ title: "MRB Created", description: `${mrbNumber} has been created from shop floor.` });
+        navigate('/worklist');
+      }
+    } catch (error) {
+      console.error('Error creating MRB:', error);
+      toast({ title: "Error", description: "Failed to create MRB. Please try again.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -132,9 +131,9 @@ export default function CreateMRBShopFloor() {
               <Save className="h-4 w-4 mr-2" />
               Save Draft
             </Button>
-            <Button onClick={handleSubmit} className="bg-primary hover:bg-primary/90">
+            <Button onClick={handleSubmit} className="bg-primary hover:bg-primary/90" disabled={isSubmitting}>
               <Send className="h-4 w-4 mr-2" />
-              Submit
+              {isSubmitting ? 'Submitting...' : 'Submit'}
             </Button>
             <Button variant="ghost" onClick={() => navigate('/worklist')}>
               Cancel

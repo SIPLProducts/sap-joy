@@ -1,4 +1,4 @@
-import { ClipboardList, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { ClipboardList, AlertTriangle, CheckCircle, Clock, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useMRB } from '@/contexts/MRBContext';
 import { useRole } from '@/contexts/RoleContext';
@@ -8,12 +8,23 @@ import { Badge } from '@/components/ui/badge';
 import { getStatusDisplayName, getStatusColor, getSLAColor } from '@/data/mockData';
 
 export default function Dashboard() {
-  const { mrbRecords } = useMRB();
+  const { mrbRecords, isLoading } = useMRB();
   const { currentRole, roleDisplayName } = useRole();
 
-  const pendingForMe = mrbRecords.filter(mrb => mrb.pendingWith === currentRole && mrb.status !== 'closed');
-  const slaBreaches = mrbRecords.filter(mrb => mrb.slaStatus === 'red');
-  const closedThisMonth = mrbRecords.filter(mrb => mrb.closureStatus === 'closed');
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const pendingForMe = mrbRecords.filter(mrb => mrb.pending_with === currentRole && mrb.status !== 'closed');
+  const slaBreaches = mrbRecords.filter(mrb => mrb.sla_status === 'red');
+  const closedThisMonth = mrbRecords.filter(mrb => mrb.closure_status === 'closed');
   const totalOpen = mrbRecords.filter(mrb => mrb.status !== 'closed' && mrb.status !== 'approved' && mrb.status !== 'rejected');
 
   const stats = [
@@ -67,15 +78,15 @@ export default function Dashboard() {
                 {pendingForMe.slice(0, 5).map((mrb) => (
                   <Link
                     key={mrb.id}
-                    to={`/mrb/${mrb.id}`}
+                    to={mrb.source === 'quality_inspection' ? `/inward/mrb/${mrb.id}` : `/mrb/${mrb.id}`}
                     className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted"
                   >
                     <div>
-                      <p className="font-medium">{mrb.mrbNumber}</p>
-                      <p className="text-sm text-muted-foreground">{mrb.materialDescription}</p>
+                      <p className="font-medium">{mrb.mrb_number}</p>
+                      <p className="text-sm text-muted-foreground">{mrb.material_description}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge className={getSLAColor(mrb.slaStatus)}>{mrb.pendingDays}d</Badge>
+                      <Badge className={getSLAColor(mrb.sla_status || 'green')}>{mrb.pending_days || 0}d</Badge>
                       <Badge className={getStatusColor(mrb.status)}>{getStatusDisplayName(mrb.status)}</Badge>
                     </div>
                   </Link>
@@ -94,11 +105,11 @@ export default function Dashboard() {
               {mrbRecords.slice(0, 5).map((mrb) => (
                 <Link
                   key={mrb.id}
-                  to={`/mrb/${mrb.id}`}
+                  to={mrb.source === 'quality_inspection' ? `/inward/mrb/${mrb.id}` : `/mrb/${mrb.id}`}
                   className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted"
                 >
                   <div>
-                    <p className="font-medium">{mrb.mrbNumber}</p>
+                    <p className="font-medium">{mrb.mrb_number}</p>
                     <p className="text-sm text-muted-foreground">
                       {mrb.source === 'shop_floor' ? 'Shop Floor' : 'Quality Inspection'}
                     </p>
