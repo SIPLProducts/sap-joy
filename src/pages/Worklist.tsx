@@ -825,35 +825,63 @@ export default function Worklist() {
                         </p>
                       </td>
                       {/* Department Reviews */}
-                      <td className="p-3 align-middle text-center bg-blue-50/30">
-                        <div className="flex flex-col items-center gap-1">
-                          {getDeptReviewBadge(mrb.qualityDecision, mrb.qualityApprovedAt, mrb.qualityRemarks)}
+                      <td className="p-3 align-middle bg-blue-50/30 min-w-[150px]">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center justify-center">
+                            {getDeptReviewBadge(mrb.qualityDecision, mrb.qualityApprovedAt, mrb.qualityRemarks)}
+                          </div>
                           {mrb.qualityApprovedAt && (
-                            <span className="text-[10px] text-muted-foreground">{formatDate(mrb.qualityApprovedAt)}</span>
+                            <span className="text-[10px] text-muted-foreground text-center">{formatDate(mrb.qualityApprovedAt)}</span>
+                          )}
+                          {mrb.qualityRemarks && (
+                            <p className="text-[10px] text-muted-foreground italic line-clamp-2 text-center" title={mrb.qualityRemarks}>
+                              "{mrb.qualityRemarks}"
+                            </p>
                           )}
                         </div>
                       </td>
-                      <td className="p-3 align-middle text-center bg-purple-50/30">
-                        <div className="flex flex-col items-center gap-1">
-                          {getDeptReviewBadge(mrb.purchaseAction, mrb.purchaseApprovedAt, mrb.purchaseRemarks)}
+                      <td className="p-3 align-middle bg-purple-50/30 min-w-[150px]">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center justify-center">
+                            {getDeptReviewBadge(mrb.purchaseAction, mrb.purchaseApprovedAt, mrb.purchaseRemarks)}
+                          </div>
                           {mrb.purchaseApprovedAt && (
-                            <span className="text-[10px] text-muted-foreground">{formatDate(mrb.purchaseApprovedAt)}</span>
+                            <span className="text-[10px] text-muted-foreground text-center">{formatDate(mrb.purchaseApprovedAt)}</span>
+                          )}
+                          {mrb.purchaseRemarks && (
+                            <p className="text-[10px] text-muted-foreground italic line-clamp-2 text-center" title={mrb.purchaseRemarks}>
+                              "{mrb.purchaseRemarks}"
+                            </p>
                           )}
                         </div>
                       </td>
-                      <td className="p-3 align-middle text-center bg-amber-50/30">
-                        <div className="flex flex-col items-center gap-1">
-                          {getDeptReviewBadge(mrb.engineeringDecision, mrb.engineeringApprovedAt, mrb.engineeringRemarks)}
+                      <td className="p-3 align-middle bg-amber-50/30 min-w-[150px]">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center justify-center">
+                            {getDeptReviewBadge(mrb.engineeringDecision, mrb.engineeringApprovedAt, mrb.engineeringRemarks)}
+                          </div>
                           {mrb.engineeringApprovedAt && (
-                            <span className="text-[10px] text-muted-foreground">{formatDate(mrb.engineeringApprovedAt)}</span>
+                            <span className="text-[10px] text-muted-foreground text-center">{formatDate(mrb.engineeringApprovedAt)}</span>
+                          )}
+                          {mrb.engineeringRemarks && (
+                            <p className="text-[10px] text-muted-foreground italic line-clamp-2 text-center" title={mrb.engineeringRemarks}>
+                              "{mrb.engineeringRemarks}"
+                            </p>
                           )}
                         </div>
                       </td>
-                      <td className="p-3 align-middle text-center bg-green-50/30">
-                        <div className="flex flex-col items-center gap-1">
-                          {getDeptReviewBadge(mrb.finalDecision, mrb.finalApprovedAt, mrb.finalRemarks)}
+                      <td className="p-3 align-middle bg-green-50/30 min-w-[150px]">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center justify-center">
+                            {getDeptReviewBadge(mrb.finalDecision, mrb.finalApprovedAt, mrb.finalRemarks)}
+                          </div>
                           {mrb.finalApprovedAt && (
-                            <span className="text-[10px] text-muted-foreground">{formatDate(mrb.finalApprovedAt)}</span>
+                            <span className="text-[10px] text-muted-foreground text-center">{formatDate(mrb.finalApprovedAt)}</span>
+                          )}
+                          {mrb.finalRemarks && (
+                            <p className="text-[10px] text-muted-foreground italic line-clamp-2 text-center" title={mrb.finalRemarks}>
+                              "{mrb.finalRemarks}"
+                            </p>
                           )}
                         </div>
                       </td>
