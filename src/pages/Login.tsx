@@ -347,6 +347,59 @@ export default function Login() {
             </Tabs>
           </Card>
 
+          {/* Demo Accounts Section */}
+          <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
+            <CardHeader className="pb-2 pt-4">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-primary">
+                <Users className="w-4 h-4" />
+                Demo Accounts for Testing
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Use these accounts to explore role-based functionality
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pb-4">
+              <div className="space-y-2 text-xs">
+                <div className="grid grid-cols-[1fr,auto] gap-2 p-2 rounded-md bg-background border">
+                  <div>
+                    <p className="font-medium text-foreground">bala@sharviinfotech.com</p>
+                    <p className="text-muted-foreground">Full system access</p>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium self-center">Admin</span>
+                </div>
+                <div className="grid grid-cols-[1fr,auto] gap-2 p-2 rounded-md bg-background border">
+                  <div>
+                    <p className="font-medium text-foreground">inturimounika@sharviinfotech.com</p>
+                    <p className="text-muted-foreground">Full system access</p>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium self-center">Admin</span>
+                </div>
+                <div className="grid grid-cols-[1fr,auto] gap-2 p-2 rounded-md bg-background border">
+                  <div>
+                    <p className="font-medium text-foreground">mounikamnk07@gmail.com</p>
+                    <p className="text-muted-foreground">Quality review & MRB creation</p>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium self-center">Quality</span>
+                </div>
+              </div>
+              
+              <div className="mt-3 pt-3 border-t">
+                <p className="text-xs font-medium text-foreground mb-2">MRB Workflow Stages:</p>
+                <div className="flex flex-wrap gap-1">
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-gray-100 text-gray-600">Draft</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700">Quality</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-purple-100 text-purple-700">Purchase</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-orange-100 text-orange-700">Engineering</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-green-100 text-green-700">Final</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Footer */}
           <p className="text-center text-xs text-muted-foreground">
             HBL Material Review Board © {new Date().getFullYear()} • All rights reserved
