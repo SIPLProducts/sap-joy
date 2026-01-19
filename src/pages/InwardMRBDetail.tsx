@@ -219,7 +219,7 @@ export default function InwardMRBDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-muted/30 pb-20">
       {/* Sticky Header */}
       <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm">
         <div className="px-6 py-4">
@@ -242,12 +242,6 @@ export default function InwardMRBDetail() {
                 </p>
               </div>
             </div>
-            {canReview && mrb.status !== 'approved' && mrb.status !== 'rejected' && mrb.status !== 'closed' && (
-              <Button onClick={handleOpenApprovalDialog} disabled={!reviewData.action}>
-                <Send className="h-4 w-4 mr-2" />
-                Submit Review
-              </Button>
-            )}
           </div>
         </div>
       </div>
@@ -475,6 +469,39 @@ export default function InwardMRBDetail() {
           </>
         )}
       </div>
+
+      {/* Sticky Footer with Submit Button */}
+      {canReview && mrb.status !== 'approved' && mrb.status !== 'rejected' && mrb.status !== 'closed' && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border shadow-lg">
+          <div className="px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
+            <div className="text-sm text-muted-foreground">
+              {reviewData.action ? (
+                <span>
+                  Selected action: <strong className="text-foreground">{getActionLabel(reviewData.action)}</strong>
+                  {reviewData.forwardToNext && reviewData.nextDepartments.length > 0 && (
+                    <span className="ml-2">
+                      → Forward to: {reviewData.nextDepartments.map(d => 
+                        nextReviewDepartments.find(dept => dept.value === d)?.label
+                      ).join(', ')}
+                    </span>
+                  )}
+                </span>
+              ) : (
+                <span>Please select an action to proceed</span>
+              )}
+            </div>
+            <Button 
+              onClick={handleOpenApprovalDialog} 
+              disabled={!reviewData.action}
+              size="lg"
+              className="min-w-[160px]"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              Submit Review
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Dialog */}
       <Dialog open={showApprovalDialog} onOpenChange={setShowApprovalDialog}>
