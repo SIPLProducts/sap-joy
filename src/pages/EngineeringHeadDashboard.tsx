@@ -54,40 +54,38 @@ export default function EngineeringHeadDashboard() {
   const filteredMRBs = useMemo(() => {
     let filtered = [...allMRBs];
     if (selectedPlant !== 'all') filtered = filtered.filter(mrb => mrb.plant === selectedPlant);
-    if (selectedMaterial !== 'all') filtered = filtered.filter(mrb => mrb.materialNumber === selectedMaterial);
+    if (selectedMaterial !== 'all') filtered = filtered.filter(mrb => mrb.material_number === selectedMaterial);
     if (dateFrom && dateTo) {
-      filtered = filtered.filter(mrb => isWithinInterval(parseISO(mrb.createdAt), { start: dateFrom, end: dateTo }));
+      filtered = filtered.filter(mrb => mrb.created_at && isWithinInterval(parseISO(mrb.created_at), { start: dateFrom, end: dateTo }));
     } else if (dateFrom) {
-      filtered = filtered.filter(mrb => parseISO(mrb.createdAt) >= dateFrom);
+      filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) >= dateFrom);
     } else if (dateTo) {
-      filtered = filtered.filter(mrb => parseISO(mrb.createdAt) <= dateTo);
+      filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) <= dateTo);
     }
     return filtered;
   }, [allMRBs, selectedPlant, selectedMaterial, dateFrom, dateTo]);
 
   const kpis = useMemo(() => {
-    const pendingEngineering = filteredMRBs.filter(mrb => mrb.pendingWith === 'engineering').length;
+    const pendingEngineering = filteredMRBs.filter(mrb => mrb.pending_with === 'engineering').length;
     
-    const reviewedMRBs = filteredMRBs.filter(mrb => mrb.engineeringApprovedAt);
+    const reviewedMRBs = filteredMRBs.filter(mrb => mrb.engineering_approved_at);
     const avgReviewTime = reviewedMRBs.length > 0
       ? Math.round(reviewedMRBs.reduce((sum, mrb) => {
-          const history = mrb.approvalHistory?.find(h => h.performedByRole === 'purchase');
-          const purchaseDate = history?.performedAt ? parseISO(history.performedAt) : parseISO(mrb.createdAt);
-          const engDate = parseISO(mrb.engineeringApprovedAt!);
+          const purchaseDate = parseISO(mrb.created_at);
+          const engDate = parseISO(mrb.engineering_approved_at!);
           return sum + differenceInDays(engDate, purchaseDate);
         }, 0) / reviewedMRBs.length)
       : 0;
 
     const slaCompliant = reviewedMRBs.filter(mrb => {
-      const history = mrb.approvalHistory?.find(h => h.performedByRole === 'purchase');
-      const purchaseDate = history?.performedAt ? parseISO(history.performedAt) : parseISO(mrb.createdAt);
-      const engDate = parseISO(mrb.engineeringApprovedAt!);
+      const purchaseDate = parseISO(mrb.created_at);
+      const engDate = parseISO(mrb.engineering_approved_at!);
       return differenceInDays(engDate, purchaseDate) <= SLA_DAYS;
     }).length;
     const slaPercent = reviewedMRBs.length > 0 ? Math.round((slaCompliant / reviewedMRBs.length) * 100) : 0;
 
-    const escalated = filteredMRBs.filter(mrb => mrb.escalationLevel && mrb.escalationLevel !== 'none').length;
-    const deviations = filteredMRBs.filter(mrb => mrb.engineeringDecision === 'use_with_deviation').length;
+    const escalated = filteredMRBs.filter(mrb => mrb.escalation_level && mrb.escalation_level !== 'none').length;
+    const deviations = filteredMRBs.filter(mrb => mrb.engineering_decision === 'use_with_deviation').length;
     const deviationPercent = filteredMRBs.length > 0 ? Math.round((deviations / filteredMRBs.length) * 100) : 0;
 
     return { pendingEngineering, avgReviewTime, slaPercent, escalated, deviationPercent };
@@ -101,30 +99,30 @@ export default function EngineeringHeadDashboard() {
       'Return': 0,
     };
     filteredMRBs.forEach(mrb => {
-      if (mrb.engineeringDecision === 'use_as_is') decisions['Use As-Is']++;
-      else if (mrb.engineeringDecision === 'use_with_deviation') decisions['Deviation']++;
-      else if (mrb.engineeringDecision === 'rework_required') decisions['Rework']++;
-      else if (mrb.engineeringDecision === 'return_to_vendor' || mrb.qualityDecision === 'reject') decisions['Return']++;
+      if (mrb.engineering_decision === 'use_as_is') decisions['Use As-Is']++;
+      else if (mrb.engineering_decision === 'use_with_deviation') decisions['Deviation']++;
+      else if (mrb.engineering_decision === 'rework_required') decisions['Rework']++;
+      else if (mrb.engineering_decision === 'return_to_vendor' || mrb.quality_decision === 'reject') decisions['Return']++;
     });
     return Object.entries(decisions).map(([name, value]) => ({ name, value }));
   }, [filteredMRBs]);
 
   const pendingAgeing = useMemo(() => {
-    const pending = filteredMRBs.filter(mrb => mrb.pendingWith === 'engineering');
+    const pending = filteredMRBs.filter(mrb => mrb.pending_with === 'engineering');
     return [
-      { range: '0-2 Days', count: pending.filter(mrb => mrb.pendingDays <= 2).length },
-      { range: '3-5 Days', count: pending.filter(mrb => mrb.pendingDays > 2 && mrb.pendingDays <= 5).length },
-      { range: '>5 Days', count: pending.filter(mrb => mrb.pendingDays > 5).length },
+      { range: '0-2 Days', count: pending.filter(mrb => (mrb.pending_days || 0) <= 2).length },
+      { range: '3-5 Days', count: pending.filter(mrb => (mrb.pending_days || 0) > 2 && (mrb.pending_days || 0) <= 5).length },
+      { range: '>5 Days', count: pending.filter(mrb => (mrb.pending_days || 0) > 5).length },
     ];
   }, [filteredMRBs]);
 
   const repeatMaterials = useMemo(() => {
     const materialCounts: Record<string, { material: string; count: number }> = {};
     filteredMRBs.forEach(mrb => {
-      if (!materialCounts[mrb.materialNumber]) {
-        materialCounts[mrb.materialNumber] = { material: mrb.materialNumber, count: 0 };
+      if (!materialCounts[mrb.material_number]) {
+        materialCounts[mrb.material_number] = { material: mrb.material_number, count: 0 };
       }
-      materialCounts[mrb.materialNumber].count++;
+      materialCounts[mrb.material_number].count++;
     });
     return Object.values(materialCounts)
       .filter(m => m.count > 1)
@@ -134,17 +132,17 @@ export default function EngineeringHeadDashboard() {
 
   const tableData = useMemo(() => {
     return filteredMRBs
-      .filter(mrb => mrb.pendingWith === 'engineering' || mrb.engineeringDecision)
+      .filter(mrb => mrb.pending_with === 'engineering' || mrb.engineering_decision)
       .slice(0, 20)
       .map(mrb => ({
         id: mrb.id,
-        mrbNumber: mrb.mrbNumber,
-        materialCode: mrb.materialNumber,
-        defectDescription: mrb.defectDescription || '-',
-        engineeringDecision: mrb.engineeringDecision || 'Pending',
-        pendingDays: mrb.pendingDays,
-        escalated: mrb.escalationLevel && mrb.escalationLevel !== 'none',
-        isSLABreached: mrb.pendingDays > SLA_DAYS && mrb.pendingWith === 'engineering',
+        mrbNumber: mrb.mrb_number,
+        materialCode: mrb.material_number,
+        defectDescription: mrb.defect_description || '-',
+        engineeringDecision: mrb.engineering_decision || 'Pending',
+        pendingDays: mrb.pending_days || 0,
+        escalated: mrb.escalation_level && mrb.escalation_level !== 'none',
+        isSLABreached: (mrb.pending_days || 0) > SLA_DAYS && mrb.pending_with === 'engineering',
       }));
   }, [filteredMRBs]);
 

@@ -59,46 +59,47 @@ export default function PlantHeadDashboard() {
     }
     if (dateFrom && dateTo) {
       filtered = filtered.filter(mrb => {
-        const createdDate = parseISO(mrb.createdAt);
+        if (!mrb.created_at) return false;
+        const createdDate = parseISO(mrb.created_at);
         return isWithinInterval(createdDate, { start: dateFrom, end: dateTo });
       });
     } else if (dateFrom) {
-      filtered = filtered.filter(mrb => parseISO(mrb.createdAt) >= dateFrom);
+      filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) >= dateFrom);
     } else if (dateTo) {
-      filtered = filtered.filter(mrb => parseISO(mrb.createdAt) <= dateTo);
+      filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) <= dateTo);
     }
     return filtered;
   }, [allMRBs, selectedPlant, dateFrom, dateTo]);
 
   const kpis = useMemo(() => {
     const totalMRBs = filteredMRBs.length;
-    const pendingProduction = filteredMRBs.filter(mrb => mrb.impactOnProduction || mrb.immediateBlockRequired).length;
+    const pendingProduction = filteredMRBs.filter(mrb => mrb.impact_on_production || mrb.immediate_block_required).length;
     
-    const closedMRBs = filteredMRBs.filter(mrb => mrb.closureStatus === 'closed' && mrb.closedAt);
+    const closedMRBs = filteredMRBs.filter(mrb => mrb.closure_status === 'closed' && mrb.closed_at);
     const avgClosureTime = closedMRBs.length > 0
       ? Math.round(closedMRBs.reduce((sum, mrb) => {
-          const created = parseISO(mrb.createdAt);
-          const closed = parseISO(mrb.closedAt!);
+          const created = parseISO(mrb.created_at);
+          const closed = parseISO(mrb.closed_at!);
           return sum + differenceInDays(closed, created);
         }, 0) / closedMRBs.length)
       : 0;
 
     const slaCompliant = closedMRBs.filter(mrb => {
-      const created = parseISO(mrb.createdAt);
-      const closed = parseISO(mrb.closedAt!);
+      const created = parseISO(mrb.created_at);
+      const closed = parseISO(mrb.closed_at!);
       return differenceInDays(closed, created) <= SLA_DAYS;
     }).length;
     const slaPercent = closedMRBs.length > 0 ? Math.round((slaCompliant / closedMRBs.length) * 100) : 0;
 
-    const productionLoss = filteredMRBs.filter(mrb => mrb.impactOnProduction).length * 8; // Estimated hours
+    const productionLoss = filteredMRBs.filter(mrb => mrb.impact_on_production).length * 8; // Estimated hours
 
     return { totalMRBs, pendingProduction, avgClosureTime, slaPercent, productionLoss };
   }, [filteredMRBs]);
 
   const statusDistribution = useMemo(() => {
     const pending = filteredMRBs.filter(mrb => !['closed', 'approved', 'rejected'].includes(mrb.status)).length;
-    const approved = filteredMRBs.filter(mrb => mrb.finalDecision === 'approved' || mrb.status === 'approved').length;
-    const closed = filteredMRBs.filter(mrb => mrb.closureStatus === 'closed').length;
+    const approved = filteredMRBs.filter(mrb => mrb.final_decision === 'approved' || mrb.status === 'approved').length;
+    const closed = filteredMRBs.filter(mrb => mrb.closure_status === 'closed').length;
     return [
       { name: 'Pending', value: pending },
       { name: 'Approved', value: approved },
@@ -109,10 +110,10 @@ export default function PlantHeadDashboard() {
   const decisionDistribution = useMemo(() => {
     const decisions: Record<string, number> = { 'Use As-Is': 0, 'Deviation': 0, 'Return': 0, 'Scrap': 0 };
     filteredMRBs.forEach(mrb => {
-      if (mrb.engineeringDecision === 'use_as_is') decisions['Use As-Is']++;
-      else if (mrb.engineeringDecision === 'use_with_deviation') decisions['Deviation']++;
-      else if (mrb.qualityDecision === 'reject' || mrb.finalDecision === 'rejected') decisions['Return']++;
-      else if (mrb.purchaseAction?.toLowerCase().includes('scrap')) decisions['Scrap']++;
+      if (mrb.engineering_decision === 'use_as_is') decisions['Use As-Is']++;
+      else if (mrb.engineering_decision === 'use_with_deviation') decisions['Deviation']++;
+      else if (mrb.quality_decision === 'reject' || mrb.final_decision === 'rejected') decisions['Return']++;
+      else if (mrb.purchase_action?.toLowerCase().includes('scrap')) decisions['Scrap']++;
     });
     return Object.entries(decisions).map(([name, value]) => ({ name, value }));
   }, [filteredMRBs]);
@@ -120,7 +121,7 @@ export default function PlantHeadDashboard() {
   const productionImpactByPlant = useMemo(() => {
     const plantData: Record<string, number> = {};
     filteredMRBs.forEach(mrb => {
-      if (mrb.impactOnProduction || mrb.immediateBlockRequired) {
+      if (mrb.impact_on_production || mrb.immediate_block_required) {
         plantData[mrb.plant] = (plantData[mrb.plant] || 0) + 1;
       }
     });
@@ -130,14 +131,14 @@ export default function PlantHeadDashboard() {
   const tableData = useMemo(() => {
     return filteredMRBs.slice(0, 20).map(mrb => ({
       id: mrb.id,
-      mrbNumber: mrb.mrbNumber,
-      materialCode: mrb.materialNumber,
-      blockedQuantity: mrb.blockedQuantity,
+      mrbNumber: mrb.mrb_number,
+      materialCode: mrb.material_number,
+      blockedQuantity: mrb.blocked_quantity,
       status: mrb.status,
-      pendingWith: mrb.pendingWith,
-      pendingDays: mrb.pendingDays,
-      finalDecision: mrb.finalDecision || mrb.engineeringDecision || '-',
-      isSLABreached: mrb.pendingDays > SLA_DAYS,
+      pendingWith: mrb.pending_with,
+      pendingDays: mrb.pending_days || 0,
+      finalDecision: mrb.final_decision || mrb.engineering_decision || '-',
+      isSLABreached: (mrb.pending_days || 0) > SLA_DAYS,
     }));
   }, [filteredMRBs]);
 
