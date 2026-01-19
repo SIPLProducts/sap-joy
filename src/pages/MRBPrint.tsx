@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import html2pdf from 'html2pdf.js';
-import { Search, Printer, Download, FileText, ClipboardCheck } from 'lucide-react';
+import { Search, Printer, Download, FileText, ClipboardCheck, Eye, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useMRB } from '@/contexts/MRBContext';
 import { useInwardMRB } from '@/contexts/InwardMRBContext';
 import { useToast } from '@/hooks/use-toast';
+import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
+import { PrinterSettingsModal, loadPrinterSettings, type PrinterSettings } from '@/components/print/PrinterSettingsModal';
 import hblLogo from '@/assets/hbl-logo.png';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -32,6 +34,13 @@ const MRBPrint = () => {
   const [selectedMRBId, setSelectedMRBId] = useState<string>(sampleMRB?.id || '');
   const [selectedMRB, setSelectedMRB] = useState<MRBRecord | null>(sampleMRB || null);
   const [activeForm, setActiveForm] = useState<'ncr' | 'mrb'>('ncr');
+  
+  // Print preview & settings state
+  const [showPreview, setShowPreview] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [printerSettings, setPrinterSettings] = useState<PrinterSettings>(loadPrinterSettings);
+  const [previewContent, setPreviewContent] = useState('');
+  const [previewTitle, setPreviewTitle] = useState('');
 
   const handleSearch = () => {
     const found = allMRBs.find(
@@ -390,6 +399,38 @@ const MRBPrint = () => {
     }
   };
 
+  const handlePreview = (formType: 'ncr' | 'mrb') => {
+    const printRef = formType === 'ncr' ? ncrPrintRef : mrbPrintRef;
+    if (!printRef.current) return;
+
+    const title = formType === 'ncr'
+      ? `NCR (IQC) Report - ${selectedMRB?.mrb_number || 'MRB'}`
+      : `MRB Committee Form - ${selectedMRB?.mrb_number || 'MRB'}`;
+
+    setPreviewContent(printRef.current.innerHTML);
+    setPreviewTitle(title);
+    setShowPreview(true);
+  };
+
+  const handlePrintFromPreview = () => {
+    handlePrint(activeForm, printerSettings.orientation);
+    setShowPreview(false);
+  };
+
+  const handleDownloadFromPreview = () => {
+    handleDownloadPDF(activeForm, printerSettings.orientation);
+    setShowPreview(false);
+  };
+
+  const getMarginValue = () => {
+    switch (printerSettings.margins) {
+      case 'narrow': return 5;
+      case 'wide': return 20;
+      case 'custom': return printerSettings.customMargin;
+      default: return 10;
+    }
+  };
+
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return '';
     return new Date(dateString).toLocaleDateString('en-IN', {
@@ -744,21 +785,20 @@ const MRBPrint = () => {
                 </TabsList>
                 
                 <div className="flex gap-2 flex-wrap">
-                  <Button onClick={() => handlePrint(activeForm, 'portrait')} className="gap-2">
+                  <Button onClick={() => handlePreview(activeForm)} variant="outline" className="gap-2">
+                    <Eye className="h-4 w-4" />
+                    Preview
+                  </Button>
+                  <Button onClick={() => setShowSettings(true)} variant="outline" size="icon" title="Printer Settings">
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                  <Button onClick={() => handlePrint(activeForm, printerSettings.orientation)} className="gap-2">
                     <Printer className="h-4 w-4" />
-                    Print (Portrait)
+                    Print
                   </Button>
-                  <Button onClick={() => handlePrint(activeForm, 'landscape')} variant="secondary" className="gap-2">
-                    <Printer className="h-4 w-4" />
-                    Print (Landscape)
-                  </Button>
-                  <Button onClick={() => handleDownloadPDF(activeForm, 'portrait')} variant="outline" className="gap-2">
+                  <Button onClick={() => handleDownloadPDF(activeForm, printerSettings.orientation)} variant="secondary" className="gap-2">
                     <Download className="h-4 w-4" />
-                    PDF (Portrait)
-                  </Button>
-                  <Button onClick={() => handleDownloadPDF(activeForm, 'landscape')} variant="outline" className="gap-2">
-                    <Download className="h-4 w-4" />
-                    PDF (Landscape)
+                    Download PDF
                   </Button>
                 </div>
               </div>
@@ -774,6 +814,26 @@ const MRBPrint = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Print Preview Modal */}
+      <PrintPreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        content={previewContent}
+        title={previewTitle}
+        styles={getPrintStyles()}
+        orientation={printerSettings.orientation}
+        onPrint={handlePrintFromPreview}
+        onDownloadPDF={handleDownloadFromPreview}
+      />
+
+      {/* Printer Settings Modal */}
+      <PrinterSettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        settings={printerSettings}
+        onSave={setPrinterSettings}
+      />
     </div>
   );
 };
