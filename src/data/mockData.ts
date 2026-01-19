@@ -786,6 +786,7 @@ export const getRoleDisplayName = (role: string): string => {
     shop_floor: 'Shop Floor',
     executive: 'Executive',
     admin: 'Admin',
+    mrb_committee: 'MRB Committee',
   };
   return names[role] || role || 'N/A';
 };

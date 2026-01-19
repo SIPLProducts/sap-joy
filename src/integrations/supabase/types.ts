@@ -324,6 +324,11 @@ export type Database = {
           material_description: string
           material_id: string | null
           material_number: string
+          mrb_committee_approved_at: string | null
+          mrb_committee_approved_by: string | null
+          mrb_committee_decision: string | null
+          mrb_committee_remarks: string | null
+          mrb_committee_required: boolean | null
           mrb_number: string
           pending_days: number | null
           pending_with: Database["public"]["Enums"]["app_role"] | null
@@ -403,6 +408,11 @@ export type Database = {
           material_description: string
           material_id?: string | null
           material_number: string
+          mrb_committee_approved_at?: string | null
+          mrb_committee_approved_by?: string | null
+          mrb_committee_decision?: string | null
+          mrb_committee_remarks?: string | null
+          mrb_committee_required?: boolean | null
           mrb_number: string
           pending_days?: number | null
           pending_with?: Database["public"]["Enums"]["app_role"] | null
@@ -482,6 +492,11 @@ export type Database = {
           material_description?: string
           material_id?: string | null
           material_number?: string
+          mrb_committee_approved_at?: string | null
+          mrb_committee_approved_by?: string | null
+          mrb_committee_decision?: string | null
+          mrb_committee_remarks?: string | null
+          mrb_committee_required?: boolean | null
           mrb_number?: string
           pending_days?: number | null
           pending_with?: Database["public"]["Enums"]["app_role"] | null
@@ -906,6 +921,7 @@ export type Database = {
         | "shop_floor"
         | "executive"
         | "admin"
+        | "mrb_committee"
       defect_category:
         | "dimensional"
         | "surface"
@@ -1070,6 +1086,7 @@ export const Constants = {
         "shop_floor",
         "executive",
         "admin",
+        "mrb_committee",
       ],
       defect_category: [
         "dimensional",
