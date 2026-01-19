@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, AlertTriangle, Eye, Loader2, Unlock, RefreshCw, CheckSquare, Square, History, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { Search, AlertTriangle, Eye, Loader2, Unlock, RefreshCw, CheckSquare, Square, History, Clock, CheckCircle2, XCircle, Download } from 'lucide-react';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -20,12 +20,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { getStatusDisplayName, getStatusColor, getSLAColor, getEscalationColor, getRoleDisplayName } from '@/data/mockData';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
+import * as XLSX from 'xlsx';
 
 type MRBStatus = Database['public']['Enums']['mrb_status'];
 type MRBSource = Database['public']['Enums']['mrb_source'];
@@ -236,22 +243,37 @@ export default function Worklist() {
     return <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">Shop Floor</Badge>;
   };
 
-  const getDeptReviewBadge = (decision: string | null, approvedAt: string | null) => {
-    if (!decision && !approvedAt) {
-      return <Badge variant="outline" className="bg-gray-100 text-gray-500 border-gray-300 text-xs">Pending</Badge>;
-    }
-    if (decision) {
-      const isPositive = decision.includes('accept') || decision.includes('use_as_is') || decision === 'approved';
+  const getDeptReviewBadge = (decision: string | null, approvedAt: string | null, remarks: string | null) => {
+    const badge = (() => {
+      if (!decision && !approvedAt) {
+        return <Badge variant="outline" className="bg-gray-100 text-gray-500 border-gray-300 text-xs cursor-help">Pending</Badge>;
+      }
+      if (decision) {
+        const isPositive = decision.includes('accept') || decision.includes('use_as_is') || decision === 'approved';
+        return (
+          <Badge 
+            variant="outline" 
+            className={`text-xs cursor-help ${isPositive ? 'bg-green-50 text-green-700 border-green-300' : 'bg-amber-50 text-amber-700 border-amber-300'}`}
+          >
+            {decision.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+          </Badge>
+        );
+      }
+      return <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-300 text-xs cursor-help">Reviewed</Badge>;
+    })();
+
+    if (remarks) {
       return (
-        <Badge 
-          variant="outline" 
-          className={`text-xs ${isPositive ? 'bg-green-50 text-green-700 border-green-300' : 'bg-amber-50 text-amber-700 border-amber-300'}`}
-        >
-          {decision.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-        </Badge>
+        <Tooltip>
+          <TooltipTrigger asChild>{badge}</TooltipTrigger>
+          <TooltipContent side="top" className="max-w-[300px]">
+            <p className="text-sm font-medium mb-1">Remarks:</p>
+            <p className="text-xs">{remarks}</p>
+          </TooltipContent>
+        </Tooltip>
       );
     }
-    return <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-300 text-xs">Reviewed</Badge>;
+    return badge;
   };
 
   const getClosureStatusBadge = (status: string | null) => {
@@ -267,6 +289,73 @@ export default function Worklist() {
         {status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
       </Badge>
     );
+  };
+
+  // Excel Export function
+  const handleExportToExcel = () => {
+    const exportData = sortedRecords.map(mrb => ({
+      'MRB Number': mrb.mrbNumber,
+      'Source': mrb.source === 'quality_inspection' ? 'Inward' : 'Shop Floor',
+      'Status': getStatusDisplayName(mrb.status),
+      'Inspection Lot': mrb.inspectionLot || '-',
+      'Material Number': mrb.materialNumber,
+      'Material Description': mrb.materialDescription,
+      'Vendor Name': mrb.vendorName,
+      'Vendor Code': mrb.vendorCode || '-',
+      'Plant': mrb.plant,
+      'GRN Number': mrb.grnNumber || '-',
+      'PO Number': mrb.poNumber || '-',
+      'Blocked Quantity': mrb.blockedQuantity || 0,
+      'Total Quantity': mrb.totalQuantity,
+      'UoM': mrb.uom || '-',
+      'Defect Description': mrb.defectDescription || '-',
+      // Quality Review
+      'Quality Decision': mrb.qualityDecision?.replace(/_/g, ' ') || 'Pending',
+      'Quality Remarks': mrb.qualityRemarks || '-',
+      'Quality Approved At': mrb.qualityApprovedAt ? formatDate(mrb.qualityApprovedAt) : '-',
+      'Quality Approved By': mrb.qualityApprovedBy || '-',
+      // Purchase Review
+      'Purchase Action': mrb.purchaseAction?.replace(/_/g, ' ') || 'Pending',
+      'Purchase Remarks': mrb.purchaseRemarks || '-',
+      'Purchase Approved At': mrb.purchaseApprovedAt ? formatDate(mrb.purchaseApprovedAt) : '-',
+      'Purchase Approved By': mrb.purchaseApprovedBy || '-',
+      // Engineering Review
+      'Engineering Decision': mrb.engineeringDecision?.replace(/_/g, ' ') || 'Pending',
+      'Engineering Remarks': mrb.engineeringRemarks || '-',
+      'Engineering Approved At': mrb.engineeringApprovedAt ? formatDate(mrb.engineeringApprovedAt) : '-',
+      'Engineering Approved By': mrb.engineeringApprovedBy || '-',
+      // Final Approval
+      'Final Decision': mrb.finalDecision?.replace(/_/g, ' ') || 'Pending',
+      'Final Remarks': mrb.finalRemarks || '-',
+      'Final Approved At': mrb.finalApprovedAt ? formatDate(mrb.finalApprovedAt) : '-',
+      'Final Approved By': mrb.finalApprovedBy || '-',
+      // Status
+      'Pending With': mrb.pendingWith ? getRoleDisplayName(mrb.pendingWith as any) : '-',
+      'Pending Days': mrb.pendingDays,
+      'SLA Status': mrb.slaStatus || '-',
+      'Escalation Level': mrb.escalationLevel || '-',
+      'Closure Status': mrb.closureStatus?.replace(/_/g, ' ') || '-',
+      'SAP Sync Status': mrb.sapStockUpdateStatus?.replace(/_/g, ' ') || '-',
+      'Created At': formatDate(mrb.createdAt),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'MRB Worklist');
+
+    // Auto-size columns
+    const colWidths = Object.keys(exportData[0] || {}).map(key => ({
+      wch: Math.max(key.length, 15)
+    }));
+    worksheet['!cols'] = colWidths;
+
+    const fileName = `MRB_Worklist_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+
+    toast({
+      title: '✅ Export Successful',
+      description: `Exported ${exportData.length} records to ${fileName}`,
+    });
   };
 
   const handleViewClick = (mrb: UnifiedMRBRecord) => {
@@ -454,6 +543,7 @@ export default function Worklist() {
   }
 
   return (
+    <TooltipProvider>
     <div className="h-screen flex flex-col bg-muted/30 overflow-hidden">
       {/* Sticky Header with Title and Filters */}
       <div className="flex-shrink-0 sticky top-0 z-40 bg-background border-b border-border shadow-sm">
@@ -463,12 +553,23 @@ export default function Worklist() {
               <h1 className="text-2xl font-bold text-foreground">MRB Worklist</h1>
               <p className="text-muted-foreground">View and manage all Material Review Board records</p>
             </div>
-            <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <History className="h-4 w-4" />
-                  SAP Sync History
-                </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleExportToExcel}
+                disabled={sortedRecords.length === 0}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Export Excel
+              </Button>
+              <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <History className="h-4 w-4" />
+                    SAP Sync History
+                  </Button>
               </DialogTrigger>
               <DialogContent className="max-w-3xl max-h-[80vh]">
                 <DialogHeader>
@@ -530,6 +631,7 @@ export default function Worklist() {
                 </ScrollArea>
               </DialogContent>
             </Dialog>
+            </div>
           </div>
         </div>
         
@@ -725,7 +827,7 @@ export default function Worklist() {
                       {/* Department Reviews */}
                       <td className="p-3 align-middle text-center bg-blue-50/30">
                         <div className="flex flex-col items-center gap-1">
-                          {getDeptReviewBadge(mrb.qualityDecision, mrb.qualityApprovedAt)}
+                          {getDeptReviewBadge(mrb.qualityDecision, mrb.qualityApprovedAt, mrb.qualityRemarks)}
                           {mrb.qualityApprovedAt && (
                             <span className="text-[10px] text-muted-foreground">{formatDate(mrb.qualityApprovedAt)}</span>
                           )}
@@ -733,7 +835,7 @@ export default function Worklist() {
                       </td>
                       <td className="p-3 align-middle text-center bg-purple-50/30">
                         <div className="flex flex-col items-center gap-1">
-                          {getDeptReviewBadge(mrb.purchaseAction, mrb.purchaseApprovedAt)}
+                          {getDeptReviewBadge(mrb.purchaseAction, mrb.purchaseApprovedAt, mrb.purchaseRemarks)}
                           {mrb.purchaseApprovedAt && (
                             <span className="text-[10px] text-muted-foreground">{formatDate(mrb.purchaseApprovedAt)}</span>
                           )}
@@ -741,7 +843,7 @@ export default function Worklist() {
                       </td>
                       <td className="p-3 align-middle text-center bg-amber-50/30">
                         <div className="flex flex-col items-center gap-1">
-                          {getDeptReviewBadge(mrb.engineeringDecision, mrb.engineeringApprovedAt)}
+                          {getDeptReviewBadge(mrb.engineeringDecision, mrb.engineeringApprovedAt, mrb.engineeringRemarks)}
                           {mrb.engineeringApprovedAt && (
                             <span className="text-[10px] text-muted-foreground">{formatDate(mrb.engineeringApprovedAt)}</span>
                           )}
@@ -749,7 +851,7 @@ export default function Worklist() {
                       </td>
                       <td className="p-3 align-middle text-center bg-green-50/30">
                         <div className="flex flex-col items-center gap-1">
-                          {getDeptReviewBadge(mrb.finalDecision, mrb.finalApprovedAt)}
+                          {getDeptReviewBadge(mrb.finalDecision, mrb.finalApprovedAt, mrb.finalRemarks)}
                           {mrb.finalApprovedAt && (
                             <span className="text-[10px] text-muted-foreground">{formatDate(mrb.finalApprovedAt)}</span>
                           )}
@@ -820,5 +922,6 @@ export default function Worklist() {
         </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
