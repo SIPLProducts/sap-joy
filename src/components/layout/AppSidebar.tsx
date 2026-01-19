@@ -1,4 +1,4 @@
-import { ClipboardList, Mail, Wrench, FileSpreadsheet, BarChart3, LogOut, Package, Building2, Users, Settings, PieChart, Printer, UserCog } from 'lucide-react';
+import { ClipboardList, Mail, Wrench, FileSpreadsheet, BarChart3, LogOut, Package, Building2, Users, Settings, PieChart, Printer, UserCog, TrendingUp } from 'lucide-react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
@@ -29,6 +29,7 @@ const menuItems = [
 
 // Role-specific dashboards
 const dashboardItems = [
+  { title: 'MRB Analytics', url: '/dashboard/analytics', icon: TrendingUp, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin'] },
   { title: 'Quality Dashboard', url: '/dashboard/quality-head', icon: Settings, roles: ['quality', 'quality_head', 'executive', 'admin'] },
   { title: 'Purchase Dashboard', url: '/dashboard/purchase-head', icon: Users, roles: ['purchase', 'purchase_head', 'executive', 'admin'] },
   { title: 'Engineering Dashboard', url: '/dashboard/engineering-head', icon: Wrench, roles: ['engineering', 'engineering_head', 'executive', 'admin'] },
