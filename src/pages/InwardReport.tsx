@@ -146,10 +146,10 @@ export default function InwardReport() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)]">
+    <div className="flex flex-col h-full min-h-0">
       {/* Sticky Header */}
       <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm flex-shrink-0">
-        <div className="px-6 py-4">
+        <div className="px-6 py-4 max-w-full overflow-hidden">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <FileSpreadsheet className="h-6 w-6 text-primary" />
@@ -176,8 +176,8 @@ export default function InwardReport() {
 
       {/* Sticky Filter Section */}
       <div className="sticky top-[73px] z-30 bg-background border-b border-border shadow-sm flex-shrink-0">
-        <div className="px-6 py-4">
-          <Card className="border-border shadow-sm">
+        <div className="px-6 py-4 max-w-full overflow-hidden">
+          <Card className="border-border shadow-sm overflow-hidden">
             <CardHeader className="border-b border-border bg-muted/30 py-3">
               <CardTitle className="text-base font-semibold">Selection Criteria</CardTitle>
             </CardHeader>
@@ -225,9 +225,9 @@ export default function InwardReport() {
       </div>
 
       {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-hidden bg-muted/30">
+      <div className="flex-1 overflow-auto bg-muted/30 min-h-0">
         {hasSearched && (
-          <div className="h-full flex flex-col px-6 py-4">
+          <div className="h-full flex flex-col px-6 py-4 min-h-0">
             <Card className="border-border shadow-sm flex-1 flex flex-col overflow-hidden">
               <CardHeader className="border-b border-border bg-muted/30 py-3 flex-shrink-0">
                 <div className="flex items-center justify-between">
@@ -258,28 +258,29 @@ export default function InwardReport() {
               </CardHeader>
               
               {/* Scrollable Table Container */}
-              <div className="flex-1 overflow-auto">
-                <Table>
-                  <TableHeader className="sticky top-0 z-20 bg-muted/80 backdrop-blur-sm">
-                    <TableRow>
-                      <TableHead className="font-semibold whitespace-nowrap">Action</TableHead>
-                      <TableHead className="font-semibold whitespace-nowrap">Inspection Lot</TableHead>
-                      <TableHead className="font-semibold whitespace-nowrap">Material Code</TableHead>
-                      <TableHead className="font-semibold whitespace-nowrap">Material Description</TableHead>
-                      <TableHead className="font-semibold whitespace-nowrap">Plant</TableHead>
-                      <TableHead className="font-semibold whitespace-nowrap">SLoc</TableHead>
-                      <TableHead className="font-semibold whitespace-nowrap">Batch</TableHead>
-                      <TableHead className="font-semibold whitespace-nowrap text-right">Blocked Qty</TableHead>
-                      <TableHead className="font-semibold whitespace-nowrap text-right">Trans. Qty</TableHead>
-                      <TableHead className="font-semibold whitespace-nowrap">UoM</TableHead>
-                      <TableHead className="font-semibold whitespace-nowrap">Lot Created</TableHead>
-                      <TableHead className="font-semibold whitespace-nowrap">Posting Date</TableHead>
-                      <TableHead className="font-semibold whitespace-nowrap">Block Reason</TableHead>
-                      <TableHead className="font-semibold whitespace-nowrap">Vendor Code</TableHead>
-                      <TableHead className="font-semibold whitespace-nowrap">Vendor Name</TableHead>
-                      <TableHead className="font-semibold whitespace-nowrap">PO Number</TableHead>
-                    </TableRow>
-                  </TableHeader>
+              <div className="flex-1 overflow-auto min-h-0">
+                <div className="min-w-max">
+                  <Table>
+                    <TableHeader className="sticky top-0 z-20 bg-muted/80 backdrop-blur-sm">
+                      <TableRow>
+                        <TableHead className="font-semibold whitespace-nowrap">Action</TableHead>
+                        <TableHead className="font-semibold whitespace-nowrap">Inspection Lot</TableHead>
+                        <TableHead className="font-semibold whitespace-nowrap">Material Code</TableHead>
+                        <TableHead className="font-semibold whitespace-nowrap">Material Description</TableHead>
+                        <TableHead className="font-semibold whitespace-nowrap">Plant</TableHead>
+                        <TableHead className="font-semibold whitespace-nowrap">SLoc</TableHead>
+                        <TableHead className="font-semibold whitespace-nowrap">Batch</TableHead>
+                        <TableHead className="font-semibold whitespace-nowrap text-right">Blocked Qty</TableHead>
+                        <TableHead className="font-semibold whitespace-nowrap text-right">Trans. Qty</TableHead>
+                        <TableHead className="font-semibold whitespace-nowrap">UoM</TableHead>
+                        <TableHead className="font-semibold whitespace-nowrap">Lot Created</TableHead>
+                        <TableHead className="font-semibold whitespace-nowrap">Posting Date</TableHead>
+                        <TableHead className="font-semibold whitespace-nowrap">Block Reason</TableHead>
+                        <TableHead className="font-semibold whitespace-nowrap">Vendor Code</TableHead>
+                        <TableHead className="font-semibold whitespace-nowrap">Vendor Name</TableHead>
+                        <TableHead className="font-semibold whitespace-nowrap">PO Number</TableHead>
+                      </TableRow>
+                    </TableHeader>
                   <TableBody>
                     {paginatedResults.length === 0 ? (
                       <TableRow>
@@ -348,7 +349,8 @@ export default function InwardReport() {
                       ))
                     )}
                   </TableBody>
-                </Table>
+                  </Table>
+                </div>
               </div>
 
               {/* Pagination Footer */}
