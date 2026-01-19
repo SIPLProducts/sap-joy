@@ -16,7 +16,6 @@ import { useInwardMRB } from '@/contexts/InwardMRBContext';
 import { MultiSelectFilter } from '@/components/inward/MultiSelectFilter';
 import { plants, vendors, materials } from '@/data/mockData';
 import { storageLocations } from '@/data/inwardReportData';
-import { InspectionLotRecord } from '@/types/inwardReport';
 import {
   Select,
   SelectContent,
@@ -24,6 +23,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+
+// Local interface matching the context's InspectionLotRecord
+interface InspectionLotRecord {
+  id: string;
+  inspectionLot: string;
+  plant: string;
+  materialCode: string;
+  materialDescription: string;
+  vendorCode: string;
+  vendorName: string;
+  storageLocation: string;
+  batch: string;
+  poNumber: string;
+  transactionQuantity: number;
+  uom: string;
+  blockedQuantity: number;
+  blockReason: string;
+  inspectionDate: string;
+  status: 'pending' | 'mrb_created' | 'cleared';
+}
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
@@ -306,10 +325,10 @@ export default function InwardReport() {
                           </TableCell>
                           <TableCell>{record.uom}</TableCell>
                           <TableCell className="whitespace-nowrap">
-                            {formatDate(record.inspectionLotCreatedDate)}
+                            {formatDate(record.inspectionDate)}
                           </TableCell>
                           <TableCell className="whitespace-nowrap">
-                            {formatDate(record.postingDate)}
+                            {formatDate(record.inspectionDate)}
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className="whitespace-nowrap text-xs">
@@ -323,7 +342,7 @@ export default function InwardReport() {
                             {record.vendorName}
                           </TableCell>
                           <TableCell className="font-mono text-sm">
-                            {record.purchaseOrderNumber}
+                            {record.poNumber}
                           </TableCell>
                         </TableRow>
                       ))
