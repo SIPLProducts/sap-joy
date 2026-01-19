@@ -146,17 +146,6 @@ export default function KPIDashboard() {
     return filtered;
   }, [allMRBs, selectedPlant, selectedMonth, dateFrom, dateTo]);
 
-  // Show loading state
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading dashboard data...</p>
-        </div>
-      </div>
-    );
-  }
 
   // Calculate KPIs based on filtered data
   const kpis = useMemo(() => {
@@ -380,6 +369,18 @@ export default function KPIDashboard() {
     setDateFrom(undefined);
     setDateTo(undefined);
   };
+
+  // Show loading state - must be after all hooks
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-muted/30">
