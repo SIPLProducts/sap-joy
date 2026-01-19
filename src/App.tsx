@@ -29,6 +29,7 @@ import MRBAnalyticsDashboard from "@/pages/MRBAnalyticsDashboard";
 import MRBPrint from "@/pages/MRBPrint";
 import UserManagement from "@/pages/UserManagement";
 import UserProfile from "@/pages/UserProfile";
+import HelpSupport from "@/pages/HelpSupport";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -69,6 +70,7 @@ const App = () => (
                           <Route path="/mrb-print" element={<MRBPrint />} />
                           <Route path="/admin/users" element={<UserManagement />} />
                           <Route path="/profile" element={<UserProfile />} />
+                          <Route path="/help" element={<HelpSupport />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
                       </AppLayout>
