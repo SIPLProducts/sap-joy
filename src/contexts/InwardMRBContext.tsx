@@ -80,10 +80,11 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       
-      // Fetch uploaded inspection lots
+      // Fetch only pending inspection lots (exclude mrb_created and cleared)
       const { data: uploadedLots, error: uploadError } = await supabase
         .from('inward_inspection_lots')
         .select('*')
+        .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
       if (uploadError) {
@@ -220,8 +221,8 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
   }, [fetchData]);
 
   const getFilteredRecords = (): InspectionLotRecord[] => {
-    // Only show lots with 'pending' status (exclude mrb_created and cleared)
-    let filtered = inspectionLotRecords.filter(r => r.status === 'pending');
+    // All records in inspectionLotRecords are already 'pending' status (fetched from DB with filter)
+    let filtered = [...inspectionLotRecords];
 
     if (filters.plants.length > 0) {
       filtered = filtered.filter(r => filters.plants.includes(r.plant));

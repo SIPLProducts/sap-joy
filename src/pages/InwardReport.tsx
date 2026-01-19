@@ -92,10 +92,13 @@ export default function InwardReport() {
     return { value: v, label: vendor ? `${v} - ${vendor.name}` : v };
   });
   const slocOptions = storageLocations.map(s => ({ value: s.code, label: `${s.code} - ${s.name}` }));
-  const inspectionLotOptions = inspectionLotRecords.map(r => ({ 
-    value: r.inspectionLot, 
-    label: r.inspectionLot 
-  }));
+  // Only show pending lots in the filter dropdown (eligible for MRB creation)
+  const inspectionLotOptions = inspectionLotRecords
+    .filter(r => r.status === 'pending')
+    .map(r => ({ 
+      value: r.inspectionLot, 
+      label: r.inspectionLot 
+    }));
 
   // Pagination logic
   const totalPages = Math.ceil(searchResults.length / itemsPerPage);
