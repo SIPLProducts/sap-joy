@@ -7,9 +7,44 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award, UserPlus, Eye, EyeOff } from 'lucide-react';
+import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award, UserPlus, Eye, EyeOff, Zap } from 'lucide-react';
 import loginHeroImage from '@/assets/login-hero.jpg';
 import hblLogo from '@/assets/hbl-logo.png';
+
+// Demo Account Row Component
+function DemoAccountRow({ 
+  email, 
+  description, 
+  role, 
+  roleColor, 
+  onQuickLogin 
+}: { 
+  email: string; 
+  description: string; 
+  role: string; 
+  roleColor: string; 
+  onQuickLogin: (email: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 p-2 rounded-md bg-background border hover:bg-muted/50 transition-colors">
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-foreground truncate text-[11px]">{email}</p>
+        <p className="text-muted-foreground text-[10px]">{description}</p>
+      </div>
+      <span className={`px-2 py-0.5 rounded-full ${roleColor} font-medium text-[10px] whitespace-nowrap`}>{role}</span>
+      <Button 
+        type="button"
+        variant="outline" 
+        size="sm" 
+        className="h-6 px-2 text-[10px]"
+        onClick={() => onQuickLogin(email)}
+      >
+        <Zap className="w-3 h-3 mr-1" />
+        Quick
+      </Button>
+    </div>
+  );
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -355,45 +390,97 @@ export default function Login() {
                 Demo Accounts for Testing
               </CardTitle>
               <CardDescription className="text-xs">
-                Use these accounts to explore role-based functionality
+                Click "Quick Login" to auto-fill credentials (Password: demo123)
               </CardDescription>
             </CardHeader>
             <CardContent className="pb-4">
-              <div className="space-y-2 text-xs">
-                <div className="grid grid-cols-[1fr,auto] gap-2 p-2 rounded-md bg-background border">
-                  <div>
-                    <p className="font-medium text-foreground">bala@sharviinfotech.com</p>
-                    <p className="text-muted-foreground">Full system access</p>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium self-center">Admin</span>
-                </div>
-                <div className="grid grid-cols-[1fr,auto] gap-2 p-2 rounded-md bg-background border">
-                  <div>
-                    <p className="font-medium text-foreground">inturimounika@sharviinfotech.com</p>
-                    <p className="text-muted-foreground">Full system access</p>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium self-center">Admin</span>
-                </div>
-                <div className="grid grid-cols-[1fr,auto] gap-2 p-2 rounded-md bg-background border">
-                  <div>
-                    <p className="font-medium text-foreground">mounikamnk07@gmail.com</p>
-                    <p className="text-muted-foreground">Quality review & MRB creation</p>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium self-center">Quality</span>
-                </div>
+              <div className="space-y-2 text-xs max-h-[280px] overflow-y-auto pr-1">
+                {/* Admin Accounts */}
+                <DemoAccountRow 
+                  email="bala@sharviinfotech.com"
+                  description="Full system access - all stages"
+                  role="Admin"
+                  roleColor="bg-red-100 text-red-700"
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
+                />
+                <DemoAccountRow 
+                  email="inturimounika@sharviinfotech.com"
+                  description="Full system access - all stages"
+                  role="Admin"
+                  roleColor="bg-red-100 text-red-700"
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
+                />
+                
+                {/* Role-based Accounts */}
+                <DemoAccountRow 
+                  email="quality.demo@hbl.com"
+                  description="Quality review & MRB creation"
+                  role="Quality"
+                  roleColor="bg-blue-100 text-blue-700"
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
+                />
+                <DemoAccountRow 
+                  email="qualityhead.demo@hbl.com"
+                  description="Quality oversight & approvals"
+                  role="Quality Head"
+                  roleColor="bg-blue-100 text-blue-700"
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
+                />
+                <DemoAccountRow 
+                  email="purchase.demo@hbl.com"
+                  description="Vendor actions & purchase review"
+                  role="Purchase"
+                  roleColor="bg-purple-100 text-purple-700"
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
+                />
+                <DemoAccountRow 
+                  email="purchasehead.demo@hbl.com"
+                  description="Purchase oversight & vendor mgmt"
+                  role="Purchase Head"
+                  roleColor="bg-purple-100 text-purple-700"
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
+                />
+                <DemoAccountRow 
+                  email="engineering.demo@hbl.com"
+                  description="Technical evaluation & deviations"
+                  role="Engineering"
+                  roleColor="bg-orange-100 text-orange-700"
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
+                />
+                <DemoAccountRow 
+                  email="enghead.demo@hbl.com"
+                  description="Engineering oversight & decisions"
+                  role="Eng Head"
+                  roleColor="bg-orange-100 text-orange-700"
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
+                />
+                <DemoAccountRow 
+                  email="shopfloor.demo@hbl.com"
+                  description="Report issues & material defects"
+                  role="Shop Floor"
+                  roleColor="bg-amber-100 text-amber-700"
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
+                />
+                <DemoAccountRow 
+                  email="executive.demo@hbl.com"
+                  description="Final approvals & dashboards"
+                  role="Executive"
+                  roleColor="bg-green-100 text-green-700"
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
+                />
               </div>
               
               <div className="mt-3 pt-3 border-t">
                 <p className="text-xs font-medium text-foreground mb-2">MRB Workflow Stages:</p>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1 items-center">
                   <span className="px-2 py-0.5 rounded text-[10px] bg-gray-100 text-gray-600">Draft</span>
-                  <span className="text-muted-foreground">→</span>
+                  <span className="text-muted-foreground text-[10px]">→</span>
                   <span className="px-2 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700">Quality</span>
-                  <span className="text-muted-foreground">→</span>
+                  <span className="text-muted-foreground text-[10px]">→</span>
                   <span className="px-2 py-0.5 rounded text-[10px] bg-purple-100 text-purple-700">Purchase</span>
-                  <span className="text-muted-foreground">→</span>
+                  <span className="text-muted-foreground text-[10px]">→</span>
                   <span className="px-2 py-0.5 rounded text-[10px] bg-orange-100 text-orange-700">Engineering</span>
-                  <span className="text-muted-foreground">→</span>
+                  <span className="text-muted-foreground text-[10px]">→</span>
                   <span className="px-2 py-0.5 rounded text-[10px] bg-green-100 text-green-700">Final</span>
                 </div>
               </div>
