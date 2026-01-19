@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Send, X, Upload, FileText, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Send, X, Upload, FileText, Trash2, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -58,6 +58,39 @@ interface Attachment {
   category: string;
 }
 
+interface FormData {
+  inspectionLot: string;
+  materialCode: string;
+  materialDescription: string;
+  plant: string;
+  storageLocation: string;
+  batch: string;
+  blockedQuantity: number;
+  transactionQuantity: number;
+  uom: string;
+  blockReason: string;
+  vendorCode: string;
+  vendorName: string;
+  purchaseOrderNumber: string;
+  qualityDecision: string;
+  defectCategory: string;
+  defectDescription: string;
+  qualityInspectionComments: string;
+  qualityInspectionDate: string;
+  qualityInspectorName: string;
+  nextReviewDepartments: string[];
+}
+
+interface ValidationErrors {
+  qualityDecision?: string;
+  qualityInspectorName?: string;
+  nextReviewDepartments?: string;
+  qualityInspectionDate?: string;
+}
+
+const AUTOSAVE_KEY = 'mrb_draft_autosave';
+const AUTOSAVE_INTERVAL = 5000; // 5 seconds
+
 export default function CreateInwardMRB() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -84,7 +117,22 @@ export default function CreateInwardMRB() {
     );
   }
 
-  const [formData, setFormData] = useState({
+  // Get saved draft from localStorage
+  const getSavedDraft = useCallback((): Partial<FormData> | null => {
+    try {
+      const saved = localStorage.getItem(`${AUTOSAVE_KEY}_${inspectionLot.inspectionLot}`);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Error loading draft:', e);
+    }
+    return null;
+  }, [inspectionLot.inspectionLot]);
+
+  const savedDraft = getSavedDraft();
+
+  const [formData, setFormData] = useState<FormData>({
     // Auto-populated from inspection lot
     inspectionLot: inspectionLot.inspectionLot,
     materialCode: inspectionLot.materialCode,
@@ -100,19 +148,117 @@ export default function CreateInwardMRB() {
     vendorName: inspectionLot.vendorName,
     purchaseOrderNumber: inspectionLot.purchaseOrderNumber || inspectionLot.poNumber || '',
     
-    // Quality inspection input (empty)
-    qualityDecision: '' as string,
-    defectCategory: '' as string,
-    defectDescription: '',
-    qualityInspectionComments: '',
-    qualityInspectionDate: new Date().toISOString().split('T')[0],
-    qualityInspectorName: profile?.full_name || '',
-    nextReviewDepartments: [] as string[],
+    // Quality inspection input - restore from draft or empty
+    qualityDecision: savedDraft?.qualityDecision || '',
+    defectCategory: savedDraft?.defectCategory || '',
+    defectDescription: savedDraft?.defectDescription || '',
+    qualityInspectionComments: savedDraft?.qualityInspectionComments || '',
+    qualityInspectionDate: savedDraft?.qualityInspectionDate || new Date().toISOString().split('T')[0],
+    qualityInspectorName: savedDraft?.qualityInspectorName || profile?.full_name || '',
+    nextReviewDepartments: savedDraft?.nextReviewDepartments || [],
   });
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('inspection_report');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(savedDraft ? new Date() : null);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
+
+  // Real-time validation
+  const validateField = useCallback((field: keyof FormData, value: any): string | undefined => {
+    switch (field) {
+      case 'qualityDecision':
+        if (!value) return 'Quality decision is required';
+        break;
+      case 'qualityInspectorName':
+        if (!value || value.trim() === '') return 'Inspector name is required';
+        if (value.length < 2) return 'Name must be at least 2 characters';
+        break;
+      case 'nextReviewDepartments':
+        if (!value || value.length === 0) return 'Select at least one department';
+        break;
+      case 'qualityInspectionDate':
+        if (!value) return 'Inspection date is required';
+        const date = new Date(value);
+        if (date > new Date()) return 'Date cannot be in the future';
+        break;
+    }
+    return undefined;
+  }, []);
+
+  // Validate all fields and return errors
+  const validateAllFields = useCallback((): ValidationErrors => {
+    const errors: ValidationErrors = {};
+    const fieldsToValidate: (keyof FormData)[] = [
+      'qualityDecision',
+      'qualityInspectorName',
+      'nextReviewDepartments',
+      'qualityInspectionDate'
+    ];
+    
+    fieldsToValidate.forEach(field => {
+      const error = validateField(field, formData[field]);
+      if (error) {
+        errors[field as keyof ValidationErrors] = error;
+      }
+    });
+    
+    return errors;
+  }, [formData, validateField]);
+
+  // Update validation errors when form changes
+  useEffect(() => {
+    const errors = validateAllFields();
+    setValidationErrors(errors);
+  }, [formData, validateAllFields]);
+
+  // Autosave functionality
+  useEffect(() => {
+    const saveToLocalStorage = () => {
+      try {
+        const dataToSave = {
+          qualityDecision: formData.qualityDecision,
+          defectCategory: formData.defectCategory,
+          defectDescription: formData.defectDescription,
+          qualityInspectionComments: formData.qualityInspectionComments,
+          qualityInspectionDate: formData.qualityInspectionDate,
+          qualityInspectorName: formData.qualityInspectorName,
+          nextReviewDepartments: formData.nextReviewDepartments,
+        };
+        localStorage.setItem(`${AUTOSAVE_KEY}_${inspectionLot.inspectionLot}`, JSON.stringify(dataToSave));
+        setLastSaved(new Date());
+      } catch (e) {
+        console.error('Autosave error:', e);
+      }
+    };
+
+    const timer = setInterval(saveToLocalStorage, AUTOSAVE_INTERVAL);
+    return () => clearInterval(timer);
+  }, [formData, inspectionLot.inspectionLot]);
+
+  // Mark field as touched on blur
+  const handleFieldBlur = (field: string) => {
+    setTouchedFields(prev => new Set(prev).add(field));
+  };
+
+  // Check if field has error and is touched
+  const getFieldError = (field: keyof ValidationErrors): string | undefined => {
+    if (touchedFields.has(field)) {
+      return validationErrors[field];
+    }
+    return undefined;
+  };
+
+  // Form validity check
+  const isFormValid = useMemo(() => {
+    return Object.keys(validateAllFields()).length === 0;
+  }, [validateAllFields]);
+
+  // Clear autosave on successful submit
+  const clearAutosave = useCallback(() => {
+    localStorage.removeItem(`${AUTOSAVE_KEY}_${inspectionLot.inspectionLot}`);
+  }, [inspectionLot.inspectionLot]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -228,6 +374,9 @@ export default function CreateInwardMRB() {
       });
 
       if (newMRB) {
+        // Clear autosave on successful submission
+        clearAutosave();
+        
         const departmentLabels = formData.nextReviewDepartments.map(d => 
           nextReviewDepartments.find(dept => dept.value === d)?.label || d
         ).join(', ');
@@ -252,9 +401,49 @@ export default function CreateInwardMRB() {
   };
 
   const handleSaveDraft = () => {
+    try {
+      const dataToSave = {
+        qualityDecision: formData.qualityDecision,
+        defectCategory: formData.defectCategory,
+        defectDescription: formData.defectDescription,
+        qualityInspectionComments: formData.qualityInspectionComments,
+        qualityInspectionDate: formData.qualityInspectionDate,
+        qualityInspectorName: formData.qualityInspectorName,
+        nextReviewDepartments: formData.nextReviewDepartments,
+      };
+      localStorage.setItem(`${AUTOSAVE_KEY}_${inspectionLot.inspectionLot}`, JSON.stringify(dataToSave));
+      setLastSaved(new Date());
+      toast({
+        title: 'Draft Saved',
+        description: 'MRB draft has been saved successfully.',
+      });
+    } catch (e) {
+      toast({
+        title: 'Save Failed',
+        description: 'Could not save draft. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Clear draft
+  const handleClearDraft = () => {
+    clearAutosave();
+    setFormData(prev => ({
+      ...prev,
+      qualityDecision: '',
+      defectCategory: '',
+      defectDescription: '',
+      qualityInspectionComments: '',
+      qualityInspectionDate: new Date().toISOString().split('T')[0],
+      qualityInspectorName: profile?.full_name || '',
+      nextReviewDepartments: [],
+    }));
+    setTouchedFields(new Set());
+    setLastSaved(null);
     toast({
-      title: 'Draft Saved',
-      description: 'MRB draft has been saved successfully.',
+      title: 'Draft Cleared',
+      description: 'Form has been reset.',
     });
   };
 
@@ -276,12 +465,24 @@ export default function CreateInwardMRB() {
                 <h1 className="text-xl font-bold text-foreground">
                   Create MRB – Quality Inspection (Inward)
                 </h1>
-                <p className="text-sm text-muted-foreground">
-                  Inspection Lot: {inspectionLot.inspectionLot}
-                </p>
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <span>Inspection Lot: {inspectionLot.inspectionLot}</span>
+                  {lastSaved && (
+                    <span className="flex items-center gap-1 text-green-600">
+                      <Clock className="h-3 w-3" />
+                      Auto-saved at {lastSaved.toLocaleTimeString()}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {lastSaved && (
+                <Button variant="ghost" size="sm" onClick={handleClearDraft} className="text-muted-foreground">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear Draft
+                </Button>
+              )}
               <Button variant="outline" onClick={handleSaveDraft}>
                 <Save className="h-4 w-4 mr-2" />
                 Save Draft
@@ -385,9 +586,12 @@ export default function CreateInwardMRB() {
                 </Label>
                 <Select
                   value={formData.qualityDecision}
-                  onValueChange={(value) => setFormData({ ...formData, qualityDecision: value })}
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, qualityDecision: value });
+                    handleFieldBlur('qualityDecision');
+                  }}
                 >
-                  <SelectTrigger className="bg-background">
+                  <SelectTrigger className={`bg-background ${getFieldError('qualityDecision') ? 'border-destructive' : formData.qualityDecision ? 'border-green-500' : ''}`}>
                     <SelectValue placeholder="Select Decision" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover border-border z-50">
@@ -398,6 +602,18 @@ export default function CreateInwardMRB() {
                     ))}
                   </SelectContent>
                 </Select>
+                {getFieldError('qualityDecision') && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {getFieldError('qualityDecision')}
+                  </p>
+                )}
+                {formData.qualityDecision && !getFieldError('qualityDecision') && (
+                  <p className="text-xs text-green-600 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Valid
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label className="text-foreground">Defect Category</Label>
@@ -425,8 +641,15 @@ export default function CreateInwardMRB() {
                   type="date"
                   value={formData.qualityInspectionDate}
                   onChange={(e) => setFormData({ ...formData, qualityInspectionDate: e.target.value })}
-                  className="bg-background"
+                  onBlur={() => handleFieldBlur('qualityInspectionDate')}
+                  className={`bg-background ${getFieldError('qualityInspectionDate') ? 'border-destructive' : formData.qualityInspectionDate ? 'border-green-500' : ''}`}
                 />
+                {getFieldError('qualityInspectionDate') && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {getFieldError('qualityInspectionDate')}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label className="text-foreground">
@@ -435,9 +658,22 @@ export default function CreateInwardMRB() {
                 <Input
                   value={formData.qualityInspectorName}
                   onChange={(e) => setFormData({ ...formData, qualityInspectorName: e.target.value })}
+                  onBlur={() => handleFieldBlur('qualityInspectorName')}
                   placeholder="Enter inspector name"
-                  className="bg-background"
+                  className={`bg-background ${getFieldError('qualityInspectorName') ? 'border-destructive' : formData.qualityInspectorName ? 'border-green-500' : ''}`}
                 />
+                {getFieldError('qualityInspectorName') && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {getFieldError('qualityInspectorName')}
+                  </p>
+                )}
+                {formData.qualityInspectorName && !getFieldError('qualityInspectorName') && (
+                  <p className="text-xs text-green-600 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Valid
+                  </p>
+                )}
               </div>
               <div className="space-y-2 lg:col-span-2">
                 <Label className="text-foreground">Defect Description</Label>
@@ -553,9 +789,23 @@ export default function CreateInwardMRB() {
           </div>
           <div className="p-6">
             <div className="space-y-4">
-              <Label className="text-foreground">
-                Next Review Department(s) <span className="text-destructive">*</span>
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-foreground">
+                  Next Review Department(s) <span className="text-destructive">*</span>
+                </Label>
+                {formData.nextReviewDepartments.length > 0 && (
+                  <span className="text-xs text-green-600 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    {formData.nextReviewDepartments.length} selected
+                  </span>
+                )}
+                {touchedFields.has('nextReviewDepartments') && formData.nextReviewDepartments.length === 0 && (
+                  <span className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    Select at least one department
+                  </span>
+                )}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {nextReviewDepartments.map((dept) => (
                   <label
@@ -570,6 +820,7 @@ export default function CreateInwardMRB() {
                       type="checkbox"
                       checked={formData.nextReviewDepartments.includes(dept.value)}
                       onChange={(e) => {
+                        handleFieldBlur('nextReviewDepartments');
                         if (e.target.checked) {
                           setFormData({
                             ...formData,
@@ -598,28 +849,35 @@ export default function CreateInwardMRB() {
       {/* Sticky Footer with Submit Button */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border shadow-lg">
         <div className="px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
-          <div className="text-sm text-muted-foreground">
-            {formData.qualityDecision && formData.nextReviewDepartments.length > 0 ? (
-              <span>
-                Decision: <strong className="text-foreground">{
-                  inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label || formData.qualityDecision
-                }</strong>
-                <span className="ml-2">
-                  → Forward to: {formData.nextReviewDepartments.map(d => 
-                    nextReviewDepartments.find(dept => dept.value === d)?.label
-                  ).join(', ')}
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-muted-foreground">
+              {isFormValid ? (
+                <span className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <span>
+                    Decision: <strong className="text-foreground">{
+                      inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label || formData.qualityDecision
+                    }</strong>
+                    <span className="ml-2">
+                      → Forward to: {formData.nextReviewDepartments.map(d => 
+                        nextReviewDepartments.find(dept => dept.value === d)?.label
+                      ).join(', ')}
+                    </span>
+                  </span>
                 </span>
-              </span>
-            ) : (
-              <span className="text-amber-600">
-                {!formData.qualityDecision && 'Select a quality decision'}
-                {formData.qualityDecision && formData.nextReviewDepartments.length === 0 && 'Select at least one review department'}
-              </span>
-            )}
+              ) : (
+                <span className="text-amber-600 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  {!formData.qualityDecision && 'Select a quality decision'}
+                  {formData.qualityDecision && formData.nextReviewDepartments.length === 0 && 'Select at least one review department'}
+                  {formData.qualityDecision && formData.nextReviewDepartments.length > 0 && !formData.qualityInspectorName && 'Enter inspector name'}
+                </span>
+              )}
+            </div>
           </div>
           <Button 
             onClick={handleSubmit} 
-            disabled={isSubmitting || !formData.qualityDecision || formData.nextReviewDepartments.length === 0}
+            disabled={isSubmitting || !isFormValid}
             size="lg"
             className="min-w-[180px]"
           >
