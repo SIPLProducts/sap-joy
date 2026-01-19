@@ -75,6 +75,7 @@ export default function ShopFloorStockSelection() {
   
   // Search executed state
   const [hasSearched, setHasSearched] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   
   // Selection state
   const [selectedStock, setSelectedStock] = useState<ShopFloorStockRecord | null>(null);
@@ -172,6 +173,19 @@ export default function ShopFloorStockSelection() {
   }, [filteredStock, currentPage, itemsPerPage]);
 
   const handleSearch = () => {
+    // Validation: At least one filter must be selected
+    const errors: string[] = [];
+    if (selectedPlants.length === 0) {
+      errors.push('plant');
+    }
+    
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      toast.error('Please select at least one Plant to search');
+      return;
+    }
+    
+    setValidationErrors([]);
     setHasSearched(true);
     setSelectedStock(null);
     setCurrentPage(1);
@@ -186,6 +200,7 @@ export default function ShopFloorStockSelection() {
     setHasSearched(false);
     setSelectedStock(null);
     setCurrentPage(1);
+    setValidationErrors([]);
   };
 
   const handleSelectStock = (stock: ShopFloorStockRecord) => {
@@ -435,19 +450,29 @@ export default function ShopFloorStockSelection() {
               <CardContent className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                   <div className="space-y-2">
-                    <Label>Plant</Label>
-                    <MultiSelectFilter
-                      label="Select Plant(s)"
-                      options={allPlants.map(p => ({ value: p, label: p }))}
-                      selectedValues={selectedPlants}
-                      onSelectionChange={setSelectedPlants}
-                    />
+                    <Label className={validationErrors.includes('plant') ? 'text-destructive' : ''}>
+                      Plant <span className="text-destructive">*</span>
+                    </Label>
+                    <div className={validationErrors.includes('plant') ? 'ring-2 ring-destructive rounded-md' : ''}>
+                      <MultiSelectFilter
+                        label="Select..."
+                        options={allPlants.map(p => ({ value: p, label: p }))}
+                        selectedValues={selectedPlants}
+                        onSelectionChange={(vals) => {
+                          setSelectedPlants(vals);
+                          if (vals.length > 0) setValidationErrors(prev => prev.filter(e => e !== 'plant'));
+                        }}
+                      />
+                    </div>
+                    {validationErrors.includes('plant') && (
+                      <p className="text-xs text-destructive">Plant is required</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
                     <Label>Material</Label>
                     <MultiSelectFilter
-                      label="Select Material(s)"
+                      label="Select..."
                       options={allMaterials.map(m => ({ value: m.code, label: `${m.code} - ${m.description}` }))}
                       selectedValues={selectedMaterials}
                       onSelectionChange={setSelectedMaterials}
@@ -460,13 +485,14 @@ export default function ShopFloorStockSelection() {
                       placeholder="Search description..."
                       value={materialDescFilter}
                       onChange={(e) => setMaterialDescFilter(e.target.value)}
+                      className="h-10"
                     />
                   </div>
 
                   <div className="space-y-2">
                     <Label>Batch</Label>
                     <MultiSelectFilter
-                      label="Select Batch(es)"
+                      label="Select..."
                       options={allBatches.map(b => ({ value: b, label: b }))}
                       selectedValues={selectedBatches}
                       onSelectionChange={setSelectedBatches}
@@ -476,7 +502,7 @@ export default function ShopFloorStockSelection() {
                   <div className="space-y-2">
                     <Label>Storage Location</Label>
                     <MultiSelectFilter
-                      label="Select SLoc(s)"
+                      label="Select..."
                       options={allStorageLocations.map(sl => ({ value: sl, label: sl }))}
                       selectedValues={selectedStorageLocations}
                       onSelectionChange={setSelectedStorageLocations}
