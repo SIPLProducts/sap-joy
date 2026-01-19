@@ -394,8 +394,9 @@ export default function Login() {
               </CardDescription>
             </CardHeader>
             <CardContent className="pb-4">
-              <div className="space-y-2 text-xs max-h-[280px] overflow-y-auto pr-1">
-                {/* Available Demo Accounts */}
+              <div className="space-y-1.5 text-xs max-h-[320px] overflow-y-auto pr-1">
+                {/* Admin Accounts */}
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide pt-1">Admin Access</p>
                 <DemoAccountRow 
                   email="bala@sharviinfotech.com"
                   description="Full system access - all stages"
@@ -410,58 +411,74 @@ export default function Login() {
                   roleColor="bg-red-100 text-red-700"
                   onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword(''); }}
                 />
+                
+                {/* Quality Team */}
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide pt-2">Quality Team</p>
                 <DemoAccountRow 
-                  email="mounikamnk07@gmail.com"
+                  email="quality.demo@hbl.com"
                   description="Quality review & MRB creation"
                   role="Quality"
                   roleColor="bg-blue-100 text-blue-700"
-                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword(''); }}
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
+                />
+                <DemoAccountRow 
+                  email="qualityhead.demo@hbl.com"
+                  description="Quality oversight & approvals"
+                  role="Quality Head"
+                  roleColor="bg-blue-100 text-blue-700"
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
                 />
                 
-                <div className="border-t pt-2 mt-2">
-                  <p className="text-[10px] text-muted-foreground mb-2 italic">
-                    Sign up new accounts below to test other roles:
-                  </p>
-                </div>
+                {/* Purchase Team */}
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide pt-2">Purchase Team</p>
+                <DemoAccountRow 
+                  email="purchase.demo@hbl.com"
+                  description="Vendor actions & purchase review"
+                  role="Purchase"
+                  roleColor="bg-purple-100 text-purple-700"
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
+                />
+                <DemoAccountRow 
+                  email="purchasehead.demo@hbl.com"
+                  description="Purchase oversight & vendor mgmt"
+                  role="Purchase Head"
+                  roleColor="bg-purple-100 text-purple-700"
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
+                />
                 
-                {/* Suggested Demo Accounts to Create */}
-                <div className="opacity-60">
-                  <DemoAccountRow 
-                    email="quality.demo@hbl.com"
-                    description="Quality review & MRB creation"
-                    role="Quality"
-                    roleColor="bg-blue-100 text-blue-700"
-                    onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword(''); }}
-                  />
-                  <DemoAccountRow 
-                    email="purchase.demo@hbl.com"
-                    description="Vendor actions & purchase review"
-                    role="Purchase"
-                    roleColor="bg-purple-100 text-purple-700"
-                    onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword(''); }}
-                  />
-                  <DemoAccountRow 
-                    email="engineering.demo@hbl.com"
-                    description="Technical evaluation & deviations"
-                    role="Engineering"
-                    roleColor="bg-orange-100 text-orange-700"
-                    onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword(''); }}
-                  />
-                  <DemoAccountRow 
-                    email="shopfloor.demo@hbl.com"
-                    description="Report issues & material defects"
-                    role="Shop Floor"
-                    roleColor="bg-amber-100 text-amber-700"
-                    onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword(''); }}
-                  />
-                  <DemoAccountRow 
-                    email="executive.demo@hbl.com"
-                    description="Final approvals & dashboards"
-                    role="Executive"
-                    roleColor="bg-green-100 text-green-700"
-                    onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword(''); }}
-                  />
-                </div>
+                {/* Engineering Team */}
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide pt-2">Engineering Team</p>
+                <DemoAccountRow 
+                  email="engineering.demo@hbl.com"
+                  description="Technical evaluation & deviations"
+                  role="Engineering"
+                  roleColor="bg-orange-100 text-orange-700"
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
+                />
+                <DemoAccountRow 
+                  email="enghead.demo@hbl.com"
+                  description="Engineering oversight & decisions"
+                  role="Eng Head"
+                  roleColor="bg-orange-100 text-orange-700"
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
+                />
+                
+                {/* Other Roles */}
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide pt-2">Other Roles</p>
+                <DemoAccountRow 
+                  email="shopfloor.demo@hbl.com"
+                  description="Report issues & material defects"
+                  role="Shop Floor"
+                  roleColor="bg-amber-100 text-amber-700"
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
+                />
+                <DemoAccountRow 
+                  email="executive.demo@hbl.com"
+                  description="Final approvals & dashboards"
+                  role="Executive"
+                  roleColor="bg-green-100 text-green-700"
+                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
+                />
               </div>
               
               <div className="mt-3 pt-3 border-t">
