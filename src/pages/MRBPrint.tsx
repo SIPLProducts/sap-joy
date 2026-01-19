@@ -271,14 +271,33 @@ const MRBPrint = () => {
     if (!printRef.current) return;
     
     const printContent = printRef.current.innerHTML;
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
+    
     const title = formType === 'ncr' 
       ? `Non-Conformance Report (IQC) - ${selectedMRB?.mrb_number}`
       : `MRB Committee Form - ${selectedMRB?.mrb_number}`;
 
-    printWindow.document.write(`
+    // Create an iframe for printing (works better in embedded contexts)
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'absolute';
+    printFrame.style.top = '-10000px';
+    printFrame.style.left = '-10000px';
+    printFrame.style.width = '210mm';
+    printFrame.style.height = '297mm';
+    document.body.appendChild(printFrame);
+
+    const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
+    if (!frameDoc) {
+      document.body.removeChild(printFrame);
+      toast({ 
+        title: 'Print Error', 
+        description: 'Could not create print frame. Please try again.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    frameDoc.open();
+    frameDoc.write(`
       <!DOCTYPE html>
       <html>
         <head>
@@ -290,16 +309,35 @@ const MRBPrint = () => {
         </body>
       </html>
     `);
-    printWindow.document.close();
-    printWindow.print();
+    frameDoc.close();
+
+    // Wait for content to load then print
+    setTimeout(() => {
+      try {
+        printFrame.contentWindow?.focus();
+        printFrame.contentWindow?.print();
+        toast({ 
+          title: 'Print Dialog Opened', 
+          description: 'Select "Save as PDF" in the print dialog to download as PDF' 
+        });
+      } catch (error) {
+        console.error('Print error:', error);
+        toast({ 
+          title: 'Print Error', 
+          description: 'Could not open print dialog. Try right-clicking and selecting Print.',
+          variant: 'destructive'
+        });
+      } finally {
+        // Clean up after a delay to allow print dialog to complete
+        setTimeout(() => {
+          document.body.removeChild(printFrame);
+        }, 1000);
+      }
+    }, 250);
   };
 
   const handleDownloadPDF = (formType: 'ncr' | 'mrb') => {
     handlePrint(formType);
-    toast({ 
-      title: 'Print Dialog Opened', 
-      description: 'Select "Save as PDF" in the print dialog to download as PDF' 
-    });
   };
 
   const formatDate = (dateString: string | null | undefined) => {
