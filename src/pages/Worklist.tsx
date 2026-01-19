@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, AlertTriangle, Eye, Loader2 } from 'lucide-react';
+import { Search, AlertTriangle, Eye, Loader2, Unlock, RefreshCw } from 'lucide-react';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { getStatusDisplayName, getStatusColor, getSLAColor, getEscalationColor, getRoleDisplayName } from '@/data/mockData';
+import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
 type MRBStatus = Database['public']['Enums']['mrb_status'];
@@ -43,10 +44,12 @@ interface UnifiedMRBRecord {
 
 export default function Worklist() {
   const navigate = useNavigate();
-  const { mrbRecords, isLoading } = useMRBDatabase();
+  const { mrbRecords, isLoading, updateMRB } = useMRBDatabase();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<SourceType>('all');
+  const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
 
   // Transform database records to unified format
   const unifiedRecords: UnifiedMRBRecord[] = mrbRecords.map(mrb => ({
@@ -102,6 +105,46 @@ export default function Worklist() {
       navigate(`/inward/mrb/${mrb.id}`);
     } else {
       navigate(`/mrb/${mrb.id}`);
+    }
+  };
+
+  const handleSAPSync = async (mrbId: string, mrbNumber: string) => {
+    setSyncingIds(prev => new Set(prev).add(mrbId));
+    
+    try {
+      // Simulate SAP sync - in production this would call SAP API
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Update MRB with SAP sync status
+      await updateMRB(mrbId, {
+        sap_stock_update_status: 'synced',
+        closure_status: 'completed',
+        closed_at: new Date().toISOString(),
+      });
+
+      toast({
+        title: '✅ SAP Sync Completed',
+        description: (
+          <div className="mt-1">
+            <p><strong>{mrbNumber}</strong> has been synced with SAP.</p>
+            <p className="text-xs text-muted-foreground mt-1">Stock has been unblocked and updated in SAP.</p>
+          </div>
+        ),
+        duration: 5000,
+      });
+    } catch (error) {
+      console.error('SAP sync error:', error);
+      toast({
+        title: 'SAP Sync Failed',
+        description: 'Failed to sync with SAP. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSyncingIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(mrbId);
+        return newSet;
+      });
     }
   };
 
@@ -246,10 +289,33 @@ export default function Worklist() {
                         )}
                       </td>
                       <td className="p-4 align-middle text-right">
-                        <Button variant="outline" size="sm" onClick={() => handleViewClick(mrb)}>
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleViewClick(mrb)}>
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                          {mrb.status === 'approved' && (
+                            <Button 
+                              variant="default" 
+                              size="sm" 
+                              onClick={() => handleSAPSync(mrb.id, mrb.mrbNumber)}
+                              disabled={syncingIds.has(mrb.id)}
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              {syncingIds.has(mrb.id) ? (
+                                <>
+                                  <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                                  Syncing...
+                                </>
+                              ) : (
+                                <>
+                                  <Unlock className="h-4 w-4 mr-1" />
+                                  Unblock & SAP Sync
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

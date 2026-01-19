@@ -220,7 +220,8 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
   }, [fetchData]);
 
   const getFilteredRecords = (): InspectionLotRecord[] => {
-    let filtered = [...inspectionLotRecords];
+    // First, filter out lots that already have MRBs created
+    let filtered = inspectionLotRecords.filter(r => r.status !== 'mrb_created');
 
     if (filters.plants.length > 0) {
       filtered = filtered.filter(r => filters.plants.includes(r.plant));
