@@ -23,6 +23,7 @@ import { useRole } from '@/contexts/RoleContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { getStatusDisplayName, getStatusColor, getRoleDisplayName } from '@/data/mockData';
 import { nextReviewDepartments } from '@/data/inwardReportData';
+import { WorkflowProgressIndicator } from '@/components/mrb/WorkflowProgressIndicator';
 import type { Database } from '@/integrations/supabase/types';
 
 type MRBRecord = Database['public']['Tables']['mrb_records']['Row'];
@@ -248,6 +249,12 @@ export default function InwardMRBDetail() {
 
       {/* Content */}
       <div className="p-6 space-y-6">
+        {/* Workflow Progress Indicator */}
+        <WorkflowProgressIndicator 
+          currentStatus={mrb.status} 
+          pendingWith={mrb.pending_with}
+        />
+
         {/* MRB Details (Read-Only) */}
         <Card className="border-border shadow-sm">
           <CardHeader className="border-b border-border bg-muted/30 py-3">
