@@ -12,7 +12,8 @@ export type AppRole =
   | 'engineering_head'
   | 'shop_floor'
   | 'executive'
-  | 'admin';
+  | 'admin'
+  | 'mrb_committee';
 
 interface Profile {
   id: string;

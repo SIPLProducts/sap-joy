@@ -28,6 +28,7 @@ import EngineeringHeadDashboard from "@/pages/EngineeringHeadDashboard";
 import ExecutiveSummaryDashboard from "@/pages/ExecutiveSummaryDashboard";
 import MRBAnalyticsDashboard from "@/pages/MRBAnalyticsDashboard";
 import MRBPrint from "@/pages/MRBPrint";
+import MRBCommitteeReview from "@/pages/MRBCommitteeReview";
 import UserManagement from "@/pages/UserManagement";
 import UserProfile from "@/pages/UserProfile";
 import HelpSupport from "@/pages/HelpSupport";
@@ -61,6 +62,7 @@ const App = () => (
                           <Route path="/inward/report" element={<InwardReport />} />
                           <Route path="/inward/create-mrb" element={<CreateInwardMRB />} />
                           <Route path="/inward/mrb/:id" element={<InwardMRBDetail />} />
+                          <Route path="/inward/mrb/:id/committee" element={<MRBCommitteeReview />} />
                           <Route path="/shop-floor/stock-selection" element={<ShopFloorStockSelection />} />
                           <Route path="/shop-floor/material-blocking" element={<ShopFloorMaterialBlocking />} />
                           <Route path="/shop-floor/mrb/:id" element={<ShopFloorMRBDetail />} />

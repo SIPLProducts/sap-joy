@@ -37,6 +37,7 @@ const mapAppRoleToUserRole = (appRole: AppRole | null): UserRole => {
     shop_floor: 'shop_floor',
     executive: 'plant_head',
     admin: 'plant_head',
+    mrb_committee: 'quality',
   };
   
   return roleMap[appRole] || 'quality';
@@ -54,6 +55,7 @@ export const getRoleDisplayName = (role: UserRole | AppRole): string => {
     shop_floor: 'Shop Floor',
     executive: 'Executive',
     admin: 'Administrator',
+    mrb_committee: 'MRB Committee',
   };
   return displayNames[role] || role;
 };
@@ -92,6 +94,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       shop_floor: [],
       executive: ['final_approval'],
       admin: ['quality', 'purchase', 'engineering', 'final_approval'],
+      mrb_committee: ['quality', 'final_approval'],
     };
     
     return permissions[userRole]?.includes(stage) || false;

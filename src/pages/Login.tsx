@@ -128,6 +128,7 @@ export default function Login() {
       shop_floor: ['Shop Floor MRB', 'Report Issues'],
       executive: ['Executive Dashboard', 'Final Approvals', 'All MRBs'],
       admin: ['Full Access', 'User Management', 'System Config'],
+      mrb_committee: ['MRB Committee Review', 'Cross-functional Decisions'],
     };
     return permissions[role] || [];
   };
