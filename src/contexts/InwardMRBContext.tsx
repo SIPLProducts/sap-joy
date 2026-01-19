@@ -353,8 +353,26 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // Filter out invalid records (cleared or already has MRB)
+      const validRecords = records.filter(record => {
+        if (record.status === 'cleared') {
+          result.errors.push(`Lot ${record.inspectionLot} is already cleared and cannot be used for MRB creation`);
+          return false;
+        }
+        if (record.status === 'mrb_created') {
+          result.errors.push(`Lot ${record.inspectionLot} already has an MRB created`);
+          return false;
+        }
+        return true;
+      });
+
+      if (validRecords.length === 0) {
+        result.success = false;
+        return result;
+      }
+
       // Create MRBs one by one to ensure proper numbering
-      for (const record of records) {
+      for (const record of validRecords) {
         try {
           const mrbNumber = `${prefix}${String(nextNumber).padStart(4, '0')}`;
           
