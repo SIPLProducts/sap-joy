@@ -106,66 +106,45 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
         setInwardMRBRecords(mrbData);
       }
 
-      // Combine both sources into inspection lot records
-      const lotRecords: InspectionLotRecord[] = [];
-
-      // Add uploaded lots
-      if (uploadedLots) {
-        uploadedLots.forEach(lot => {
-          lotRecords.push({
-            id: lot.id,
-            inspectionLot: lot.inspection_lot,
-            plant: lot.plant,
-            materialCode: lot.material_code,
-            materialDescription: lot.material_description || '',
-            vendorCode: lot.vendor_code || '',
-            vendorName: lot.vendor_name || '',
-            storageLocation: lot.storage_location || '',
-            batch: lot.batch || '',
-            poNumber: lot.po_number || '',
-            transactionQuantity: Number(lot.transaction_quantity) || 0,
-            uom: lot.uom || 'EA',
-            blockedQuantity: Number(lot.blocked_quantity) || 0,
-            blockReason: lot.block_reason || '',
-            inspectionDate: lot.inspection_date || lot.created_at,
-            postingDate: lot.posting_date || lot.created_at,
-            grnNumber: lot.grn_number || '',
-            status: lot.status as 'pending' | 'mrb_created' | 'cleared',
-            source: 'upload'
-          });
+      // Build a set of inspection lots that already have MRBs (for double-check)
+      const lotsWithMRB = new Set<string>();
+      if (mrbData) {
+        mrbData.forEach(mrb => {
+          if (mrb.inspection_lot) {
+            lotsWithMRB.add(mrb.inspection_lot);
+          }
         });
       }
 
-      // Add MRB-derived lots (for backwards compatibility)
-      if (mrbData) {
-        mrbData
-          .filter(mrb => mrb.inspection_lot)
-          .forEach(mrb => {
-            // Check if this lot already exists from uploads
-            const exists = lotRecords.some(r => r.inspectionLot === mrb.inspection_lot);
-            if (!exists) {
-              lotRecords.push({
-                id: mrb.id,
-                inspectionLot: mrb.inspection_lot || '',
-                plant: mrb.plant,
-                materialCode: mrb.material_number,
-                materialDescription: mrb.material_description,
-                vendorCode: mrb.vendor_code || '',
-                vendorName: mrb.vendor_name || '',
-                storageLocation: '',
-                batch: '',
-                poNumber: mrb.po_number || '',
-                transactionQuantity: mrb.total_quantity,
-                uom: mrb.uom || 'EA',
-                blockedQuantity: mrb.blocked_quantity || 0,
-                blockReason: mrb.defect_description || '',
-                inspectionDate: mrb.created_at,
-                postingDate: mrb.created_at,
-                grnNumber: mrb.grn_number || '',
-                status: 'mrb_created',
-                source: 'mrb'
-              });
-            }
+      // Only include pending lots that don't have an MRB created
+      const lotRecords: InspectionLotRecord[] = [];
+
+      if (uploadedLots) {
+        uploadedLots
+          // Double-check: exclude lots that already have MRBs (even if status wasn't updated)
+          .filter(lot => !lotsWithMRB.has(lot.inspection_lot))
+          .forEach(lot => {
+            lotRecords.push({
+              id: lot.id,
+              inspectionLot: lot.inspection_lot,
+              plant: lot.plant,
+              materialCode: lot.material_code,
+              materialDescription: lot.material_description || '',
+              vendorCode: lot.vendor_code || '',
+              vendorName: lot.vendor_name || '',
+              storageLocation: lot.storage_location || '',
+              batch: lot.batch || '',
+              poNumber: lot.po_number || '',
+              transactionQuantity: Number(lot.transaction_quantity) || 0,
+              uom: lot.uom || 'EA',
+              blockedQuantity: Number(lot.blocked_quantity) || 0,
+              blockReason: lot.block_reason || '',
+              inspectionDate: lot.inspection_date || lot.created_at,
+              postingDate: lot.posting_date || lot.created_at,
+              grnNumber: lot.grn_number || '',
+              status: lot.status as 'pending' | 'mrb_created' | 'cleared',
+              source: 'upload'
+            });
           });
       }
       
