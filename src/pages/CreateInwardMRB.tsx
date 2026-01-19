@@ -167,30 +167,70 @@ export default function CreateInwardMRB() {
   const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
 
   // Smart routing suggestions based on quality decision
-  const getRecommendedDepartments = useCallback((decision: string): string[] => {
+  // Smart routing based on quality decision
+  const getDecisionBasedDepartments = useCallback((decision: string): string[] => {
     const routingMap: Record<string, string[]> = {
       'accept': [], // No routing needed for simple accept
       'reject': ['purchase', 'quality_head'],
       'partial_accept': ['purchase', 'engineering'],
       'accept_with_deviation': ['engineering', 'quality_head'],
-      'hold_for_review': ['engineering', 'quality_head', 'mrb_committee'],
+      'hold_for_review': ['engineering', 'quality_head'],
       'rework_required': ['engineering'],
       'return_to_vendor': ['purchase'],
       'conditional_release': ['engineering', 'plant_head'],
-      'blocked': ['quality_head', 'mrb_committee'],
+      'blocked': ['quality_head'],
     };
     return routingMap[decision] || [];
   }, []);
 
+  // Smart routing based on defect category
+  const getDefectBasedDepartments = useCallback((defectCategory: string): string[] => {
+    const defectRoutingMap: Record<string, string[]> = {
+      'dimensional': ['engineering'], // Technical evaluation needed
+      'surface': ['quality_head'], // Quality assessment
+      'material': ['engineering', 'purchase'], // Technical + vendor coordination
+      'functional': ['engineering'], // Technical evaluation
+      'electrical': ['engineering'], // Technical evaluation
+      'mechanical': ['engineering'], // Technical evaluation
+      'documentation': ['purchase'], // Vendor documentation issue
+      'packaging': ['purchase'], // Vendor packaging issue
+      'labeling': ['purchase'], // Vendor labeling issue
+      'contamination': ['quality_head', 'engineering'], // Quality + technical
+      'quantity': ['purchase'], // Vendor quantity issue
+      'other': ['quality_head'], // Escalate to quality head
+    };
+    return defectRoutingMap[defectCategory] || [];
+  }, []);
+
+  // Combined smart routing - merges decision-based and defect-based recommendations
   const recommendedDepartments = useMemo(() => {
-    const recommended = getRecommendedDepartments(formData.qualityDecision);
+    const decisionDepts = getDecisionBasedDepartments(formData.qualityDecision);
+    const defectDepts = getDefectBasedDepartments(formData.defectCategory);
+    
+    // Merge and deduplicate
+    const combined = [...new Set([...decisionDepts, ...defectDepts])];
+    
     console.log('Smart Routing Debug:', {
       qualityDecision: formData.qualityDecision,
-      recommendedDepartments: recommended,
-      recommendedLength: recommended.length
+      defectCategory: formData.defectCategory,
+      decisionBasedDepts: decisionDepts,
+      defectBasedDepts: defectDepts,
+      recommendedDepartments: combined
     });
-    return recommended;
-  }, [formData.qualityDecision, getRecommendedDepartments]);
+    
+    return combined;
+  }, [formData.qualityDecision, formData.defectCategory, getDecisionBasedDepartments, getDefectBasedDepartments]);
+
+  // Auto-select departments when recommendations change
+  useEffect(() => {
+    if (recommendedDepartments.length > 0 && formData.nextReviewDepartments.length === 0) {
+      // Only auto-apply if user hasn't selected anything yet
+      setFormData(prev => ({
+        ...prev,
+        nextReviewDepartments: recommendedDepartments,
+      }));
+    }
+  }, [recommendedDepartments]);
 
   // Check if a department is recommended
   const isDepartmentRecommended = useCallback((deptValue: string): boolean => {
@@ -908,25 +948,36 @@ export default function CreateInwardMRB() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                        Smart Routing Suggestion
+                        Smart Routing Applied
                       </p>
                       <p className="text-xs text-amber-600 dark:text-amber-400">
-                        Based on "{inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label}" decision, 
-                        we recommend: {recommendedDepartments.map(d => 
-                          nextReviewDepartments.find(dept => dept.value === d)?.label
-                        ).join(', ')}
+                        {formData.qualityDecision && formData.defectCategory ? (
+                          <>Based on "{inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label}" + "{inwardDefectCategories.find(c => c.value === formData.defectCategory)?.label}" defect</>
+                        ) : formData.qualityDecision ? (
+                          <>Based on "{inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label}" decision</>
+                        ) : formData.defectCategory ? (
+                          <>Based on "{inwardDefectCategories.find(c => c.value === formData.defectCategory)?.label}" defect category</>
+                        ) : null}
+                        {' → '}
+                        <span className="font-medium">
+                          {recommendedDepartments.map(d => 
+                            nextReviewDepartments.find(dept => dept.value === d)?.label
+                          ).join(', ')}
+                        </span>
                       </p>
                     </div>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleApplyRecommendations}
-                    className="border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900"
-                  >
-                    <Lightbulb className="h-4 w-4 mr-1 text-amber-600" />
-                    Apply
-                  </Button>
+                  {formData.nextReviewDepartments.length === 0 && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleApplyRecommendations}
+                      className="border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900"
+                    >
+                      <Lightbulb className="h-4 w-4 mr-1 text-amber-600" />
+                      Apply
+                    </Button>
+                  )}
                 </div>
               )}
 
