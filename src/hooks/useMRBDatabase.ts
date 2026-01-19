@@ -140,6 +140,15 @@ export function useMRBDatabase() {
     additionalUpdates?: MRBUpdate
   ): Promise<boolean> => {
     try {
+      // First get the current MRB to know the current stage for history
+      const { data: currentMRB } = await supabase
+        .from('mrb_records')
+        .select('status')
+        .eq('id', id)
+        .single();
+
+      const currentStage = currentMRB?.status || 'quality_review';
+
       const updates: MRBUpdate = {
         status: newStatus,
         updated_at: new Date().toISOString(),
@@ -162,20 +171,22 @@ export function useMRBDatabase() {
         updates.pending_with = statusToPendingWith[newStatus];
       }
 
-      // Set approval timestamps based on stage
-      if (newStatus === 'purchase_review' && userRole?.includes('quality')) {
+      // Set approval timestamps based on the CURRENT role (who is taking action)
+      if (userRole?.includes('quality')) {
         updates.quality_approved_at = new Date().toISOString();
         updates.quality_approved_by = user?.id;
-      } else if (newStatus === 'engineering_review' && userRole?.includes('purchase')) {
+      } else if (userRole?.includes('purchase')) {
         updates.purchase_approved_at = new Date().toISOString();
         updates.purchase_approved_by = user?.id;
-      } else if (newStatus === 'final_approval' && userRole?.includes('engineering')) {
+      } else if (userRole?.includes('engineering')) {
         updates.engineering_approved_at = new Date().toISOString();
         updates.engineering_approved_by = user?.id;
-      } else if ((newStatus === 'approved' || newStatus === 'rejected') && (userRole === 'executive' || userRole === 'admin')) {
+      } else if (userRole === 'executive' || userRole === 'admin') {
         updates.final_approved_at = new Date().toISOString();
         updates.final_approved_by = user?.id;
-        updates.final_decision = newStatus === 'approved' ? 'approved' : 'rejected';
+        if (newStatus === 'approved' || newStatus === 'rejected') {
+          updates.final_decision = newStatus === 'approved' ? 'approved' : 'rejected';
+        }
       }
 
       const { error } = await supabase
@@ -185,10 +196,10 @@ export function useMRBDatabase() {
 
       if (error) throw error;
 
-      // Add to approval history
+      // Add to approval history - use CURRENT stage (where action was taken), not new status
       await supabase.from('mrb_approval_history').insert({
         mrb_id: id,
-        stage: getStageFromStatus(newStatus),
+        stage: getStageFromStatus(currentStage as MRBStatus),
         action: action,
         performed_by: user?.id || '',
         performed_by_role: userRole || 'quality',
