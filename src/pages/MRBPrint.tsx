@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import html2pdf from 'html2pdf.js';
 import { Search, Printer, Download, FileText, ClipboardCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -336,8 +337,51 @@ const MRBPrint = () => {
     }, 250);
   };
 
-  const handleDownloadPDF = (formType: 'ncr' | 'mrb') => {
-    handlePrint(formType);
+  const handleDownloadPDF = async (formType: 'ncr' | 'mrb') => {
+    const printRef = formType === 'ncr' ? ncrPrintRef : mrbPrintRef;
+    if (!printRef.current) return;
+
+    const filename = formType === 'ncr' 
+      ? `NCR_IQC_Report_${selectedMRB?.mrb_number || 'MRB'}.pdf`
+      : `MRB_Committee_Form_${selectedMRB?.mrb_number || 'MRB'}.pdf`;
+
+    toast({ 
+      title: 'Generating PDF', 
+      description: 'Please wait while we generate your PDF...' 
+    });
+
+    try {
+      const element = printRef.current;
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+          scale: 2,
+          useCORS: true,
+          letterRendering: true
+        },
+        jsPDF: { 
+          unit: 'mm', 
+          format: 'a4', 
+          orientation: 'portrait' 
+        }
+      };
+
+      await html2pdf().set(opt).from(element).save();
+      
+      toast({ 
+        title: 'PDF Downloaded', 
+        description: `${filename} has been downloaded successfully!` 
+      });
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast({ 
+        title: 'PDF Error', 
+        description: 'Failed to generate PDF. Please try again.',
+        variant: 'destructive'
+      });
+    }
   };
 
   const formatDate = (dateString: string | null | undefined) => {
