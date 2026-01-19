@@ -73,6 +73,12 @@ export default function KPIDashboard() {
   const { inwardMRBRecords, inspectionLotRecords, isLoading: inwardLoading, refreshData: refreshInward } = useInwardMRB();
   const { currentRole, roleDisplayName } = useRole();
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  
+  // Filters State - must be declared before any conditional returns
+  const [selectedPlant, setSelectedPlant] = useState<string>('all');
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
 
   // Real-time refresh indicator
   useEffect(() => {
@@ -87,25 +93,7 @@ export default function KPIDashboard() {
     setLastRefresh(new Date());
   };
 
-  // Show loading state
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading dashboard data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Filters State
-  const [selectedPlant, setSelectedPlant] = useState<string>('all');
-  const [selectedMonth, setSelectedMonth] = useState<string>('all');
-  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
-  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
-
-  // Generate last 12 months for dropdown
+  // Generate last 12 months for dropdown - must be before conditional return
   const monthOptions = useMemo(() => {
     const months = [];
     for (let i = 0; i < 12; i++) {
@@ -157,6 +145,18 @@ export default function KPIDashboard() {
 
     return filtered;
   }, [allMRBs, selectedPlant, selectedMonth, dateFrom, dateTo]);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Calculate KPIs based on filtered data
   const kpis = useMemo(() => {
