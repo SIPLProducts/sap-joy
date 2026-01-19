@@ -44,6 +44,7 @@ interface UnifiedMRBRecord {
   materialNumber: string;
   materialDescription: string;
   vendorName: string;
+  vendorCode: string | null;
   plant: string;
   pendingWith: AppRole | null;
   pendingDays: number;
@@ -51,6 +52,33 @@ interface UnifiedMRBRecord {
   escalationLevel: EscalationLevel | null;
   createdAt: string;
   source: MRBSource;
+  // Additional fields from Inward Material
+  inspectionLot: string | null;
+  grnNumber: string | null;
+  poNumber: string | null;
+  blockedQuantity: number | null;
+  totalQuantity: number;
+  uom: string | null;
+  defectDescription: string | null;
+  // Department Review fields
+  qualityDecision: string | null;
+  qualityRemarks: string | null;
+  qualityApprovedAt: string | null;
+  qualityApprovedBy: string | null;
+  purchaseAction: string | null;
+  purchaseRemarks: string | null;
+  purchaseApprovedAt: string | null;
+  purchaseApprovedBy: string | null;
+  engineeringDecision: string | null;
+  engineeringRemarks: string | null;
+  engineeringApprovedAt: string | null;
+  engineeringApprovedBy: string | null;
+  finalDecision: string | null;
+  finalRemarks: string | null;
+  finalApprovedAt: string | null;
+  finalApprovedBy: string | null;
+  closureStatus: string | null;
+  sapStockUpdateStatus: string | null;
 }
 
 interface SAPSyncHistoryEntry {
@@ -126,6 +154,7 @@ export default function Worklist() {
     materialNumber: mrb.material_number,
     materialDescription: mrb.material_description,
     vendorName: mrb.vendor_name || 'N/A',
+    vendorCode: mrb.vendor_code,
     plant: mrb.plant,
     pendingWith: mrb.pending_with,
     pendingDays: mrb.pending_days || 0,
@@ -133,6 +162,33 @@ export default function Worklist() {
     escalationLevel: mrb.escalation_level,
     createdAt: mrb.created_at,
     source: mrb.source,
+    // Additional fields from Inward Material
+    inspectionLot: mrb.inspection_lot,
+    grnNumber: mrb.grn_number,
+    poNumber: mrb.po_number,
+    blockedQuantity: mrb.blocked_quantity,
+    totalQuantity: mrb.total_quantity,
+    uom: mrb.uom,
+    defectDescription: mrb.defect_description,
+    // Department Review fields
+    qualityDecision: mrb.quality_decision,
+    qualityRemarks: mrb.quality_remarks,
+    qualityApprovedAt: mrb.quality_approved_at,
+    qualityApprovedBy: mrb.quality_approved_by,
+    purchaseAction: mrb.purchase_action,
+    purchaseRemarks: mrb.purchase_remarks,
+    purchaseApprovedAt: mrb.purchase_approved_at,
+    purchaseApprovedBy: mrb.purchase_approved_by,
+    engineeringDecision: mrb.engineering_decision,
+    engineeringRemarks: mrb.engineering_remarks,
+    engineeringApprovedAt: mrb.engineering_approved_at,
+    engineeringApprovedBy: mrb.engineering_approved_by,
+    finalDecision: mrb.final_decision,
+    finalRemarks: mrb.final_remarks,
+    finalApprovedAt: mrb.final_approved_at,
+    finalApprovedBy: mrb.final_approved_by,
+    closureStatus: mrb.closure_status,
+    sapStockUpdateStatus: mrb.sap_stock_update_status,
   }));
 
   const filteredRecords = unifiedRecords.filter(mrb => {
@@ -178,6 +234,39 @@ export default function Worklist() {
       return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Inward</Badge>;
     }
     return <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">Shop Floor</Badge>;
+  };
+
+  const getDeptReviewBadge = (decision: string | null, approvedAt: string | null) => {
+    if (!decision && !approvedAt) {
+      return <Badge variant="outline" className="bg-gray-100 text-gray-500 border-gray-300 text-xs">Pending</Badge>;
+    }
+    if (decision) {
+      const isPositive = decision.includes('accept') || decision.includes('use_as_is') || decision === 'approved';
+      return (
+        <Badge 
+          variant="outline" 
+          className={`text-xs ${isPositive ? 'bg-green-50 text-green-700 border-green-300' : 'bg-amber-50 text-amber-700 border-amber-300'}`}
+        >
+          {decision.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+        </Badge>
+      );
+    }
+    return <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-300 text-xs">Reviewed</Badge>;
+  };
+
+  const getClosureStatusBadge = (status: string | null) => {
+    if (!status) return <span className="text-muted-foreground">-</span>;
+    const colorMap: Record<string, string> = {
+      'open': 'bg-gray-100 text-gray-600 border-gray-300',
+      'pending_sap_sync': 'bg-yellow-50 text-yellow-700 border-yellow-300',
+      'completed': 'bg-green-50 text-green-700 border-green-300',
+      'synced': 'bg-green-50 text-green-700 border-green-300',
+    };
+    return (
+      <Badge variant="outline" className={`text-xs ${colorMap[status] || 'bg-gray-100 text-gray-600'}`}>
+        {status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+      </Badge>
+    );
   };
 
   const handleViewClick = (mrb: UnifiedMRBRecord) => {
@@ -536,26 +625,40 @@ export default function Worklist() {
             <table className="w-full caption-bottom text-sm">
               <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm border-b">
                 <tr>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap w-10">
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap w-10">
                     {/* Checkbox header for approved items */}
                   </th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">MRB Number</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Source</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Status</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Material</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Vendor</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Plant</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Pending With</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">SLA</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Created</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Escalation</th>
-                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground whitespace-nowrap">Actions</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">MRB Number</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Source</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Status</th>
+                  {/* Inward Material Columns */}
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Insp. Lot</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Material</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Vendor</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Plant</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">GRN</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">PO Number</th>
+                  <th className="h-12 px-3 text-right align-middle font-medium text-muted-foreground whitespace-nowrap">Blocked Qty</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">UoM</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Defect</th>
+                  {/* Department Reviews */}
+                  <th className="h-12 px-3 text-center align-middle font-medium text-muted-foreground whitespace-nowrap bg-blue-50/50">Quality Review</th>
+                  <th className="h-12 px-3 text-center align-middle font-medium text-muted-foreground whitespace-nowrap bg-purple-50/50">Purchase Review</th>
+                  <th className="h-12 px-3 text-center align-middle font-medium text-muted-foreground whitespace-nowrap bg-amber-50/50">Engg. Review</th>
+                  <th className="h-12 px-3 text-center align-middle font-medium text-muted-foreground whitespace-nowrap bg-green-50/50">Final Approval</th>
+                  {/* Status Columns */}
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Pending With</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">SLA</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Created</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Escalation</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Closure</th>
+                  <th className="h-12 px-3 text-right align-middle font-medium text-muted-foreground whitespace-nowrap sticky right-0 bg-muted/80">Actions</th>
                 </tr>
               </thead>
               <tbody className="[&_tr:last-child]:border-0">
                 {sortedRecords.length === 0 ? (
                   <tr className="border-b">
-                    <td colSpan={12} className="p-4 text-center py-12 text-muted-foreground">
+                    <td colSpan={22} className="p-4 text-center py-12 text-muted-foreground">
                       No MRB records found matching your criteria
                     </td>
                   </tr>
@@ -565,7 +668,7 @@ export default function Worklist() {
                       key={mrb.id} 
                       className={`border-b transition-colors hover:bg-muted/50 ${mrb.escalationLevel && mrb.escalationLevel !== 'none' ? 'bg-red-50/50' : ''} ${selectedIds.has(mrb.id) ? 'bg-primary/5' : ''}`}
                     >
-                      <td className="p-4 align-middle">
+                      <td className="p-3 align-middle">
                         {mrb.status === 'approved' && (
                           <Checkbox
                             checked={selectedIds.has(mrb.id)}
@@ -574,29 +677,89 @@ export default function Worklist() {
                           />
                         )}
                       </td>
-                      <td className="p-4 align-middle font-medium text-primary whitespace-nowrap">
+                      <td className="p-3 align-middle font-medium text-primary whitespace-nowrap">
                         {mrb.mrbNumber}
                       </td>
-                      <td className="p-4 align-middle">
+                      <td className="p-3 align-middle">
                         {getSourceBadge(mrb.source)}
                       </td>
-                      <td className="p-4 align-middle">
+                      <td className="p-3 align-middle">
                         <Badge className={getStatusColor(mrb.status)}>
                           {getStatusDisplayName(mrb.status)}
                         </Badge>
                       </td>
-                      <td className="p-4 align-middle">
-                        <div>
-                          <p className="font-medium">{mrb.materialNumber}</p>
-                          <p className="text-xs text-muted-foreground truncate max-w-[150px]">{mrb.materialDescription}</p>
+                      {/* Inward Material Columns */}
+                      <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">
+                        {mrb.inspectionLot || '-'}
+                      </td>
+                      <td className="p-3 align-middle">
+                        <div className="max-w-[150px]">
+                          <p className="font-medium text-sm">{mrb.materialNumber}</p>
+                          <p className="text-xs text-muted-foreground truncate">{mrb.materialDescription}</p>
                         </div>
                       </td>
-                      <td className="p-4 align-middle max-w-[120px] truncate">{mrb.vendorName}</td>
-                      <td className="p-4 align-middle whitespace-nowrap">{mrb.plant}</td>
-                      <td className="p-4 align-middle whitespace-nowrap">
+                      <td className="p-3 align-middle">
+                        <div className="max-w-[120px]">
+                          <p className="text-sm truncate">{mrb.vendorName}</p>
+                          {mrb.vendorCode && <p className="text-xs text-muted-foreground">{mrb.vendorCode}</p>}
+                        </div>
+                      </td>
+                      <td className="p-3 align-middle whitespace-nowrap">{mrb.plant}</td>
+                      <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">
+                        {mrb.grnNumber || '-'}
+                      </td>
+                      <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">
+                        {mrb.poNumber || '-'}
+                      </td>
+                      <td className="p-3 align-middle text-right font-medium text-destructive whitespace-nowrap">
+                        {mrb.blockedQuantity?.toLocaleString() || '-'}
+                      </td>
+                      <td className="p-3 align-middle whitespace-nowrap">
+                        {mrb.uom || '-'}
+                      </td>
+                      <td className="p-3 align-middle max-w-[120px]">
+                        <p className="text-xs truncate" title={mrb.defectDescription || ''}>
+                          {mrb.defectDescription || '-'}
+                        </p>
+                      </td>
+                      {/* Department Reviews */}
+                      <td className="p-3 align-middle text-center bg-blue-50/30">
+                        <div className="flex flex-col items-center gap-1">
+                          {getDeptReviewBadge(mrb.qualityDecision, mrb.qualityApprovedAt)}
+                          {mrb.qualityApprovedAt && (
+                            <span className="text-[10px] text-muted-foreground">{formatDate(mrb.qualityApprovedAt)}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-3 align-middle text-center bg-purple-50/30">
+                        <div className="flex flex-col items-center gap-1">
+                          {getDeptReviewBadge(mrb.purchaseAction, mrb.purchaseApprovedAt)}
+                          {mrb.purchaseApprovedAt && (
+                            <span className="text-[10px] text-muted-foreground">{formatDate(mrb.purchaseApprovedAt)}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-3 align-middle text-center bg-amber-50/30">
+                        <div className="flex flex-col items-center gap-1">
+                          {getDeptReviewBadge(mrb.engineeringDecision, mrb.engineeringApprovedAt)}
+                          {mrb.engineeringApprovedAt && (
+                            <span className="text-[10px] text-muted-foreground">{formatDate(mrb.engineeringApprovedAt)}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-3 align-middle text-center bg-green-50/30">
+                        <div className="flex flex-col items-center gap-1">
+                          {getDeptReviewBadge(mrb.finalDecision, mrb.finalApprovedAt)}
+                          {mrb.finalApprovedAt && (
+                            <span className="text-[10px] text-muted-foreground">{formatDate(mrb.finalApprovedAt)}</span>
+                          )}
+                        </div>
+                      </td>
+                      {/* Status Columns */}
+                      <td className="p-3 align-middle whitespace-nowrap">
                         {mrb.pendingWith ? getRoleDisplayName(mrb.pendingWith as any) : '-'}
                       </td>
-                      <td className="p-4 align-middle">
+                      <td className="p-3 align-middle">
                         {mrb.slaStatus ? (
                           <Badge className={getSLAColor(mrb.slaStatus as any)}>
                             {mrb.pendingDays} days
@@ -605,10 +768,10 @@ export default function Worklist() {
                           <span className="text-muted-foreground">-</span>
                         )}
                       </td>
-                      <td className="p-4 align-middle whitespace-nowrap">
+                      <td className="p-3 align-middle whitespace-nowrap">
                         {formatDate(mrb.createdAt)}
                       </td>
-                      <td className="p-4 align-middle">
+                      <td className="p-3 align-middle">
                         {mrb.escalationLevel && mrb.escalationLevel !== 'none' && (
                           <Badge className={`${getEscalationColor(mrb.escalationLevel as any)} animate-pulse-slow`}>
                             <AlertTriangle className="mr-1 h-3 w-3" />
@@ -616,7 +779,10 @@ export default function Worklist() {
                           </Badge>
                         )}
                       </td>
-                      <td className="p-4 align-middle text-right">
+                      <td className="p-3 align-middle">
+                        {getClosureStatusBadge(mrb.closureStatus)}
+                      </td>
+                      <td className="p-3 align-middle text-right sticky right-0 bg-background border-l">
                         <div className="flex items-center justify-end gap-2">
                           <Button variant="outline" size="sm" onClick={() => handleViewClick(mrb)}>
                             <Eye className="h-4 w-4 mr-1" />
