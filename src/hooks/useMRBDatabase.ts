@@ -42,6 +42,42 @@ export function useMRBDatabase() {
 
   useEffect(() => {
     fetchMRBRecords();
+
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel('mrb_records_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'mrb_records',
+        },
+        (payload) => {
+          console.log('Real-time MRB update:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            setMRBRecords((prev) => [payload.new as MRBRecord, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setMRBRecords((prev) =>
+              prev.map((record) =>
+                record.id === (payload.new as MRBRecord).id
+                  ? (payload.new as MRBRecord)
+                  : record
+              )
+            );
+          } else if (payload.eventType === 'DELETE') {
+            setMRBRecords((prev) =>
+              prev.filter((record) => record.id !== (payload.old as MRBRecord).id)
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchMRBRecords]);
 
   // Get MRB by ID
