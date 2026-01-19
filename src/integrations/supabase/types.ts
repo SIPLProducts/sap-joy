@@ -91,6 +91,81 @@ export type Database = {
           },
         ]
       }
+      inward_inspection_lots: {
+        Row: {
+          batch: string | null
+          block_reason: string | null
+          blocked_quantity: number
+          created_at: string
+          grn_number: string | null
+          id: string
+          inspection_date: string | null
+          inspection_lot: string
+          material_code: string
+          material_description: string | null
+          plant: string
+          po_number: string | null
+          posting_date: string | null
+          status: string
+          storage_location: string | null
+          transaction_quantity: number
+          uom: string | null
+          updated_at: string
+          upload_batch_id: string | null
+          uploaded_by: string | null
+          vendor_code: string | null
+          vendor_name: string | null
+        }
+        Insert: {
+          batch?: string | null
+          block_reason?: string | null
+          blocked_quantity?: number
+          created_at?: string
+          grn_number?: string | null
+          id?: string
+          inspection_date?: string | null
+          inspection_lot: string
+          material_code: string
+          material_description?: string | null
+          plant: string
+          po_number?: string | null
+          posting_date?: string | null
+          status?: string
+          storage_location?: string | null
+          transaction_quantity?: number
+          uom?: string | null
+          updated_at?: string
+          upload_batch_id?: string | null
+          uploaded_by?: string | null
+          vendor_code?: string | null
+          vendor_name?: string | null
+        }
+        Update: {
+          batch?: string | null
+          block_reason?: string | null
+          blocked_quantity?: number
+          created_at?: string
+          grn_number?: string | null
+          id?: string
+          inspection_date?: string | null
+          inspection_lot?: string
+          material_code?: string
+          material_description?: string | null
+          plant?: string
+          po_number?: string | null
+          posting_date?: string | null
+          status?: string
+          storage_location?: string | null
+          transaction_quantity?: number
+          uom?: string | null
+          updated_at?: string
+          upload_batch_id?: string | null
+          uploaded_by?: string | null
+          vendor_code?: string | null
+          vendor_name?: string | null
+        }
+        Relationships: []
+      }
       materials: {
         Row: {
           category: string | null
