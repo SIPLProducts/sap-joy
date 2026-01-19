@@ -52,19 +52,18 @@ export function MultiSelectFilter({
   };
 
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium text-foreground">{label}</label>
+    <div className="w-full">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between h-10 bg-background border-input hover:bg-accent"
+          className="w-full justify-between h-10 bg-background border-input hover:bg-accent font-normal"
           >
             <span className="truncate text-muted-foreground">
               {selectedValues.length === 0
-                ? placeholder
+                ? label
                 : `${selectedValues.length} selected`}
             </span>
             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
