@@ -33,6 +33,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { downloadCSVTemplate, validateParsedData, ParseResult } from '@/lib/csvTemplates';
 import * as XLSX from 'xlsx';
 import { Checkbox } from '@/components/ui/checkbox';
+import { UploadPreviewModal } from '@/components/inward/UploadPreviewModal';
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
@@ -48,6 +49,10 @@ export default function InwardReport() {
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Preview modal state
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewFileName, setPreviewFileName] = useState('');
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -248,7 +253,7 @@ export default function InwardReport() {
     return data;
   };
 
-  // File upload handler
+  // File upload handler - now shows preview first
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -270,7 +275,6 @@ export default function InwardReport() {
       return;
     }
 
-    setIsUploading(true);
     setUploadStatus('idle');
     setUploadMessage('');
     setParseResult(null);
@@ -298,39 +302,58 @@ export default function InwardReport() {
       // Validate the parsed data
       const validationResult = validateParsedData(parsedData);
       setParseResult(validationResult);
+      setPreviewFileName(file.name);
+      
+      // Show preview modal instead of directly uploading
+      setShowPreview(true);
 
-      if (!validationResult.success) {
-        setUploadStatus('error');
-        setUploadMessage(`Validation failed: ${validationResult.errors.slice(0, 5).join('; ')}${validationResult.errors.length > 5 ? '...' : ''}`);
-        toast.error('File validation failed. Please check the errors.');
-        return;
+    } catch (error) {
+      console.error('Parse error:', error);
+      setUploadStatus('error');
+      setUploadMessage(error instanceof Error ? error.message : 'Failed to process file');
+      toast.error('Failed to parse file');
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
       }
+    }
+  };
 
-      // Upload to database
+  // Confirm upload from preview modal
+  const handleConfirmUpload = async () => {
+    if (!parseResult || !parseResult.success) return;
+
+    setIsUploading(true);
+
+    try {
       const uploadBatchId = `batch-${Date.now()}`;
-      const uploadResult = await uploadInspectionLots(validationResult.data, uploadBatchId);
+      const uploadResult = await uploadInspectionLots(parseResult.data, uploadBatchId);
 
       if (uploadResult.success) {
         setUploadStatus('success');
-        setUploadMessage(`Successfully uploaded ${uploadResult.insertedCount} records from ${file.name}.`);
+        setUploadMessage(`Successfully uploaded ${uploadResult.insertedCount} records from ${previewFileName}.`);
         toast.success(`${uploadResult.insertedCount} records uploaded successfully!`);
+        setShowPreview(false);
       } else {
         setUploadStatus('error');
         setUploadMessage(`Partial upload: ${uploadResult.insertedCount} records inserted. Errors: ${uploadResult.errors.join('; ')}`);
         toast.error('Some records failed to upload');
       }
-
     } catch (error) {
       console.error('Upload error:', error);
       setUploadStatus('error');
-      setUploadMessage(error instanceof Error ? error.message : 'Failed to process file');
+      setUploadMessage(error instanceof Error ? error.message : 'Failed to upload data');
       toast.error('Upload failed');
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
+  };
+
+  // Close preview modal
+  const handleClosePreview = () => {
+    setShowPreview(false);
+    setParseResult(null);
+    setPreviewFileName('');
   };
 
   // Template download handler
@@ -1041,6 +1064,18 @@ export default function InwardReport() {
           </div>
         )}
       </div>
+
+      {/* Upload Preview Modal */}
+      {parseResult && (
+        <UploadPreviewModal
+          isOpen={showPreview}
+          onClose={handleClosePreview}
+          parseResult={parseResult}
+          fileName={previewFileName}
+          onConfirmUpload={handleConfirmUpload}
+          isUploading={isUploading}
+        />
+      )}
     </div>
   );
 }
