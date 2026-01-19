@@ -422,11 +422,28 @@ export default function CreateInwardMRB() {
         
         const departmentLabels = formData.nextReviewDepartments.map(d => 
           nextReviewDepartments.find(dept => dept.value === d)?.label || d
-        ).join(', ');
+        );
+        const qualityDecisionLabel = inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label || formData.qualityDecision;
 
         toast({
-          title: 'MRB Created Successfully',
-          description: `MRB ${mrbNumber} has been created and routed to ${departmentLabels}.`,
+          title: '✅ MRB Created Successfully',
+          description: (
+            <div className="mt-2 space-y-2">
+              <p className="font-medium">MRB Number: <span className="text-primary">{mrbNumber}</span></p>
+              <p>Quality Decision: <span className="font-medium">{qualityDecisionLabel}</span></p>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Routed to:</p>
+                <div className="flex flex-wrap gap-1">
+                  {departmentLabels.map((dept, idx) => (
+                    <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                      {dept}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ),
+          duration: 6000,
         });
 
         navigate('/worklist');
@@ -638,18 +655,31 @@ export default function CreateInwardMRB() {
                     <SelectValue placeholder="Select Quality Decision" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover border-border z-50 max-h-[350px]">
-                    {inwardQualityDecisions.map((decision) => (
-                      <SelectItem 
-                        key={decision.value} 
-                        value={decision.value}
-                        className="py-3"
-                      >
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-medium">{decision.label}</span>
-                          <span className="text-xs text-muted-foreground">{decision.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {inwardQualityDecisions.map((decision) => {
+                      const colorClasses: Record<string, string> = {
+                        green: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+                        red: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+                        amber: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+                        blue: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+                        orange: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+                        purple: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+                        yellow: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+                      };
+                      return (
+                        <SelectItem 
+                          key={decision.value} 
+                          value={decision.value}
+                          className="py-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${colorClasses[decision.color] || 'bg-gray-100 text-gray-800'}`}>
+                              {decision.label}
+                            </span>
+                            <span className="text-xs text-muted-foreground">{decision.description}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
                 {getFieldError('qualityDecision') && (
@@ -658,12 +688,24 @@ export default function CreateInwardMRB() {
                     {getFieldError('qualityDecision')}
                   </p>
                 )}
-                {formData.qualityDecision && !getFieldError('qualityDecision') && (
-                  <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
-                    <CheckCircle2 className="h-3 w-3" />
-                    {inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label}
-                  </p>
-                )}
+                {formData.qualityDecision && !getFieldError('qualityDecision') && (() => {
+                  const selected = inwardQualityDecisions.find(d => d.value === formData.qualityDecision);
+                  const colorClasses: Record<string, string> = {
+                    green: 'text-green-600',
+                    red: 'text-red-600',
+                    amber: 'text-amber-600',
+                    blue: 'text-blue-600',
+                    orange: 'text-orange-600',
+                    purple: 'text-purple-600',
+                    yellow: 'text-yellow-600',
+                  };
+                  return (
+                    <p className={`text-xs flex items-center gap-1 mt-1 ${colorClasses[selected?.color || ''] || 'text-green-600'}`}>
+                      <CheckCircle2 className="h-3 w-3" />
+                      {selected?.label}
+                    </p>
+                  );
+                })()}
               </div>
               <div className="space-y-2">
                 <Label className="text-foreground">Defect Category</Label>
