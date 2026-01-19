@@ -259,7 +259,7 @@ export default function CreateInwardMRB() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-muted/30 pb-24">
       {/* Sticky Header */}
       <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm">
         <div className="px-6 py-4">
@@ -285,10 +285,6 @@ export default function CreateInwardMRB() {
               <Button variant="outline" onClick={handleSaveDraft}>
                 <Save className="h-4 w-4 mr-2" />
                 Save Draft
-              </Button>
-              <Button onClick={handleSubmit} disabled={isSubmitting}>
-                <Send className="h-4 w-4 mr-2" />
-                {isSubmitting ? 'Submitting...' : 'Submit'}
               </Button>
               <Button variant="ghost" onClick={() => navigate('/inward/report')}>
                 <X className="h-4 w-4 mr-2" />
@@ -596,6 +592,40 @@ export default function CreateInwardMRB() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Sticky Footer with Submit Button */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border shadow-lg">
+        <div className="px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
+          <div className="text-sm text-muted-foreground">
+            {formData.qualityDecision && formData.nextReviewDepartments.length > 0 ? (
+              <span>
+                Decision: <strong className="text-foreground">{
+                  inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label || formData.qualityDecision
+                }</strong>
+                <span className="ml-2">
+                  → Forward to: {formData.nextReviewDepartments.map(d => 
+                    nextReviewDepartments.find(dept => dept.value === d)?.label
+                  ).join(', ')}
+                </span>
+              </span>
+            ) : (
+              <span className="text-amber-600">
+                {!formData.qualityDecision && 'Select a quality decision'}
+                {formData.qualityDecision && formData.nextReviewDepartments.length === 0 && 'Select at least one review department'}
+              </span>
+            )}
+          </div>
+          <Button 
+            onClick={handleSubmit} 
+            disabled={isSubmitting || !formData.qualityDecision || formData.nextReviewDepartments.length === 0}
+            size="lg"
+            className="min-w-[180px]"
+          >
+            <Send className="h-4 w-4 mr-2" />
+            {isSubmitting ? 'Submitting...' : 'Submit for Review'}
+          </Button>
         </div>
       </div>
     </div>
