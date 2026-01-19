@@ -107,6 +107,7 @@ export default function Worklist() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<SourceType>('all');
+  const [pendingWithFilter, setPendingWithFilter] = useState<string>('all');
   const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBatchSyncing, setIsBatchSyncing] = useState(false);
@@ -206,8 +207,9 @@ export default function Worklist() {
     
     const matchesStatus = statusFilter === 'all' || mrb.status === statusFilter;
     const matchesSource = sourceFilter === 'all' || mrb.source === sourceFilter;
+    const matchesPendingWith = pendingWithFilter === 'all' || mrb.pendingWith === pendingWithFilter;
     
-    return matchesSearch && matchesStatus && matchesSource;
+    return matchesSearch && matchesStatus && matchesSource && matchesPendingWith;
   });
 
   // Sort by created date descending
@@ -712,6 +714,21 @@ export default function Worklist() {
                       {getStatusDisplayName(status)}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+              <Select value={pendingWithFilter} onValueChange={setPendingWithFilter}>
+                <SelectTrigger className="w-full sm:w-[160px]">
+                  <SelectValue placeholder="Pending With" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Departments</SelectItem>
+                  <SelectItem value="quality">Quality</SelectItem>
+                  <SelectItem value="quality_head">Quality Head</SelectItem>
+                  <SelectItem value="purchase">Purchase</SelectItem>
+                  <SelectItem value="purchase_head">Purchase Head</SelectItem>
+                  <SelectItem value="engineering">Engineering</SelectItem>
+                  <SelectItem value="engineering_head">Engineering Head</SelectItem>
+                  <SelectItem value="executive">Executive</SelectItem>
                 </SelectContent>
               </Select>
             </div>

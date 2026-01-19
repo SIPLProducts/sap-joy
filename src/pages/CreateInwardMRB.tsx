@@ -418,19 +418,29 @@ export default function CreateInwardMRB() {
         'other': 'other',
       };
 
-      // Determine pending_with based on next review department
+      // Determine pending_with and status based on next review department
       const pendingWithMap: Record<string, Database['public']['Enums']['app_role']> = {
         'engineering': 'engineering',
         'purchase': 'purchase',
         'plant_head': 'executive',
+        'quality_head': 'quality_head',
+      };
+
+      // Map department to status
+      const statusMap: Record<string, Database['public']['Enums']['mrb_status']> = {
+        'engineering': 'engineering_review',
+        'purchase': 'purchase_review',
+        'plant_head': 'final_approval',
+        'quality_head': 'quality_review',
       };
 
       const firstDept = formData.nextReviewDepartments[0];
-      const pendingWith = pendingWithMap[firstDept] || 'engineering';
+      const pendingWith = pendingWithMap[firstDept] || 'quality';
+      const mrbStatus = statusMap[firstDept] || 'quality_review';
 
       const newMRB = await createMRB({
         mrb_number: mrbNumber,
-        status: 'quality_review',
+        status: mrbStatus,
         source: 'quality_inspection',
         created_by: user?.id || '',
         pending_with: pendingWith,
