@@ -19,22 +19,22 @@ import { Button } from '@/components/ui/button';
 
 // Menu items with role-based access (using new AppRole types)
 const menuItems = [
-  { title: 'KPI Dashboard', url: '/', icon: BarChart3, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin'] },
-  { title: 'MRB Worklist', url: '/worklist', icon: ClipboardList, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin'] },
+  { title: 'KPI Dashboard', url: '/', icon: BarChart3, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin', 'mrb_committee'] },
+  { title: 'MRB Worklist', url: '/worklist', icon: ClipboardList, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin', 'mrb_committee'] },
   { title: 'Material Blocking', url: '/shop-floor/stock-selection', icon: Package, roles: ['shop_floor', 'admin'] },
-  { title: 'MRB - Inward Materials', url: '/inward/report', icon: FileSpreadsheet, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin'] },
-  { title: 'MRB Print', url: '/mrb-print', icon: Printer, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin'] },
-  { title: 'Email Log', url: '/emails', icon: Mail, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin'] },
-  { title: 'Help & Support', url: '/help', icon: HelpCircle, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin'] },
+  { title: 'MRB - Inward Materials', url: '/inward/report', icon: FileSpreadsheet, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin', 'mrb_committee'] },
+  { title: 'MRB Print', url: '/mrb-print', icon: Printer, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin', 'mrb_committee'] },
+  { title: 'Email Log', url: '/emails', icon: Mail, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin', 'mrb_committee'] },
+  { title: 'Help & Support', url: '/help', icon: HelpCircle, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin', 'mrb_committee'] },
 ];
 
 // Role-specific dashboards
 const dashboardItems = [
-  { title: 'MRB Analytics', url: '/dashboard/analytics', icon: TrendingUp, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin'] },
-  { title: 'Quality Dashboard', url: '/dashboard/quality-head', icon: Settings, roles: ['quality', 'quality_head', 'executive', 'admin'] },
-  { title: 'Purchase Dashboard', url: '/dashboard/purchase-head', icon: Users, roles: ['purchase', 'purchase_head', 'executive', 'admin'] },
-  { title: 'Engineering Dashboard', url: '/dashboard/engineering-head', icon: Wrench, roles: ['engineering', 'engineering_head', 'executive', 'admin'] },
-  { title: 'Executive Summary', url: '/dashboard/executive-summary', icon: PieChart, roles: ['executive', 'admin'] },
+  { title: 'MRB Analytics', url: '/dashboard/analytics', icon: TrendingUp, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin', 'mrb_committee'] },
+  { title: 'Quality Dashboard', url: '/dashboard/quality-head', icon: Settings, roles: ['quality', 'quality_head', 'executive', 'admin', 'mrb_committee'] },
+  { title: 'Purchase Dashboard', url: '/dashboard/purchase-head', icon: Users, roles: ['purchase', 'purchase_head', 'executive', 'admin', 'mrb_committee'] },
+  { title: 'Engineering Dashboard', url: '/dashboard/engineering-head', icon: Wrench, roles: ['engineering', 'engineering_head', 'executive', 'admin', 'mrb_committee'] },
+  { title: 'Executive Summary', url: '/dashboard/executive-summary', icon: PieChart, roles: ['executive', 'admin', 'mrb_committee'] },
 ];
 
 // Admin items
