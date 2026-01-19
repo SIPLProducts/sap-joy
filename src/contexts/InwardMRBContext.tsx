@@ -4,6 +4,7 @@ import type { Database } from '@/integrations/supabase/types';
 import { ParsedInspectionLot } from '@/lib/csvTemplates';
 
 type MRBRecord = Database['public']['Tables']['mrb_records']['Row'];
+type MRBInsert = Database['public']['Tables']['mrb_records']['Insert'];
 
 export interface InspectionLotRecord {
   id: string;
@@ -41,6 +42,13 @@ interface UploadResult {
   errors: string[];
 }
 
+interface BatchMRBResult {
+  success: boolean;
+  createdCount: number;
+  errors: string[];
+  createdMRBs: MRBRecord[];
+}
+
 interface InwardMRBContextType {
   inspectionLotRecords: InspectionLotRecord[];
   inwardMRBRecords: MRBRecord[];
@@ -51,6 +59,7 @@ interface InwardMRBContextType {
   refreshData: () => Promise<void>;
   uploadInspectionLots: (data: ParsedInspectionLot[], uploadBatchId: string) => Promise<UploadResult>;
   updateLotStatus: (id: string, status: 'pending' | 'mrb_created' | 'cleared') => Promise<void>;
+  createBatchMRBs: (records: InspectionLotRecord[]) => Promise<BatchMRBResult>;
 }
 
 const InwardMRBContext = createContext<InwardMRBContextType | undefined>(undefined);
@@ -310,6 +319,108 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
     await fetchData();
   };
 
+  const createBatchMRBs = async (records: InspectionLotRecord[]): Promise<BatchMRBResult> => {
+    const result: BatchMRBResult = {
+      success: true,
+      createdCount: 0,
+      errors: [],
+      createdMRBs: []
+    };
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Generate MRB numbers
+      const year = new Date().getFullYear();
+      const prefix = `MRB-${year}-`;
+      
+      const { data: existingMRBs } = await supabase
+        .from('mrb_records')
+        .select('mrb_number')
+        .like('mrb_number', `${prefix}%`)
+        .order('mrb_number', { ascending: false })
+        .limit(1);
+
+      let nextNumber = 1;
+      if (existingMRBs && existingMRBs.length > 0) {
+        const lastNumber = parseInt(existingMRBs[0].mrb_number.replace(prefix, ''), 10);
+        if (!isNaN(lastNumber)) {
+          nextNumber = lastNumber + 1;
+        }
+      }
+
+      // Create MRBs one by one to ensure proper numbering
+      for (const record of records) {
+        try {
+          const mrbNumber = `${prefix}${String(nextNumber).padStart(4, '0')}`;
+          
+          const mrbData: MRBInsert = {
+            mrb_number: mrbNumber,
+            source: 'quality_inspection',
+            created_by: user.id,
+            status: 'draft',
+            plant: record.plant,
+            material_number: record.materialCode,
+            material_description: record.materialDescription,
+            total_quantity: record.transactionQuantity,
+            blocked_quantity: record.blockedQuantity,
+            uom: record.uom,
+            vendor_code: record.vendorCode || null,
+            vendor_name: record.vendorName || null,
+            po_number: record.poNumber || null,
+            grn_number: record.grnNumber || null,
+            inspection_lot: record.inspectionLot,
+            defect_description: record.blockReason || null,
+            pending_with: 'quality'
+          };
+
+          const { data: createdMRB, error } = await supabase
+            .from('mrb_records')
+            .insert(mrbData)
+            .select()
+            .single();
+
+          if (error) throw error;
+
+          // Update lot status
+          if (record.source === 'upload') {
+            await supabase
+              .from('inward_inspection_lots')
+              .update({ status: 'mrb_created' })
+              .eq('id', record.id);
+          }
+
+          // Add to approval history
+          await supabase.from('mrb_approval_history').insert({
+            mrb_id: createdMRB.id,
+            stage: 'Creation',
+            action: 'created',
+            performed_by: user.id,
+            performed_by_role: 'quality',
+            remarks: `Batch MRB created from inspection lot ${record.inspectionLot}`,
+          });
+
+          result.createdMRBs.push(createdMRB);
+          result.createdCount++;
+          nextNumber++;
+        } catch (err) {
+          result.errors.push(`Failed to create MRB for lot ${record.inspectionLot}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+          result.success = false;
+        }
+      }
+
+      await fetchData();
+    } catch (error) {
+      result.success = false;
+      result.errors.push(`Batch creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
+    return result;
+  };
+
   return (
     <InwardMRBContext.Provider
       value={{
@@ -322,6 +433,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
         refreshData: fetchData,
         uploadInspectionLots,
         updateLotStatus,
+        createBatchMRBs,
       }}
     >
       {children}
