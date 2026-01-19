@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { getStatusDisplayName, getStatusColor, getSLAColor, getRoleDisplayName } from '@/data/mockData';
 import { useToast } from '@/hooks/use-toast';
+import { WorkflowProgressIndicator } from '@/components/mrb/WorkflowProgressIndicator';
 import type { Database as DB } from '@/integrations/supabase/types';
 
 type MRBRecord = DB['public']['Tables']['mrb_records']['Row'];
@@ -237,6 +238,12 @@ export default function MRBDetail() {
       </div>
 
       <div className="p-6 space-y-6">
+        {/* Workflow Progress Indicator */}
+        <WorkflowProgressIndicator 
+          currentStatus={mrb.status} 
+          pendingWith={mrb.pending_with}
+        />
+
         <div className="grid gap-4 md:grid-cols-4">
           <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Material</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.material_number}</p></CardContent></Card>
           <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Vendor</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.vendor_name || 'N/A'}</p></CardContent></Card>
