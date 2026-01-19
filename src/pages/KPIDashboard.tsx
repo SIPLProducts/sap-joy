@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth, subMonths, parseISO, isWithinInterval } from 'date-fns';
 import { useMRB } from '@/contexts/MRBContext';
 import { useInwardMRB } from '@/contexts/InwardMRBContext';
 import { useRole } from '@/contexts/RoleContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -68,9 +69,35 @@ const CHART_COLORS = [
 ];
 
 export default function KPIDashboard() {
-  const { mrbRecords, emailLogs } = useMRB();
-  const { inwardMRBRecords, inspectionLotRecords } = useInwardMRB();
+  const { mrbRecords, emailLogs, isLoading: mrbLoading, refreshData: refreshMRB } = useMRB();
+  const { inwardMRBRecords, inspectionLotRecords, isLoading: inwardLoading, refreshData: refreshInward } = useInwardMRB();
   const { currentRole, roleDisplayName } = useRole();
+  const [lastRefresh, setLastRefresh] = useState(new Date());
+
+  // Real-time refresh indicator
+  useEffect(() => {
+    const interval = setInterval(() => setLastRefresh(new Date()), 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const isLoading = mrbLoading || inwardLoading;
+
+  const handleRefresh = async () => {
+    await Promise.all([refreshMRB(), refreshInward()]);
+    setLastRefresh(new Date());
+  };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Filters State
   const [selectedPlant, setSelectedPlant] = useState<string>('all');
@@ -365,10 +392,21 @@ export default function KPIDashboard() {
               <p className="text-muted-foreground">Top Reject Reasons & Vendor Performance Analytics</p>
             </div>
             <div className="flex items-center gap-3">
+              <Badge variant="outline" className="px-3 py-1 bg-green-500/10 border-green-500/30">
+                <Activity className="w-3 h-3 mr-1 text-green-500" />
+                Live Data
+              </Badge>
               <Badge variant="outline" className="px-3 py-1">
-                <Activity className="w-3 h-3 mr-1" />
+                <RefreshCw className="w-3 h-3 mr-1" />
+                {format(lastRefresh, 'HH:mm:ss')}
+              </Badge>
+              <Badge variant="outline" className="px-3 py-1">
                 {filteredMRBs.length} Records
               </Badge>
+              <Button variant="outline" size="sm" onClick={handleRefresh}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
               <Button variant="outline" size="sm" asChild>
                 <Link to="/worklist">
                   <ArrowRight className="w-4 h-4 mr-2" />

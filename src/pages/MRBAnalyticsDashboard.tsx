@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { 
   BarChart3, 
   Clock, 
@@ -65,7 +65,18 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function MRBAnalyticsDashboard() {
-  const { mrbRecords, isLoading } = useMRB();
+  const { mrbRecords, isLoading, refreshData } = useMRB();
+  const [lastRefresh, setLastRefresh] = useState(new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => setLastRefresh(new Date()), 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleRefresh = async () => {
+    await refreshData();
+    setLastRefresh(new Date());
+  };
 
   // Calculate metrics
   const metrics = useMemo(() => {
@@ -255,10 +266,17 @@ export default function MRBAnalyticsDashboard() {
               <p className="text-muted-foreground">Aging and SLA compliance metrics for management oversight</p>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-sm">
-                <Activity className="h-3 w-3 mr-1" />
+              <Badge variant="outline" className="text-sm bg-green-500/10 border-green-500/30">
+                <Activity className="h-3 w-3 mr-1 text-green-500" />
                 Live Data
               </Badge>
+              <Badge variant="outline" className="text-sm">
+                <Clock className="h-3 w-3 mr-1" />
+                {lastRefresh.toLocaleTimeString()}
+              </Badge>
+              <button onClick={handleRefresh} className="p-2 hover:bg-muted rounded-md transition-colors">
+                <TrendingUp className="w-4 h-4 text-muted-foreground" />
+              </button>
             </div>
           </div>
         </div>

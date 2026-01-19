@@ -36,18 +36,36 @@ const CHART_COLORS = ['hsl(210, 85%, 35%)', 'hsl(160, 60%, 40%)', 'hsl(38, 92%, 
 const SLA_DAYS = 3;
 
 export default function EngineeringHeadDashboard() {
-  const { mrbRecords } = useMRB();
-  const { inwardMRBRecords } = useInwardMRB();
+  const { mrbRecords, isLoading: mrbLoading, refreshData: refreshMRB } = useMRB();
+  const { inwardMRBRecords, isLoading: inwardLoading, refreshData: refreshInward } = useInwardMRB();
   const [selectedPlant, setSelectedPlant] = useState('all');
   const [selectedMaterial, setSelectedMaterial] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
+  const isLoading = mrbLoading || inwardLoading;
+
   useEffect(() => {
     const interval = setInterval(() => setLastRefresh(new Date()), 30000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleRefresh = async () => {
+    await Promise.all([refreshMRB(), refreshInward()]);
+    setLastRefresh(new Date());
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
 
   const allMRBs = useMemo(() => [...mrbRecords, ...inwardMRBRecords], [mrbRecords, inwardMRBRecords]);
 
@@ -163,14 +181,20 @@ export default function EngineeringHeadDashboard() {
               <p className="text-muted-foreground">Technical review & deviation analytics</p>
             </div>
             <div className="flex items-center gap-3">
-              <Badge variant="outline" className="px-3 py-1">
-                <Activity className="w-3 h-3 mr-1" />
-                {filteredMRBs.length} Records
+              <Badge variant="outline" className="px-3 py-1 bg-green-500/10 border-green-500/30">
+                <Activity className="w-3 h-3 mr-1 text-green-500" />
+                Live Data
               </Badge>
               <Badge variant="outline" className="px-3 py-1">
                 <RefreshCw className="w-3 h-3 mr-1" />
                 {format(lastRefresh, 'HH:mm:ss')}
               </Badge>
+              <Badge variant="outline" className="px-3 py-1">
+                {filteredMRBs.length} Records
+              </Badge>
+              <button onClick={handleRefresh} className="p-2 hover:bg-muted rounded-md transition-colors">
+                <RefreshCw className="w-4 h-4 text-muted-foreground" />
+              </button>
             </div>
           </div>
         </div>
