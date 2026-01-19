@@ -16,6 +16,7 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   nextReviewDepartments, 
   inwardQualityDecisions, 
@@ -417,6 +418,14 @@ export default function CreateInwardMRB() {
       });
 
       if (newMRB) {
+        // Update the inspection lot status to 'mrb_created'
+        if (formData.inspectionLot) {
+          await supabase
+            .from('inward_inspection_lots')
+            .update({ status: 'mrb_created' })
+            .eq('inspection_lot', formData.inspectionLot);
+        }
+
         // Clear autosave on successful submission
         clearAutosave();
         

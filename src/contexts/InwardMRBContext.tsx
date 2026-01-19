@@ -404,13 +404,12 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
 
           if (error) throw error;
 
-          // Update lot status
-          if (record.source === 'upload') {
-            await supabase
-              .from('inward_inspection_lots')
-              .update({ status: 'mrb_created' })
-              .eq('id', record.id);
-          }
+          // Update lot status in inward_inspection_lots table
+          // Always try to update by inspection_lot number to catch all sources
+          await supabase
+            .from('inward_inspection_lots')
+            .update({ status: 'mrb_created' })
+            .eq('inspection_lot', record.inspectionLot);
 
           // Add to approval history
           await supabase.from('mrb_approval_history').insert({
