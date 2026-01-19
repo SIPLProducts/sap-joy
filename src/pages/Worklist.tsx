@@ -40,7 +40,7 @@ type SLAStatus = Database['public']['Enums']['sla_status'];
 type EscalationLevel = Database['public']['Enums']['escalation_level'];
 type AppRole = Database['public']['Enums']['app_role'];
 
-const statuses: MRBStatus[] = ['draft', 'quality_review', 'purchase_review', 'engineering_review', 'final_approval', 'approved', 'rejected', 'closed'];
+const statuses: MRBStatus[] = ['quality_review', 'purchase_review', 'engineering_review', 'final_approval', 'approved', 'rejected', 'closed'];
 
 type SourceType = 'all' | 'quality_inspection' | 'shop_floor';
 

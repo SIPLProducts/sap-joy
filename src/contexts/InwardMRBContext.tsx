@@ -220,8 +220,8 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
   }, [fetchData]);
 
   const getFilteredRecords = (): InspectionLotRecord[] => {
-    // First, filter out lots that already have MRBs created
-    let filtered = inspectionLotRecords.filter(r => r.status !== 'mrb_created');
+    // Only show lots with 'pending' status (exclude mrb_created and cleared)
+    let filtered = inspectionLotRecords.filter(r => r.status === 'pending');
 
     if (filters.plants.length > 0) {
       filtered = filtered.filter(r => filters.plants.includes(r.plant));
@@ -362,7 +362,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
             mrb_number: mrbNumber,
             source: 'quality_inspection',
             created_by: user.id,
-            status: 'draft',
+            status: 'quality_review',
             plant: record.plant,
             material_number: record.materialCode,
             material_description: record.materialDescription,

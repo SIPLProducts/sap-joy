@@ -1,17 +1,18 @@
 import { CheckCircle2, Circle, Clock, XCircle, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { Database } from '@/integrations/supabase/types';
 
-type MRBStatus = 'draft' | 'quality_review' | 'purchase_review' | 'engineering_review' | 'final_approval' | 'approved' | 'rejected' | 'closed';
+type MRBStatus = Database['public']['Enums']['mrb_status'];
+type WorkflowMRBStatus = 'quality_review' | 'purchase_review' | 'engineering_review' | 'final_approval' | 'approved' | 'rejected' | 'closed';
 
 interface WorkflowStep {
   id: string;
   label: string;
   shortLabel: string;
-  statuses: MRBStatus[];
+  statuses: WorkflowMRBStatus[];
 }
 
 const workflowSteps: WorkflowStep[] = [
-  { id: 'draft', label: 'Draft', shortLabel: 'Draft', statuses: ['draft'] },
   { id: 'quality', label: 'Quality Review', shortLabel: 'Quality', statuses: ['quality_review'] },
   { id: 'department', label: 'Department Review', shortLabel: 'Dept Review', statuses: ['purchase_review', 'engineering_review'] },
   { id: 'final', label: 'Final Approval', shortLabel: 'Final', statuses: ['final_approval'] },
@@ -30,7 +31,9 @@ export function WorkflowProgressIndicator({
   className 
 }: WorkflowProgressIndicatorProps) {
   const getCurrentStepIndex = () => {
-    return workflowSteps.findIndex(step => step.statuses.includes(currentStatus));
+    // Handle draft status by treating it as quality_review (first step)
+    const statusToCheck = currentStatus === 'draft' ? 'quality_review' : currentStatus;
+    return workflowSteps.findIndex(step => step.statuses.includes(statusToCheck as WorkflowMRBStatus));
   };
 
   const currentStepIndex = getCurrentStepIndex();
@@ -45,8 +48,6 @@ export function WorkflowProgressIndicator({
 
   const getStatusDetails = () => {
     switch (currentStatus) {
-      case 'draft':
-        return { text: 'Draft - Not yet submitted', color: 'text-muted-foreground' };
       case 'quality_review':
         return { text: 'Awaiting Quality Review', color: 'text-blue-600' };
       case 'purchase_review':
@@ -173,11 +174,9 @@ export function WorkflowProgressIndicator({
       {/* Workflow Path Description */}
       <div className="mt-4 pt-3 border-t border-border">
         <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
-          <span>Draft</span>
-          <ArrowRight className="h-3 w-3" />
           <span>Quality</span>
           <ArrowRight className="h-3 w-3" />
-          <span>Dept Review</span>
+          <span>Purchase/Engineering</span>
           <ArrowRight className="h-3 w-3" />
           <span>Final</span>
           <ArrowRight className="h-3 w-3" />
