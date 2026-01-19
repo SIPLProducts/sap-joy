@@ -181,7 +181,13 @@ export default function CreateInwardMRB() {
   }, []);
 
   const recommendedDepartments = useMemo(() => {
-    return getRecommendedDepartments(formData.qualityDecision);
+    const recommended = getRecommendedDepartments(formData.qualityDecision);
+    console.log('Smart Routing Debug:', {
+      qualityDecision: formData.qualityDecision,
+      recommendedDepartments: recommended,
+      recommendedLength: recommended.length
+    });
+    return recommended;
   }, [formData.qualityDecision, getRecommendedDepartments]);
 
   // Check if a department is recommended
