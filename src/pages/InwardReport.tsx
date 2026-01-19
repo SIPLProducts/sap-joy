@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, Upload, RefreshCw, Database, FileUp, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, Upload, RefreshCw, Database, FileUp, AlertCircle, CheckCircle2, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { useInwardMRB } from '@/contexts/InwardMRBContext';
+import { useInwardMRB, InspectionLotRecord } from '@/contexts/InwardMRBContext';
 import { MultiSelectFilter } from '@/components/inward/MultiSelectFilter';
 import { plants, vendors, materials } from '@/data/mockData';
 import { storageLocations } from '@/data/inwardReportData';
@@ -25,44 +25,26 @@ import {
 } from '@/components/ui/select';
 import {
   Tabs,
-  TabsContent,
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-
-// Local interface matching the context's InspectionLotRecord
-interface InspectionLotRecord {
-  id: string;
-  inspectionLot: string;
-  plant: string;
-  materialCode: string;
-  materialDescription: string;
-  vendorCode: string;
-  vendorName: string;
-  storageLocation: string;
-  batch: string;
-  poNumber: string;
-  transactionQuantity: number;
-  uom: string;
-  blockedQuantity: number;
-  blockReason: string;
-  inspectionDate: string;
-  status: 'pending' | 'mrb_created' | 'cleared';
-}
+import { downloadCSVTemplate, validateParsedData, ParseResult } from '@/lib/csvTemplates';
+import * as XLSX from 'xlsx';
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 export default function InwardReport() {
   const navigate = useNavigate();
-  const { inspectionLotRecords, filters, setFilters, getFilteredRecords, refreshData, isLoading } = useInwardMRB();
+  const { inspectionLotRecords, filters, setFilters, getFilteredRecords, refreshData, isLoading, uploadInspectionLots } = useInwardMRB();
   const [hasSearched, setHasSearched] = useState(false);
   const [searchResults, setSearchResults] = useState<InspectionLotRecord[]>([]);
   const [activeTab, setActiveTab] = useState<'search' | 'upload' | 'api'>('search');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [uploadMessage, setUploadMessage] = useState('');
+  const [parseResult, setParseResult] = useState<ParseResult | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -70,10 +52,20 @@ export default function InwardReport() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Build options for filters
-  const plantOptions = plants.map(p => ({ value: p, label: p }));
-  const materialOptions = materials.map(m => ({ value: m.number, label: `${m.number} - ${m.description}` }));
-  const vendorOptions = vendors.map(v => ({ value: v.code, label: `${v.code} - ${v.name}` }));
+  // Build options for filters - include both mock data and actual uploaded data
+  const allPlants = [...new Set([...plants, ...inspectionLotRecords.map(r => r.plant)])];
+  const allMaterials = [...new Set([...materials.map(m => m.number), ...inspectionLotRecords.map(r => r.materialCode)])];
+  const allVendors = [...new Set([...vendors.map(v => v.code), ...inspectionLotRecords.map(r => r.vendorCode).filter(Boolean)])];
+  
+  const plantOptions = allPlants.map(p => ({ value: p, label: p }));
+  const materialOptions = allMaterials.map(m => {
+    const material = materials.find(mat => mat.number === m);
+    return { value: m, label: material ? `${m} - ${material.description}` : m };
+  });
+  const vendorOptions = allVendors.map(v => {
+    const vendor = vendors.find(ven => ven.code === v);
+    return { value: v, label: vendor ? `${v} - ${vendor.name}` : v };
+  });
   const slocOptions = storageLocations.map(s => ({ value: s.code, label: `${s.code} - ${s.name}` }));
   const inspectionLotOptions = inspectionLotRecords.map(r => ({ 
     value: r.inspectionLot, 
@@ -114,11 +106,16 @@ export default function InwardReport() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
+    if (!dateString) return '-';
+    try {
+      return new Date(dateString).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      return dateString;
+    }
   };
 
   const handlePageChange = (page: number) => {
@@ -130,37 +127,117 @@ export default function InwardReport() {
     setCurrentPage(1);
   };
 
+  // Parse CSV content
+  const parseCSV = (content: string): Record<string, unknown>[] => {
+    const lines = content.split('\n').filter(line => line.trim());
+    if (lines.length < 2) return [];
+    
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    const data: Record<string, unknown>[] = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+      const values: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (const char of lines[i]) {
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          values.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      values.push(current.trim());
+      
+      const row: Record<string, unknown> = {};
+      headers.forEach((header, index) => {
+        row[header] = values[index] || '';
+      });
+      data.push(row);
+    }
+    
+    return data;
+  };
+
   // File upload handler
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     // Validate file type
-    const validTypes = ['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
-    if (!validTypes.includes(file.type) && !file.name.endsWith('.csv') && !file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+    const isCSV = file.name.endsWith('.csv') || file.type === 'text/csv';
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || 
+                    file.type === 'application/vnd.ms-excel' || 
+                    file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+    if (!isCSV && !isExcel) {
       toast.error('Invalid file type. Please upload a CSV or Excel file.');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File too large. Maximum size is 10MB.');
       return;
     }
 
     setIsUploading(true);
     setUploadStatus('idle');
     setUploadMessage('');
+    setParseResult(null);
 
     try {
-      // Simulate file processing (in production, this would call an edge function)
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // For demo: show success
-      setUploadStatus('success');
-      setUploadMessage(`Successfully processed ${file.name}. Records will be available after API sync.`);
-      toast.success('File uploaded successfully!');
-      
-      // Refresh data
-      await refreshData();
+      let parsedData: Record<string, unknown>[] = [];
+
+      if (isCSV) {
+        // Parse CSV
+        const text = await file.text();
+        parsedData = parseCSV(text);
+      } else {
+        // Parse Excel
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        parsedData = XLSX.utils.sheet_to_json(worksheet);
+      }
+
+      if (parsedData.length === 0) {
+        throw new Error('No data found in the file');
+      }
+
+      // Validate the parsed data
+      const validationResult = validateParsedData(parsedData);
+      setParseResult(validationResult);
+
+      if (!validationResult.success) {
+        setUploadStatus('error');
+        setUploadMessage(`Validation failed: ${validationResult.errors.slice(0, 5).join('; ')}${validationResult.errors.length > 5 ? '...' : ''}`);
+        toast.error('File validation failed. Please check the errors.');
+        return;
+      }
+
+      // Upload to database
+      const uploadBatchId = `batch-${Date.now()}`;
+      const uploadResult = await uploadInspectionLots(validationResult.data, uploadBatchId);
+
+      if (uploadResult.success) {
+        setUploadStatus('success');
+        setUploadMessage(`Successfully uploaded ${uploadResult.insertedCount} records from ${file.name}.`);
+        toast.success(`${uploadResult.insertedCount} records uploaded successfully!`);
+      } else {
+        setUploadStatus('error');
+        setUploadMessage(`Partial upload: ${uploadResult.insertedCount} records inserted. Errors: ${uploadResult.errors.join('; ')}`);
+        toast.error('Some records failed to upload');
+      }
+
     } catch (error) {
       console.error('Upload error:', error);
       setUploadStatus('error');
-      setUploadMessage('Failed to process file. Please check the format and try again.');
+      setUploadMessage(error instanceof Error ? error.message : 'Failed to process file');
       toast.error('Upload failed');
     } finally {
       setIsUploading(false);
@@ -170,18 +247,21 @@ export default function InwardReport() {
     }
   };
 
+  // Template download handler
+  const handleDownloadTemplate = () => {
+    downloadCSVTemplate();
+    toast.success('Template downloaded successfully!');
+  };
+
   // API sync handler
   const handleAPISync = async () => {
     setIsSyncing(true);
     try {
-      // Simulate API sync (in production, this would call external SAP/ERP APIs)
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      toast.success('API sync completed! Data refreshed from external systems.');
       await refreshData();
+      toast.success('Data refreshed successfully!');
     } catch (error) {
       console.error('Sync error:', error);
-      toast.error('API sync failed. Please try again.');
+      toast.error('Sync failed. Please try again.');
     } finally {
       setIsSyncing(false);
     }
@@ -216,6 +296,19 @@ export default function InwardReport() {
     return pages;
   };
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30">Pending</Badge>;
+      case 'mrb_created':
+        return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">MRB Created</Badge>;
+      case 'cleared':
+        return <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">Cleared</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Sticky Header */}
@@ -235,16 +328,16 @@ export default function InwardReport() {
               <Button 
                 variant="outline" 
                 onClick={handleAPISync}
-                disabled={isSyncing}
+                disabled={isSyncing || isLoading}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-                {isSyncing ? 'Syncing...' : 'Sync from API'}
+                {isSyncing ? 'Syncing...' : 'Refresh Data'}
               </Button>
               <Button variant="outline" onClick={handleReset}>
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Reset
               </Button>
-              <Button onClick={handleSearch}>
+              <Button onClick={handleSearch} disabled={isLoading}>
                 <Search className="h-4 w-4 mr-2" />
                 Search / Execute
               </Button>
@@ -284,7 +377,12 @@ export default function InwardReport() {
             <div className="px-6 py-4 border-b border-border bg-background">
               <Card className="border-border shadow-sm overflow-hidden">
                 <CardHeader className="border-b border-border bg-muted/30 py-3">
-                  <CardTitle className="text-base font-semibold">Selection Criteria</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-semibold">Selection Criteria</CardTitle>
+                    <Badge variant="outline" className="text-xs">
+                      {inspectionLotRecords.length} total records available
+                    </Badge>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
@@ -354,7 +452,7 @@ export default function InwardReport() {
                           </Select>
                         </div>
                         <span className="text-sm text-muted-foreground">
-                          {startIndex + 1}-{Math.min(endIndex, searchResults.length)} of {searchResults.length}
+                          {searchResults.length > 0 ? `${startIndex + 1}-${Math.min(endIndex, searchResults.length)} of ${searchResults.length}` : '0 records'}
                         </span>
                       </div>
                     </div>
@@ -367,6 +465,7 @@ export default function InwardReport() {
                         <TableHeader className="sticky top-0 z-20 bg-muted/80 backdrop-blur-sm">
                           <TableRow>
                             <TableHead className="font-semibold whitespace-nowrap">Action</TableHead>
+                            <TableHead className="font-semibold whitespace-nowrap">Status</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Inspection Lot</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Material Code</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Material Description</TableHead>
@@ -376,7 +475,7 @@ export default function InwardReport() {
                             <TableHead className="font-semibold whitespace-nowrap text-right">Blocked Qty</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap text-right">Trans. Qty</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">UoM</TableHead>
-                            <TableHead className="font-semibold whitespace-nowrap">Lot Created</TableHead>
+                            <TableHead className="font-semibold whitespace-nowrap">Inspection Date</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Posting Date</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Block Reason</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Vendor Code</TableHead>
@@ -387,7 +486,7 @@ export default function InwardReport() {
                         <TableBody>
                           {paginatedResults.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={16} className="text-center py-12 text-muted-foreground">
+                              <TableCell colSpan={17} className="text-center py-12 text-muted-foreground">
                                 No records found matching the selection criteria
                               </TableCell>
                             </TableRow>
@@ -402,10 +501,14 @@ export default function InwardReport() {
                                     size="sm"
                                     onClick={() => handleCreateMRB(record)}
                                     className="whitespace-nowrap"
+                                    disabled={record.status === 'mrb_created'}
                                   >
                                     <PlusCircle className="h-4 w-4 mr-1" />
                                     Create MRB
                                   </Button>
+                                </TableCell>
+                                <TableCell>
+                                  {getStatusBadge(record.status)}
                                 </TableCell>
                                 <TableCell className="font-medium text-primary">
                                   {record.inspectionLot}
@@ -417,9 +520,9 @@ export default function InwardReport() {
                                   {record.materialDescription}
                                 </TableCell>
                                 <TableCell>{record.plant}</TableCell>
-                                <TableCell>{record.storageLocation}</TableCell>
+                                <TableCell>{record.storageLocation || '-'}</TableCell>
                                 <TableCell className="font-mono text-sm">
-                                  {record.batch}
+                                  {record.batch || '-'}
                                 </TableCell>
                                 <TableCell className="text-right font-medium text-destructive">
                                   {record.blockedQuantity.toLocaleString()}
@@ -432,21 +535,23 @@ export default function InwardReport() {
                                   {formatDate(record.inspectionDate)}
                                 </TableCell>
                                 <TableCell className="whitespace-nowrap">
-                                  {formatDate(record.inspectionDate)}
+                                  {formatDate(record.postingDate)}
                                 </TableCell>
                                 <TableCell>
-                                  <Badge variant="outline" className="whitespace-nowrap text-xs">
-                                    {record.blockReason}
-                                  </Badge>
+                                  {record.blockReason ? (
+                                    <Badge variant="outline" className="whitespace-nowrap text-xs">
+                                      {record.blockReason}
+                                    </Badge>
+                                  ) : '-'}
                                 </TableCell>
                                 <TableCell className="font-mono text-sm">
-                                  {record.vendorCode}
+                                  {record.vendorCode || '-'}
                                 </TableCell>
                                 <TableCell className="max-w-[150px] truncate">
-                                  {record.vendorName}
+                                  {record.vendorName || '-'}
                                 </TableCell>
                                 <TableCell className="font-mono text-sm">
-                                  {record.poNumber}
+                                  {record.poNumber || '-'}
                                 </TableCell>
                               </TableRow>
                             ))
@@ -494,7 +599,7 @@ export default function InwardReport() {
                             variant="outline"
                             size="sm"
                             onClick={() => handlePageChange(currentPage + 1)}
-                            disabled={currentPage === totalPages}
+                            disabled={currentPage === totalPages || totalPages === 0}
                           >
                             Next
                             <ChevronRight className="h-4 w-4" />
@@ -518,7 +623,7 @@ export default function InwardReport() {
                         Select Criteria and Search
                       </h3>
                       <p className="text-muted-foreground max-w-md mx-auto">
-                        Use the filter options above to search for blocked inspection lots. 
+                        Use the filter options above to search for inspection lots. 
                         Click "Search / Execute" to view the results.
                       </p>
                     </div>
@@ -545,19 +650,24 @@ export default function InwardReport() {
                     <p className="text-muted-foreground mb-4">
                       Upload a CSV or Excel file containing inspection lot data. The file should include columns for:
                     </p>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm text-muted-foreground mb-6">
-                      <Badge variant="outline">Inspection Lot</Badge>
-                      <Badge variant="outline">Material Code</Badge>
-                      <Badge variant="outline">Plant</Badge>
-                      <Badge variant="outline">Vendor Code</Badge>
-                      <Badge variant="outline">Blocked Qty</Badge>
-                      <Badge variant="outline">PO Number</Badge>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-muted-foreground mb-6">
+                      <Badge variant="outline">inspection_lot *</Badge>
+                      <Badge variant="outline">material_code *</Badge>
+                      <Badge variant="outline">plant *</Badge>
+                      <Badge variant="outline">blocked_quantity</Badge>
+                      <Badge variant="outline">vendor_code</Badge>
+                      <Badge variant="outline">vendor_name</Badge>
+                      <Badge variant="outline">po_number</Badge>
+                      <Badge variant="outline">block_reason</Badge>
                     </div>
+                    <p className="text-xs text-muted-foreground">* Required fields</p>
                   </div>
 
                   <div 
-                    className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
-                    onClick={() => fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                      isUploading ? 'border-primary/50 bg-primary/5' : 'border-border hover:border-primary/50'
+                    }`}
+                    onClick={() => !isUploading && fileInputRef.current?.click()}
                   >
                     <input
                       ref={fileInputRef}
@@ -565,14 +675,27 @@ export default function InwardReport() {
                       accept=".csv,.xlsx,.xls"
                       onChange={handleFileUpload}
                       className="hidden"
+                      disabled={isUploading}
                     />
-                    <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-lg font-medium mb-2">
-                      {isUploading ? 'Processing...' : 'Click to upload or drag and drop'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Supports CSV, XLS, XLSX files (max 10MB)
-                    </p>
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="h-12 w-12 text-primary mx-auto mb-4 animate-spin" />
+                        <p className="text-lg font-medium mb-2">Processing file...</p>
+                        <p className="text-sm text-muted-foreground">
+                          Please wait while we parse and validate your data
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-lg font-medium mb-2">
+                          Click to upload or drag and drop
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Supports CSV, XLS, XLSX files (max 10MB)
+                        </p>
+                      </>
+                    )}
                   </div>
 
                   {uploadStatus !== 'idle' && (
@@ -589,14 +712,37 @@ export default function InwardReport() {
                     </Alert>
                   )}
 
+                  {parseResult && (
+                    <div className="text-sm bg-muted/50 rounded-lg p-4">
+                      <h4 className="font-medium mb-2">Parse Summary</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>Total rows: {parseResult.totalRows}</div>
+                        <div>Valid rows: {parseResult.validRows}</div>
+                      </div>
+                      {parseResult.errors.length > 0 && (
+                        <div className="mt-2 text-destructive">
+                          <p className="font-medium">Errors ({parseResult.errors.length}):</p>
+                          <ul className="list-disc list-inside text-xs max-h-32 overflow-auto">
+                            {parseResult.errors.slice(0, 10).map((err, i) => (
+                              <li key={i}>{err}</li>
+                            ))}
+                            {parseResult.errors.length > 10 && (
+                              <li>... and {parseResult.errors.length - 10} more errors</li>
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-4">
                     <h4 className="font-medium mb-2">Template Download</h4>
-                    <p className="mb-2">
+                    <p className="mb-3">
                       Download the template file to ensure your data is in the correct format.
                     </p>
-                    <Button variant="outline" size="sm">
-                      <FileSpreadsheet className="h-4 w-4 mr-2" />
-                      Download Template
+                    <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download CSV Template
                     </Button>
                   </div>
                 </div>
@@ -637,16 +783,15 @@ export default function InwardReport() {
                                 <p className="text-xs text-muted-foreground">Quality Management</p>
                               </div>
                             </div>
-                            <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
-                              Connected
+                            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30">
+                              Configure
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground mb-3">
                             Fetches inspection lots, quality decisions, and blocked stock data.
                           </p>
-                          <Button variant="outline" size="sm" className="w-full" onClick={handleAPISync} disabled={isSyncing}>
-                            <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-                            Sync Now
+                          <Button variant="outline" size="sm" className="w-full">
+                            Configure Connection
                           </Button>
                         </CardContent>
                       </Card>
@@ -664,21 +809,20 @@ export default function InwardReport() {
                                 <p className="text-xs text-muted-foreground">Materials Management</p>
                               </div>
                             </div>
-                            <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
-                              Connected
+                            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30">
+                              Configure
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground mb-3">
                             Syncs vendor info, purchase orders, and GRN data.
                           </p>
-                          <Button variant="outline" size="sm" className="w-full" onClick={handleAPISync} disabled={isSyncing}>
-                            <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-                            Sync Now
+                          <Button variant="outline" size="sm" className="w-full">
+                            Configure Connection
                           </Button>
                         </CardContent>
                       </Card>
 
-                      {/* Webhook Integration */}
+                      {/* REST API */}
                       <Card className="border">
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between mb-4">
@@ -687,45 +831,45 @@ export default function InwardReport() {
                                 <RefreshCw className="h-5 w-5 text-purple-500" />
                               </div>
                               <div>
-                                <h4 className="font-medium">Webhooks</h4>
-                                <p className="text-xs text-muted-foreground">Real-time Updates</p>
+                                <h4 className="font-medium">REST API</h4>
+                                <p className="text-xs text-muted-foreground">Custom Integration</p>
                               </div>
                             </div>
-                            <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
-                              Active
+                            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30">
+                              Configure
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground mb-3">
-                            Receives push notifications from external systems.
+                            Connect to any REST API endpoint for data sync.
                           </p>
                           <Button variant="outline" size="sm" className="w-full">
-                            Configure Webhooks
+                            Configure Endpoint
                           </Button>
                         </CardContent>
                       </Card>
 
-                      {/* Custom API */}
+                      {/* Webhook */}
                       <Card className="border">
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 rounded-lg bg-gray-500/10 flex items-center justify-center">
-                                <Database className="h-5 w-5 text-gray-500" />
+                              <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                                <Database className="h-5 w-5 text-green-500" />
                               </div>
                               <div>
-                                <h4 className="font-medium">Custom API</h4>
-                                <p className="text-xs text-muted-foreground">REST Integration</p>
+                                <h4 className="font-medium">Webhooks</h4>
+                                <p className="text-xs text-muted-foreground">Push Notifications</p>
                               </div>
                             </div>
                             <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30">
-                              Pending
+                              Configure
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground mb-3">
-                            Configure custom REST API endpoints for data sync.
+                            Receive real-time updates from external systems.
                           </p>
                           <Button variant="outline" size="sm" className="w-full">
-                            Configure API
+                            View Webhook URL
                           </Button>
                         </CardContent>
                       </Card>
@@ -733,9 +877,10 @@ export default function InwardReport() {
 
                     <Alert>
                       <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>Automatic Sync</AlertTitle>
+                      <AlertTitle>API Configuration Required</AlertTitle>
                       <AlertDescription>
-                        Data is automatically synced every 15 minutes. Last sync: {new Date().toLocaleString()}
+                        Configure your external system connections to enable automatic data synchronization. 
+                        Contact your administrator for API credentials and endpoint URLs.
                       </AlertDescription>
                     </Alert>
                   </div>
