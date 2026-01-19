@@ -27,7 +27,7 @@ export interface InwardReportFilters {
   inspectionLots: string[];
 }
 
-export type NextReviewDepartment = 'engineering' | 'purchase' | 'plant_head' | 'quality_head' | 'mrb_committee';
+export type NextReviewDepartment = 'engineering' | 'purchase' | 'plant_head' | 'quality_head';
 
 export type InwardQualityDecision = 
   | 'accept' 
