@@ -570,22 +570,39 @@ export default function InwardReport() {
                         Clear Selection
                       </Button>
                       <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // Navigate to create MRB form with first selected record
+                          const firstSelected = searchResults.find(r => selectedIds.has(r.id));
+                          if (firstSelected) {
+                            handleCreateMRB(firstSelected);
+                          }
+                        }}
+                        className="gap-2"
+                        disabled={selectedIds.size !== 1}
+                      >
+                        <PlusCircle className="h-4 w-4" />
+                        Create with Form
+                      </Button>
+                      <Button
                         size="sm"
                         onClick={handleBatchCreateMRBs}
                         disabled={isCreatingBatchMRBs}
                         className="gap-2"
+                        variant="secondary"
+                        title="Quick create MRBs with default values (no form)"
                       >
                         {isCreatingBatchMRBs ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Layers className="h-4 w-4" />
                         )}
-                        Create {selectedIds.size} MRB{selectedIds.size > 1 ? 's' : ''}
+                        Quick Create {selectedIds.size} MRB{selectedIds.size > 1 ? 's' : ''}
                       </Button>
                     </div>
                   </div>
                 )}
-
                 <Card className="border-border shadow-sm flex-1 flex flex-col overflow-hidden">
                   <CardHeader className="border-b border-border bg-muted/30 py-3 flex-shrink-0">
                     <div className="flex items-center justify-between">
