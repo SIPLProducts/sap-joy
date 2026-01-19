@@ -484,8 +484,6 @@ export default function Login() {
               <div className="mt-3 pt-3 border-t">
                 <p className="text-xs font-medium text-foreground mb-2">MRB Workflow Stages:</p>
                 <div className="flex flex-wrap gap-1 items-center">
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-gray-100 text-gray-600">Draft</span>
-                  <span className="text-muted-foreground text-[10px]">→</span>
                   <span className="px-2 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700">Quality</span>
                   <span className="text-muted-foreground text-[10px]">→</span>
                   <span className="px-2 py-0.5 rounded text-[10px] bg-purple-100 text-purple-700">Purchase</span>
