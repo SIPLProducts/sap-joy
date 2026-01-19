@@ -580,42 +580,53 @@ export default function CreateInwardMRB() {
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="space-y-2">
+              <div className="space-y-2 lg:col-span-2">
                 <Label className="text-foreground">
-                  Quality Decision <span className="text-destructive">*</span>
+                  Quality Inspection Decision <span className="text-destructive">*</span>
                 </Label>
-                <Select
-                  value={formData.qualityDecision}
-                  onValueChange={(value) => {
-                    setFormData({ ...formData, qualityDecision: value });
-                    handleFieldBlur('qualityDecision');
-                  }}
-                >
-                  <SelectTrigger className={`bg-background ${getFieldError('qualityDecision') ? 'border-destructive' : formData.qualityDecision ? 'border-green-500' : ''}`}>
-                    <SelectValue placeholder="Select Decision" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border-border z-50">
-                    {inwardQualityDecisions.map((decision) => (
-                      <SelectItem key={decision.value} value={decision.value}>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {inwardQualityDecisions.map((decision) => (
+                    <label
+                      key={decision.value}
+                      className={`relative flex flex-col p-3 rounded-lg border cursor-pointer transition-all ${
+                        formData.qualityDecision === decision.value
+                          ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                          : 'border-border hover:bg-muted/50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="qualityDecision"
+                        value={decision.value}
+                        checked={formData.qualityDecision === decision.value}
+                        onChange={(e) => {
+                          setFormData({ ...formData, qualityDecision: e.target.value });
+                          handleFieldBlur('qualityDecision');
+                        }}
+                        className="sr-only"
+                      />
+                      <span className={`font-medium text-sm ${
+                        formData.qualityDecision === decision.value ? 'text-primary' : 'text-foreground'
+                      }`}>
                         {decision.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      </span>
+                      <span className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        {decision.description}
+                      </span>
+                      {formData.qualityDecision === decision.value && (
+                        <CheckCircle2 className="absolute top-2 right-2 h-4 w-4 text-primary" />
+                      )}
+                    </label>
+                  ))}
+                </div>
                 {getFieldError('qualityDecision') && (
                   <p className="text-xs text-destructive flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />
                     {getFieldError('qualityDecision')}
                   </p>
                 )}
-                {formData.qualityDecision && !getFieldError('qualityDecision') && (
-                  <p className="text-xs text-green-600 flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Valid
-                  </p>
-                )}
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 lg:col-span-1">
                 <Label className="text-foreground">Defect Category</Label>
                 <Select
                   value={formData.defectCategory}
@@ -624,10 +635,13 @@ export default function CreateInwardMRB() {
                   <SelectTrigger className="bg-background">
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
-                  <SelectContent className="bg-popover border-border z-50">
+                  <SelectContent className="bg-popover border-border z-50 max-h-[300px]">
                     {inwardDefectCategories.map((category) => (
                       <SelectItem key={category.value} value={category.value}>
-                        {category.label}
+                        <div className="flex flex-col">
+                          <span>{category.label}</span>
+                          <span className="text-xs text-muted-foreground">{category.description}</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -806,38 +820,50 @@ export default function CreateInwardMRB() {
                   </span>
                 )}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {nextReviewDepartments.map((dept) => (
                   <label
                     key={dept.value}
-                    className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition-colors ${
+                    className={`relative flex flex-col p-4 rounded-lg border cursor-pointer transition-all ${
                       formData.nextReviewDepartments.includes(dept.value)
-                        ? 'border-primary bg-primary/5'
+                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
                         : 'border-border hover:bg-muted/50'
                     }`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={formData.nextReviewDepartments.includes(dept.value)}
-                      onChange={(e) => {
-                        handleFieldBlur('nextReviewDepartments');
-                        if (e.target.checked) {
-                          setFormData({
-                            ...formData,
-                            nextReviewDepartments: [...formData.nextReviewDepartments, dept.value],
-                          });
-                        } else {
-                          setFormData({
-                            ...formData,
-                            nextReviewDepartments: formData.nextReviewDepartments.filter(
-                              (d) => d !== dept.value
-                            ),
-                          });
-                        }
-                      }}
-                      className="h-4 w-4 text-primary"
-                    />
-                    <span className="font-medium text-sm">{dept.label}</span>
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={formData.nextReviewDepartments.includes(dept.value)}
+                        onChange={(e) => {
+                          handleFieldBlur('nextReviewDepartments');
+                          if (e.target.checked) {
+                            setFormData({
+                              ...formData,
+                              nextReviewDepartments: [...formData.nextReviewDepartments, dept.value],
+                            });
+                          } else {
+                            setFormData({
+                              ...formData,
+                              nextReviewDepartments: formData.nextReviewDepartments.filter(
+                                (d) => d !== dept.value
+                              ),
+                            });
+                          }
+                        }}
+                        className="h-4 w-4 text-primary mt-0.5"
+                      />
+                      <div className="flex-1">
+                        <span className={`font-medium text-sm ${
+                          formData.nextReviewDepartments.includes(dept.value) ? 'text-primary' : 'text-foreground'
+                        }`}>
+                          {dept.label}
+                        </span>
+                        <p className="text-xs text-muted-foreground mt-1">{dept.description}</p>
+                      </div>
+                    </div>
+                    {formData.nextReviewDepartments.includes(dept.value) && (
+                      <CheckCircle2 className="absolute top-3 right-3 h-4 w-4 text-primary" />
+                    )}
                   </label>
                 ))}
               </div>

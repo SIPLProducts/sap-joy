@@ -27,11 +27,31 @@ export interface InwardReportFilters {
   inspectionLots: string[];
 }
 
-export type NextReviewDepartment = 'engineering' | 'purchase' | 'plant_head' | 'mrb_committee';
+export type NextReviewDepartment = 'engineering' | 'purchase' | 'plant_head' | 'quality_head' | 'mrb_committee';
 
-export type InwardQualityDecision = 'accept' | 'reject' | 'accept_with_deviation';
+export type InwardQualityDecision = 
+  | 'accept' 
+  | 'reject' 
+  | 'partial_accept' 
+  | 'accept_with_deviation' 
+  | 'hold_for_review' 
+  | 'rework_required' 
+  | 'return_to_vendor' 
+  | 'conditional_release';
 
-export type InwardDefectCategory = 'electrical' | 'mechanical';
+export type InwardDefectCategory = 
+  | 'dimensional' 
+  | 'surface' 
+  | 'material' 
+  | 'functional' 
+  | 'electrical' 
+  | 'mechanical' 
+  | 'documentation' 
+  | 'packaging' 
+  | 'labeling' 
+  | 'contamination' 
+  | 'quantity' 
+  | 'other';
 
 export interface InwardMRBFormData {
   // Auto-populated (read-only)
