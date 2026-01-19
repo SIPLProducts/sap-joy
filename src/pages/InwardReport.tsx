@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, Upload, RefreshCw, Database, FileUp, AlertCircle, CheckCircle2, Download, Loader2 } from 'lucide-react';
+import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, Upload, RefreshCw, Database, FileUp, AlertCircle, CheckCircle2, Download, Loader2, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -32,12 +32,13 @@ import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { downloadCSVTemplate, validateParsedData, ParseResult } from '@/lib/csvTemplates';
 import * as XLSX from 'xlsx';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 export default function InwardReport() {
   const navigate = useNavigate();
-  const { inspectionLotRecords, filters, setFilters, getFilteredRecords, refreshData, isLoading, uploadInspectionLots } = useInwardMRB();
+  const { inspectionLotRecords, filters, setFilters, getFilteredRecords, refreshData, isLoading, uploadInspectionLots, createBatchMRBs } = useInwardMRB();
   const [hasSearched, setHasSearched] = useState(false);
   const [searchResults, setSearchResults] = useState<InspectionLotRecord[]>([]);
   const [activeTab, setActiveTab] = useState<'search' | 'upload' | 'api'>('search');
@@ -51,6 +52,10 @@ export default function InwardReport() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Selection state for bulk actions
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isCreatingBatchMRBs, setIsCreatingBatchMRBs] = useState(false);
 
   // Build options for filters - include both mock data and actual uploaded data
   const allPlants = [...new Set([...plants, ...inspectionLotRecords.map(r => r.plant)])];
@@ -86,6 +91,7 @@ export default function InwardReport() {
     setSearchResults(results);
     setHasSearched(true);
     setCurrentPage(1);
+    setSelectedIds(new Set()); // Clear selection on new search
   };
 
   const handleReset = () => {
@@ -99,10 +105,90 @@ export default function InwardReport() {
     setSearchResults([]);
     setHasSearched(false);
     setCurrentPage(1);
+    setSelectedIds(new Set());
   };
 
   const handleCreateMRB = (record: InspectionLotRecord) => {
     navigate('/inward/create-mrb', { state: { inspectionLot: record } });
+  };
+
+  // Bulk selection helpers
+  const selectableRecords = useMemo(() => 
+    searchResults.filter(r => r.status !== 'mrb_created'),
+    [searchResults]
+  );
+
+  const paginatedSelectableRecords = useMemo(() => 
+    paginatedResults.filter(r => r.status !== 'mrb_created'),
+    [paginatedResults]
+  );
+
+  const isAllPageSelected = useMemo(() => {
+    if (paginatedSelectableRecords.length === 0) return false;
+    return paginatedSelectableRecords.every(r => selectedIds.has(r.id));
+  }, [paginatedSelectableRecords, selectedIds]);
+
+  const isAllSelected = useMemo(() => {
+    if (selectableRecords.length === 0) return false;
+    return selectableRecords.every(r => selectedIds.has(r.id));
+  }, [selectableRecords, selectedIds]);
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(selectableRecords.map(r => r.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectPage = (checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    paginatedSelectableRecords.forEach(r => {
+      if (checked) {
+        newSelected.add(r.id);
+      } else {
+        newSelected.delete(r.id);
+      }
+    });
+    setSelectedIds(newSelected);
+  };
+
+  const handleSelectRow = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleBatchCreateMRBs = async () => {
+    if (selectedIds.size === 0) return;
+
+    setIsCreatingBatchMRBs(true);
+    try {
+      const selectedRecords = searchResults.filter(r => selectedIds.has(r.id));
+      const result = await createBatchMRBs(selectedRecords);
+
+      if (result.success) {
+        toast.success(`Successfully created ${result.createdCount} MRB(s)!`);
+        setSelectedIds(new Set());
+        // Update search results to reflect new status
+        const updatedResults = searchResults.map(r => 
+          selectedIds.has(r.id) ? { ...r, status: 'mrb_created' as const } : r
+        );
+        setSearchResults(updatedResults);
+      } else {
+        toast.error(`Created ${result.createdCount} MRB(s) with ${result.errors.length} errors`);
+        console.error('Batch MRB errors:', result.errors);
+      }
+    } catch (error) {
+      console.error('Batch MRB creation failed:', error);
+      toast.error('Failed to create MRBs');
+    } finally {
+      setIsCreatingBatchMRBs(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -429,6 +515,54 @@ export default function InwardReport() {
             {/* Results Section */}
             {hasSearched && (
               <div className="h-full flex flex-col px-6 py-4 min-h-0">
+                {/* Bulk Action Bar */}
+                {selectedIds.size > 0 && (
+                  <div className="mb-4 p-4 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <Checkbox
+                        checked={isAllSelected}
+                        onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                        id="select-all-records"
+                      />
+                      <span className="font-medium text-foreground">
+                        {selectedIds.size} record{selectedIds.size > 1 ? 's' : ''} selected
+                      </span>
+                      {selectedIds.size < selectableRecords.length && (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={() => handleSelectAll(true)}
+                          className="text-primary h-auto p-0"
+                        >
+                          Select all {selectableRecords.length} eligible records
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedIds(new Set())}
+                      >
+                        Clear Selection
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleBatchCreateMRBs}
+                        disabled={isCreatingBatchMRBs}
+                        className="gap-2"
+                      >
+                        {isCreatingBatchMRBs ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Layers className="h-4 w-4" />
+                        )}
+                        Create {selectedIds.size} MRB{selectedIds.size > 1 ? 's' : ''}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <Card className="border-border shadow-sm flex-1 flex flex-col overflow-hidden">
                   <CardHeader className="border-b border-border bg-muted/30 py-3 flex-shrink-0">
                     <div className="flex items-center justify-between">
@@ -464,6 +598,14 @@ export default function InwardReport() {
                       <Table>
                         <TableHeader className="sticky top-0 z-20 bg-muted/80 backdrop-blur-sm">
                           <TableRow>
+                            <TableHead className="w-[50px]">
+                              <Checkbox
+                                checked={isAllPageSelected && paginatedSelectableRecords.length > 0}
+                                onCheckedChange={(checked) => handleSelectPage(!!checked)}
+                                aria-label="Select all on page"
+                                disabled={paginatedSelectableRecords.length === 0}
+                              />
+                            </TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Action</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Status</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Inspection Lot</TableHead>
@@ -486,7 +628,7 @@ export default function InwardReport() {
                         <TableBody>
                           {paginatedResults.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={17} className="text-center py-12 text-muted-foreground">
+                              <TableCell colSpan={18} className="text-center py-12 text-muted-foreground">
                                 No records found matching the selection criteria
                               </TableCell>
                             </TableRow>
@@ -494,8 +636,17 @@ export default function InwardReport() {
                             paginatedResults.map((record) => (
                               <TableRow 
                                 key={record.id} 
-                                className="hover:bg-muted/30 transition-colors"
+                                className={`hover:bg-muted/30 transition-colors ${selectedIds.has(record.id) ? 'bg-primary/5' : ''}`}
+                                data-state={selectedIds.has(record.id) ? 'selected' : undefined}
                               >
+                                <TableCell>
+                                  <Checkbox
+                                    checked={selectedIds.has(record.id)}
+                                    onCheckedChange={(checked) => handleSelectRow(record.id, !!checked)}
+                                    disabled={record.status === 'mrb_created'}
+                                    aria-label={`Select ${record.inspectionLot}`}
+                                  />
+                                </TableCell>
                                 <TableCell>
                                   <Button
                                     size="sm"
