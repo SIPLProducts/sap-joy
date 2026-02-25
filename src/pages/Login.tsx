@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,6 +55,41 @@ export default function Login() {
   const { signIn, signUp, isAuthenticated } = useAuth();
   const isOnline = useNetworkStatus();
   const { status: backendStatus, latency, recheck } = useHealthCheck({ interval: 15000 });
+  const hasAutoCleared = useRef(false);
+
+  // Auto-clear stale sessions on mount if backend seems unreachable
+  useEffect(() => {
+    if (hasAutoCleared.current) return;
+    
+    // Check if there are stale auth tokens in localStorage
+    const hasStoredSession = Object.keys(localStorage).some(
+      key => key.includes('supabase') || key.includes('sb-')
+    );
+    
+    if (hasStoredSession) {
+      // Test if we can actually reach the backend
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/plants?select=id&limit=1`, {
+        method: 'HEAD',
+        headers: {
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        signal: controller.signal,
+      }).catch(() => {
+        // Backend unreachable with stale tokens - auto-clear
+        if (!hasAutoCleared.current) {
+          hasAutoCleared.current = true;
+          console.warn('Auto-clearing stale session data due to connectivity issues');
+          localStorage.clear();
+          sessionStorage.clear();
+          window.location.reload();
+        }
+      }).finally(() => clearTimeout(timeout));
+    }
+  }, []);
 
   // Sign In state
   const [signInEmail, setSignInEmail] = useState('');
@@ -93,6 +128,12 @@ export default function Login() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!signInEmail || !signInPassword) return;
+    
+    // Clear any stale session data before attempting login
+    const staleKeys = Object.keys(localStorage).filter(
+      key => key.includes('supabase') || key.includes('sb-')
+    );
+    staleKeys.forEach(key => localStorage.removeItem(key));
     
     setIsLoading(true);
     setRetryCount(0);
