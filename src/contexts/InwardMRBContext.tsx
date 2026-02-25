@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Database } from '@/integrations/supabase/types';
 import { ParsedInspectionLot } from '@/lib/csvTemplates';
 
@@ -68,6 +69,9 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
   const [inspectionLotRecords, setInspectionLotRecords] = useState<InspectionLotRecord[]>([]);
   const [inwardMRBRecords, setInwardMRBRecords] = useState<MRBRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { profile, userRole } = useAuth();
+  const shouldFilterByPlant = userRole && !['admin', 'executive'].includes(userRole);
+  const userPlant = profile?.plant;
   const [filters, setFilters] = useState<InwardReportFilters>({
     plants: [],
     materialCodes: [],
@@ -81,22 +85,35 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       
       // Fetch only pending inspection lots (exclude mrb_created and cleared)
-      const { data: uploadedLots, error: uploadError } = await supabase
+      let lotsQuery = supabase
         .from('inward_inspection_lots')
         .select('*')
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
+
+      // Apply plant filter if needed
+      if (shouldFilterByPlant && userPlant) {
+        lotsQuery = lotsQuery.eq('plant', userPlant);
+      }
+
+      const { data: uploadedLots, error: uploadError } = await lotsQuery;
 
       if (uploadError) {
         console.error('Error fetching uploaded lots:', uploadError);
       }
 
       // Fetch inward MRB records (source = quality_inspection)
-      const { data: mrbData, error: mrbError } = await supabase
+      let mrbQuery = supabase
         .from('mrb_records')
         .select('*')
         .eq('source', 'quality_inspection')
         .order('created_at', { ascending: false });
+
+      if (shouldFilterByPlant && userPlant) {
+        mrbQuery = mrbQuery.eq('plant', userPlant);
+      }
+
+      const { data: mrbData, error: mrbError } = await mrbQuery;
 
       if (mrbError) {
         console.error('Error fetching MRB data:', mrbError);

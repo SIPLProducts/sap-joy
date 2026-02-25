@@ -2,6 +2,7 @@ import { ClipboardList, Mail, Wrench, FileSpreadsheet, BarChart3, LogOut, Packag
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
+import { useDashboardConfig } from '@/hooks/usePlantConfig';
 import {
   Sidebar,
   SidebarContent,
@@ -30,11 +31,11 @@ const menuItems = [
 
 // Role-specific dashboards
 const dashboardItems = [
-  { title: 'MRB Analytics', url: '/dashboard/analytics', icon: TrendingUp, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin', 'mrb_committee'] },
-  { title: 'Quality Dashboard', url: '/dashboard/quality-head', icon: Settings, roles: ['quality', 'quality_head', 'executive', 'admin', 'mrb_committee'] },
-  { title: 'Purchase Dashboard', url: '/dashboard/purchase-head', icon: Users, roles: ['purchase', 'purchase_head', 'executive', 'admin', 'mrb_committee'] },
-  { title: 'Engineering Dashboard', url: '/dashboard/engineering-head', icon: Wrench, roles: ['engineering', 'engineering_head', 'executive', 'admin', 'mrb_committee'] },
-  { title: 'Executive Summary', url: '/dashboard/executive-summary', icon: PieChart, roles: ['executive', 'admin', 'mrb_committee'] },
+  { title: 'MRB Analytics', url: '/dashboard/analytics', icon: TrendingUp, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin', 'mrb_committee'], dashboardKey: 'analytics' },
+  { title: 'Quality Dashboard', url: '/dashboard/quality-head', icon: Settings, roles: ['quality', 'quality_head', 'executive', 'admin', 'mrb_committee'], dashboardKey: 'quality_head' },
+  { title: 'Purchase Dashboard', url: '/dashboard/purchase-head', icon: Users, roles: ['purchase', 'purchase_head', 'executive', 'admin', 'mrb_committee'], dashboardKey: 'purchase_head' },
+  { title: 'Engineering Dashboard', url: '/dashboard/engineering-head', icon: Wrench, roles: ['engineering', 'engineering_head', 'executive', 'admin', 'mrb_committee'], dashboardKey: 'engineering_head' },
+  { title: 'Executive Summary', url: '/dashboard/executive-summary', icon: PieChart, roles: ['executive', 'admin', 'mrb_committee'], dashboardKey: 'executive_summary' },
 ];
 
 // Admin items
@@ -47,6 +48,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const { roleDisplayName } = useRole();
   const { signOut, userRole } = useAuth();
+  const { isDashboardEnabled } = useDashboardConfig();
 
   // Filter items based on authenticated user's role
   const filteredItems = menuItems.filter(item => 
@@ -54,7 +56,7 @@ export function AppSidebar() {
   );
 
   const filteredDashboards = dashboardItems.filter(item =>
-    userRole && item.roles.includes(userRole)
+    userRole && item.roles.includes(userRole) && isDashboardEnabled(item.dashboardKey)
   );
 
   const handleLogout = async () => {
@@ -177,7 +179,7 @@ export function AppSidebar() {
           </div>
         </Link>
         <div className="flex items-center justify-between">
-          <p className="text-xs text-sidebar-foreground/50">© 2024 HBL Power Systems</p>
+          <p className="text-xs text-sidebar-foreground/50">© 2025 HBL Power Systems</p>
           <Button 
             variant="ghost" 
             size="icon" 

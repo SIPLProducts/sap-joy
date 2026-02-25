@@ -32,6 +32,7 @@ import MRBCommitteeReview from "@/pages/MRBCommitteeReview";
 import UserManagement from "@/pages/UserManagement";
 import UserProfile from "@/pages/UserProfile";
 import HelpSupport from "@/pages/HelpSupport";
+import IMSRedirect from "@/pages/IMSRedirect";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => (
               <BrowserRouter>
                 <Routes>
                   <Route path="/login" element={<Login />} />
+                  <Route path="/ims-redirect" element={<IMSRedirect />} />
                   <Route path="/*" element={
                     <ProtectedRoute>
                       <AppLayout>

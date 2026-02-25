@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      dashboard_config: {
+        Row: {
+          created_at: string
+          dashboard_key: string
+          id: string
+          is_enabled: boolean
+          plant: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Insert: {
+          created_at?: string
+          dashboard_key: string
+          id?: string
+          is_enabled?: boolean
+          plant: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Update: {
+          created_at?: string
+          dashboard_key?: string
+          id?: string
+          is_enabled?: boolean
+          plant?: string
+          role?: Database["public"]["Enums"]["app_role"]
+        }
+        Relationships: []
+      }
       defect_codes: {
         Row: {
           category: Database["public"]["Enums"]["defect_category"] | null
@@ -90,6 +117,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      email_templates: {
+        Row: {
+          body_template: string
+          created_at: string
+          id: string
+          is_active: boolean
+          plant: string | null
+          subject_template: string
+          template_key: string
+          updated_at: string
+        }
+        Insert: {
+          body_template: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          plant?: string | null
+          subject_template: string
+          template_key: string
+          updated_at?: string
+        }
+        Update: {
+          body_template?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          plant?: string | null
+          subject_template?: string
+          template_key?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       inward_inspection_lots: {
         Row: {
@@ -556,6 +616,87 @@ export type Database = {
           },
         ]
       }
+      plant_print_config: {
+        Row: {
+          company_name: string
+          created_at: string
+          division_name: string
+          id: string
+          logo_url: string | null
+          mrb_doc_number: string | null
+          mrb_effective_date: string | null
+          mrb_revision: string | null
+          ncr_doc_number: string | null
+          ncr_effective_date: string | null
+          ncr_revision: string | null
+          plant: string
+          updated_at: string
+        }
+        Insert: {
+          company_name?: string
+          created_at?: string
+          division_name?: string
+          id?: string
+          logo_url?: string | null
+          mrb_doc_number?: string | null
+          mrb_effective_date?: string | null
+          mrb_revision?: string | null
+          ncr_doc_number?: string | null
+          ncr_effective_date?: string | null
+          ncr_revision?: string | null
+          plant: string
+          updated_at?: string
+        }
+        Update: {
+          company_name?: string
+          created_at?: string
+          division_name?: string
+          id?: string
+          logo_url?: string | null
+          mrb_doc_number?: string | null
+          mrb_effective_date?: string | null
+          mrb_revision?: string | null
+          ncr_doc_number?: string | null
+          ncr_effective_date?: string | null
+          ncr_revision?: string | null
+          plant?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      plant_workflow_config: {
+        Row: {
+          created_at: string
+          department: Database["public"]["Enums"]["app_role"]
+          id: string
+          is_active: boolean
+          is_required: boolean
+          plant: string
+          step_label: string
+          workflow_step: number
+        }
+        Insert: {
+          created_at?: string
+          department: Database["public"]["Enums"]["app_role"]
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          plant: string
+          step_label: string
+          workflow_step: number
+        }
+        Update: {
+          created_at?: string
+          department?: Database["public"]["Enums"]["app_role"]
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          plant?: string
+          step_label?: string
+          workflow_step?: number
+        }
+        Relationships: []
+      }
       plants: {
         Row: {
           code: string
@@ -898,6 +1039,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_user_plant: { Args: { _user_id: string }; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]

@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
 import { PrinterSettingsModal, loadPrinterSettings, type PrinterSettings } from '@/components/print/PrinterSettingsModal';
 import hblLogo from '@/assets/hbl-logo.png';
+import { usePrintConfig } from '@/hooks/usePlantConfig';
 import type { Database } from '@/integrations/supabase/types';
 
 type MRBRecord = Database['public']['Tables']['mrb_records']['Row'];
@@ -468,14 +469,17 @@ const MRBPrint = () => {
     return dispositions;
   };
 
+  // Fetch plant-specific print config
+  const { config: printConfig } = usePrintConfig(selectedMRB?.plant || '');
+
   // NCR (IQC) Report Component
   const NCRReport = () => (
     <div ref={ncrPrintRef} className="max-w-[210mm] mx-auto bg-white text-black" style={{ fontFamily: 'Arial, sans-serif', fontSize: '10px' }}>
-      {/* Header */}
+      {/* Header - Dynamic per plant */}
       <div className="flex justify-between items-center mb-2">
         <div className="text-center flex-1">
-          <h1 className="text-base font-bold">HBL Power Systems Ltd.</h1>
-          <p className="text-[10px] text-gray-600">Electronics Group</p>
+          <h1 className="text-base font-bold">{printConfig?.company_name || 'HBL Power Systems Ltd.'}</h1>
+          <p className="text-[10px] text-gray-600">{printConfig?.division_name || 'Electronics Group'}</p>
         </div>
         <img src={hblLogo} alt="HBL Logo" className="h-8" />
       </div>
