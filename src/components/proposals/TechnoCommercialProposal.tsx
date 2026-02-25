@@ -56,13 +56,60 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               <tr><td>3</td><td>Material Block & Unblock (SAP)</td><td>Real-time material blocking and unblocking in SAP based on MRB disposition decisions</td></tr>
               <tr><td>4</td><td>MRB Workflow Engine</td><td>Multi-stage approval workflow with configurable steps per plant</td></tr>
               <tr><td>5</td><td>MRB Committee Review</td><td>Optional committee review for complex/high-value cases</td></tr>
-              <tr><td>6</td><td>SAP Integration</td><td>Bi-directional data sync — inspection lots, stock, material/vendor master, block/unblock, disposition posting</td></tr>
+              <tr><td>6</td><td>SAP Integration</td><td>Bi-directional data sync — inspection lots, stock, material/vendor master, block/unblock</td></tr>
               <tr><td>7</td><td>Role-Based Dashboards (6 types)</td><td>KPI, Quality, Purchase, Engineering, Executive, Analytics dashboards</td></tr>
-              <tr><td>8</td><td>Email Notification System</td><td>Automated workflow notifications with template management</td></tr>
+              <tr><td>8</td><td>Email Notification System</td><td>Automated workflow notifications with configurable templates</td></tr>
               <tr><td>9</td><td>Print/PDF Generation</td><td>NCR report and MRB Committee Form generation</td></tr>
               <tr><td>10</td><td>User & Plant Management</td><td>Role-based access (roles defined by business), plant configuration, workflow settings</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Implementation Timeline */}
+      <div className="page-break">
+        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" />
+        <div className="proposal-section">
+          <div className="proposal-section-title">
+            <span className="proposal-section-number">3</span>
+            Implementation Timeline
+          </div>
+          <div className="proposal-text">
+            The project will be executed in the following phases:
+          </div>
+          <table className="proposal-table">
+            <thead>
+              <tr>
+                <th style={{ width: '5%' }}>#</th>
+                <th style={{ width: '30%' }}>Phase</th>
+                <th style={{ width: '15%' }}>Duration</th>
+                <th>Key Activities</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>Requirement Gathering</td>
+                <td><strong>1 Week</strong></td>
+                <td>Detailed requirement analysis, workflow mapping, SAP API specifications, stakeholder discussions, and sign-off on functional requirements document</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>Development</td>
+                <td><strong>3 Weeks</strong></td>
+                <td>UI/UX development, backend implementation, SAP integration, workflow engine, dashboards, email notifications, print/PDF generation, and role-based access setup</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>Testing & Go-Live</td>
+                <td><strong>1 Week</strong></td>
+                <td>System testing, UAT with HBL team, bug fixes, production deployment, user training, and handover</td>
+              </tr>
+            </tbody>
+          </table>
+          <div className="highlight-box">
+            <p><strong>Total Project Duration: 5 Weeks</strong></p>
+          </div>
         </div>
       </div>
 
@@ -71,11 +118,11 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" />
         <div className="proposal-section">
           <div className="proposal-section-title">
-            <span className="proposal-section-number">3</span>
+            <span className="proposal-section-number">4</span>
             Commercial Terms
           </div>
 
-          <div className="proposal-subsection-title">3.1 One-Time Development Cost</div>
+          <div className="proposal-subsection-title">4.1 One-Time Development Cost</div>
           <table className="proposal-table">
             <thead>
               <tr>
@@ -100,7 +147,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             * GST @ 18% will be charged additionally as applicable.
           </div>
 
-          <div className="proposal-subsection-title">3.2 Rollout for Additional Plants</div>
+          <div className="proposal-subsection-title">4.2 Rollout for Additional Plants</div>
           <table className="proposal-table">
             <thead>
               <tr>
@@ -121,7 +168,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             Includes: Plant-specific workflow configuration, dashboard setup, SAP endpoint configuration, user role setup, and UAT support.
           </div>
 
-          <div className="proposal-subsection-title">3.3 Annual Maintenance & Support (AMS)</div>
+          <div className="proposal-subsection-title">4.3 Annual Maintenance & Support (AMS)</div>
           <table className="proposal-table">
             <thead>
               <tr>
@@ -149,7 +196,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" />
         <div className="proposal-section">
           <div className="proposal-section-title">
-            <span className="proposal-section-number">4</span>
+            <span className="proposal-section-number">5</span>
             Service Level Agreement (SLA)
           </div>
           <div className="proposal-text">
@@ -204,7 +251,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         {/* Training */}
         <div className="proposal-section">
           <div className="proposal-section-title">
-            <span className="proposal-section-number">5</span>
+            <span className="proposal-section-number">6</span>
             Training Provision
           </div>
           <ul className="proposal-list">
@@ -222,7 +269,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" />
         <div className="proposal-section">
           <div className="proposal-section-title">
-            <span className="proposal-section-number">6</span>
+            <span className="proposal-section-number">7</span>
             Additional Scope & Reporting
           </div>
           <ul className="proposal-list">
@@ -236,7 +283,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
         <div className="proposal-section">
           <div className="proposal-section-title">
-            <span className="proposal-section-number">7</span>
+            <span className="proposal-section-number">8</span>
             Key Assumptions
           </div>
           <ul className="proposal-list">
@@ -257,11 +304,11 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" />
         <div className="proposal-section">
           <div className="proposal-section-title">
-            <span className="proposal-section-number">8</span>
+            <span className="proposal-section-number">9</span>
             Terms & Conditions
           </div>
 
-          <div className="proposal-subsection-title">8.1 Payment Terms</div>
+          <div className="proposal-subsection-title">9.1 Payment Terms</div>
           <table className="proposal-table">
             <thead>
               <tr>
@@ -278,7 +325,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             </tbody>
           </table>
 
-          <div className="proposal-subsection-title">8.2 Billing & Invoicing</div>
+          <div className="proposal-subsection-title">9.2 Billing & Invoicing</div>
           <ul className="proposal-list">
             <li>Invoices will be raised as per milestone completion</li>
             <li>Payment due within 30 days from date of invoice</li>
@@ -286,14 +333,14 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             <li>All amounts are in Indian Rupees (INR) exclusive of GST</li>
           </ul>
 
-          <div className="proposal-subsection-title">8.3 Site Visits</div>
+          <div className="proposal-subsection-title">9.3 Site Visits</div>
           <ul className="proposal-list">
             <li>Site visits to HBL locations as needed for requirement gathering, UAT, and training</li>
             <li>Travel and accommodation expenses will be borne by HBL or reimbursed at actuals</li>
             <li>Remote support via video calls will be the primary mode of communication</li>
           </ul>
 
-          <div className="proposal-subsection-title">8.4 Validity</div>
+          <div className="proposal-subsection-title">9.4 Validity</div>
           <div className="proposal-text">
             This proposal is valid for a period of <strong>30 days</strong> from the date of submission. After this period, SIPL reserves the right to revise the terms and pricing.
           </div>
@@ -305,7 +352,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" />
         <div className="proposal-section">
           <div className="proposal-section-title">
-            <span className="proposal-section-number">9</span>
+            <span className="proposal-section-number">10</span>
             Why Sharvi Infotech (SIPL)?
           </div>
           <div className="why-sipl-grid">
