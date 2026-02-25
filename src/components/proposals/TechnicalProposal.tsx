@@ -77,7 +77,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             <li>Configurable plant-wise workflow: Quality Review → Purchase Review → Engineering Review → Final Approval</li>
             <li>Each stage captures decision, remarks, quantities, and timestamps</li>
             <li>Engineering disposition options: Use As-Is, Use with Deviation, Rework, Return to Vendor, Scrap</li>
-            <li>SLA tracking with color-coded status (Green / Yellow / Red)</li>
+            
           </ul>
 
           <div className="proposal-subsection-title">2.4 MRB Committee Review</div>
@@ -122,11 +122,11 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
           <div className="proposal-subsection-title">2.9 User Management & Plant Configuration</div>
           <ul className="proposal-list">
-            <li>Role-based access control with 10 defined roles</li>
+            <li>Role-based access control (roles defined by business)</li>
             <li>User profile management with department and plant assignment</li>
             <li>Plant-wise workflow step configuration</li>
             <li>Dashboard visibility configuration per role and plant</li>
-            <li>Print configuration per plant (company name, logo, document numbers)</li>
+            
           </ul>
         </div>
       </div>
