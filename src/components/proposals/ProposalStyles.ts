@@ -2,15 +2,10 @@ export const proposalStyles = `
   .proposal-container {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: #1a1a2e;
-    line-height: 1.6;
+    line-height: 1.55;
     max-width: 210mm;
     margin: 0 auto;
     background: white;
-  }
-
-  .page-break {
-    padding: 10mm 12mm;
-    box-sizing: border-box;
   }
 
   /* Cover Page */
@@ -24,7 +19,6 @@ export const proposalStyles = `
     background: linear-gradient(135deg, #0f1b4c 0%, #1a237e 40%, #283593 100%);
     color: white;
     padding: 30px 40px;
-    page-break-after: always;
     position: relative;
     overflow: hidden;
     box-sizing: border-box;
@@ -91,9 +85,9 @@ export const proposalStyles = `
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 15px;
+    padding: 6px 0;
     border-bottom: 2px solid #1a237e;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     font-size: 10px;
     color: #666;
   }
@@ -109,35 +103,33 @@ export const proposalStyles = `
   }
 
   .header-logo {
-    height: 24px;
+    height: 22px;
     object-fit: contain;
   }
 
   .header-logo-hbl {
-    height: 20px;
+    height: 18px;
   }
 
   .proposal-page-number {
     text-align: right;
-    font-size: 9px;
-    color: #999;
-    padding: 0 15px;
-    margin-top: -12px;
-    margin-bottom: 6px;
+    font-size: 8px;
+    color: #aaa;
+    margin-top: -10px;
+    margin-bottom: 4px;
   }
 
   /* Section Styling */
   .proposal-section {
-    padding: 0 15px;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
   }
 
   .proposal-section-title {
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 700;
     color: #1a237e;
-    margin-bottom: 12px;
-    padding-bottom: 6px;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
     border-bottom: 2px solid #e8eaf6;
     page-break-after: avoid;
   }
@@ -146,39 +138,39 @@ export const proposalStyles = `
     display: inline-block;
     background: #1a237e;
     color: white;
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     text-align: center;
-    line-height: 26px;
-    font-size: 13px;
+    line-height: 24px;
+    font-size: 12px;
     margin-right: 8px;
   }
 
   .proposal-subsection-title {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: #283593;
-    margin: 12px 0 6px 0;
+    margin: 10px 0 5px 0;
     page-break-after: avoid;
   }
 
   .proposal-text {
-    font-size: 11px;
+    font-size: 10.5px;
     color: #333;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     text-align: justify;
   }
 
   .proposal-list {
-    font-size: 11px;
+    font-size: 10.5px;
     color: #333;
-    padding-left: 18px;
-    margin-bottom: 10px;
+    padding-left: 16px;
+    margin-bottom: 8px;
   }
 
   .proposal-list li {
-    margin-bottom: 4px;
+    margin-bottom: 3px;
     page-break-inside: avoid;
   }
 
@@ -186,7 +178,7 @@ export const proposalStyles = `
   .proposal-table {
     width: 100%;
     border-collapse: collapse;
-    margin: 12px 0;
+    margin: 10px 0;
     font-size: 10px;
     page-break-inside: auto;
   }
@@ -194,14 +186,14 @@ export const proposalStyles = `
   .proposal-table th {
     background: #1a237e;
     color: white;
-    padding: 8px 10px;
+    padding: 7px 8px;
     text-align: left;
     font-weight: 600;
     font-size: 10px;
   }
 
   .proposal-table td {
-    padding: 6px 10px;
+    padding: 5px 8px;
     border-bottom: 1px solid #e0e0e0;
     vertical-align: top;
   }
@@ -218,7 +210,7 @@ export const proposalStyles = `
   .confidential-box {
     border: 2px solid #c62828;
     padding: 20px;
-    margin: 30px 15px;
+    margin: 20px 0;
     background: #fff8f8;
   }
 
@@ -232,7 +224,7 @@ export const proposalStyles = `
   }
 
   .confidential-text {
-    font-size: 11px;
+    font-size: 10.5px;
     color: #555;
     text-align: justify;
     line-height: 1.7;
@@ -242,21 +234,16 @@ export const proposalStyles = `
   .highlight-box {
     background: #e8eaf6;
     border-left: 4px solid #1a237e;
-    padding: 12px 16px;
-    margin: 12px 0;
+    padding: 10px 14px;
+    margin: 10px 0;
     border-radius: 0 4px 4px 0;
     page-break-inside: avoid;
   }
 
   .highlight-box p {
-    font-size: 11px;
+    font-size: 10.5px;
     color: #1a237e;
     margin: 0;
-  }
-
-  /* Page break */
-  .page-break {
-    page-break-before: always;
   }
 
   /* SLA colors */
@@ -277,32 +264,22 @@ export const proposalStyles = `
     text-align: center;
     font-size: 9px;
     color: #999;
-    padding: 16px;
+    padding: 14px;
     border-top: 1px solid #e0e0e0;
-    margin-top: 30px;
-  }
-
-  /* Page Footer */
-  .proposal-page-footer {
-    text-align: center;
-    font-size: 8px;
-    color: #bbb;
-    padding: 8px 15px 0;
-    margin-top: auto;
-    border-top: 1px solid #eee;
+    margin-top: 24px;
   }
 
   /* Why SIPL section */
   .why-sipl-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin: 12px 0;
+    gap: 8px;
+    margin: 10px 0;
   }
 
   .why-sipl-item {
     background: #f5f7ff;
-    padding: 10px 14px;
+    padding: 8px 12px;
     border-radius: 4px;
     border-left: 3px solid #1a237e;
     page-break-inside: avoid;
@@ -310,13 +287,13 @@ export const proposalStyles = `
 
   .why-sipl-item strong {
     display: block;
-    font-size: 11px;
+    font-size: 10.5px;
     color: #1a237e;
-    margin-bottom: 3px;
+    margin-bottom: 2px;
   }
 
   .why-sipl-item span {
-    font-size: 10px;
+    font-size: 9.5px;
     color: #555;
   }
 `;
