@@ -28,12 +28,12 @@ const ProposalGenerator = () => {
 
       await html2pdf()
         .set({
-          margin: [10, 15, 10, 15],
+          margin: [0, 0, 0, 0],
           filename,
           image: { type: 'jpeg', quality: 0.98 },
           html2canvas: { scale: 2, useCORS: true, letterRendering: true },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-          pagebreak: { mode: ['avoid-all', 'css'], before: '.page-break' },
+          pagebreak: { mode: ['css'] },
         })
         .from(ref.current)
         .save();

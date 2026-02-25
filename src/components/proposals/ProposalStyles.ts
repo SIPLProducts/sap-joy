@@ -8,9 +8,17 @@ export const proposalStyles = `
     background: white;
   }
 
+  /* Page break - forces new page in PDF */
+  .page-break {
+    page-break-before: always;
+    padding: 12mm 15mm;
+    box-sizing: border-box;
+  }
+
   /* Cover Page */
   .proposal-cover {
-    height: 277mm;
+    width: 210mm;
+    height: 297mm;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -180,7 +188,7 @@ export const proposalStyles = `
     border-collapse: collapse;
     margin: 10px 0;
     font-size: 10px;
-    page-break-inside: auto;
+    page-break-inside: avoid;
   }
 
   .proposal-table th {
@@ -212,6 +220,7 @@ export const proposalStyles = `
     padding: 20px;
     margin: 20px 0;
     background: #fff8f8;
+    page-break-inside: avoid;
   }
 
   .confidential-title {
