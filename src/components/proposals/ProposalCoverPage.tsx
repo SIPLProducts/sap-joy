@@ -1,6 +1,4 @@
 import React from 'react';
-import hblLogo from '@/assets/hbl-logo-proposal.png';
-import sharviLogo from '@/assets/sharvi-logo.png';
 
 interface ProposalCoverPageProps {
   title: string;
@@ -15,17 +13,11 @@ const ProposalCoverPage: React.FC<ProposalCoverPageProps> = ({
   subtitle,
   proposalType,
   date = new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }),
-  version = '1.0',
+  version = '0.1',
 }) => {
   return (
     <div className="proposal-cover">
       <div className="proposal-cover-content">
-        <div className="cover-logos-row">
-          <img src={sharviLogo} alt="Sharvi Infotech" className="cover-logo-img" />
-          <div className="cover-logo-divider" />
-          <img src={hblLogo} alt="HBL Power Systems" className="cover-logo-img cover-logo-hbl" />
-        </div>
-
         <div className="cover-title">{title}</div>
         <div className="cover-subtitle">{subtitle}</div>
 
@@ -37,7 +29,7 @@ const ProposalCoverPage: React.FC<ProposalCoverPageProps> = ({
           <div><strong>Prepared By:</strong> Sharvi Infotech Pvt. Ltd.</div>
           <div><strong>Date:</strong> {date}</div>
           <div><strong>Version:</strong> {version}</div>
-          <div><strong>Document Status:</strong> Final</div>
+          <div><strong>Document Status:</strong> Draft</div>
         </div>
       </div>
 

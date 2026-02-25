@@ -38,29 +38,7 @@ export const proposalStyles = `
     z-index: 1;
   }
 
-  .cover-logos-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 24px;
-    margin-bottom: 60px;
-  }
-
-  .cover-logo-img {
-    height: 50px;
-    object-fit: contain;
-    filter: brightness(0) invert(1);
-  }
-
-  .cover-logo-hbl {
-    height: 40px;
-  }
-
-  .cover-logo-divider {
-    width: 2px;
-    height: 40px;
-    background: rgba(255,255,255,0.3);
-  }
+  
 
   .cover-title {
     font-size: 36px;
@@ -134,7 +112,15 @@ export const proposalStyles = `
     height: 22px;
   }
 
-  /* Section Styling */
+  .proposal-page-number {
+    text-align: right;
+    font-size: 9px;
+    color: #999;
+    padding: 0 20px;
+    margin-top: -18px;
+    margin-bottom: 8px;
+  }
+
   .proposal-section {
     padding: 0 20px;
     margin-bottom: 28px;
