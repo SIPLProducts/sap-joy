@@ -2,18 +2,22 @@ import React from 'react';
 import ProposalCoverPage from './ProposalCoverPage';
 import ProposalHeader from './ProposalHeader';
 
+const TOTAL_PAGES = 9;
+const DOC_TITLE = "Techno-Commercial Proposal – MRB System";
+
 const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
   return (
     <div ref={ref} className="proposal-container">
+      {/* Page 1: Cover */}
       <ProposalCoverPage
         title="Techno-Commercial Proposal"
         subtitle="Material Review Board (MRB) Web Application"
         proposalType="Techno-Commercial Proposal"
       />
 
-      {/* Confidentiality Statement */}
-      <div className="page-break">
-        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" pageNumber={2} totalPages={9} />
+      {/* Page 2: Confidentiality */}
+      <div className="proposal-page">
+        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={2} totalPages={TOTAL_PAGES} />
         <div className="confidential-box">
           <div className="confidential-title">CONFIDENTIALITY STATEMENT</div>
           <div className="confidential-text">
@@ -23,9 +27,9 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         </div>
       </div>
 
-      {/* Executive Summary */}
-      <div className="page-break">
-        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" pageNumber={3} totalPages={9} />
+      {/* Page 3: Executive Summary + Scope Highlights */}
+      <div className="proposal-page">
+        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={3} totalPages={TOTAL_PAGES} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">1</span>
@@ -36,7 +40,6 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
           </div>
         </div>
 
-        {/* Scope Highlights */}
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">2</span>
@@ -46,7 +49,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             <thead>
               <tr>
                 <th style={{ width: '5%' }}>#</th>
-                <th style={{ width: '30%' }}>Module</th>
+                <th style={{ width: '28%' }}>Module</th>
                 <th>Description</th>
               </tr>
             </thead>
@@ -66,9 +69,9 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         </div>
       </div>
 
-      {/* Implementation Timeline */}
-      <div className="page-break">
-        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" pageNumber={4} totalPages={9} />
+      {/* Page 4: Implementation Timeline */}
+      <div className="proposal-page">
+        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={4} totalPages={TOTAL_PAGES} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">3</span>
@@ -81,8 +84,8 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             <thead>
               <tr>
                 <th style={{ width: '5%' }}>#</th>
-                <th style={{ width: '30%' }}>Phase</th>
-                <th style={{ width: '15%' }}>Duration</th>
+                <th style={{ width: '28%' }}>Phase</th>
+                <th style={{ width: '14%' }}>Duration</th>
                 <th>Key Activities</th>
               </tr>
             </thead>
@@ -113,9 +116,9 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         </div>
       </div>
 
-      {/* Commercial Terms */}
-      <div className="page-break">
-        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" pageNumber={5} totalPages={9} />
+      {/* Page 5: Commercial Terms */}
+      <div className="proposal-page">
+        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={5} totalPages={TOTAL_PAGES} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">4</span>
@@ -143,7 +146,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               </tr>
             </tbody>
           </table>
-          <div className="proposal-text" style={{ fontSize: '10px', fontStyle: 'italic' }}>
+          <div className="proposal-text" style={{ fontSize: '9px', fontStyle: 'italic' }}>
             * GST @ 18% will be charged additionally as applicable.
           </div>
 
@@ -164,7 +167,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               </tr>
             </tbody>
           </table>
-          <div className="proposal-text" style={{ fontSize: '10px', fontStyle: 'italic' }}>
+          <div className="proposal-text" style={{ fontSize: '9px', fontStyle: 'italic' }}>
             Includes: Plant-specific workflow configuration, dashboard setup, SAP endpoint configuration, user role setup, and UAT support.
           </div>
 
@@ -185,15 +188,15 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               </tr>
             </tbody>
           </table>
-          <div className="proposal-text" style={{ fontSize: '10px', fontStyle: 'italic' }}>
+          <div className="proposal-text" style={{ fontSize: '9px', fontStyle: 'italic' }}>
             AMS includes: Bug fixes, minor enhancements, performance monitoring, security patches, and SLA-based support.
           </div>
         </div>
       </div>
 
-      {/* SLA */}
-      <div className="page-break">
-        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" pageNumber={6} totalPages={9} />
+      {/* Page 6: SLA + Training */}
+      <div className="proposal-page">
+        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={6} totalPages={TOTAL_PAGES} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">5</span>
@@ -207,8 +210,8 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               <tr>
                 <th>Priority</th>
                 <th>Definition</th>
-                <th>Response Time</th>
-                <th>Resolution Time</th>
+                <th>Response</th>
+                <th>Resolution</th>
                 <th>Examples</th>
               </tr>
             </thead>
@@ -216,7 +219,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               <tr>
                 <td className="sla-very-high">Very High</td>
                 <td>System down / critical workflow blocked</td>
-                <td>30 minutes</td>
+                <td>30 min</td>
                 <td>4 hours</td>
                 <td>Login failure, workflow engine failure, data loss</td>
               </tr>
@@ -236,7 +239,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               </tr>
               <tr>
                 <td className="sla-low">Low</td>
-                <td>Minor issue / enhancement request</td>
+                <td>Minor issue / enhancement</td>
                 <td>8 hours</td>
                 <td>48 hours</td>
                 <td>Label changes, color adjustments, minor UI improvements</td>
@@ -248,7 +251,6 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
           </div>
         </div>
 
-        {/* Training */}
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">6</span>
@@ -264,9 +266,9 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         </div>
       </div>
 
-      {/* Additional Scope & Key Assumptions */}
-      <div className="page-break">
-        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" pageNumber={7} totalPages={9} />
+      {/* Page 7: Additional Scope & Key Assumptions */}
+      <div className="proposal-page">
+        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={7} totalPages={TOTAL_PAGES} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">7</span>
@@ -299,9 +301,9 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         </div>
       </div>
 
-      {/* Terms & Conditions */}
-      <div className="page-break">
-        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" pageNumber={8} totalPages={9} />
+      {/* Page 8: Terms & Conditions */}
+      <div className="proposal-page">
+        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={8} totalPages={TOTAL_PAGES} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">9</span>
@@ -347,9 +349,9 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         </div>
       </div>
 
-      {/* Why SIPL / Conclusion */}
-      <div className="page-break">
-        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" pageNumber={9} totalPages={9} />
+      {/* Page 9: Why SIPL / Conclusion */}
+      <div className="proposal-page">
+        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={9} totalPages={TOTAL_PAGES} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">10</span>
@@ -374,14 +376,14 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             </div>
           </div>
 
-          <div className="highlight-box" style={{ marginTop: '30px' }}>
-            <p style={{ textAlign: 'center', fontSize: '14px' }}>
+          <div className="highlight-box" style={{ marginTop: '20px' }}>
+            <p style={{ textAlign: 'center', fontSize: '12px' }}>
               <strong>We look forward to partnering with HBL Power Systems Ltd. on this strategic initiative to digitize and optimize the Material Review Board process across all plants.</strong>
             </p>
           </div>
         </div>
 
-        <div className="proposal-section" style={{ marginTop: '40px' }}>
+        <div className="proposal-section" style={{ marginTop: '20px' }}>
           <div className="proposal-subsection-title">Contact Information</div>
           <table className="proposal-table">
             <tbody>

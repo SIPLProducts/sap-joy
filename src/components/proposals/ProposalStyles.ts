@@ -8,11 +8,14 @@ export const proposalStyles = `
     background: white;
   }
 
-  /* Page break - forces new page in PDF */
-  .page-break {
-    page-break-before: always;
+  /* Each page is exactly one A4 page - no page-break CSS needed */
+  .proposal-page {
+    width: 210mm;
+    height: 297mm;
     padding: 12mm 15mm;
     box-sizing: border-box;
+    overflow: hidden;
+    position: relative;
   }
 
   /* Cover Page */
@@ -129,85 +132,77 @@ export const proposalStyles = `
 
   /* Section Styling */
   .proposal-section {
-    margin-bottom: 16px;
+    margin-bottom: 14px;
   }
 
   .proposal-section-title {
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 700;
     color: #1a237e;
-    margin-bottom: 10px;
-    padding-bottom: 5px;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
     border-bottom: 2px solid #e8eaf6;
-    page-break-after: avoid;
   }
 
   .proposal-section-number {
     display: inline-block;
     background: #1a237e;
     color: white;
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     text-align: center;
-    line-height: 24px;
-    font-size: 12px;
+    line-height: 22px;
+    font-size: 11px;
     margin-right: 8px;
   }
 
   .proposal-subsection-title {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: #283593;
-    margin: 10px 0 5px 0;
-    page-break-after: avoid;
+    margin: 8px 0 4px 0;
   }
 
   .proposal-text {
-    font-size: 10.5px;
+    font-size: 10px;
     color: #333;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     text-align: justify;
   }
 
   .proposal-list {
-    font-size: 10.5px;
+    font-size: 10px;
     color: #333;
     padding-left: 16px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   .proposal-list li {
-    margin-bottom: 3px;
-    page-break-inside: avoid;
+    margin-bottom: 2px;
   }
 
   /* Table styling */
   .proposal-table {
     width: 100%;
     border-collapse: collapse;
-    margin: 10px 0;
-    font-size: 10px;
-    page-break-inside: avoid;
+    margin: 8px 0;
+    font-size: 9.5px;
   }
 
   .proposal-table th {
     background: #1a237e;
     color: white;
-    padding: 7px 8px;
+    padding: 5px 6px;
     text-align: left;
     font-weight: 600;
-    font-size: 10px;
+    font-size: 9.5px;
   }
 
   .proposal-table td {
-    padding: 5px 8px;
+    padding: 4px 6px;
     border-bottom: 1px solid #e0e0e0;
     vertical-align: top;
-  }
-
-  .proposal-table tr {
-    page-break-inside: avoid;
   }
 
   .proposal-table tr:nth-child(even) {
@@ -220,7 +215,6 @@ export const proposalStyles = `
     padding: 20px;
     margin: 20px 0;
     background: #fff8f8;
-    page-break-inside: avoid;
   }
 
   .confidential-title {
@@ -233,7 +227,7 @@ export const proposalStyles = `
   }
 
   .confidential-text {
-    font-size: 10.5px;
+    font-size: 10px;
     color: #555;
     text-align: justify;
     line-height: 1.7;
@@ -243,14 +237,13 @@ export const proposalStyles = `
   .highlight-box {
     background: #e8eaf6;
     border-left: 4px solid #1a237e;
-    padding: 10px 14px;
-    margin: 10px 0;
+    padding: 8px 12px;
+    margin: 8px 0;
     border-radius: 0 4px 4px 0;
-    page-break-inside: avoid;
   }
 
   .highlight-box p {
-    font-size: 10.5px;
+    font-size: 10px;
     color: #1a237e;
     margin: 0;
   }
@@ -263,19 +256,22 @@ export const proposalStyles = `
 
   /* Commercial amount */
   .amount-highlight {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     color: #1a237e;
   }
 
   /* Footer */
   .proposal-footer {
+    position: absolute;
+    bottom: 12mm;
+    left: 15mm;
+    right: 15mm;
     text-align: center;
-    font-size: 9px;
+    font-size: 8px;
     color: #999;
-    padding: 14px;
+    padding-top: 8px;
     border-top: 1px solid #e0e0e0;
-    margin-top: 24px;
   }
 
   /* Why SIPL section */
@@ -291,18 +287,17 @@ export const proposalStyles = `
     padding: 8px 12px;
     border-radius: 4px;
     border-left: 3px solid #1a237e;
-    page-break-inside: avoid;
   }
 
   .why-sipl-item strong {
     display: block;
-    font-size: 10.5px;
+    font-size: 10px;
     color: #1a237e;
     margin-bottom: 2px;
   }
 
   .why-sipl-item span {
-    font-size: 9.5px;
+    font-size: 9px;
     color: #555;
   }
 `;
