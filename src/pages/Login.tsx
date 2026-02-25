@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award, UserPlus, Eye, EyeOff, Zap } from 'lucide-react';
+import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award, UserPlus, Eye, EyeOff, Zap, WifiOff, RefreshCw } from 'lucide-react';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import loginHeroImage from '@/assets/login-hero.jpg';
 import hblLogo from '@/assets/hbl-logo.png';
 
@@ -50,6 +52,7 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { signIn, signUp, isAuthenticated } = useAuth();
+  const isOnline = useNetworkStatus();
   
   // Sign In state
   const [signInEmail, setSignInEmail] = useState('');
@@ -64,6 +67,8 @@ export default function Login() {
   const [showSignUpPassword, setShowSignUpPassword] = useState(false);
   
   const [isLoading, setIsLoading] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
 
   const roles: { value: AppRole; label: string; description: string; icon: typeof Shield }[] = [
     { value: 'quality', label: 'Quality Inspector', description: 'Create and review MRBs from quality inspection', icon: Shield },
@@ -88,13 +93,35 @@ export default function Login() {
     if (!signInEmail || !signInPassword) return;
     
     setIsLoading(true);
-    const { error } = await signIn(signInEmail, signInPassword);
-    setIsLoading(false);
-    
-    if (!error) {
-      const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
-      navigate(from, { replace: true });
+    setRetryCount(0);
+
+    let lastError: any = null;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        setRetryCount(attempt);
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+      }
+      
+      const { error } = await signIn(signInEmail, signInPassword);
+      
+      if (!error) {
+        setIsLoading(false);
+        setRetryCount(0);
+        const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
+        navigate(from, { replace: true });
+        return;
+      }
+      
+      lastError = error;
+      // Only retry on network errors
+      if (error.message !== 'Failed to fetch' && 
+          (error as any)?.name !== 'AuthRetryableFetchError') {
+        break;
+      }
     }
+    
+    setIsLoading(false);
+    setRetryCount(0);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -201,6 +228,16 @@ export default function Login() {
             </p>
           </div>
 
+          {/* Offline Banner */}
+          {!isOnline && (
+            <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
+              <WifiOff className="h-4 w-4" />
+              <AlertDescription>
+                You're offline. Please check your internet connection.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Card className="shadow-xl border-0 bg-card/80 backdrop-blur">
             <Tabs defaultValue="signin" className="w-full">
               <CardHeader className="pb-4">
@@ -257,13 +294,18 @@ export default function Login() {
 
                     <Button
                       type="submit"
-                      disabled={isLoading || !signInEmail || !signInPassword}
+                      disabled={isLoading || !signInEmail || !signInPassword || !isOnline}
                       className="w-full h-11 text-base font-medium"
                     >
                       {isLoading ? (
                         <span className="flex items-center gap-2">
-                          <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                          Signing in...
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          {retryCount > 0 ? `Retrying (${retryCount}/${MAX_RETRIES})...` : 'Signing in...'}
+                        </span>
+                      ) : !isOnline ? (
+                        <span className="flex items-center gap-2">
+                          <WifiOff className="w-4 h-4" />
+                          No Connection
                         </span>
                       ) : (
                         <span className="flex items-center gap-2">
