@@ -1,4 +1,4 @@
-import { ClipboardList, Mail, Wrench, FileSpreadsheet, BarChart3, LogOut, Package, Building2, Users, Settings, PieChart, Printer, UserCog, TrendingUp, HelpCircle } from 'lucide-react';
+import { ClipboardList, Mail, Wrench, FileSpreadsheet, BarChart3, LogOut, Package, Building2, Users, Settings, PieChart, Printer, UserCog, TrendingUp, HelpCircle, FileText } from 'lucide-react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
@@ -27,6 +27,7 @@ const menuItems = [
   { title: 'MRB Print', url: '/mrb-print', icon: Printer, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin', 'mrb_committee'] },
   { title: 'Email Log', url: '/emails', icon: Mail, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin', 'mrb_committee'] },
   { title: 'Help & Support', url: '/help', icon: HelpCircle, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin', 'mrb_committee'] },
+  { title: 'Proposals', url: '/proposals', icon: FileText, roles: ['admin', 'executive'] },
 ];
 
 // Role-specific dashboards
