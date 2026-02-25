@@ -137,62 +137,12 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         </div>
       </div>
 
-      {/* Technology Stack */}
-      <div className="page-break">
-        <ProposalHeader documentTitle="Technical Proposal – MRB System" />
-        <div className="proposal-section">
-          <div className="proposal-section-title">
-            <span className="proposal-section-number">3</span>
-            Technology Stack
-          </div>
-          <table className="proposal-table">
-            <thead>
-              <tr>
-                <th style={{ width: '30%' }}>Layer</th>
-                <th>Technology</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td><strong>Frontend Framework</strong></td><td>React 18 with TypeScript</td></tr>
-              <tr><td><strong>Build Tool</strong></td><td>Vite (fast HMR, optimized builds)</td></tr>
-              <tr><td><strong>UI Components</strong></td><td>Shadcn/UI + Radix UI primitives</td></tr>
-              <tr><td><strong>Styling</strong></td><td>Tailwind CSS with design token system</td></tr>
-              <tr><td><strong>State Management</strong></td><td>React Context + TanStack React Query</td></tr>
-              <tr><td><strong>Charts & Analytics</strong></td><td>Recharts library</td></tr>
-              <tr><td><strong>Backend Database</strong></td><td>PostgreSQL (cloud-hosted)</td></tr>
-              <tr><td><strong>Authentication</strong></td><td>Row-Level Security with JWT-based auth</td></tr>
-              <tr><td><strong>Backend Functions</strong></td><td>Edge Functions (Deno runtime)</td></tr>
-              <tr><td><strong>Real-time</strong></td><td>WebSocket-based real-time subscriptions</td></tr>
-              <tr><td><strong>PDF Generation</strong></td><td>html2pdf.js</td></tr>
-              <tr><td><strong>SAP Integration</strong></td><td>REST API + CSV upload fallback</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="proposal-section">
-          <div className="proposal-section-title">
-            <span className="proposal-section-number">4</span>
-            Architecture Overview
-          </div>
-          <div className="proposal-text">
-            The MRB system follows a modern <strong>Single Page Application (SPA)</strong> architecture with a cloud-hosted backend:
-          </div>
-          <ul className="proposal-list">
-            <li><strong>Frontend SPA:</strong> React-based responsive web application accessible on desktop and tablet browsers</li>
-            <li><strong>Cloud Database:</strong> PostgreSQL database with Row-Level Security policies ensuring data isolation per role and plant</li>
-            <li><strong>Edge Functions:</strong> Serverless functions for email dispatch, SAP API proxy, and complex business logic</li>
-            <li><strong>Real-time Engine:</strong> WebSocket subscriptions for live dashboard updates and notification delivery</li>
-            <li><strong>File Storage:</strong> Cloud storage for MRB attachments, photos, and supporting documents</li>
-          </ul>
-        </div>
-      </div>
-
       {/* Module-wise Feature Breakdown */}
       <div className="page-break">
         <ProposalHeader documentTitle="Technical Proposal – MRB System" />
         <div className="proposal-section">
           <div className="proposal-section-title">
-            <span className="proposal-section-number">5</span>
+            <span className="proposal-section-number">3</span>
             Module-wise Feature Breakdown
           </div>
           <table className="proposal-table">
@@ -228,10 +178,10 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         <ProposalHeader documentTitle="Technical Proposal – MRB System" />
         <div className="proposal-section">
           <div className="proposal-section-title">
-            <span className="proposal-section-number">6</span>
+            <span className="proposal-section-number">4</span>
             Integration Points
           </div>
-          <div className="proposal-subsection-title">6.1 SAP ERP Integration</div>
+          <div className="proposal-subsection-title">4.1 SAP ERP Integration</div>
           <table className="proposal-table">
             <thead>
               <tr>
@@ -258,7 +208,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
         <div className="proposal-section">
           <div className="proposal-section-title">
-            <span className="proposal-section-number">7</span>
+            <span className="proposal-section-number">5</span>
             Security & Access Control
           </div>
           <ul className="proposal-list">
@@ -277,7 +227,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         <ProposalHeader documentTitle="Technical Proposal – MRB System" />
         <div className="proposal-section">
           <div className="proposal-section-title">
-            <span className="proposal-section-number">8</span>
+            <span className="proposal-section-number">6</span>
             Why Sharvi Infotech (SIPL)?
           </div>
           <div className="why-sipl-grid">
