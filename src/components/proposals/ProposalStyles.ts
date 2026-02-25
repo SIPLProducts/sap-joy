@@ -8,20 +8,27 @@ export const proposalStyles = `
     background: white;
   }
 
-  /* Each page is exactly one A4 page - no page-break CSS needed */
+  /* Each page uses break-after to signal html2pdf page boundaries */
   .proposal-page {
     width: 210mm;
-    height: 297mm;
+    min-height: 260mm;
     padding: 12mm 15mm;
     box-sizing: border-box;
-    overflow: hidden;
     position: relative;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  /* Last page should not force a trailing blank page */
+  .proposal-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
 
   /* Cover Page */
   .proposal-cover {
     width: 210mm;
-    height: 297mm;
+    min-height: 280mm;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -33,6 +40,8 @@ export const proposalStyles = `
     position: relative;
     overflow: hidden;
     box-sizing: border-box;
+    break-after: page;
+    page-break-after: always;
   }
 
   .proposal-cover::before {
