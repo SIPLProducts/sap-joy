@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award, UserPlus, Eye, EyeOff, Zap, WifiOff, RefreshCw } from 'lucide-react';
+import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award, UserPlus, Eye, EyeOff, Zap, WifiOff, RefreshCw, Activity, Trash2 } from 'lucide-react';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useHealthCheck, ConnectionStatus } from '@/hooks/useHealthCheck';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import loginHeroImage from '@/assets/login-hero.jpg';
 import hblLogo from '@/assets/hbl-logo.png';
@@ -53,7 +54,8 @@ export default function Login() {
   const location = useLocation();
   const { signIn, signUp, isAuthenticated } = useAuth();
   const isOnline = useNetworkStatus();
-  
+  const { status: backendStatus, latency, recheck } = useHealthCheck({ interval: 15000 });
+
   // Sign In state
   const [signInEmail, setSignInEmail] = useState('');
   const [signInPassword, setSignInPassword] = useState('');
@@ -228,12 +230,19 @@ export default function Login() {
             </p>
           </div>
 
-          {/* Offline Banner */}
-          {!isOnline && (
+          {/* Connection Status Banner */}
+          {(!isOnline || backendStatus === 'disconnected') && (
             <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
               <WifiOff className="h-4 w-4" />
-              <AlertDescription>
-                You're offline. Please check your internet connection.
+              <AlertDescription className="flex items-center justify-between">
+                <span>
+                  {!isOnline 
+                    ? "You're offline. Please check your internet connection." 
+                    : "Cannot reach backend. Retrying automatically..."}
+                </span>
+                <Button variant="ghost" size="sm" className="h-7 px-2 ml-2" onClick={recheck}>
+                  <RefreshCw className="h-3 w-3 mr-1" /> Retry
+                </Button>
               </AlertDescription>
             </Alert>
           )}
@@ -539,10 +548,47 @@ export default function Login() {
             </CardContent>
           </Card>
 
-          {/* Footer */}
-          <p className="text-center text-xs text-muted-foreground">
-            HBL Material Review Board © {new Date().getFullYear()} • All rights reserved
-          </p>
+          {/* Footer with Health Check & Clear Session */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              {/* Health Indicator */}
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className={`inline-block w-2 h-2 rounded-full ${
+                  backendStatus === 'connected' ? 'bg-emerald-500 animate-pulse' :
+                  backendStatus === 'checking' ? 'bg-amber-500 animate-pulse' :
+                  'bg-destructive'
+                }`} />
+                <span>
+                  {backendStatus === 'connected' 
+                    ? `Backend connected${latency ? ` (${latency}ms)` : ''}` 
+                    : backendStatus === 'checking' 
+                    ? 'Checking connection...' 
+                    : 'Backend unreachable'}
+                </span>
+                <button onClick={recheck} className="hover:text-foreground transition-colors" title="Recheck">
+                  <RefreshCw className="h-3 w-3" />
+                </button>
+              </div>
+
+              {/* Clear Session */}
+              <button
+                onClick={() => {
+                  localStorage.clear();
+                  sessionStorage.clear();
+                  window.location.reload();
+                }}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                title="Clear cached session data and reload"
+              >
+                <Trash2 className="h-3 w-3" />
+                Clear Session
+              </button>
+            </div>
+
+            <p className="text-center text-xs text-muted-foreground">
+              HBL Material Review Board © {new Date().getFullYear()} • All rights reserved
+            </p>
+          </div>
         </div>
       </div>
     </div>
