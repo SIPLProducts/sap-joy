@@ -110,8 +110,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
           <ul className="proposal-list">
             <li>Automated email notifications at each workflow stage transition</li>
             <li>Configurable email templates per plant</li>
-            <li>SLA warning and escalation emails</li>
-            <li>Email log with delivery status tracking</li>
+            
           </ul>
 
           <div className="proposal-subsection-title">2.8 Print & PDF Generation</div>
@@ -157,7 +156,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               <tr><td>7</td><td>KPI Dashboard</td><td>Real-time metrics, aging analysis, SLA compliance, trend indicators</td></tr>
               <tr><td>8</td><td>Role Dashboards</td><td>Quality, Purchase, Engineering, Executive views with role-specific metrics</td></tr>
               <tr><td>9</td><td>Analytics</td><td>Trend charts, category breakdowns, vendor analysis, forecasting</td></tr>
-              <tr><td>10</td><td>Email System</td><td>Automated notifications, configurable templates, delivery tracking</td></tr>
+              <tr><td>10</td><td>Email System</td><td>Automated notifications, configurable templates</td></tr>
               <tr><td>11</td><td>Print/PDF</td><td>NCR report, MRB Committee Form</td></tr>
               <tr><td>12</td><td>User Management</td><td>Role assignment, profile management, plant-wise access control</td></tr>
               <tr><td>13</td><td>Plant Config</td><td>Workflow steps, dashboard visibility, print settings, SAP API config</td></tr>
