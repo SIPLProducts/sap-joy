@@ -13,20 +13,20 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Confidentiality Statement */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={2} totalPages={8} />
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={2} totalPages={9} />
         <div className="confidential-box">
           <div className="confidential-title">CONFIDENTIALITY STATEMENT</div>
           <div className="confidential-text">
             <p>This document contains proprietary and confidential information of Sharvi Infotech Pvt. Ltd. (SIPL). This document is submitted to HBL Power Systems Ltd. solely for the purpose of evaluating the proposed solution for the Material Review Board (MRB) Web Application development project.</p>
-            <p style={{ marginTop: '12px' }}>The recipient agrees not to disclose, reproduce, or distribute this document or any of its contents to any third party without the prior written consent of SIPL. All intellectual property rights in this document remain with SIPL.</p>
-            <p style={{ marginTop: '12px' }}>Any unauthorized use, disclosure, or copying of this document, in whole or in part, is strictly prohibited and may be unlawful.</p>
+            <p style={{ marginTop: '10px' }}>The recipient agrees not to disclose, reproduce, or distribute this document or any of its contents to any third party without the prior written consent of SIPL. All intellectual property rights in this document remain with SIPL.</p>
+            <p style={{ marginTop: '10px' }}>Any unauthorized use, disclosure, or copying of this document, in whole or in part, is strictly prohibited and may be unlawful.</p>
           </div>
         </div>
       </div>
 
       {/* Executive Summary */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={3} totalPages={8} />
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={3} totalPages={9} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">1</span>
@@ -44,9 +44,9 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         </div>
       </div>
 
-      {/* Scope of Work */}
+      {/* Scope of Work - Part 1 */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={4} totalPages={8} />
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={4} totalPages={9} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">2</span>
@@ -77,7 +77,6 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             <li>Configurable plant-wise workflow: Quality Review → Purchase Review → Engineering Review → Final Approval</li>
             <li>Each stage captures decision, remarks, quantities, and timestamps</li>
             <li>Engineering disposition options: Use As-Is, Use with Deviation, Rework, Return to Vendor, Scrap</li>
-            
           </ul>
 
           <div className="proposal-subsection-title">2.4 MRB Committee Review</div>
@@ -91,14 +90,19 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
           <ul className="proposal-list">
             <li>Inspection lot data synchronization from SAP via ABAP API (real-time sync)</li>
             <li>Shop floor stock data synchronization from SAP API</li>
-            
             <li><strong>Material Blocking in SAP:</strong> Trigger material block posting in SAP when non-conforming material is identified (both inward and shop floor)</li>
             <li><strong>Material Unblocking in SAP:</strong> Trigger material unblock posting in SAP upon MRB disposition (Use As-Is, Rework completed, Deviation approved)</li>
           </ul>
+        </div>
+      </div>
 
+      {/* Scope of Work - Part 2 */}
+      <div className="page-break">
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={5} totalPages={9} />
+        <div className="proposal-section">
           <div className="proposal-subsection-title">2.6 Role-Based Dashboards</div>
           <ul className="proposal-list">
-            <li><strong>KPI Dashboard:</strong> Overview metrics — Open MRBs, pending actions, SLA compliance, aging analysis</li>
+            <li><strong>KPI Dashboard:</strong> Overview metrics — Open MRBs, pending actions, aging analysis</li>
             <li><strong>Quality Head Dashboard:</strong> Quality-specific KPIs, defect category trends, vendor quality scores</li>
             <li><strong>Purchase Head Dashboard:</strong> Purchase action tracking, vendor-wise MRB trends, replacement timelines</li>
             <li><strong>Engineering Head Dashboard:</strong> Engineering disposition analysis, deviation tracking, technical resolution metrics</li>
@@ -110,7 +114,6 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
           <ul className="proposal-list">
             <li>Automated email notifications at each workflow stage transition</li>
             <li>Configurable email templates per plant</li>
-            
           </ul>
 
           <div className="proposal-subsection-title">2.8 Print & PDF Generation</div>
@@ -125,14 +128,13 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             <li>User profile management with department and plant assignment</li>
             <li>Plant-wise workflow step configuration</li>
             <li>Dashboard visibility configuration per role and plant</li>
-            
           </ul>
         </div>
       </div>
 
       {/* Module-wise Feature Breakdown */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={5} totalPages={8} />
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={6} totalPages={9} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">3</span>
@@ -142,13 +144,13 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             <thead>
               <tr>
                 <th style={{ width: '5%' }}>#</th>
-                <th style={{ width: '25%' }}>Module</th>
+                <th style={{ width: '22%' }}>Module</th>
                 <th>Key Features</th>
               </tr>
             </thead>
             <tbody>
-              <tr><td>1</td><td>Inward Inspection</td><td>SAP API sync, lot management, status tracking, multi-select filtering, material blocking/unblocking via SAP</td></tr>
-              <tr><td>2</td><td>Shop Floor Stock</td><td>Material blocking via SAP, defect identification → MRB routing, stock selection, production order tracking, batch management</td></tr>
+              <tr><td>1</td><td>Inward Inspection</td><td>SAP API sync, lot management, status tracking, material blocking/unblocking via SAP</td></tr>
+              <tr><td>2</td><td>Shop Floor Stock</td><td>Material blocking via SAP, defect identification → MRB routing, stock selection, batch management</td></tr>
               <tr><td>3</td><td>MRB Creation</td><td>Dual-source creation, defect categorization, quantity management, vendor linkage</td></tr>
               <tr><td>4</td><td>Approval Workflow</td><td>4-stage configurable workflow, remarks capture, decision tracking</td></tr>
               <tr><td>5</td><td>MRB Committee</td><td>Committee review, collective decision, integration with main workflow</td></tr>
@@ -166,9 +168,9 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         </div>
       </div>
 
-      {/* Integration Points */}
+      {/* Integration Points & Security */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={6} totalPages={8} />
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={7} totalPages={9} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">4</span>
@@ -189,7 +191,6 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               <tr><td>Shop Floor Stock</td><td>SAP → MRB</td><td>API</td><td>Fetch available stock by material, batch, storage location via SAP API</td></tr>
               <tr><td>Material Block</td><td>MRB → SAP</td><td>API</td><td>Post material block in SAP when non-conforming material is identified (inward or shop floor)</td></tr>
               <tr><td>Material Unblock</td><td>MRB → SAP</td><td>API</td><td>Post material unblock in SAP upon MRB disposition approval</td></tr>
-              
               <tr><td>Shop Floor Defect</td><td>MRB → SAP</td><td>API</td><td>Block defective material identified on shop floor and initiate MRB workflow</td></tr>
             </tbody>
           </table>
@@ -210,7 +211,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Implementation Timeline */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={7} totalPages={8} />
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={8} totalPages={9} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">6</span>
@@ -223,8 +224,8 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             <thead>
               <tr>
                 <th style={{ width: '5%' }}>#</th>
-                <th style={{ width: '30%' }}>Phase</th>
-                <th style={{ width: '15%' }}>Duration</th>
+                <th style={{ width: '28%' }}>Phase</th>
+                <th style={{ width: '14%' }}>Duration</th>
                 <th>Key Activities</th>
               </tr>
             </thead>
@@ -257,7 +258,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Why SIPL */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={8} totalPages={8} />
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={9} totalPages={9} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">7</span>
@@ -280,7 +281,6 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               <strong>Agile Delivery</strong>
               <span>Iterative development with regular demos, feedback incorporation, and rapid deployment</span>
             </div>
-            
             <div className="why-sipl-item">
               <strong>Cost Effective</strong>
               <span>Competitive pricing with transparent billing and no hidden costs</span>
