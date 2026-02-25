@@ -51,15 +51,16 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               </tr>
             </thead>
             <tbody>
-              <tr><td>1</td><td>Inward Inspection Management</td><td>Upload, track, and manage inspection lot data with MRB case creation</td></tr>
-              <tr><td>2</td><td>Shop Floor Material Blocking</td><td>Stock selection, blocking, and MRB initiation from shop floor</td></tr>
-              <tr><td>3</td><td>MRB Workflow Engine</td><td>Multi-stage approval workflow with configurable steps per plant</td></tr>
-              <tr><td>4</td><td>MRB Committee Review</td><td>Optional committee review for complex/high-value cases</td></tr>
-              <tr><td>5</td><td>SAP Integration</td><td>Bi-directional data sync with SAP ERP system</td></tr>
-              <tr><td>6</td><td>Role-Based Dashboards (6 types)</td><td>KPI, Quality, Purchase, Engineering, Executive, Analytics dashboards</td></tr>
-              <tr><td>7</td><td>Email Notification System</td><td>Automated workflow notifications with template management</td></tr>
-              <tr><td>8</td><td>Print/PDF Generation</td><td>NCR and MRB report generation with configurable formats</td></tr>
-              <tr><td>9</td><td>User & Plant Management</td><td>Role-based access, plant configuration, workflow settings</td></tr>
+              <tr><td>1</td><td>Inward Inspection Management</td><td>SAP API sync for inspection lot data, material blocking/unblocking via SAP, MRB case creation</td></tr>
+              <tr><td>2</td><td>Shop Floor Material Blocking</td><td>Stock selection, defect identification, blocking via SAP, and MRB initiation from shop floor</td></tr>
+              <tr><td>3</td><td>Material Block & Unblock (SAP)</td><td>Real-time material blocking and unblocking in SAP based on MRB disposition decisions</td></tr>
+              <tr><td>4</td><td>MRB Workflow Engine</td><td>Multi-stage approval workflow with configurable steps per plant</td></tr>
+              <tr><td>5</td><td>MRB Committee Review</td><td>Optional committee review for complex/high-value cases</td></tr>
+              <tr><td>6</td><td>SAP Integration</td><td>Bi-directional data sync — inspection lots, stock, material/vendor master, block/unblock, disposition posting</td></tr>
+              <tr><td>7</td><td>Role-Based Dashboards (6 types)</td><td>KPI, Quality, Purchase, Engineering, Executive, Analytics dashboards</td></tr>
+              <tr><td>8</td><td>Email Notification System</td><td>Automated workflow notifications with template management</td></tr>
+              <tr><td>9</td><td>Print/PDF Generation</td><td>NCR and MRB report generation with configurable formats</td></tr>
+              <tr><td>10</td><td>User & Plant Management</td><td>Role-based access, plant configuration, workflow settings</td></tr>
             </tbody>
           </table>
         </div>
