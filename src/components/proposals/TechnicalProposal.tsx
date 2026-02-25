@@ -78,7 +78,6 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             <li>Each stage captures decision, remarks, quantities, and timestamps</li>
             <li>Engineering disposition options: Use As-Is, Use with Deviation, Rework, Return to Vendor, Scrap</li>
             <li>SLA tracking with color-coded status (Green / Yellow / Red)</li>
-            <li>Auto-escalation based on pending days</li>
           </ul>
 
           <div className="proposal-subsection-title">2.4 MRB Committee Review</div>
@@ -95,9 +94,6 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             <li>Material master, vendor master data sync via SAP APIs</li>
             <li><strong>Material Blocking in SAP:</strong> Trigger material block posting in SAP when non-conforming material is identified (both inward and shop floor)</li>
             <li><strong>Material Unblocking in SAP:</strong> Trigger material unblock posting in SAP upon MRB disposition (Use As-Is, Rework completed, Deviation approved)</li>
-            <li>Post-disposition stock updates (return delivery, scrap posting, rework order)</li>
-            <li>Configurable SAP API endpoints with authentication management (Basic Auth, OAuth, API Key)</li>
-            <li>Sync history and audit trail for all SAP transactions</li>
           </ul>
 
           <div className="proposal-subsection-title">2.6 Role-Based Dashboards</div>
@@ -120,10 +116,8 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
           <div className="proposal-subsection-title">2.8 Print & PDF Generation</div>
           <ul className="proposal-list">
-            <li>Non-Conformance Report (NCR) print with configurable header/footer</li>
-            <li>MRB Report print with full approval chain</li>
-            <li>Configurable print settings: paper size, margins, scale</li>
-            <li>Preview with zoom controls before printing</li>
+            <li>Non-Conformance Report (NCR) print</li>
+            <li>MRB Committee Form print</li>
           </ul>
 
           <div className="proposal-subsection-title">2.9 User Management & Plant Configuration</div>
@@ -157,17 +151,17 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               <tr><td>1</td><td>Inward Inspection</td><td>SAP API sync, lot management, status tracking, multi-select filtering, material blocking/unblocking via SAP</td></tr>
               <tr><td>2</td><td>Shop Floor Stock</td><td>Material blocking via SAP, defect identification → MRB routing, stock selection, production order tracking, batch management</td></tr>
               <tr><td>3</td><td>MRB Creation</td><td>Dual-source creation, defect categorization, quantity management, vendor linkage</td></tr>
-              <tr><td>4</td><td>Approval Workflow</td><td>4-stage configurable workflow, SLA tracking, escalation, remarks capture</td></tr>
+              <tr><td>4</td><td>Approval Workflow</td><td>4-stage configurable workflow, SLA tracking, remarks capture</td></tr>
               <tr><td>5</td><td>MRB Committee</td><td>Committee review, collective decision, integration with main workflow</td></tr>
               <tr><td>6</td><td>Worklist</td><td>Role-based task list, status filters, search, bulk actions</td></tr>
               <tr><td>7</td><td>KPI Dashboard</td><td>Real-time metrics, aging analysis, SLA compliance, trend indicators</td></tr>
               <tr><td>8</td><td>Role Dashboards</td><td>Quality, Purchase, Engineering, Executive views with role-specific metrics</td></tr>
               <tr><td>9</td><td>Analytics</td><td>Trend charts, category breakdowns, vendor analysis, forecasting</td></tr>
               <tr><td>10</td><td>Email System</td><td>Automated notifications, configurable templates, delivery tracking</td></tr>
-              <tr><td>11</td><td>Print/PDF</td><td>NCR report, MRB report, configurable headers, preview with zoom</td></tr>
+              <tr><td>11</td><td>Print/PDF</td><td>NCR report, MRB Committee Form</td></tr>
               <tr><td>12</td><td>User Management</td><td>Role assignment, profile management, plant-wise access control</td></tr>
               <tr><td>13</td><td>Plant Config</td><td>Workflow steps, dashboard visibility, print settings, SAP API config</td></tr>
-              <tr><td>14</td><td>SAP Integration</td><td>Stock sync, material/vendor master, disposition posting, sync history</td></tr>
+              <tr><td>14</td><td>SAP Integration</td><td>Stock sync, material/vendor master, material block/unblock</td></tr>
             </tbody>
           </table>
         </div>
@@ -198,9 +192,6 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               <tr><td>Material Unblock</td><td>MRB → SAP</td><td>API</td><td>Post material unblock in SAP upon MRB disposition approval</td></tr>
               <tr><td>Material Master</td><td>SAP → MRB</td><td>API</td><td>Sync material descriptions, UOM, categories</td></tr>
               <tr><td>Vendor Master</td><td>SAP → MRB</td><td>API</td><td>Sync vendor details including contact and address</td></tr>
-              <tr><td>Return Delivery</td><td>MRB → SAP</td><td>API</td><td>Create return delivery document for vendor returns</td></tr>
-              <tr><td>Scrap Posting</td><td>MRB → SAP</td><td>API</td><td>Post scrap document for scrapped materials</td></tr>
-              <tr><td>Rework Order</td><td>MRB → SAP</td><td>API</td><td>Create rework production order</td></tr>
               <tr><td>Shop Floor Defect</td><td>MRB → SAP</td><td>API</td><td>Block defective material identified on shop floor and initiate MRB workflow</td></tr>
             </tbody>
           </table>
@@ -212,13 +203,57 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             Security & Access Control
           </div>
           <ul className="proposal-list">
-            <li><strong>Authentication:</strong> Email/password-based authentication with session management</li>
-            <li><strong>Authorization:</strong> 10 predefined roles — Quality, Quality Head, Purchase, Purchase Head, Engineering, Engineering Head, Shop Floor, Executive, Admin, MRB Committee</li>
+            <li><strong>Authorization:</strong> Role-based access control — Roles will be defined by the business (e.g., Quality, Quality Head, Purchase, Purchase Head, Engineering, Engineering Head, Shop Floor, Executive, Admin, MRB Committee)</li>
             <li><strong>Row-Level Security:</strong> Database-level policies ensuring users can only access data relevant to their role and plant</li>
             <li><strong>Plant-Based Isolation:</strong> Multi-plant support with data segregation per plant</li>
-            <li><strong>Audit Trail:</strong> Complete approval history with user, timestamp, and action tracking</li>
-            <li><strong>Session Security:</strong> JWT-based tokens with automatic expiry and refresh</li>
           </ul>
+        </div>
+      </div>
+
+      {/* Implementation Timeline */}
+      <div className="page-break">
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" />
+        <div className="proposal-section">
+          <div className="proposal-section-title">
+            <span className="proposal-section-number">6</span>
+            Implementation Timeline
+          </div>
+          <div className="proposal-text">
+            The project will be executed in the following phases:
+          </div>
+          <table className="proposal-table">
+            <thead>
+              <tr>
+                <th style={{ width: '5%' }}>#</th>
+                <th style={{ width: '30%' }}>Phase</th>
+                <th style={{ width: '15%' }}>Duration</th>
+                <th>Key Activities</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>Requirement Gathering</td>
+                <td><strong>1 Week</strong></td>
+                <td>Detailed requirement analysis, workflow mapping, SAP API specifications, stakeholder discussions, and sign-off on functional requirements document</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>Development</td>
+                <td><strong>3 Weeks</strong></td>
+                <td>UI/UX development, backend implementation, SAP integration, workflow engine, dashboards, email notifications, print/PDF generation, and role-based access setup</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>Testing & Go-Live</td>
+                <td><strong>1 Week</strong></td>
+                <td>System testing, UAT with HBL team, bug fixes, production deployment, user training, and handover</td>
+              </tr>
+            </tbody>
+          </table>
+          <div className="highlight-box">
+            <p><strong>Total Project Duration: 5 Weeks</strong></p>
+          </div>
         </div>
       </div>
 
@@ -227,7 +262,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         <ProposalHeader documentTitle="Technical Proposal – MRB System" />
         <div className="proposal-section">
           <div className="proposal-section-title">
-            <span className="proposal-section-number">6</span>
+            <span className="proposal-section-number">7</span>
             Why Sharvi Infotech (SIPL)?
           </div>
           <div className="why-sipl-grid">
