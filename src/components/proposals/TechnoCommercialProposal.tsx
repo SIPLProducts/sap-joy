@@ -13,7 +13,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Confidentiality Statement */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" />
+        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" pageNumber={2} totalPages={9} />
         <div className="confidential-box">
           <div className="confidential-title">CONFIDENTIALITY STATEMENT</div>
           <div className="confidential-text">
@@ -25,7 +25,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Executive Summary */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" />
+        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" pageNumber={3} totalPages={9} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">1</span>
@@ -68,7 +68,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Implementation Timeline */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" />
+        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" pageNumber={4} totalPages={9} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">3</span>
@@ -115,7 +115,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Commercial Terms */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" />
+        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" pageNumber={5} totalPages={9} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">4</span>
@@ -193,7 +193,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* SLA */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" />
+        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" pageNumber={6} totalPages={9} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">5</span>
@@ -266,7 +266,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Additional Scope & Key Assumptions */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" />
+        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" pageNumber={7} totalPages={9} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">7</span>
@@ -301,7 +301,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Terms & Conditions */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" />
+        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" pageNumber={8} totalPages={9} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">9</span>
@@ -349,7 +349,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Why SIPL / Conclusion */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" />
+        <ProposalHeader documentTitle="Techno-Commercial Proposal – MRB System" pageNumber={9} totalPages={9} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">10</span>

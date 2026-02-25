@@ -13,7 +13,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Confidentiality Statement */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Technical Proposal – MRB System" />
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={2} totalPages={8} />
         <div className="confidential-box">
           <div className="confidential-title">CONFIDENTIALITY STATEMENT</div>
           <div className="confidential-text">
@@ -26,7 +26,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Executive Summary */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Technical Proposal – MRB System" />
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={3} totalPages={8} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">1</span>
@@ -46,7 +46,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Scope of Work */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Technical Proposal – MRB System" />
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={4} totalPages={8} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">2</span>
@@ -132,7 +132,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Module-wise Feature Breakdown */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Technical Proposal – MRB System" />
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={5} totalPages={8} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">3</span>
@@ -168,7 +168,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Integration Points */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Technical Proposal – MRB System" />
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={6} totalPages={8} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">4</span>
@@ -210,7 +210,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Implementation Timeline */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Technical Proposal – MRB System" />
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={7} totalPages={8} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">6</span>
@@ -257,7 +257,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {/* Why SIPL */}
       <div className="page-break">
-        <ProposalHeader documentTitle="Technical Proposal – MRB System" />
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" pageNumber={8} totalPages={8} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">7</span>
