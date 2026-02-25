@@ -8,8 +8,14 @@ export const proposalStyles = `
     background: white;
   }
 
+  .page-break {
+    padding: 10mm 12mm;
+    box-sizing: border-box;
+  }
+
+  /* Cover Page */
   .proposal-cover {
-    min-height: 297mm;
+    height: 277mm;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -17,10 +23,11 @@ export const proposalStyles = `
     text-align: center;
     background: linear-gradient(135deg, #0f1b4c 0%, #1a237e 40%, #283593 100%);
     color: white;
-    padding: 40px;
+    padding: 30px 40px;
     page-break-after: always;
     position: relative;
     overflow: hidden;
+    box-sizing: border-box;
   }
 
   .proposal-cover::before {
@@ -38,31 +45,29 @@ export const proposalStyles = `
     z-index: 1;
   }
 
-  
-
   .cover-title {
-    font-size: 36px;
+    font-size: 34px;
     font-weight: 700;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     line-height: 1.2;
   }
 
   .cover-subtitle {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 400;
     opacity: 0.9;
-    margin-bottom: 60px;
+    margin-bottom: 40px;
   }
 
   .cover-divider {
-    width: 120px;
+    width: 100px;
     height: 3px;
     background: #ffd54f;
-    margin: 0 auto 60px auto;
+    margin: 0 auto 40px auto;
   }
 
   .cover-details {
-    font-size: 14px;
+    font-size: 13px;
     opacity: 0.85;
     line-height: 2;
   }
@@ -73,10 +78,10 @@ export const proposalStyles = `
 
   .cover-footer {
     position: absolute;
-    bottom: 30px;
+    bottom: 20px;
     left: 0;
     right: 0;
-    font-size: 11px;
+    font-size: 10px;
     opacity: 0.6;
     z-index: 1;
   }
@@ -86,9 +91,9 @@ export const proposalStyles = `
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 20px;
+    padding: 8px 15px;
     border-bottom: 2px solid #1a237e;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     font-size: 10px;
     color: #666;
   }
@@ -104,34 +109,35 @@ export const proposalStyles = `
   }
 
   .header-logo {
-    height: 28px;
+    height: 24px;
     object-fit: contain;
   }
 
   .header-logo-hbl {
-    height: 22px;
+    height: 20px;
   }
 
   .proposal-page-number {
     text-align: right;
     font-size: 9px;
     color: #999;
-    padding: 0 20px;
-    margin-top: -18px;
-    margin-bottom: 8px;
+    padding: 0 15px;
+    margin-top: -12px;
+    margin-bottom: 6px;
   }
 
+  /* Section Styling */
   .proposal-section {
-    padding: 0 20px;
-    margin-bottom: 28px;
+    padding: 0 15px;
+    margin-bottom: 20px;
   }
 
   .proposal-section-title {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
     color: #1a237e;
-    margin-bottom: 16px;
-    padding-bottom: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
     border-bottom: 2px solid #e8eaf6;
     page-break-after: avoid;
   }
@@ -140,105 +146,110 @@ export const proposalStyles = `
     display: inline-block;
     background: #1a237e;
     color: white;
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
     text-align: center;
-    line-height: 28px;
-    font-size: 14px;
-    margin-right: 10px;
+    line-height: 26px;
+    font-size: 13px;
+    margin-right: 8px;
   }
 
   .proposal-subsection-title {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     color: #283593;
-    margin: 16px 0 8px 0;
+    margin: 12px 0 6px 0;
+    page-break-after: avoid;
   }
 
   .proposal-text {
-    font-size: 12px;
+    font-size: 11px;
     color: #333;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     text-align: justify;
   }
 
   .proposal-list {
-    font-size: 12px;
+    font-size: 11px;
     color: #333;
-    padding-left: 20px;
-    margin-bottom: 12px;
+    padding-left: 18px;
+    margin-bottom: 10px;
   }
 
   .proposal-list li {
-    margin-bottom: 6px;
+    margin-bottom: 4px;
+    page-break-inside: avoid;
   }
 
   /* Table styling */
   .proposal-table {
     width: 100%;
     border-collapse: collapse;
-    margin: 16px 0;
-    font-size: 11px;
+    margin: 12px 0;
+    font-size: 10px;
+    page-break-inside: auto;
   }
 
   .proposal-table th {
     background: #1a237e;
     color: white;
-    padding: 10px 12px;
+    padding: 8px 10px;
     text-align: left;
     font-weight: 600;
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .proposal-table td {
-    padding: 8px 12px;
+    padding: 6px 10px;
     border-bottom: 1px solid #e0e0e0;
     vertical-align: top;
   }
 
-  .proposal-table tr:nth-child(even) {
-    background: #f5f5f5;
+  .proposal-table tr {
+    page-break-inside: avoid;
   }
 
-  .proposal-table tr:hover {
-    background: #e8eaf6;
+  .proposal-table tr:nth-child(even) {
+    background: #f8f9ff;
   }
 
   /* Confidential box */
   .confidential-box {
     border: 2px solid #c62828;
-    padding: 24px;
-    margin: 40px 20px;
+    padding: 20px;
+    margin: 30px 15px;
     background: #fff8f8;
   }
 
   .confidential-title {
     color: #c62828;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
     text-align: center;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
+    letter-spacing: 1px;
   }
 
   .confidential-text {
     font-size: 11px;
     color: #555;
     text-align: justify;
-    line-height: 1.8;
+    line-height: 1.7;
   }
 
   /* Highlight box */
   .highlight-box {
     background: #e8eaf6;
     border-left: 4px solid #1a237e;
-    padding: 16px 20px;
-    margin: 16px 0;
+    padding: 12px 16px;
+    margin: 12px 0;
     border-radius: 0 4px 4px 0;
+    page-break-inside: avoid;
   }
 
   .highlight-box p {
-    font-size: 12px;
+    font-size: 11px;
     color: #1a237e;
     margin: 0;
   }
@@ -256,7 +267,7 @@ export const proposalStyles = `
 
   /* Commercial amount */
   .amount-highlight {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
     color: #1a237e;
   }
@@ -264,37 +275,48 @@ export const proposalStyles = `
   /* Footer */
   .proposal-footer {
     text-align: center;
-    font-size: 10px;
+    font-size: 9px;
     color: #999;
-    padding: 20px;
+    padding: 16px;
     border-top: 1px solid #e0e0e0;
-    margin-top: 40px;
+    margin-top: 30px;
+  }
+
+  /* Page Footer */
+  .proposal-page-footer {
+    text-align: center;
+    font-size: 8px;
+    color: #bbb;
+    padding: 8px 15px 0;
+    margin-top: auto;
+    border-top: 1px solid #eee;
   }
 
   /* Why SIPL section */
   .why-sipl-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin: 16px 0;
+    gap: 10px;
+    margin: 12px 0;
   }
 
   .why-sipl-item {
-    background: #f5f5f5;
-    padding: 12px 16px;
+    background: #f5f7ff;
+    padding: 10px 14px;
     border-radius: 4px;
     border-left: 3px solid #1a237e;
+    page-break-inside: avoid;
   }
 
   .why-sipl-item strong {
     display: block;
-    font-size: 12px;
+    font-size: 11px;
     color: #1a237e;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
   }
 
   .why-sipl-item span {
-    font-size: 11px;
+    font-size: 10px;
     color: #555;
   }
 `;

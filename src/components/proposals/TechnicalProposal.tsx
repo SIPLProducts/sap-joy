@@ -150,17 +150,17 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               <tr><td>1</td><td>Inward Inspection</td><td>SAP API sync, lot management, status tracking, multi-select filtering, material blocking/unblocking via SAP</td></tr>
               <tr><td>2</td><td>Shop Floor Stock</td><td>Material blocking via SAP, defect identification → MRB routing, stock selection, production order tracking, batch management</td></tr>
               <tr><td>3</td><td>MRB Creation</td><td>Dual-source creation, defect categorization, quantity management, vendor linkage</td></tr>
-              <tr><td>4</td><td>Approval Workflow</td><td>4-stage configurable workflow, SLA tracking, remarks capture</td></tr>
+              <tr><td>4</td><td>Approval Workflow</td><td>4-stage configurable workflow, remarks capture, decision tracking</td></tr>
               <tr><td>5</td><td>MRB Committee</td><td>Committee review, collective decision, integration with main workflow</td></tr>
               <tr><td>6</td><td>Worklist</td><td>Role-based task list, status filters, search, bulk actions</td></tr>
-              <tr><td>7</td><td>KPI Dashboard</td><td>Real-time metrics, aging analysis, SLA compliance, trend indicators</td></tr>
+              <tr><td>7</td><td>KPI Dashboard</td><td>Real-time metrics, aging analysis, trend indicators</td></tr>
               <tr><td>8</td><td>Role Dashboards</td><td>Quality, Purchase, Engineering, Executive views with role-specific metrics</td></tr>
               <tr><td>9</td><td>Analytics</td><td>Trend charts, category breakdowns, vendor analysis, forecasting</td></tr>
               <tr><td>10</td><td>Email System</td><td>Automated notifications, configurable templates</td></tr>
               <tr><td>11</td><td>Print/PDF</td><td>NCR report, MRB Committee Form</td></tr>
-              <tr><td>12</td><td>User Management</td><td>Role assignment, profile management, plant-wise access control</td></tr>
-              <tr><td>13</td><td>Plant Config</td><td>Workflow steps, dashboard visibility, print settings, SAP API config</td></tr>
-              <tr><td>14</td><td>SAP Integration</td><td>Stock sync, material/vendor master, material block/unblock</td></tr>
+              <tr><td>12</td><td>User Management</td><td>Role assignment (roles defined by business), profile management, plant-wise access control</td></tr>
+              <tr><td>13</td><td>Plant Config</td><td>Workflow steps, dashboard visibility</td></tr>
+              <tr><td>14</td><td>SAP Integration</td><td>Inspection lot sync, stock sync, material block/unblock</td></tr>
             </tbody>
           </table>
         </div>
