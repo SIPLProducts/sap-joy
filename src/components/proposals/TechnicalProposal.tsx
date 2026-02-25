@@ -281,10 +281,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               <strong>Agile Delivery</strong>
               <span>Iterative development with regular demos, feedback incorporation, and rapid deployment</span>
             </div>
-            <div className="why-sipl-item">
-              <strong>Dedicated Support</strong>
-              <span>Post-go-live AMS support with defined SLAs for issue resolution</span>
-            </div>
+            
             <div className="why-sipl-item">
               <strong>Cost Effective</strong>
               <span>Competitive pricing with transparent billing and no hidden costs</span>
