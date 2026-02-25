@@ -38,22 +38,28 @@ export const proposalStyles = `
     z-index: 1;
   }
 
-  .cover-logo-section {
+  .cover-logos-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
     margin-bottom: 60px;
   }
 
-  .cover-logo-text {
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: 3px;
-    color: #ffd54f;
-    margin-bottom: 4px;
+  .cover-logo-img {
+    height: 50px;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
   }
 
-  .cover-logo-subtitle {
-    font-size: 12px;
-    letter-spacing: 2px;
-    opacity: 0.8;
+  .cover-logo-hbl {
+    height: 40px;
+  }
+
+  .cover-logo-divider {
+    width: 2px;
+    height: 40px;
+    background: rgba(255,255,255,0.3);
   }
 
   .cover-title {
@@ -102,16 +108,30 @@ export const proposalStyles = `
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 20px;
+    padding: 10px 20px;
     border-bottom: 2px solid #1a237e;
     margin-bottom: 24px;
     font-size: 10px;
     color: #666;
   }
 
-  .proposal-page-header .header-left {
-    font-weight: 600;
-    color: #1a237e;
+  .proposal-page-header .header-left,
+  .proposal-page-header .header-right {
+    flex: 0 0 auto;
+  }
+
+  .proposal-page-header .header-center {
+    text-align: center;
+    flex: 1;
+  }
+
+  .header-logo {
+    height: 28px;
+    object-fit: contain;
+  }
+
+  .header-logo-hbl {
+    height: 22px;
   }
 
   /* Section Styling */

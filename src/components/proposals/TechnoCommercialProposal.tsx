@@ -56,7 +56,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               <tr><td>3</td><td>Material Block & Unblock (SAP)</td><td>Real-time material blocking and unblocking in SAP based on MRB disposition decisions</td></tr>
               <tr><td>4</td><td>MRB Workflow Engine</td><td>Multi-stage approval workflow with configurable steps per plant</td></tr>
               <tr><td>5</td><td>MRB Committee Review</td><td>Optional committee review for complex/high-value cases</td></tr>
-              <tr><td>6</td><td>SAP Integration</td><td>Bi-directional data sync — inspection lots, stock, material/vendor master, block/unblock</td></tr>
+              <tr><td>6</td><td>SAP Integration</td><td>Bi-directional data sync — inspection lots, stock, block/unblock</td></tr>
               <tr><td>7</td><td>Role-Based Dashboards (6 types)</td><td>KPI, Quality, Purchase, Engineering, Executive, Analytics dashboards</td></tr>
               <tr><td>8</td><td>Email Notification System</td><td>Automated workflow notifications with configurable templates</td></tr>
               <tr><td>9</td><td>Print/PDF Generation</td><td>NCR report and MRB Committee Form generation</td></tr>

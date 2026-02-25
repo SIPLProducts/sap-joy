@@ -1,4 +1,6 @@
 import React from 'react';
+import hblLogo from '@/assets/hbl-logo-proposal.png';
+import sharviLogo from '@/assets/sharvi-logo.png';
 
 interface ProposalCoverPageProps {
   title: string;
@@ -18,9 +20,10 @@ const ProposalCoverPage: React.FC<ProposalCoverPageProps> = ({
   return (
     <div className="proposal-cover">
       <div className="proposal-cover-content">
-        <div className="cover-logo-section">
-          <div className="cover-logo-text">SHARVI INFOTECH</div>
-          <div className="cover-logo-subtitle">PRIVATE LIMITED</div>
+        <div className="cover-logos-row">
+          <img src={sharviLogo} alt="Sharvi Infotech" className="cover-logo-img" />
+          <div className="cover-logo-divider" />
+          <img src={hblLogo} alt="HBL Power Systems" className="cover-logo-img cover-logo-hbl" />
         </div>
 
         <div className="cover-title">{title}</div>
