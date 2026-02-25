@@ -1,0 +1,312 @@
+import React from 'react';
+import ProposalCoverPage from './ProposalCoverPage';
+import ProposalHeader from './ProposalHeader';
+
+const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
+  return (
+    <div ref={ref} className="proposal-container">
+      <ProposalCoverPage
+        title="Technical Proposal"
+        subtitle="Material Review Board (MRB) Web Application"
+        proposalType="Technical Proposal"
+      />
+
+      {/* Confidentiality Statement */}
+      <div className="page-break">
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" />
+        <div className="confidential-box">
+          <div className="confidential-title">CONFIDENTIALITY STATEMENT</div>
+          <div className="confidential-text">
+            <p>This document contains proprietary and confidential information of Sharvi Infotech Pvt. Ltd. (SIPL). This document is submitted to HBL Power Systems Ltd. solely for the purpose of evaluating the proposed solution for the Material Review Board (MRB) Web Application development project.</p>
+            <p style={{ marginTop: '12px' }}>The recipient agrees not to disclose, reproduce, or distribute this document or any of its contents to any third party without the prior written consent of SIPL. All intellectual property rights in this document remain with SIPL.</p>
+            <p style={{ marginTop: '12px' }}>Any unauthorized use, disclosure, or copying of this document, in whole or in part, is strictly prohibited and may be unlawful.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Executive Summary */}
+      <div className="page-break">
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" />
+        <div className="proposal-section">
+          <div className="proposal-section-title">
+            <span className="proposal-section-number">1</span>
+            Executive Summary
+          </div>
+          <div className="proposal-text">
+            Sharvi Infotech Pvt. Ltd. (SIPL) is pleased to present this Technical Proposal for the development and implementation of a comprehensive <strong>Material Review Board (MRB) Web Application</strong> for HBL Power Systems Ltd.
+          </div>
+          <div className="proposal-text">
+            The MRB system is designed to digitize and streamline the entire non-conforming material management process — from inward inspection and material blocking to multi-stage quality review, purchase evaluation, engineering disposition, and final approval. The system replaces manual, paper-based MRB processes with a real-time, role-based digital workflow that ensures traceability, accountability, and compliance.
+          </div>
+          <div className="highlight-box">
+            <p><strong>Key Value Proposition:</strong> Reduce MRB processing time by up to 60%, eliminate paper-based tracking, provide real-time visibility into material disposition status, and enable data-driven quality improvement decisions through integrated analytics dashboards.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Scope of Work */}
+      <div className="page-break">
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" />
+        <div className="proposal-section">
+          <div className="proposal-section-title">
+            <span className="proposal-section-number">2</span>
+            Scope of Work
+          </div>
+          <div className="proposal-text">
+            The MRB Web Application covers the following functional areas:
+          </div>
+
+          <div className="proposal-subsection-title">2.1 Inward Inspection & Material Blocking</div>
+          <ul className="proposal-list">
+            <li>Upload inspection lot data from SAP via CSV or API sync</li>
+            <li>View, filter, and search inward inspection records</li>
+            <li>Create MRB cases directly from rejected inspection lots</li>
+            <li>Track blocked quantities with vendor and PO reference</li>
+          </ul>
+
+          <div className="proposal-subsection-title">2.2 MRB Creation (Dual Source)</div>
+          <ul className="proposal-list">
+            <li><strong>Quality Inspection Source:</strong> Create MRB from inward inspection failures with material, vendor, defect, and quantity details</li>
+            <li><strong>Shop Floor Source:</strong> Create MRB from shop floor material issues with production order, batch, and storage location references</li>
+          </ul>
+
+          <div className="proposal-subsection-title">2.3 Multi-Stage Approval Workflow</div>
+          <ul className="proposal-list">
+            <li>Configurable plant-wise workflow: Quality Review → Purchase Review → Engineering Review → Final Approval</li>
+            <li>Each stage captures decision, remarks, quantities, and timestamps</li>
+            <li>Engineering disposition options: Use As-Is, Use with Deviation, Rework, Return to Vendor, Scrap</li>
+            <li>SLA tracking with color-coded status (Green / Yellow / Red)</li>
+            <li>Auto-escalation based on pending days</li>
+          </ul>
+
+          <div className="proposal-subsection-title">2.4 MRB Committee Review</div>
+          <ul className="proposal-list">
+            <li>Optional committee review stage for high-value or complex cases</li>
+            <li>Committee decision capture with collective remarks</li>
+            <li>Integration with the main approval workflow</li>
+          </ul>
+
+          <div className="proposal-subsection-title">2.5 SAP Integration</div>
+          <ul className="proposal-list">
+            <li>Stock data synchronization from SAP via ABAP API or CSV upload</li>
+            <li>Material master, vendor master, and inspection lot data sync</li>
+            <li>Post-disposition stock updates (return delivery, scrap posting, rework order)</li>
+            <li>Configurable SAP API endpoints with authentication management</li>
+          </ul>
+
+          <div className="proposal-subsection-title">2.6 Role-Based Dashboards</div>
+          <ul className="proposal-list">
+            <li><strong>KPI Dashboard:</strong> Overview metrics — Open MRBs, pending actions, SLA compliance, aging analysis</li>
+            <li><strong>Quality Head Dashboard:</strong> Quality-specific KPIs, defect category trends, vendor quality scores</li>
+            <li><strong>Purchase Head Dashboard:</strong> Purchase action tracking, vendor-wise MRB trends, replacement timelines</li>
+            <li><strong>Engineering Head Dashboard:</strong> Engineering disposition analysis, deviation tracking, technical resolution metrics</li>
+            <li><strong>Executive Summary Dashboard:</strong> Plant-wide aggregated metrics, cross-functional performance overview</li>
+            <li><strong>MRB Analytics Dashboard:</strong> Advanced analytics with trend charts, category breakdowns, and forecasting</li>
+          </ul>
+
+          <div className="proposal-subsection-title">2.7 Email Notification System</div>
+          <ul className="proposal-list">
+            <li>Automated email notifications at each workflow stage transition</li>
+            <li>Configurable email templates per plant</li>
+            <li>SLA warning and escalation emails</li>
+            <li>Email log with delivery status tracking</li>
+          </ul>
+
+          <div className="proposal-subsection-title">2.8 Print & PDF Generation</div>
+          <ul className="proposal-list">
+            <li>Non-Conformance Report (NCR) print with configurable header/footer</li>
+            <li>MRB Report print with full approval chain</li>
+            <li>Configurable print settings: paper size, margins, scale</li>
+            <li>Preview with zoom controls before printing</li>
+          </ul>
+
+          <div className="proposal-subsection-title">2.9 User Management & Plant Configuration</div>
+          <ul className="proposal-list">
+            <li>Role-based access control with 10 defined roles</li>
+            <li>User profile management with department and plant assignment</li>
+            <li>Plant-wise workflow step configuration</li>
+            <li>Dashboard visibility configuration per role and plant</li>
+            <li>Print configuration per plant (company name, logo, document numbers)</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Technology Stack */}
+      <div className="page-break">
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" />
+        <div className="proposal-section">
+          <div className="proposal-section-title">
+            <span className="proposal-section-number">3</span>
+            Technology Stack
+          </div>
+          <table className="proposal-table">
+            <thead>
+              <tr>
+                <th style={{ width: '30%' }}>Layer</th>
+                <th>Technology</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>Frontend Framework</strong></td><td>React 18 with TypeScript</td></tr>
+              <tr><td><strong>Build Tool</strong></td><td>Vite (fast HMR, optimized builds)</td></tr>
+              <tr><td><strong>UI Components</strong></td><td>Shadcn/UI + Radix UI primitives</td></tr>
+              <tr><td><strong>Styling</strong></td><td>Tailwind CSS with design token system</td></tr>
+              <tr><td><strong>State Management</strong></td><td>React Context + TanStack React Query</td></tr>
+              <tr><td><strong>Charts & Analytics</strong></td><td>Recharts library</td></tr>
+              <tr><td><strong>Backend Database</strong></td><td>PostgreSQL (cloud-hosted)</td></tr>
+              <tr><td><strong>Authentication</strong></td><td>Row-Level Security with JWT-based auth</td></tr>
+              <tr><td><strong>Backend Functions</strong></td><td>Edge Functions (Deno runtime)</td></tr>
+              <tr><td><strong>Real-time</strong></td><td>WebSocket-based real-time subscriptions</td></tr>
+              <tr><td><strong>PDF Generation</strong></td><td>html2pdf.js</td></tr>
+              <tr><td><strong>SAP Integration</strong></td><td>REST API + CSV upload fallback</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="proposal-section">
+          <div className="proposal-section-title">
+            <span className="proposal-section-number">4</span>
+            Architecture Overview
+          </div>
+          <div className="proposal-text">
+            The MRB system follows a modern <strong>Single Page Application (SPA)</strong> architecture with a cloud-hosted backend:
+          </div>
+          <ul className="proposal-list">
+            <li><strong>Frontend SPA:</strong> React-based responsive web application accessible on desktop and tablet browsers</li>
+            <li><strong>Cloud Database:</strong> PostgreSQL database with Row-Level Security policies ensuring data isolation per role and plant</li>
+            <li><strong>Edge Functions:</strong> Serverless functions for email dispatch, SAP API proxy, and complex business logic</li>
+            <li><strong>Real-time Engine:</strong> WebSocket subscriptions for live dashboard updates and notification delivery</li>
+            <li><strong>File Storage:</strong> Cloud storage for MRB attachments, photos, and supporting documents</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Module-wise Feature Breakdown */}
+      <div className="page-break">
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" />
+        <div className="proposal-section">
+          <div className="proposal-section-title">
+            <span className="proposal-section-number">5</span>
+            Module-wise Feature Breakdown
+          </div>
+          <table className="proposal-table">
+            <thead>
+              <tr>
+                <th style={{ width: '5%' }}>#</th>
+                <th style={{ width: '25%' }}>Module</th>
+                <th>Key Features</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>1</td><td>Inward Inspection</td><td>CSV upload, SAP sync, lot management, status tracking, multi-select filtering</td></tr>
+              <tr><td>2</td><td>Shop Floor Stock</td><td>Material blocking, stock selection, production order tracking, batch management</td></tr>
+              <tr><td>3</td><td>MRB Creation</td><td>Dual-source creation, defect categorization, quantity management, vendor linkage</td></tr>
+              <tr><td>4</td><td>Approval Workflow</td><td>4-stage configurable workflow, SLA tracking, escalation, remarks capture</td></tr>
+              <tr><td>5</td><td>MRB Committee</td><td>Committee review, collective decision, integration with main workflow</td></tr>
+              <tr><td>6</td><td>Worklist</td><td>Role-based task list, status filters, search, bulk actions</td></tr>
+              <tr><td>7</td><td>KPI Dashboard</td><td>Real-time metrics, aging analysis, SLA compliance, trend indicators</td></tr>
+              <tr><td>8</td><td>Role Dashboards</td><td>Quality, Purchase, Engineering, Executive views with role-specific metrics</td></tr>
+              <tr><td>9</td><td>Analytics</td><td>Trend charts, category breakdowns, vendor analysis, forecasting</td></tr>
+              <tr><td>10</td><td>Email System</td><td>Automated notifications, configurable templates, delivery tracking</td></tr>
+              <tr><td>11</td><td>Print/PDF</td><td>NCR report, MRB report, configurable headers, preview with zoom</td></tr>
+              <tr><td>12</td><td>User Management</td><td>Role assignment, profile management, plant-wise access control</td></tr>
+              <tr><td>13</td><td>Plant Config</td><td>Workflow steps, dashboard visibility, print settings, SAP API config</td></tr>
+              <tr><td>14</td><td>SAP Integration</td><td>Stock sync, material/vendor master, disposition posting, sync history</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Integration Points */}
+      <div className="page-break">
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" />
+        <div className="proposal-section">
+          <div className="proposal-section-title">
+            <span className="proposal-section-number">6</span>
+            Integration Points
+          </div>
+          <div className="proposal-subsection-title">6.1 SAP ERP Integration</div>
+          <table className="proposal-table">
+            <thead>
+              <tr>
+                <th>Integration Point</th>
+                <th>Direction</th>
+                <th>Method</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Inspection Lot Data</td><td>SAP → MRB</td><td>API / CSV</td><td>Fetch rejected inspection lots with material, vendor, and quantity data</td></tr>
+              <tr><td>Shop Floor Stock</td><td>SAP → MRB</td><td>API / CSV</td><td>Fetch available stock by material, batch, storage location</td></tr>
+              <tr><td>Material Master</td><td>SAP → MRB</td><td>API</td><td>Sync material descriptions, UOM, categories</td></tr>
+              <tr><td>Vendor Master</td><td>SAP → MRB</td><td>API</td><td>Sync vendor details including contact and address</td></tr>
+              <tr><td>Return Delivery</td><td>MRB → SAP</td><td>API</td><td>Create return delivery document for vendor returns</td></tr>
+              <tr><td>Scrap Posting</td><td>MRB → SAP</td><td>API</td><td>Post scrap document for scrapped materials</td></tr>
+              <tr><td>Rework Order</td><td>MRB → SAP</td><td>API</td><td>Create rework production order</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="proposal-section">
+          <div className="proposal-section-title">
+            <span className="proposal-section-number">7</span>
+            Security & Access Control
+          </div>
+          <ul className="proposal-list">
+            <li><strong>Authentication:</strong> Email/password-based authentication with session management</li>
+            <li><strong>Authorization:</strong> 10 predefined roles — Quality, Quality Head, Purchase, Purchase Head, Engineering, Engineering Head, Shop Floor, Executive, Admin, MRB Committee</li>
+            <li><strong>Row-Level Security:</strong> Database-level policies ensuring users can only access data relevant to their role and plant</li>
+            <li><strong>Plant-Based Isolation:</strong> Multi-plant support with data segregation per plant</li>
+            <li><strong>Audit Trail:</strong> Complete approval history with user, timestamp, and action tracking</li>
+            <li><strong>Session Security:</strong> JWT-based tokens with automatic expiry and refresh</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Why SIPL */}
+      <div className="page-break">
+        <ProposalHeader documentTitle="Technical Proposal – MRB System" />
+        <div className="proposal-section">
+          <div className="proposal-section-title">
+            <span className="proposal-section-number">8</span>
+            Why Sharvi Infotech (SIPL)?
+          </div>
+          <div className="why-sipl-grid">
+            <div className="why-sipl-item">
+              <strong>Domain Expertise</strong>
+              <span>Deep understanding of manufacturing quality processes, MRB workflows, and SAP integration</span>
+            </div>
+            <div className="why-sipl-item">
+              <strong>Proven Track Record</strong>
+              <span>Successfully delivered IMS, Calibration, and other enterprise web applications for HBL</span>
+            </div>
+            <div className="why-sipl-item">
+              <strong>Modern Technology</strong>
+              <span>Cutting-edge React + TypeScript stack with cloud-native architecture for scalability</span>
+            </div>
+            <div className="why-sipl-item">
+              <strong>Agile Delivery</strong>
+              <span>Iterative development with regular demos, feedback incorporation, and rapid deployment</span>
+            </div>
+            <div className="why-sipl-item">
+              <strong>Dedicated Support</strong>
+              <span>Post-go-live AMS support with defined SLAs for issue resolution</span>
+            </div>
+            <div className="why-sipl-item">
+              <strong>Cost Effective</strong>
+              <span>Competitive pricing with transparent billing and no hidden costs</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="proposal-footer">
+          <p>Sharvi Infotech Pvt. Ltd. | www.sharviinfotech.com</p>
+          <p>This document is confidential and intended solely for the use of HBL Power Systems Ltd.</p>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+TechnicalProposal.displayName = 'TechnicalProposal';
+export default TechnicalProposal;
