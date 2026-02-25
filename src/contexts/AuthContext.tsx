@@ -82,17 +82,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    let mounted = true;
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!mounted) return;
+        
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Use setTimeout to avoid potential race conditions
+          // Use setTimeout to avoid potential race conditions with Supabase internals
           setTimeout(() => {
-            fetchProfile(session.user.id);
-            fetchUserRole(session.user.id);
+            if (mounted) {
+              fetchProfile(session.user.id);
+              fetchUserRole(session.user.id);
+            }
           }, 0);
         } else {
           setProfile(null);
@@ -105,6 +111,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -114,9 +122,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       setIsLoading(false);
+    }).catch((error) => {
+      // Handle AbortError and network errors gracefully
+      console.warn('Session fetch error (will retry on next auth event):', error?.message);
+      if (mounted) {
+        setIsLoading(false);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -127,9 +144,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       
       if (error) {
+        const message = error.message === 'Failed to fetch' 
+          ? 'Network error. Please check your connection and try again.'
+          : error.message;
         toast({
           title: "Sign in failed",
-          description: error.message,
+          description: message,
           variant: "destructive",
         });
         return { error };
@@ -141,7 +161,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       
       return { error: null };
-    } catch (error) {
+    } catch (error: any) {
+      const message = error?.message === 'Failed to fetch'
+        ? 'Network error. Please check your connection and try again.'
+        : (error?.message || 'An unexpected error occurred');
+      toast({
+        title: "Sign in failed",
+        description: message,
+        variant: "destructive",
+      });
       return { error: error as Error };
     }
   };
