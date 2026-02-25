@@ -58,16 +58,18 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
           <div className="proposal-subsection-title">2.1 Inward Inspection & Material Blocking</div>
           <ul className="proposal-list">
-            <li>Upload inspection lot data from SAP via CSV or API sync</li>
+            <li>Upload inspection lot data from SAP via real-time API synchronization</li>
             <li>View, filter, and search inward inspection records</li>
             <li>Create MRB cases directly from rejected inspection lots</li>
             <li>Track blocked quantities with vendor and PO reference</li>
+            <li><strong>Material Block & Unblock via SAP Integration:</strong> Block non-conforming materials in SAP directly from the MRB application and unblock materials upon MRB disposition completion</li>
           </ul>
 
           <div className="proposal-subsection-title">2.2 MRB Creation (Dual Source)</div>
           <ul className="proposal-list">
             <li><strong>Quality Inspection Source:</strong> Create MRB from inward inspection failures with material, vendor, defect, and quantity details</li>
             <li><strong>Shop Floor Source:</strong> Create MRB from shop floor material issues with production order, batch, and storage location references</li>
+            <li><strong>Shop Floor Defect Identification:</strong> When any material defect is identified on the shop floor during production, the material is automatically flagged, blocked in SAP, and routed to MRB for disposition</li>
           </ul>
 
           <div className="proposal-subsection-title">2.3 Multi-Stage Approval Workflow</div>
@@ -88,10 +90,14 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
           <div className="proposal-subsection-title">2.5 SAP Integration</div>
           <ul className="proposal-list">
-            <li>Stock data synchronization from SAP via ABAP API or CSV upload</li>
-            <li>Material master, vendor master, and inspection lot data sync</li>
+            <li>Inspection lot data synchronization from SAP via ABAP API (real-time sync)</li>
+            <li>Shop floor stock data synchronization from SAP API</li>
+            <li>Material master, vendor master data sync via SAP APIs</li>
+            <li><strong>Material Blocking in SAP:</strong> Trigger material block posting in SAP when non-conforming material is identified (both inward and shop floor)</li>
+            <li><strong>Material Unblocking in SAP:</strong> Trigger material unblock posting in SAP upon MRB disposition (Use As-Is, Rework completed, Deviation approved)</li>
             <li>Post-disposition stock updates (return delivery, scrap posting, rework order)</li>
-            <li>Configurable SAP API endpoints with authentication management</li>
+            <li>Configurable SAP API endpoints with authentication management (Basic Auth, OAuth, API Key)</li>
+            <li>Sync history and audit trail for all SAP transactions</li>
           </ul>
 
           <div className="proposal-subsection-title">2.6 Role-Based Dashboards</div>
@@ -198,8 +204,8 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               </tr>
             </thead>
             <tbody>
-              <tr><td>1</td><td>Inward Inspection</td><td>CSV upload, SAP sync, lot management, status tracking, multi-select filtering</td></tr>
-              <tr><td>2</td><td>Shop Floor Stock</td><td>Material blocking, stock selection, production order tracking, batch management</td></tr>
+              <tr><td>1</td><td>Inward Inspection</td><td>SAP API sync, lot management, status tracking, multi-select filtering, material blocking/unblocking via SAP</td></tr>
+              <tr><td>2</td><td>Shop Floor Stock</td><td>Material blocking via SAP, defect identification → MRB routing, stock selection, production order tracking, batch management</td></tr>
               <tr><td>3</td><td>MRB Creation</td><td>Dual-source creation, defect categorization, quantity management, vendor linkage</td></tr>
               <tr><td>4</td><td>Approval Workflow</td><td>4-stage configurable workflow, SLA tracking, escalation, remarks capture</td></tr>
               <tr><td>5</td><td>MRB Committee</td><td>Committee review, collective decision, integration with main workflow</td></tr>
@@ -236,13 +242,16 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               </tr>
             </thead>
             <tbody>
-              <tr><td>Inspection Lot Data</td><td>SAP → MRB</td><td>API / CSV</td><td>Fetch rejected inspection lots with material, vendor, and quantity data</td></tr>
-              <tr><td>Shop Floor Stock</td><td>SAP → MRB</td><td>API / CSV</td><td>Fetch available stock by material, batch, storage location</td></tr>
+              <tr><td>Inspection Lot Data</td><td>SAP → MRB</td><td>API</td><td>Fetch rejected inspection lots with material, vendor, and quantity data via SAP ABAP API</td></tr>
+              <tr><td>Shop Floor Stock</td><td>SAP → MRB</td><td>API</td><td>Fetch available stock by material, batch, storage location via SAP API</td></tr>
+              <tr><td>Material Block</td><td>MRB → SAP</td><td>API</td><td>Post material block in SAP when non-conforming material is identified (inward or shop floor)</td></tr>
+              <tr><td>Material Unblock</td><td>MRB → SAP</td><td>API</td><td>Post material unblock in SAP upon MRB disposition approval</td></tr>
               <tr><td>Material Master</td><td>SAP → MRB</td><td>API</td><td>Sync material descriptions, UOM, categories</td></tr>
               <tr><td>Vendor Master</td><td>SAP → MRB</td><td>API</td><td>Sync vendor details including contact and address</td></tr>
               <tr><td>Return Delivery</td><td>MRB → SAP</td><td>API</td><td>Create return delivery document for vendor returns</td></tr>
               <tr><td>Scrap Posting</td><td>MRB → SAP</td><td>API</td><td>Post scrap document for scrapped materials</td></tr>
               <tr><td>Rework Order</td><td>MRB → SAP</td><td>API</td><td>Create rework production order</td></tr>
+              <tr><td>Shop Floor Defect</td><td>MRB → SAP</td><td>API</td><td>Block defective material identified on shop floor and initiate MRB workflow</td></tr>
             </tbody>
           </table>
         </div>
