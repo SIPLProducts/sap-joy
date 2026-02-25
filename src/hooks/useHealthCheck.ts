@@ -19,7 +19,7 @@ export function useHealthCheck({ interval = 30000, enabled = true }: UseHealthCh
     try {
       // Simple lightweight query to test connectivity
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
+      const timeout = setTimeout(() => controller.abort(), 10000);
 
       const { error } = await supabase
         .from('plants')
