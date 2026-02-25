@@ -1,35 +1,45 @@
 import React from 'react';
-import ProposalCoverPage from './ProposalCoverPage';
 import ProposalHeader from './ProposalHeader';
 
-const TOTAL_PAGES = 9;
+const TOTAL_PAGES = 8;
 const DOC_TITLE = "Techno-Commercial Proposal – MRB System";
 
 const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
   return (
     <div ref={ref} className="proposal-container">
-      {/* Page 1: Cover */}
-      <ProposalCoverPage
-        title="Techno-Commercial Proposal"
-        subtitle="Material Review Board (MRB) Web Application"
-        proposalType="Techno-Commercial Proposal"
-      />
+      {/* Page 1: Cover + Confidentiality */}
+      <div className="proposal-page proposal-page-cover">
+        <div className="proposal-cover-inline">
+          <div className="proposal-cover-content">
+            <div className="cover-title">Techno-Commercial Proposal</div>
+            <div className="cover-subtitle">Material Review Board (MRB) Web Application</div>
+            <div className="cover-divider" />
+            <div className="cover-details">
+              <div><strong>Proposal Type:</strong> Techno-Commercial Proposal</div>
+              <div><strong>Prepared For:</strong> HBL Power Systems Ltd.</div>
+              <div><strong>Prepared By:</strong> Sharvi Infotech Pvt. Ltd.</div>
+              <div><strong>Date:</strong> {new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+              <div><strong>Version:</strong> 0.1</div>
+              <div><strong>Document Status:</strong> Draft</div>
+            </div>
+          </div>
+        </div>
 
-      {/* Page 2: Confidentiality */}
-      <div className="proposal-page">
-        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={2} totalPages={TOTAL_PAGES} />
-        <div className="confidential-box">
+        <div className="confidential-box" style={{ marginTop: '16px' }}>
           <div className="confidential-title">CONFIDENTIALITY STATEMENT</div>
           <div className="confidential-text">
             <p>This document contains proprietary and confidential information of Sharvi Infotech Pvt. Ltd. (SIPL). This document is submitted to HBL Power Systems Ltd. solely for the purpose of evaluating the commercial terms for the Material Review Board (MRB) Web Application development project.</p>
-            <p style={{ marginTop: '12px' }}>The recipient agrees not to disclose, reproduce, or distribute this document or any of its contents to any third party without the prior written consent of SIPL.</p>
+            <p style={{ marginTop: '8px' }}>The recipient agrees not to disclose, reproduce, or distribute this document or any of its contents to any third party without the prior written consent of SIPL.</p>
           </div>
+        </div>
+        <div style={{ textAlign: 'center', fontSize: '8px', color: '#999', marginTop: '12px' }}>
+          © {new Date().getFullYear()} Sharvi Infotech Pvt. Ltd. | Confidential & Proprietary
         </div>
       </div>
 
-      {/* Page 3: Executive Summary + Scope Highlights */}
+      {/* Page 2: Executive Summary + Scope Highlights */}
       <div className="proposal-page">
-        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={3} totalPages={TOTAL_PAGES} />
+        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={2} totalPages={TOTAL_PAGES} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">1</span>
@@ -69,9 +79,9 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         </div>
       </div>
 
-      {/* Page 4: Implementation Timeline */}
+      {/* Page 3: Implementation Timeline */}
       <div className="proposal-page">
-        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={4} totalPages={TOTAL_PAGES} />
+        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={3} totalPages={TOTAL_PAGES} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">3</span>
@@ -116,9 +126,9 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         </div>
       </div>
 
-      {/* Page 5: Commercial Terms */}
+      {/* Page 4: Commercial Terms */}
       <div className="proposal-page">
-        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={5} totalPages={TOTAL_PAGES} />
+        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={4} totalPages={TOTAL_PAGES} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">4</span>
@@ -194,9 +204,9 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         </div>
       </div>
 
-      {/* Page 6: SLA + Training */}
+      {/* Page 5: SLA + Training */}
       <div className="proposal-page">
-        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={6} totalPages={TOTAL_PAGES} />
+        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={5} totalPages={TOTAL_PAGES} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">5</span>
@@ -266,9 +276,9 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         </div>
       </div>
 
-      {/* Page 7: Additional Scope & Key Assumptions */}
+      {/* Page 6: Additional Scope & Key Assumptions */}
       <div className="proposal-page">
-        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={7} totalPages={TOTAL_PAGES} />
+        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={6} totalPages={TOTAL_PAGES} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">7</span>
@@ -301,9 +311,9 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         </div>
       </div>
 
-      {/* Page 8: Terms & Conditions */}
+      {/* Page 7: Terms & Conditions */}
       <div className="proposal-page">
-        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={8} totalPages={TOTAL_PAGES} />
+        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={7} totalPages={TOTAL_PAGES} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">9</span>
@@ -349,9 +359,9 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         </div>
       </div>
 
-      {/* Page 9: Why SIPL / Conclusion */}
+      {/* Page 8: Why SIPL / Conclusion */}
       <div className="proposal-page">
-        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={9} totalPages={TOTAL_PAGES} />
+        <ProposalHeader documentTitle={DOC_TITLE} pageNumber={8} totalPages={TOTAL_PAGES} />
         <div className="proposal-section">
           <div className="proposal-section-title">
             <span className="proposal-section-number">10</span>

@@ -11,12 +11,36 @@ export const proposalStyles = `
   /* Each page uses break-after to signal html2pdf page boundaries */
   .proposal-page {
     width: 210mm;
-    min-height: 260mm;
     padding: 12mm 15mm;
     box-sizing: border-box;
     position: relative;
     break-after: page;
     page-break-after: always;
+  }
+
+  /* Cover page with inline cover block */
+  .proposal-page-cover {
+    background: linear-gradient(135deg, #0f1b4c 0%, #1a237e 40%, #283593 100%);
+    color: white;
+  }
+
+  .proposal-page-cover .confidential-box {
+    border-color: rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.08);
+  }
+
+  .proposal-page-cover .confidential-title {
+    color: #ffd54f;
+  }
+
+  .proposal-page-cover .confidential-text,
+  .proposal-page-cover .confidential-text p {
+    color: rgba(255,255,255,0.85);
+  }
+
+  .proposal-cover-inline {
+    text-align: center;
+    padding: 20px 0 10px 0;
   }
 
   /* Last page should not force a trailing blank page */
@@ -25,10 +49,9 @@ export const proposalStyles = `
     page-break-after: auto;
   }
 
-  /* Cover Page */
+  /* Standalone Cover Page (legacy) */
   .proposal-cover {
     width: 210mm;
-    min-height: 280mm;
     display: flex;
     flex-direction: column;
     justify-content: center;
