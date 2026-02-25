@@ -45,15 +45,15 @@ const mapAppRoleToUserRole = (appRole: AppRole | null): UserRole => {
 
 export const getRoleDisplayName = (role: UserRole | AppRole): string => {
   const displayNames: Record<string, string> = {
-    quality: 'Quality Inspector',
+    quality: 'QC Inspector',
     quality_head: 'Quality Head',
     purchase: 'Purchase Team',
     purchase_head: 'Purchase Head',
     engineering: 'Engineering',
     engineering_head: 'Engineering Head',
     plant_head: 'Plant Head',
-    shop_floor: 'Shop Floor',
-    executive: 'Executive',
+    shop_floor: 'Production',
+    executive: 'Plant Head / GM',
     admin: 'Administrator',
     mrb_committee: 'MRB Committee',
   };

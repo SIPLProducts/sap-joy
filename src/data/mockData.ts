@@ -9,8 +9,8 @@ export const mockUsers: User[] = [
   { id: 'U005', name: 'Hassan Raza', role: 'shop_floor', email: 'hassan.raza@hbl.com', plant: 'Plant-2000' },
 ];
 
-// Plants
-export const plants = ['Plant-1000', 'Plant-2000', 'Plant-3000'];
+// Plants - kept as fallback; prefer usePlants() hook for dynamic data from DB
+export const plants = ['1300', 'Plant-1000', 'Plant-2000', 'Plant-3000'];
 
 // Vendors
 export const vendors = [

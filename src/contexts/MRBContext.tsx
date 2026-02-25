@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Database } from '@/integrations/supabase/types';
 
 type MRBRecord = Database['public']['Tables']['mrb_records']['Row'];
@@ -35,6 +36,11 @@ export function MRBProvider({ children }: { children: ReactNode }) {
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
   const [filters, setFilters] = useState<MRBFilters>({});
   const [isLoading, setIsLoading] = useState(true);
+  const { profile, userRole } = useAuth();
+
+  // Plant-based filtering: admin and executive see all plants, others see only their plant
+  const shouldFilterByPlant = userRole && !['admin', 'executive'].includes(userRole);
+  const userPlant = profile?.plant;
 
   const fetchData = useCallback(async () => {
     try {
@@ -52,7 +58,11 @@ export function MRBProvider({ children }: { children: ReactNode }) {
       ]);
 
       if (mrbResult.data) {
-        setMRBRecords(mrbResult.data);
+        // Apply plant-based filtering on client side
+        const filtered = shouldFilterByPlant && userPlant
+          ? mrbResult.data.filter(r => r.plant === userPlant)
+          : mrbResult.data;
+        setMRBRecords(filtered);
       }
       if (emailResult.data) {
         setEmailLogs(emailResult.data);
