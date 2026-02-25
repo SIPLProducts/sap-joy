@@ -59,8 +59,8 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
               <tr><td>6</td><td>SAP Integration</td><td>Bi-directional data sync — inspection lots, stock, material/vendor master, block/unblock, disposition posting</td></tr>
               <tr><td>7</td><td>Role-Based Dashboards (6 types)</td><td>KPI, Quality, Purchase, Engineering, Executive, Analytics dashboards</td></tr>
               <tr><td>8</td><td>Email Notification System</td><td>Automated workflow notifications with template management</td></tr>
-              <tr><td>9</td><td>Print/PDF Generation</td><td>NCR and MRB report generation with configurable formats</td></tr>
-              <tr><td>10</td><td>User & Plant Management</td><td>Role-based access, plant configuration, workflow settings</td></tr>
+              <tr><td>9</td><td>Print/PDF Generation</td><td>NCR report and MRB Committee Form generation</td></tr>
+              <tr><td>10</td><td>User & Plant Management</td><td>Role-based access (roles defined by business), plant configuration, workflow settings</td></tr>
             </tbody>
           </table>
         </div>
