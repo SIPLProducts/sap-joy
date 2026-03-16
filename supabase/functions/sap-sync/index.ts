@@ -112,7 +112,13 @@ Deno.serve(async (req) => {
         }
 
         // Map and insert data
-        const mappingResult = await mapAndInsertData(supabase, sapResponse.data, responseFields || [], config)
+        const mappingResult = await mapAndInsertData(
+          supabase,
+          sapResponse.data,
+          responseFields || [],
+          config,
+          syncRecord.id,
+        )
 
         const hasErrors = mappingResult.errors.length > 0
         const finalStatus = (mappingResult.inserted === 0 && hasErrors) ? 'failed' : (hasErrors ? 'partial' : 'success')
@@ -326,7 +332,8 @@ async function mapAndInsertData(
   supabase: any,
   records: any[],
   responseFields: any[],
-  config: any
+  config: any,
+  syncId: string,
 ): Promise<{ fetched: number; inserted: number; updated: number; errors: string[] }> {
   const result = { fetched: records.length, inserted: 0, updated: 0, errors: [] as string[] }
 
@@ -334,6 +341,83 @@ async function mapAndInsertData(
     if (!responseFields.length) result.errors.push('No response field mappings configured')
     if (!records.length) result.errors.push('No records returned from SAP')
     return result
+  }
+
+  const allowedColumnsByTable = {
+    shop_floor_stock: new Set([
+      'plant',
+      'material_code',
+      'material_description',
+      'batch',
+      'storage_location',
+      'available_quantity',
+      'uom',
+      'production_order',
+      'reservation_number',
+      'sap_sync_id',
+      'source',
+      'status',
+    ]),
+    inward_inspection_lots: new Set([
+      'inspection_lot',
+      'material_code',
+      'material_description',
+      'plant',
+      'storage_location',
+      'batch',
+      'uom',
+      'blocked_quantity',
+      'transaction_quantity',
+      'status',
+      'block_reason',
+      'vendor_code',
+      'vendor_name',
+      'po_number',
+      'grn_number',
+      'uploaded_by',
+      'upload_batch_id',
+    ]),
+    materials: new Set(['material_number', 'description', 'uom', 'category']),
+    vendors: new Set(['code', 'name', 'contact_email', 'contact_phone', 'address', 'is_active']),
+  } as const
+
+  const requiredColumnsByTable = {
+    shop_floor_stock: ['plant', 'material_code', 'available_quantity'],
+    inward_inspection_lots: ['inspection_lot', 'material_code', 'plant'],
+    materials: ['material_number', 'description'],
+    vendors: ['code', 'name'],
+  } as const
+
+  const aliasMapByTable: Record<string, Record<string, string>> = {
+    shop_floor_stock: {
+      material: 'material_code',
+      matnr: 'material_code',
+      material_desc: 'material_description',
+      maktx: 'material_description',
+      unrestricted_qty: 'available_quantity',
+      labst: 'available_quantity',
+      charg: 'batch',
+    },
+    inward_inspection_lots: {
+      matnr: 'material_code',
+      material: 'material_code',
+      maktx: 'material_description',
+      material_desc: 'material_description',
+      werks: 'plant',
+      charg: 'batch',
+    },
+    materials: {
+      material: 'material_number',
+      matnr: 'material_number',
+      material_desc: 'description',
+      maktx: 'description',
+    },
+    vendors: {
+      vendor_code: 'code',
+      lifnr: 'code',
+      vendor_name: 'name',
+      name1: 'name',
+    },
   }
 
   // Group fields by target table
@@ -347,59 +431,83 @@ async function mapAndInsertData(
 
   for (const [tableName, fields] of tableFieldMap) {
     try {
-      const mappedRows = records.map((record) => {
+      const allowedColumns = allowedColumnsByTable[tableName as keyof typeof allowedColumnsByTable]
+      if (!allowedColumns) {
+        result.errors.push(`Unsupported target table: ${tableName}`)
+        continue
+      }
+
+      const aliases = aliasMapByTable[tableName] || {}
+      const sanitizedRows = records.map((record, index) => {
         const row: Record<string, any> = {}
+
         fields.forEach((field) => {
-          // Extract value using json_path or sap_field_name or field_name
           let value: any
           if (field.json_path) {
             value = getNestedValue(record, field.json_path)
           } else {
             value = record[field.sap_field_name || field.field_name]
           }
-          if (value !== undefined && value !== null) {
-            row[field.map_to_column] = value
+
+          if (value === undefined || value === null || value === '') return
+
+          const requestedColumn = String(field.map_to_column).trim()
+          const normalizedColumn = aliases[requestedColumn.toLowerCase()] || requestedColumn
+          if (!allowedColumns.has(normalizedColumn)) {
+            return
           }
+
+          row[normalizedColumn] = value
         })
-        // Add source metadata and ensure required NOT NULL columns have defaults
+
         if (tableName === 'shop_floor_stock') {
-          row.source = 'sap_sync'
-          row.status = row.status || 'available'
-          if (!row.plant) row.plant = config.sap_client || 'Plant-1000'
-          if (!row.material_code) row.material_code = row.material_description || 'UNKNOWN'
-          if (!row.available_quantity && row.available_quantity !== 0) row.available_quantity = 0
+          row.status = ['available', 'blocked', 'reserved'].includes(String(row.status || '').toLowerCase())
+            ? String(row.status).toLowerCase()
+            : 'available'
+          row.source = 'sap_api'
+          row.sap_sync_id = syncId
+          if (row.available_quantity !== undefined) {
+            const quantity = Number(row.available_quantity)
+            row.available_quantity = Number.isFinite(quantity) ? quantity : undefined
+          }
         }
+
         if (tableName === 'inward_inspection_lots') {
           row.status = row.status || 'pending'
-          if (!row.plant) row.plant = config.sap_client || 'Plant-1000'
-          if (!row.material_code) row.material_code = row.material_description || 'UNKNOWN'
-          if (!row.inspection_lot) row.inspection_lot = `IL-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`
         }
-        if (tableName === 'materials') {
-          if (!row.material_number) row.material_number = row.description || 'UNKNOWN'
-          if (!row.description) row.description = row.material_number || 'Unknown Material'
+
+        const requiredColumns = requiredColumnsByTable[tableName as keyof typeof requiredColumnsByTable] || []
+        const missingRequired = requiredColumns.filter((column) => {
+          const value = row[column]
+          return value === undefined || value === null || value === ''
+        })
+
+        if (missingRequired.length > 0) {
+          result.errors.push(
+            `Skipped ${tableName} row ${index + 1}: missing required mapped fields (${missingRequired.join(', ')})`,
+          )
+          return null
         }
-        if (tableName === 'vendors') {
-          if (!row.code) row.code = row.name || 'UNKNOWN'
-          if (!row.name) row.name = row.code || 'Unknown Vendor'
-        }
+
         return row
-      }).filter((row) => Object.keys(row).length > 1)
+      }).filter(Boolean) as Record<string, any>[]
 
-      if (mappedRows.length === 0) continue
+      if (sanitizedRows.length === 0) continue
 
-      // Apply max_records limit
-      const maxRecords = config.max_records || 1000
-      const limitedRows = mappedRows.slice(0, maxRecords)
+      const batchSize = 500
 
-      const { data, error } = await supabase
-        .from(tableName)
-        .insert(limitedRows)
-        .select()
+      for (let index = 0; index < sanitizedRows.length; index += batchSize) {
+        const batch = sanitizedRows.slice(index, index + batchSize)
+        const { data, error } = await supabase
+          .from(tableName)
+          .insert(batch)
+          .select()
 
-      if (error) {
-        result.errors.push(`Error inserting into ${tableName}: ${error.message}`)
-      } else {
+        if (error) {
+          result.errors.push(`Error inserting into ${tableName}: ${error.message}`)
+          break
+        }
+
         result.inserted += data?.length || 0
       }
     } catch (tableErr: any) {
@@ -412,9 +520,15 @@ async function mapAndInsertData(
 
 // Get nested value from object using dot notation path
 function getNestedValue(obj: any, path: string): any {
-  return path.split('.').reduce((current, key) => {
+  const normalizedPath = path
+    .replace(/^\$\[\*\]\./, '')
+    .replace(/^\$\./, '')
+    .replace(/^\$/, '')
+
+  if (!normalizedPath) return obj
+
+  return normalizedPath.split('.').reduce((current, key) => {
     if (current === null || current === undefined) return undefined
-    // Handle array notation like items[0]
     const arrayMatch = key.match(/^(\w+)\[(\d+)\]$/)
     if (arrayMatch) {
       return current[arrayMatch[1]]?.[parseInt(arrayMatch[2])]
