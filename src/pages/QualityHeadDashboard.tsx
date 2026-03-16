@@ -176,17 +176,30 @@ export default function QualityHeadDashboard() {
   }, [filteredMRBs]);
 
   const tableData = useMemo(() => {
-    return filteredLots.slice(0, 20).map(lot => ({
-      id: lot.inspectionLot,
-      inspectionLot: lot.inspectionLot,
-      materialCode: lot.materialCode,
-      vendorName: lot.vendorName,
-      blockedQuantity: lot.blockedQuantity,
-      defectCategory: lot.blockReason || '-',
-      qualityDecision: 'Pending Review',
-      mrbStatus: 'Pending',
-    }));
-  }, [filteredLots]);
+    // Build a lookup from inspection lot to MRB record
+    const mrbByLot = new Map<string, typeof filteredMRBs[0]>();
+    filteredMRBs.forEach(mrb => {
+      if (mrb.inspection_lot) mrbByLot.set(mrb.inspection_lot, mrb);
+    });
+
+    return filteredLots.slice(0, 20).map(lot => {
+      const mrb = mrbByLot.get(lot.inspectionLot);
+      return {
+        id: lot.inspectionLot,
+        inspectionLot: lot.inspectionLot,
+        materialCode: lot.materialCode,
+        vendorName: lot.vendorName,
+        blockedQuantity: lot.blockedQuantity,
+        defectCategory: mrb?.defect_description || mrb?.defect_category || lot.blockReason || '-',
+        qualityDecision: mrb?.quality_decision
+          ? mrb.quality_decision.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+          : 'Pending Review',
+        mrbStatus: mrb
+          ? mrb.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+          : 'No MRB',
+      };
+    });
+  }, [filteredLots, filteredMRBs]);
 
   const clearFilters = () => {
     setSelectedPlant('all');
