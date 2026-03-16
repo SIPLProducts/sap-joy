@@ -196,10 +196,6 @@ function buildAuthHeaders(config: any): Record<string, string> {
     'Accept': 'application/json',
   }
 
-  if (config.sap_client) {
-    headers['sap-client'] = config.sap_client
-  }
-
   if (config.proxy_secret) {
     headers['x-proxy-secret'] = config.proxy_secret
   }
