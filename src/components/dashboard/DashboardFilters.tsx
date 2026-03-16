@@ -41,6 +41,9 @@ export function DashboardFilters({
   showVendor = false,
   showMaterial = false,
   onClear,
+  plants = [],
+  vendors = [],
+  materials = [],
 }: DashboardFiltersProps) {
   return (
     <div className="px-6 py-3 bg-muted/50 border-t border-border">

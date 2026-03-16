@@ -76,21 +76,22 @@ export default function InwardReport() {
   const [showBatchConfirm, setShowBatchConfirm] = useState(false);
   const [pendingSingleRecord, setPendingSingleRecord] = useState<InspectionLotRecord | null>(null);
 
-  // Build options for filters - include both mock data and actual uploaded data
-  const allPlants = [...new Set([...plants, ...inspectionLotRecords.map(r => r.plant)])];
-  const allMaterials = [...new Set([...materials.map(m => m.number), ...inspectionLotRecords.map(r => r.materialCode)])];
-  const allVendors = [...new Set([...vendors.map(v => v.code), ...inspectionLotRecords.map(r => r.vendorCode).filter(Boolean)])];
+  // Build options for filters from real DB data only
+  const allPlants = [...new Set(inspectionLotRecords.map(r => r.plant))];
+  const allMaterials = [...new Set(inspectionLotRecords.map(r => r.materialCode))];
+  const allVendors = [...new Set(inspectionLotRecords.map(r => r.vendorCode).filter(Boolean))];
+  const allSlocs = [...new Set(inspectionLotRecords.map(r => r.storageLocation).filter(Boolean))];
   
   const plantOptions = allPlants.map(p => ({ value: p, label: p }));
   const materialOptions = allMaterials.map(m => {
-    const material = materials.find(mat => mat.number === m);
-    return { value: m, label: material ? `${m} - ${material.description}` : m };
+    const record = inspectionLotRecords.find(r => r.materialCode === m);
+    return { value: m, label: record?.materialDescription ? `${m} - ${record.materialDescription}` : m };
   });
   const vendorOptions = allVendors.map(v => {
-    const vendor = vendors.find(ven => ven.code === v);
-    return { value: v, label: vendor ? `${v} - ${vendor.name}` : v };
+    const record = inspectionLotRecords.find(r => r.vendorCode === v);
+    return { value: v, label: record?.vendorName ? `${v} - ${record.vendorName}` : v };
   });
-  const slocOptions = storageLocations.map(s => ({ value: s.code, label: `${s.code} - ${s.name}` }));
+  const slocOptions = allSlocs.map(s => ({ value: s, label: s }));
   // Only show pending lots in the filter dropdown (eligible for MRB creation)
   const inspectionLotOptions = inspectionLotRecords
     .filter(r => r.status === 'pending')

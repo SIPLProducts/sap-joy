@@ -33,7 +33,7 @@ import {
   Factory,
   Filter
 } from 'lucide-react';
-import { getStatusDisplayName, getSLAColor, plants, vendors } from '@/data/mockData';
+import { getStatusDisplayName, getSLAColor } from '@/data/mockData';
 import { 
   PieChart as RechartsPie, 
   Pie, 

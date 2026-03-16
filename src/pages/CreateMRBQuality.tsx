@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { materials, vendors, plants, defectCodes } from '@/data/mockData';
+import {} from '@/data/mockData';
 import { Upload, X, FileText, Save, Send, ArrowLeft } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 

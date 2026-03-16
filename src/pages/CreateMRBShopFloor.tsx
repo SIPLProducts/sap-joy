@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { materials, vendors, plants } from '@/data/mockData';
+import {} from '@/data/mockData';
 import { Upload, X, FileText, Save, Send, ArrowLeft } from 'lucide-react';
 
 export default function CreateMRBShopFloor() {
