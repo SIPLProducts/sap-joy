@@ -115,12 +115,21 @@ export default function QualityHeadDashboard() {
   }, [filteredLots, filteredMRBs]);
 
   const defectCategorySplit = useMemo(() => {
-    const electrical = filteredMRBs.filter(mrb => mrb.defect_category === 'functional').length;
-    const mechanical = filteredMRBs.filter(mrb => ['dimensional', 'surface', 'material'].includes(mrb.defect_category || '')).length;
-    return [
-      { name: 'Electrical/Functional', value: electrical },
-      { name: 'Mechanical', value: mechanical },
-    ];
+    const categories: Record<string, number> = {};
+    filteredMRBs.forEach(mrb => {
+      const label = mrb.defect_category || mrb.defect_description || 'Not specified';
+      const shortLabel = label.length > 25 ? label.substring(0, 23) + '…' : label;
+      categories[shortLabel] = (categories[shortLabel] || 0) + 1;
+    });
+    const sorted = Object.entries(categories)
+      .map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value }))
+      .sort((a, b) => b.value - a.value);
+    if (sorted.length > 6) {
+      const top = sorted.slice(0, 6);
+      const othersValue = sorted.slice(6).reduce((sum, item) => sum + item.value, 0);
+      return [...top, { name: 'Others', value: othersValue }];
+    }
+    return sorted;
   }, [filteredMRBs]);
 
   const topRejectionReasons = useMemo(() => {
