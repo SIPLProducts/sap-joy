@@ -262,35 +262,38 @@ export default function KPIDashboard() {
 
   // Top 5 Vendors with Material Damage
   const topVendorsByDamage = useMemo(() => {
-    const vendorCounts: Record<string, { 
+    const vendorDamage: Record<string, { 
       vendorName: string; 
       count: number; 
       totalQuantity: number;
-      rejectedQuantity: number;
+      damageQuantity: number;
     }> = {};
     
     filteredMRBs.forEach(mrb => {
-      if (mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0) {
-        const vendorCode = mrb.vendor_code || 'unknown';
-        const vendorName = mrb.vendor_name || vendorCode;
-        
-        if (!vendorCounts[vendorCode]) {
-          vendorCounts[vendorCode] = { 
-            vendorName, 
-            count: 0, 
-            totalQuantity: 0,
-            rejectedQuantity: 0 
-          };
-        }
-        vendorCounts[vendorCode].count++;
-        vendorCounts[vendorCode].totalQuantity += mrb.total_quantity || 0;
-        vendorCounts[vendorCode].rejectedQuantity += mrb.rejected_quantity || mrb.blocked_quantity || 0;
+      const damageQuantity = Number(mrb.rejected_quantity || 0) + Number(mrb.blocked_quantity || 0);
+      const vendorCode = (mrb.vendor_code || '').trim();
+      const vendorName = (mrb.vendor_name || '').trim() || vendorCode;
+
+      if (damageQuantity <= 0 || !vendorName) return;
+      
+      if (!vendorDamage[vendorCode || vendorName]) {
+        vendorDamage[vendorCode || vendorName] = { 
+          vendorName, 
+          count: 0, 
+          totalQuantity: 0,
+          damageQuantity: 0 
+        };
       }
+
+      const key = vendorCode || vendorName;
+      vendorDamage[key].count++;
+      vendorDamage[key].totalQuantity += Number(mrb.total_quantity || 0);
+      vendorDamage[key].damageQuantity += damageQuantity;
     });
 
-    return Object.entries(vendorCounts)
+    return Object.entries(vendorDamage)
       .map(([code, data]) => ({ vendorCode: code, ...data }))
-      .sort((a, b) => b.count - a.count)
+      .sort((a, b) => b.damageQuantity - a.damageQuantity || b.count - a.count)
       .slice(0, 5);
   }, [filteredMRBs]);
 
