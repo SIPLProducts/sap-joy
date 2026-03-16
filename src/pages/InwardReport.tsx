@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, Upload, RefreshCw, Database, FileUp, AlertCircle, CheckCircle2, Download, Loader2, Layers, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -116,6 +116,14 @@ export default function InwardReport() {
     setCurrentPage(1);
     setSelectedIds(new Set()); // Clear selection on new search
   };
+
+  // Auto-load all records on mount and when data refreshes
+  useEffect(() => {
+    if (!isLoading && inspectionLotRecords.length > 0) {
+      setSearchResults(inspectionLotRecords);
+      if (!hasSearched) setHasSearched(true);
+    }
+  }, [isLoading, inspectionLotRecords]);
 
   const handleReset = () => {
     setFilters({

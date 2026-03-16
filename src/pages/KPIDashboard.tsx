@@ -109,8 +109,9 @@ export default function KPIDashboard() {
     return months;
   }, []);
 
-  // Combine all MRBs
-  const allMRBs = useMemo(() => [...mrbRecords, ...inwardMRBRecords], [mrbRecords, inwardMRBRecords]);
+  // Use mrbRecords directly - it already contains ALL records (including quality_inspection source)
+  // Do NOT combine with inwardMRBRecords as that causes duplication
+  const allMRBs = useMemo(() => mrbRecords, [mrbRecords]);
 
   // Filter MRBs based on selections
   const filteredMRBs = useMemo(() => {
