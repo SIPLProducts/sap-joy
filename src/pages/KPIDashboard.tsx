@@ -675,11 +675,13 @@ export default function KPIDashboard() {
                         }}
                       />
                       <Legend />
-                      <Bar dataKey="dimensional" name="Dimensional" stackId="a" fill={CHART_COLORS[0]} />
-                      <Bar dataKey="surface" name="Surface" stackId="a" fill={CHART_COLORS[1]} />
-                      <Bar dataKey="material" name="Material" stackId="a" fill={CHART_COLORS[2]} />
-                      <Bar dataKey="functional" name="Functional" stackId="a" fill={CHART_COLORS[3]} />
-                      <Bar dataKey="documentation" name="Documentation" stackId="a" fill={CHART_COLORS[4]} />
+                      {(() => {
+                        const allKeys = new Set<string>();
+                        rejectReasonsByPlant.forEach(d => Object.keys(d).forEach(k => { if (k !== 'plant' && k !== 'total') allKeys.add(k); }));
+                        return [...allKeys].slice(0, 8).map((key, i) => (
+                          <Bar key={key} dataKey={key} name={key} stackId="a" fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                        ));
+                      })()}
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -716,10 +718,13 @@ export default function KPIDashboard() {
                         }}
                       />
                       <Legend />
-                      <Area type="monotone" dataKey="dimensional" name="Dimensional" stackId="1" stroke={CHART_COLORS[0]} fill={CHART_COLORS[0]} fillOpacity={0.6} />
-                      <Area type="monotone" dataKey="surface" name="Surface" stackId="1" stroke={CHART_COLORS[1]} fill={CHART_COLORS[1]} fillOpacity={0.6} />
-                      <Area type="monotone" dataKey="material" name="Material" stackId="1" stroke={CHART_COLORS[2]} fill={CHART_COLORS[2]} fillOpacity={0.6} />
-                      <Area type="monotone" dataKey="functional" name="Functional" stackId="1" stroke={CHART_COLORS[3]} fill={CHART_COLORS[3]} fillOpacity={0.6} />
+                      {(() => {
+                        const allKeys = new Set<string>();
+                        rejectReasonsByMonth.forEach(d => Object.keys(d).forEach(k => { if (k !== 'month' && k !== 'total') allKeys.add(k); }));
+                        return [...allKeys].slice(0, 8).map((key, i) => (
+                          <Area key={key} type="monotone" dataKey={key} name={key} stackId="1" stroke={CHART_COLORS[i % CHART_COLORS.length]} fill={CHART_COLORS[i % CHART_COLORS.length]} fillOpacity={0.6} />
+                        ));
+                      })()}
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
