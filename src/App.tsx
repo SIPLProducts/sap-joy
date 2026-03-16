@@ -79,6 +79,7 @@ const App = () => (
                           <Route path="/admin/users" element={<UserManagement />} />
                           <Route path="/profile" element={<UserProfile />} />
                           <Route path="/help" element={<HelpSupport />} />
+                          <Route path="/admin/sap-api" element={<SAPApiSettings />} />
                           <Route path="/proposals" element={<ProposalGenerator />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
