@@ -183,7 +183,6 @@ export default function ShopFloorMaterialBlocking() {
 
       if (mrbResult) {
         // Update shop_floor_stock status to 'mrb_created'
-        const { supabase } = await import('@/integrations/supabase/client');
         await supabase
           .from('shop_floor_stock')
           .update({ status: 'mrb_created', updated_at: new Date().toISOString() })
