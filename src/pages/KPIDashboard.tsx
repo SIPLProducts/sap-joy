@@ -329,15 +329,16 @@ export default function KPIDashboard() {
     const plantData: Record<string, { plant: string; vendors: Record<string, number> }> = {};
     
     filteredMRBs.forEach(mrb => {
-      if (mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0) {
-        const plant = mrb.plant;
-        const vendor = mrb.vendor_name || '';
-        
-        if (!plantData[plant]) {
-          plantData[plant] = { plant, vendors: {} };
-        }
-        plantData[plant].vendors[vendor] = (plantData[plant].vendors[vendor] || 0) + 1;
+      const damageQuantity = Number(mrb.rejected_quantity || 0) + Number(mrb.blocked_quantity || 0);
+      const vendor = (mrb.vendor_name || mrb.vendor_code || '').trim();
+      if (damageQuantity <= 0 || !vendor) return;
+
+      const plant = mrb.plant;
+      
+      if (!plantData[plant]) {
+        plantData[plant] = { plant, vendors: {} };
       }
+      plantData[plant].vendors[vendor] = (plantData[plant].vendors[vendor] || 0) + damageQuantity;
     });
 
     return Object.values(plantData).map(data => ({
