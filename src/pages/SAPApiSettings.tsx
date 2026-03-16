@@ -177,7 +177,7 @@ export default function SAPApiSettings() {
           <p className="text-muted-foreground">Configure SAP API connections with dynamic field mappings</p>
         </div>
         <div className="flex items-center gap-2">
-          {currentRole === 'admin' && (
+          {userRole === 'admin' && (
             <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300 px-3 py-1">
               System Admin
             </Badge>
