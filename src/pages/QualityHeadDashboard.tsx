@@ -61,16 +61,7 @@ export default function QualityHeadDashboard() {
     setLastRefresh(new Date());
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading dashboard data...</p>
-        </div>
-      </div>
-    );
-  }
+  // Loading check moved after all hooks
 
   const allMRBs = useMemo(() => [...mrbRecords, ...inwardMRBRecords], [mrbRecords, inwardMRBRecords]);
 
@@ -108,29 +99,39 @@ export default function QualityHeadDashboard() {
     const qualityRaised = filteredMRBs.filter(mrb => mrb.source === 'quality_inspection').length;
     
     const avgTimeToRaise = filteredMRBs.length > 0
-      ? Math.round(filteredMRBs.reduce((sum, mrb) => sum + Math.min(mrb.pending_days || 0, 3), 0) / filteredMRBs.length)
+      ? Math.round(filteredMRBs.reduce((sum, mrb) => sum + (mrb.pending_days || 0), 0) / filteredMRBs.length)
       : 0;
 
     return { totalLots, rejectionRate, totalBlockedQty, qualityRaised, avgTimeToRaise };
   }, [filteredLots, filteredMRBs]);
 
   const defectCategorySplit = useMemo(() => {
-    const electrical = filteredMRBs.filter(mrb => mrb.defect_category === 'functional').length;
-    const mechanical = filteredMRBs.filter(mrb => ['dimensional', 'surface', 'material'].includes(mrb.defect_category || '')).length;
-    return [
-      { name: 'Electrical/Functional', value: electrical },
-      { name: 'Mechanical', value: mechanical },
-    ];
+    const categories: Record<string, number> = {};
+    filteredMRBs.forEach(mrb => {
+      const label = mrb.defect_category || mrb.defect_description || 'Not specified';
+      const shortLabel = label.length > 25 ? label.substring(0, 23) + '…' : label;
+      categories[shortLabel] = (categories[shortLabel] || 0) + 1;
+    });
+    const sorted = Object.entries(categories)
+      .map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value }))
+      .sort((a, b) => b.value - a.value);
+    if (sorted.length > 6) {
+      const top = sorted.slice(0, 6);
+      const othersValue = sorted.slice(6).reduce((sum, item) => sum + item.value, 0);
+      return [...top, { name: 'Others', value: othersValue }];
+    }
+    return sorted;
   }, [filteredMRBs]);
 
   const topRejectionReasons = useMemo(() => {
     const reasons: Record<string, number> = {};
     filteredMRBs.forEach(mrb => {
-      const reason = mrb.defect_code || mrb.defect_category || 'Other';
-      reasons[reason] = (reasons[reason] || 0) + 1;
+      const reason = (mrb.defect_description || mrb.defect_category || mrb.defect_code || 'Not specified').trim();
+      const shortReason = reason.length > 30 ? reason.substring(0, 28) + '…' : reason;
+      reasons[shortReason] = (reasons[shortReason] || 0) + 1;
     });
     return Object.entries(reasons)
-      .map(([name, count]) => ({ name, count }))
+      .map(([name, count]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 8);
   }, [filteredMRBs]);
@@ -166,17 +167,30 @@ export default function QualityHeadDashboard() {
   }, [filteredMRBs]);
 
   const tableData = useMemo(() => {
-    return filteredLots.slice(0, 20).map(lot => ({
-      id: lot.inspectionLot,
-      inspectionLot: lot.inspectionLot,
-      materialCode: lot.materialCode,
-      vendorName: lot.vendorName,
-      blockedQuantity: lot.blockedQuantity,
-      defectCategory: lot.blockReason || '-',
-      qualityDecision: 'Pending Review',
-      mrbStatus: 'Pending',
-    }));
-  }, [filteredLots]);
+    // Build a lookup from inspection lot to MRB record
+    const mrbByLot = new Map<string, typeof filteredMRBs[0]>();
+    filteredMRBs.forEach(mrb => {
+      if (mrb.inspection_lot) mrbByLot.set(mrb.inspection_lot, mrb);
+    });
+
+    return filteredLots.slice(0, 20).map(lot => {
+      const mrb = mrbByLot.get(lot.inspectionLot);
+      return {
+        id: lot.inspectionLot,
+        inspectionLot: lot.inspectionLot,
+        materialCode: lot.materialCode,
+        vendorName: lot.vendorName,
+        blockedQuantity: lot.blockedQuantity,
+        defectCategory: mrb?.defect_description || mrb?.defect_category || lot.blockReason || '-',
+        qualityDecision: mrb?.quality_decision
+          ? mrb.quality_decision.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+          : 'Pending Review',
+        mrbStatus: mrb
+          ? mrb.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+          : 'No MRB',
+      };
+    });
+  }, [filteredLots, filteredMRBs]);
 
   const clearFilters = () => {
     setSelectedPlant('all');
@@ -185,6 +199,18 @@ export default function QualityHeadDashboard() {
     setDateFrom(undefined);
     setDateTo(undefined);
   };
+
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-muted/30">
