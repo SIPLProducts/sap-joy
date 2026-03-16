@@ -108,7 +108,7 @@ export default function QualityHeadDashboard() {
     const qualityRaised = filteredMRBs.filter(mrb => mrb.source === 'quality_inspection').length;
     
     const avgTimeToRaise = filteredMRBs.length > 0
-      ? Math.round(filteredMRBs.reduce((sum, mrb) => sum + Math.min(mrb.pending_days || 0, 3), 0) / filteredMRBs.length)
+      ? Math.round(filteredMRBs.reduce((sum, mrb) => sum + (mrb.pending_days || 0), 0) / filteredMRBs.length)
       : 0;
 
     return { totalLots, rejectionRate, totalBlockedQty, qualityRaised, avgTimeToRaise };
