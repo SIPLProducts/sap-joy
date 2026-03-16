@@ -244,17 +244,17 @@ export default function KPIDashboard() {
     const monthData: Record<string, Record<string, number>> = {};
     
     filteredMRBs.forEach(mrb => {
-      const isRejected = mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0;
-      if (isRejected) {
-        if (!mrb.created_at) return;
-        const month = format(parseISO(mrb.created_at), 'MMM yyyy');
-        const reason = mrb.defect_category || 'unspecified';
-        
-        if (!monthData[month]) {
-          monthData[month] = {};
-        }
-        monthData[month][reason] = (monthData[month][reason] || 0) + 1;
+      const damageQty = Number(mrb.rejected_quantity || 0) + Number(mrb.blocked_quantity || 0);
+      if (damageQty <= 0 || !mrb.created_at) return;
+
+      const month = format(parseISO(mrb.created_at), 'MMM yyyy');
+      const reason = mrb.defect_description || mrb.defect_category || 'Not specified';
+      const shortReason = reason.length > 20 ? reason.substring(0, 18) + '…' : reason;
+      
+      if (!monthData[month]) {
+        monthData[month] = {};
       }
+      monthData[month][shortReason] = (monthData[month][shortReason] || 0) + 1;
     });
 
     return Object.entries(monthData).map(([month, reasons]) => ({
