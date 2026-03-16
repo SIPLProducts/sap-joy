@@ -368,12 +368,20 @@ export default function KPIDashboard() {
       categories[shortLabel] = (categories[shortLabel] || 0) + 1;
     });
 
-    return Object.entries(categories)
+    const sorted = Object.entries(categories)
       .map(([name, value]) => ({
         name: name.charAt(0).toUpperCase() + name.slice(1),
         value,
       }))
       .sort((a, b) => b.value - a.value);
+
+    // Show top 8, group rest as "Others"
+    if (sorted.length > 8) {
+      const top = sorted.slice(0, 8);
+      const othersValue = sorted.slice(8).reduce((sum, item) => sum + item.value, 0);
+      return [...top, { name: 'Others', value: othersValue }];
+    }
+    return sorted;
   }, [filteredMRBs]);
 
   // SLA Chart Data
@@ -620,26 +628,32 @@ export default function KPIDashboard() {
             </CardHeader>
             <CardContent>
               {defectCategoryData.length > 0 ? (
-                <div className="h-[300px]">
+                <div style={{ height: Math.max(300, defectCategoryData.length * 38) }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPie>
-                      <Pie
-                        data={defectCategoryData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={5}
-                        dataKey="value"
-                        label={({ name, value }) => `${name}: ${value}`}
-                      >
-                        {defectCategoryData.map((entry, index) => (
+                    <BarChart data={defectCategoryData} layout="vertical" margin={{ left: 10, right: 30, top: 5, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                      <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                      <YAxis
+                        dataKey="name"
+                        type="category"
+                        width={140}
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={11}
+                        tick={{ fill: 'hsl(var(--foreground))' }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--popover))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                        }}
+                      />
+                      <Bar dataKey="value" name="Count" radius={[0, 4, 4, 0]} barSize={20}>
+                        {defectCategoryData.map((_, index) => (
                           <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                         ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </RechartsPie>
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               ) : (
