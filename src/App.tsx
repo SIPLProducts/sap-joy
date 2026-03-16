@@ -34,6 +34,7 @@ import UserProfile from "@/pages/UserProfile";
 import HelpSupport from "@/pages/HelpSupport";
 import ProposalGenerator from "@/pages/ProposalGenerator";
 import IMSRedirect from "@/pages/IMSRedirect";
+import SAPApiSettings from "@/pages/SAPApiSettings";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
