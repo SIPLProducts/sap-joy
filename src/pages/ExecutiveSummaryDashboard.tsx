@@ -2,7 +2,6 @@ import { useMemo, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format, parseISO, isWithinInterval, differenceInDays, subMonths, getYear } from 'date-fns';
 import { useMRB } from '@/contexts/MRBContext';
-import { useInwardMRB } from '@/contexts/InwardMRBContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,8 +41,7 @@ import {
 const CHART_COLORS = ['hsl(210, 85%, 35%)', 'hsl(160, 60%, 40%)', 'hsl(38, 92%, 50%)', 'hsl(0, 72%, 51%)', 'hsl(270, 60%, 55%)'];
 
 export default function ExecutiveSummaryDashboard() {
-  const { mrbRecords, isLoading: mrbLoading, refreshData: refreshMRB } = useMRB();
-  const { inwardMRBRecords, isLoading: inwardLoading, refreshData: refreshInward } = useInwardMRB();
+  const { mrbRecords, isLoading, refreshData: refreshMRB } = useMRB();
   const navigate = useNavigate();
   const [selectedPlant, setSelectedPlant] = useState('all');
   const [selectedVendor, setSelectedVendor] = useState('all');
@@ -52,30 +50,17 @@ export default function ExecutiveSummaryDashboard() {
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
-  const isLoading = mrbLoading || inwardLoading;
-
   useEffect(() => {
     const interval = setInterval(() => setLastRefresh(new Date()), 30000);
     return () => clearInterval(interval);
   }, []);
 
   const handleRefresh = async () => {
-    await Promise.all([refreshMRB(), refreshInward()]);
+    await refreshMRB();
     setLastRefresh(new Date());
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading dashboard data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const allMRBs = useMemo(() => [...mrbRecords, ...inwardMRBRecords], [mrbRecords, inwardMRBRecords]);
+  const allMRBs = useMemo(() => mrbRecords, [mrbRecords]);
 
   const filteredMRBs = useMemo(() => {
     let filtered = [...allMRBs];
@@ -210,6 +195,17 @@ export default function ExecutiveSummaryDashboard() {
     { title: 'Purchase Head', url: '/dashboard/purchase-head', icon: Users },
     { title: 'Engineering Head', url: '/dashboard/engineering-head', icon: Wrench },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-muted/30">
