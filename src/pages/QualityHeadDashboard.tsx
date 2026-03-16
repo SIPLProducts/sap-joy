@@ -135,11 +135,12 @@ export default function QualityHeadDashboard() {
   const topRejectionReasons = useMemo(() => {
     const reasons: Record<string, number> = {};
     filteredMRBs.forEach(mrb => {
-      const reason = mrb.defect_code || mrb.defect_category || 'Other';
-      reasons[reason] = (reasons[reason] || 0) + 1;
+      const reason = (mrb.defect_description || mrb.defect_category || mrb.defect_code || 'Not specified').trim();
+      const shortReason = reason.length > 30 ? reason.substring(0, 28) + '…' : reason;
+      reasons[shortReason] = (reasons[shortReason] || 0) + 1;
     });
     return Object.entries(reasons)
-      .map(([name, count]) => ({ name, count }))
+      .map(([name, count]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 8);
   }, [filteredMRBs]);
