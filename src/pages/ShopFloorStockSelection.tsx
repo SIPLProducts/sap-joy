@@ -551,7 +551,7 @@ export default function ShopFloorStockSelection() {
                                   <TableCell>{stock.uom || 'EA'}</TableCell>
                                   <TableCell>
                                     <Badge variant={stock.source === 'upload' ? 'default' : stock.source === 'sap_api' ? 'secondary' : 'outline'}>
-                                      {stock.source === 'upload' ? 'Uploaded' : stock.source === 'sap_api' ? 'SAP' : 'Demo'}
+                                      {stock.source === 'upload' ? 'Uploaded' : stock.source === 'sap_api' ? 'SAP' : 'Manual'}
                                     </Badge>
                                   </TableCell>
                                 </TableRow>
