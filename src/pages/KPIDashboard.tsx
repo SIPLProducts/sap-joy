@@ -219,16 +219,17 @@ export default function KPIDashboard() {
     const plantData: Record<string, Record<string, number>> = {};
     
     filteredMRBs.forEach(mrb => {
-      const isRejected = mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0;
-      if (isRejected) {
-        const plant = mrb.plant;
-        const reason = mrb.defect_category || 'unspecified';
-        
-        if (!plantData[plant]) {
-          plantData[plant] = {};
-        }
-        plantData[plant][reason] = (plantData[plant][reason] || 0) + 1;
+      const damageQty = Number(mrb.rejected_quantity || 0) + Number(mrb.blocked_quantity || 0);
+      if (damageQty <= 0) return;
+
+      const plant = mrb.plant;
+      const reason = mrb.defect_description || mrb.defect_category || 'Not specified';
+      const shortReason = reason.length > 20 ? reason.substring(0, 18) + '…' : reason;
+      
+      if (!plantData[plant]) {
+        plantData[plant] = {};
       }
+      plantData[plant][shortReason] = (plantData[plant][shortReason] || 0) + 1;
     });
 
     return Object.entries(plantData).map(([plant, reasons]) => ({
