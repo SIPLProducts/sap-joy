@@ -112,7 +112,13 @@ Deno.serve(async (req) => {
         }
 
         // Map and insert data
-        const mappingResult = await mapAndInsertData(supabase, sapResponse.data, responseFields || [], config)
+        const mappingResult = await mapAndInsertData(
+          supabase,
+          sapResponse.data,
+          responseFields || [],
+          config,
+          syncRecord.id,
+        )
 
         const hasErrors = mappingResult.errors.length > 0
         const finalStatus = (mappingResult.inserted === 0 && hasErrors) ? 'failed' : (hasErrors ? 'partial' : 'success')
