@@ -32,14 +32,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-// Also keep mock data as fallback
-import {
-  mockAvailableStock,
-  getUniquePlants as getMockPlants,
-  getUniqueMaterials as getMockMaterials,
-  getUniqueBatches as getMockBatches,
-  getUniqueStorageLocations as getMockStorageLocations,
-} from '@/data/shopFloorStockData';
 
 export default function ShopFloorStockSelection() {
   const navigate = useNavigate();
