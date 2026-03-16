@@ -189,25 +189,28 @@ export default function KPIDashboard() {
     };
   }, [filteredMRBs, currentRole]);
 
-  // Top Reject Reasons Analysis
+  // Top Reject Reasons Analysis – uses live defect_description from mrb_records
   const topRejectReasons = useMemo(() => {
-    const reasonCounts: Record<string, { count: number; description: string }> = {};
+    const reasonCounts: Record<string, { count: number; description: string; damageQty: number }> = {};
     
     filteredMRBs.forEach(mrb => {
-      const isRejected = mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0;
-      if (isRejected) {
-        const reason = mrb.defect_category || mrb.defect_code || 'unspecified';
-        const description = mrb.defect_description || mrb.defect_category || 'No defect detail captured';
-        if (!reasonCounts[reason]) {
-          reasonCounts[reason] = { count: 0, description };
-        }
-        reasonCounts[reason].count++;
+      const damageQty = Number(mrb.rejected_quantity || 0) + Number(mrb.blocked_quantity || 0);
+      if (damageQty <= 0) return; // only count records with actual damage
+
+      // Use the most specific label available from the live record
+      const reason = (mrb.defect_description || mrb.defect_category || mrb.defect_code || 'Not specified').trim();
+      const shortLabel = reason.length > 30 ? reason.substring(0, 28) + '…' : reason;
+
+      if (!reasonCounts[shortLabel]) {
+        reasonCounts[shortLabel] = { count: 0, description: reason, damageQty: 0 };
       }
+      reasonCounts[shortLabel].count++;
+      reasonCounts[shortLabel].damageQty += damageQty;
     });
 
     return Object.entries(reasonCounts)
       .map(([code, data]) => ({ code, ...data }))
-      .sort((a, b) => b.count - a.count)
+      .sort((a, b) => b.damageQty - a.damageQty || b.count - a.count)
       .slice(0, 10);
   }, [filteredMRBs]);
 
