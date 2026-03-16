@@ -189,25 +189,28 @@ export default function KPIDashboard() {
     };
   }, [filteredMRBs, currentRole]);
 
-  // Top Reject Reasons Analysis
+  // Top Reject Reasons Analysis – uses live defect_description from mrb_records
   const topRejectReasons = useMemo(() => {
-    const reasonCounts: Record<string, { count: number; description: string }> = {};
+    const reasonCounts: Record<string, { count: number; description: string; damageQty: number }> = {};
     
     filteredMRBs.forEach(mrb => {
-      const isRejected = mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0;
-      if (isRejected) {
-        const reason = mrb.defect_category || mrb.defect_code || 'unspecified';
-        const description = mrb.defect_description || mrb.defect_category || 'No defect detail captured';
-        if (!reasonCounts[reason]) {
-          reasonCounts[reason] = { count: 0, description };
-        }
-        reasonCounts[reason].count++;
+      const damageQty = Number(mrb.rejected_quantity || 0) + Number(mrb.blocked_quantity || 0);
+      if (damageQty <= 0) return; // only count records with actual damage
+
+      // Use the most specific label available from the live record
+      const reason = (mrb.defect_description || mrb.defect_category || mrb.defect_code || 'Not specified').trim();
+      const shortLabel = reason.length > 30 ? reason.substring(0, 28) + '…' : reason;
+
+      if (!reasonCounts[shortLabel]) {
+        reasonCounts[shortLabel] = { count: 0, description: reason, damageQty: 0 };
       }
+      reasonCounts[shortLabel].count++;
+      reasonCounts[shortLabel].damageQty += damageQty;
     });
 
     return Object.entries(reasonCounts)
       .map(([code, data]) => ({ code, ...data }))
-      .sort((a, b) => b.count - a.count)
+      .sort((a, b) => b.damageQty - a.damageQty || b.count - a.count)
       .slice(0, 10);
   }, [filteredMRBs]);
 
@@ -216,16 +219,17 @@ export default function KPIDashboard() {
     const plantData: Record<string, Record<string, number>> = {};
     
     filteredMRBs.forEach(mrb => {
-      const isRejected = mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0;
-      if (isRejected) {
-        const plant = mrb.plant;
-        const reason = mrb.defect_category || 'unspecified';
-        
-        if (!plantData[plant]) {
-          plantData[plant] = {};
-        }
-        plantData[plant][reason] = (plantData[plant][reason] || 0) + 1;
+      const damageQty = Number(mrb.rejected_quantity || 0) + Number(mrb.blocked_quantity || 0);
+      if (damageQty <= 0) return;
+
+      const plant = mrb.plant;
+      const reason = mrb.defect_description || mrb.defect_category || 'Not specified';
+      const shortReason = reason.length > 20 ? reason.substring(0, 18) + '…' : reason;
+      
+      if (!plantData[plant]) {
+        plantData[plant] = {};
       }
+      plantData[plant][shortReason] = (plantData[plant][shortReason] || 0) + 1;
     });
 
     return Object.entries(plantData).map(([plant, reasons]) => ({
@@ -240,17 +244,17 @@ export default function KPIDashboard() {
     const monthData: Record<string, Record<string, number>> = {};
     
     filteredMRBs.forEach(mrb => {
-      const isRejected = mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0;
-      if (isRejected) {
-        if (!mrb.created_at) return;
-        const month = format(parseISO(mrb.created_at), 'MMM yyyy');
-        const reason = mrb.defect_category || 'unspecified';
-        
-        if (!monthData[month]) {
-          monthData[month] = {};
-        }
-        monthData[month][reason] = (monthData[month][reason] || 0) + 1;
+      const damageQty = Number(mrb.rejected_quantity || 0) + Number(mrb.blocked_quantity || 0);
+      if (damageQty <= 0 || !mrb.created_at) return;
+
+      const month = format(parseISO(mrb.created_at), 'MMM yyyy');
+      const reason = mrb.defect_description || mrb.defect_category || 'Not specified';
+      const shortReason = reason.length > 20 ? reason.substring(0, 18) + '…' : reason;
+      
+      if (!monthData[month]) {
+        monthData[month] = {};
       }
+      monthData[month][shortReason] = (monthData[month][shortReason] || 0) + 1;
     });
 
     return Object.entries(monthData).map(([month, reasons]) => ({
@@ -351,14 +355,17 @@ export default function KPIDashboard() {
     }));
   }, [filteredMRBs]);
 
-  // Defect Category Distribution
+  // Defect Category Distribution – uses live defect_description when defect_category is null
   const defectCategoryData = useMemo(() => {
     const categories: Record<string, number> = {};
     
     filteredMRBs.forEach(mrb => {
-      if (mrb.defect_category) {
-        categories[mrb.defect_category] = (categories[mrb.defect_category] || 0) + 1;
-      }
+      const damageQty = Number(mrb.rejected_quantity || 0) + Number(mrb.blocked_quantity || 0);
+      if (damageQty <= 0) return;
+
+      const label = mrb.defect_category || mrb.defect_description || 'Not specified';
+      const shortLabel = label.length > 25 ? label.substring(0, 23) + '…' : label;
+      categories[shortLabel] = (categories[shortLabel] || 0) + 1;
     });
 
     return Object.entries(categories)
@@ -671,11 +678,13 @@ export default function KPIDashboard() {
                         }}
                       />
                       <Legend />
-                      <Bar dataKey="dimensional" name="Dimensional" stackId="a" fill={CHART_COLORS[0]} />
-                      <Bar dataKey="surface" name="Surface" stackId="a" fill={CHART_COLORS[1]} />
-                      <Bar dataKey="material" name="Material" stackId="a" fill={CHART_COLORS[2]} />
-                      <Bar dataKey="functional" name="Functional" stackId="a" fill={CHART_COLORS[3]} />
-                      <Bar dataKey="documentation" name="Documentation" stackId="a" fill={CHART_COLORS[4]} />
+                      {(() => {
+                        const allKeys = new Set<string>();
+                        rejectReasonsByPlant.forEach(d => Object.keys(d).forEach(k => { if (k !== 'plant' && k !== 'total') allKeys.add(k); }));
+                        return [...allKeys].slice(0, 8).map((key, i) => (
+                          <Bar key={key} dataKey={key} name={key} stackId="a" fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                        ));
+                      })()}
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -712,10 +721,13 @@ export default function KPIDashboard() {
                         }}
                       />
                       <Legend />
-                      <Area type="monotone" dataKey="dimensional" name="Dimensional" stackId="1" stroke={CHART_COLORS[0]} fill={CHART_COLORS[0]} fillOpacity={0.6} />
-                      <Area type="monotone" dataKey="surface" name="Surface" stackId="1" stroke={CHART_COLORS[1]} fill={CHART_COLORS[1]} fillOpacity={0.6} />
-                      <Area type="monotone" dataKey="material" name="Material" stackId="1" stroke={CHART_COLORS[2]} fill={CHART_COLORS[2]} fillOpacity={0.6} />
-                      <Area type="monotone" dataKey="functional" name="Functional" stackId="1" stroke={CHART_COLORS[3]} fill={CHART_COLORS[3]} fillOpacity={0.6} />
+                      {(() => {
+                        const allKeys = new Set<string>();
+                        rejectReasonsByMonth.forEach(d => Object.keys(d).forEach(k => { if (k !== 'month' && k !== 'total') allKeys.add(k); }));
+                        return [...allKeys].slice(0, 8).map((key, i) => (
+                          <Area key={key} type="monotone" dataKey={key} name={key} stackId="1" stroke={CHART_COLORS[i % CHART_COLORS.length]} fill={CHART_COLORS[i % CHART_COLORS.length]} fillOpacity={0.6} />
+                        ));
+                      })()}
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
