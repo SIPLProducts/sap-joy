@@ -232,11 +232,13 @@ async function testConnection(config: any): Promise<{ success: boolean; message:
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeout)
 
-    const response = await fetch(url, {
-      method,
-      headers,
-      signal: controller.signal,
-    })
+    const fetchOpts: RequestInit = { method, headers, signal: controller.signal }
+    // For POST/PUT methods, send a minimal valid request body
+    if (['POST', 'PUT', 'PATCH'].includes(method)) {
+      fetchOpts.body = JSON.stringify({})
+    }
+
+    const response = await fetch(url, fetchOpts)
     clearTimeout(timer)
     const elapsed = Date.now() - start
     const bodyText = await response.text()
