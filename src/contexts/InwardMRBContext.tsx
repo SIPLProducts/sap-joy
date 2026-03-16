@@ -170,7 +170,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [shouldFilterByPlant, userPlant]);
 
   useEffect(() => {
     fetchData();
