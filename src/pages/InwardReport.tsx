@@ -117,13 +117,13 @@ export default function InwardReport() {
     setSelectedIds(new Set()); // Clear selection on new search
   };
 
-  // Auto-load all records on mount (show data without requiring Search click)
+  // Auto-load all records on mount and when data refreshes
   useEffect(() => {
-    if (!isLoading && inspectionLotRecords.length > 0 && !hasSearched) {
+    if (!isLoading && inspectionLotRecords.length > 0) {
       setSearchResults(inspectionLotRecords);
-      setHasSearched(true);
+      if (!hasSearched) setHasSearched(true);
     }
-  }, [isLoading, inspectionLotRecords, hasSearched]);
+  }, [isLoading, inspectionLotRecords]);
 
   const handleReset = () => {
     setFilters({
