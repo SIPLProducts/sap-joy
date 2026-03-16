@@ -84,11 +84,10 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       
-      // Fetch only pending inspection lots (exclude mrb_created and cleared)
+      // Fetch all inspection lots synced from SAP / uploads so the page can show the full live picture
       let lotsQuery = supabase
         .from('inward_inspection_lots')
         .select('*')
-        .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
       // Apply plant filter if needed
@@ -123,7 +122,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
         setInwardMRBRecords(mrbData);
       }
 
-      // Build a set of inspection lots that already have MRBs (for double-check)
+      // Build a set of inspection lots that already have MRBs so we can reflect status correctly
       const lotsWithMRB = new Set<string>();
       if (mrbData) {
         mrbData.forEach(mrb => {
@@ -133,36 +132,36 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
         });
       }
 
-      // Only include pending lots that don't have an MRB created
       const lotRecords: InspectionLotRecord[] = [];
 
       if (uploadedLots) {
-        uploadedLots
-          // Double-check: exclude lots that already have MRBs (even if status wasn't updated)
-          .filter(lot => !lotsWithMRB.has(lot.inspection_lot))
-          .forEach(lot => {
-            lotRecords.push({
-              id: lot.id,
-              inspectionLot: lot.inspection_lot,
-              plant: lot.plant,
-              materialCode: lot.material_code,
-              materialDescription: lot.material_description || '',
-              vendorCode: lot.vendor_code || '',
-              vendorName: lot.vendor_name || '',
-              storageLocation: lot.storage_location || '',
-              batch: lot.batch || '',
-              poNumber: lot.po_number || '',
-              transactionQuantity: Number(lot.transaction_quantity) || 0,
-              uom: lot.uom || 'EA',
-              blockedQuantity: Number(lot.blocked_quantity) || 0,
-              blockReason: lot.block_reason || '',
-              inspectionDate: lot.inspection_date || lot.created_at,
-              postingDate: lot.posting_date || lot.created_at,
-              grnNumber: lot.grn_number || '',
-              status: lot.status as 'pending' | 'mrb_created' | 'cleared',
-              source: 'upload'
-            });
+        uploadedLots.forEach(lot => {
+          const effectiveStatus = lotsWithMRB.has(lot.inspection_lot)
+            ? 'mrb_created'
+            : (lot.status as 'pending' | 'mrb_created' | 'cleared');
+
+          lotRecords.push({
+            id: lot.id,
+            inspectionLot: lot.inspection_lot,
+            plant: lot.plant,
+            materialCode: lot.material_code,
+            materialDescription: lot.material_description || '',
+            vendorCode: lot.vendor_code || '',
+            vendorName: lot.vendor_name || '',
+            storageLocation: lot.storage_location || '',
+            batch: lot.batch || '',
+            poNumber: lot.po_number || '',
+            transactionQuantity: Number(lot.transaction_quantity) || 0,
+            uom: lot.uom || 'EA',
+            blockedQuantity: Number(lot.blocked_quantity) || 0,
+            blockReason: lot.block_reason || '',
+            inspectionDate: lot.inspection_date || lot.created_at,
+            postingDate: lot.posting_date || lot.created_at,
+            grnNumber: lot.grn_number || '',
+            status: effectiveStatus,
+            source: lot.upload_batch_id ? 'upload' : 'api'
           });
+        });
       }
       
       setInspectionLotRecords(lotRecords);
@@ -171,7 +170,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [shouldFilterByPlant, userPlant]);
 
   useEffect(() => {
     fetchData();

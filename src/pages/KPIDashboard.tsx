@@ -194,9 +194,10 @@ export default function KPIDashboard() {
     const reasonCounts: Record<string, { count: number; description: string }> = {};
     
     filteredMRBs.forEach(mrb => {
-      if (mrb.quality_decision === 'reject' || mrb.status === 'rejected') {
-        const reason = mrb.defect_code || mrb.defect_category || 'Unknown';
-        const description = mrb.defect_description || mrb.defect_category || 'Not specified';
+      const isRejected = mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0;
+      if (isRejected) {
+        const reason = mrb.defect_category || mrb.defect_code || 'unspecified';
+        const description = mrb.defect_description || mrb.defect_category || 'No defect detail captured';
         if (!reasonCounts[reason]) {
           reasonCounts[reason] = { count: 0, description };
         }
@@ -215,9 +216,10 @@ export default function KPIDashboard() {
     const plantData: Record<string, Record<string, number>> = {};
     
     filteredMRBs.forEach(mrb => {
-      if (mrb.quality_decision === 'reject' || mrb.status === 'rejected') {
+      const isRejected = mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0;
+      if (isRejected) {
         const plant = mrb.plant;
-        const reason = mrb.defect_category || 'Other';
+        const reason = mrb.defect_category || 'unspecified';
         
         if (!plantData[plant]) {
           plantData[plant] = {};
@@ -238,10 +240,11 @@ export default function KPIDashboard() {
     const monthData: Record<string, Record<string, number>> = {};
     
     filteredMRBs.forEach(mrb => {
-      if (mrb.quality_decision === 'reject' || mrb.status === 'rejected') {
+      const isRejected = mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0;
+      if (isRejected) {
         if (!mrb.created_at) return;
         const month = format(parseISO(mrb.created_at), 'MMM yyyy');
-        const reason = mrb.defect_category || 'Other';
+        const reason = mrb.defect_category || 'unspecified';
         
         if (!monthData[month]) {
           monthData[month] = {};
