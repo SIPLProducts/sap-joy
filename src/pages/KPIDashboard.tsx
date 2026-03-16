@@ -368,12 +368,20 @@ export default function KPIDashboard() {
       categories[shortLabel] = (categories[shortLabel] || 0) + 1;
     });
 
-    return Object.entries(categories)
+    const sorted = Object.entries(categories)
       .map(([name, value]) => ({
         name: name.charAt(0).toUpperCase() + name.slice(1),
         value,
       }))
       .sort((a, b) => b.value - a.value);
+
+    // Show top 8, group rest as "Others"
+    if (sorted.length > 8) {
+      const top = sorted.slice(0, 8);
+      const othersValue = sorted.slice(8).reduce((sum, item) => sum + item.value, 0);
+      return [...top, { name: 'Others', value: othersValue }];
+    }
+    return sorted;
   }, [filteredMRBs]);
 
   // SLA Chart Data
