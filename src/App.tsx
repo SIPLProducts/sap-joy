@@ -81,6 +81,7 @@ const App = () => (
                           <Route path="/profile" element={<UserProfile />} />
                           <Route path="/help" element={<HelpSupport />} />
                           <Route path="/admin/sap-api" element={<SAPApiSettings />} />
+                          <Route path="/admin/sap-sync" element={<SAPSyncMonitor />} />
                           <Route path="/proposals" element={<ProposalGenerator />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>

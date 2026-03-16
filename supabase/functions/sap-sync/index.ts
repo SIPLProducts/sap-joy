@@ -408,6 +408,4 @@ function getNestedValue(obj: any, path: string): any {
   }, obj)
 }
 
-function btoa(str: string): string {
-  return btoa(str)
-}
+// btoa is available globally in Deno
