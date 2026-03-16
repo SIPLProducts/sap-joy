@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { useRole } from '@/contexts/RoleContext';
@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { materials, vendors, plants, defectCodes } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
 import { Upload, X, FileText, Save, Send, ArrowLeft } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -30,6 +30,27 @@ export default function CreateMRBQuality() {
   const { currentUser } = useRole();
   const { user, profile } = useAuth();
   const { toast } = useToast();
+
+  const [materials, setMaterials] = useState<{number: string; description: string}[]>([]);
+  const [vendors, setVendors] = useState<{code: string; name: string}[]>([]);
+  const [plants, setPlants] = useState<string[]>([]);
+  const [defectCodes, setDefectCodes] = useState<{code: string; description: string}[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const [matRes, venRes, plantRes, defRes] = await Promise.all([
+        supabase.from('materials').select('material_number, description'),
+        supabase.from('vendors').select('code, name').eq('is_active', true),
+        supabase.from('plants').select('code'),
+        supabase.from('defect_codes').select('code, description').eq('is_active', true),
+      ]);
+      if (matRes.data) setMaterials(matRes.data.map(m => ({ number: m.material_number, description: m.description })));
+      if (venRes.data) setVendors(venRes.data.map(v => ({ code: v.code, name: v.name })));
+      if (plantRes.data) setPlants(plantRes.data.map(p => p.code));
+      if (defRes.data) setDefectCodes(defRes.data.map(d => ({ code: d.code, description: d.description })));
+    };
+    fetchData();
+  }, []);
 
   const [formData, setFormData] = useState({
     materialNumber: '',

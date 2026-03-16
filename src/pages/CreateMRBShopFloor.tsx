@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { useRole } from '@/contexts/RoleContext';
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { materials, vendors, plants } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
 import { Upload, X, FileText, Save, Send, ArrowLeft } from 'lucide-react';
 
 export default function CreateMRBShopFloor() {
@@ -20,6 +20,24 @@ export default function CreateMRBShopFloor() {
   const { currentUser } = useRole();
   const { user, profile } = useAuth();
   const { toast } = useToast();
+
+  const [materials, setMaterials] = useState<{number: string; description: string}[]>([]);
+  const [vendors, setVendors] = useState<{code: string; name: string}[]>([]);
+  const [plants, setPlants] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const [matRes, venRes, plantRes] = await Promise.all([
+        supabase.from('materials').select('material_number, description'),
+        supabase.from('vendors').select('code, name').eq('is_active', true),
+        supabase.from('plants').select('code'),
+      ]);
+      if (matRes.data) setMaterials(matRes.data.map(m => ({ number: m.material_number, description: m.description })));
+      if (venRes.data) setVendors(venRes.data.map(v => ({ code: v.code, name: v.name })));
+      if (plantRes.data) setPlants(plantRes.data.map(p => p.code));
+    };
+    fetchData();
+  }, []);
 
   const [formData, setFormData] = useState({
     productionOrderNumber: '',

@@ -33,7 +33,7 @@ import {
   Factory,
   Filter
 } from 'lucide-react';
-import { getStatusDisplayName, getSLAColor, plants, vendors } from '@/data/mockData';
+import { getStatusDisplayName, getSLAColor } from '@/data/mockData';
 import { 
   PieChart as RechartsPie, 
   Pie, 
@@ -73,6 +73,9 @@ export default function KPIDashboard() {
   const { inwardMRBRecords, inspectionLotRecords, isLoading: inwardLoading, refreshData: refreshInward } = useInwardMRB();
   const { currentRole, roleDisplayName } = useRole();
   const [lastRefresh, setLastRefresh] = useState(new Date());
+
+  // Derive plants from real MRB data
+  const plants = useMemo(() => [...new Set(mrbRecords.map(r => r.plant))], [mrbRecords]);
   
   // Filters State - must be declared before any conditional returns
   const [selectedPlant, setSelectedPlant] = useState<string>('all');
