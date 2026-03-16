@@ -200,7 +200,18 @@ export default function QualityHeadDashboard() {
     setDateTo(undefined);
   };
 
-  return (
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
+
     <div className="min-h-screen bg-muted/30">
       <div className="bg-card border-b border-border sticky top-0 z-10">
         <div className="px-6 py-4">
