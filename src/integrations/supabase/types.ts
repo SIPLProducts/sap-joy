@@ -774,16 +774,23 @@ export type Database = {
           config_name: string
           connection_mode: string | null
           created_at: string
+          cron_expression: string | null
+          custom_headers: Json | null
           description: string | null
+          enable_logging: boolean | null
           encrypted_password: string | null
           endpoint_path: string | null
           http_method: string | null
           id: string
           is_active: boolean | null
           last_sync_at: string | null
+          max_records: number | null
           proxy_secret: string | null
           proxy_tunnel_url: string | null
+          retry_count: number | null
+          retry_delay_ms: number | null
           sap_client: string | null
+          scheduler_enabled: boolean | null
           sync_frequency: string | null
           timeout_ms: number | null
           token_url: string | null
@@ -800,16 +807,23 @@ export type Database = {
           config_name: string
           connection_mode?: string | null
           created_at?: string
+          cron_expression?: string | null
+          custom_headers?: Json | null
           description?: string | null
+          enable_logging?: boolean | null
           encrypted_password?: string | null
           endpoint_path?: string | null
           http_method?: string | null
           id?: string
           is_active?: boolean | null
           last_sync_at?: string | null
+          max_records?: number | null
           proxy_secret?: string | null
           proxy_tunnel_url?: string | null
+          retry_count?: number | null
+          retry_delay_ms?: number | null
           sap_client?: string | null
+          scheduler_enabled?: boolean | null
           sync_frequency?: string | null
           timeout_ms?: number | null
           token_url?: string | null
@@ -826,16 +840,23 @@ export type Database = {
           config_name?: string
           connection_mode?: string | null
           created_at?: string
+          cron_expression?: string | null
+          custom_headers?: Json | null
           description?: string | null
+          enable_logging?: boolean | null
           encrypted_password?: string | null
           endpoint_path?: string | null
           http_method?: string | null
           id?: string
           is_active?: boolean | null
           last_sync_at?: string | null
+          max_records?: number | null
           proxy_secret?: string | null
           proxy_tunnel_url?: string | null
+          retry_count?: number | null
+          retry_delay_ms?: number | null
           sap_client?: string | null
+          scheduler_enabled?: boolean | null
           sync_frequency?: string | null
           timeout_ms?: number | null
           token_url?: string | null
@@ -843,6 +864,103 @@ export type Database = {
           username?: string | null
         }
         Relationships: []
+      }
+      sap_api_request_fields: {
+        Row: {
+          config_id: string
+          created_at: string
+          default_value: string | null
+          description: string | null
+          field_name: string
+          field_type: string
+          id: string
+          is_required: boolean | null
+          sap_field_name: string | null
+          sort_order: number | null
+        }
+        Insert: {
+          config_id: string
+          created_at?: string
+          default_value?: string | null
+          description?: string | null
+          field_name: string
+          field_type?: string
+          id?: string
+          is_required?: boolean | null
+          sap_field_name?: string | null
+          sort_order?: number | null
+        }
+        Update: {
+          config_id?: string
+          created_at?: string
+          default_value?: string | null
+          description?: string | null
+          field_name?: string
+          field_type?: string
+          id?: string
+          is_required?: boolean | null
+          sap_field_name?: string | null
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sap_api_request_fields_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "sap_api_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sap_api_response_fields: {
+        Row: {
+          config_id: string
+          created_at: string
+          description: string | null
+          field_name: string
+          field_type: string
+          id: string
+          json_path: string | null
+          map_to_column: string | null
+          map_to_table: string | null
+          sap_field_name: string | null
+          sort_order: number | null
+        }
+        Insert: {
+          config_id: string
+          created_at?: string
+          description?: string | null
+          field_name: string
+          field_type?: string
+          id?: string
+          json_path?: string | null
+          map_to_column?: string | null
+          map_to_table?: string | null
+          sap_field_name?: string | null
+          sort_order?: number | null
+        }
+        Update: {
+          config_id?: string
+          created_at?: string
+          description?: string | null
+          field_name?: string
+          field_type?: string
+          id?: string
+          json_path?: string | null
+          map_to_column?: string | null
+          map_to_table?: string | null
+          sap_field_name?: string | null
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sap_api_response_fields_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "sap_api_config"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sap_stock_sync_history: {
         Row: {
