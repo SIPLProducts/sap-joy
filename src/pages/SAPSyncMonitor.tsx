@@ -73,9 +73,8 @@ export default function SAPSyncMonitor() {
     const { data: sfData, count: sfCount } = await supabase
       .from('shop_floor_stock')
       .select('*', { count: 'exact' })
-      .eq('source', 'sap_sync')
       .order('created_at', { ascending: false })
-      .limit(5);
+      .limit(10);
     previews.push({ table: 'shop_floor_stock', count: sfCount || 0, recentRecords: sfData || [] });
 
     // Inward inspection lots
