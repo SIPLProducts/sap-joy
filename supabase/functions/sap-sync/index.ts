@@ -170,17 +170,23 @@ Deno.serve(async (req) => {
   }
 })
 
-// Build the full URL based on connection mode
+// Build the full URL based on connection mode, including sap-client query param
 function buildUrl(config: any): string {
+  let url: string
   if (config.connection_mode === 'vpn_tunnel' && config.proxy_tunnel_url) {
-    return `${config.proxy_tunnel_url.replace(/\/$/, '')}${config.endpoint_path || ''}`
+    url = `${config.proxy_tunnel_url.replace(/\/$/, '')}${config.endpoint_path || ''}`
+  } else if (config.connection_mode === 'proxy' && config.proxy_tunnel_url) {
+    url = `${config.proxy_tunnel_url.replace(/\/$/, '')}${config.endpoint_path || ''}`
+  } else {
+    const base = config.base_url || ''
+    const path = config.endpoint_path || config.api_endpoint || ''
+    url = `${base.replace(/\/$/, '')}${path}`
   }
-  if (config.connection_mode === 'proxy' && config.proxy_tunnel_url) {
-    return `${config.proxy_tunnel_url.replace(/\/$/, '')}${config.endpoint_path || ''}`
+  // Append sap-client as query parameter if configured
+  if (config.sap_client) {
+    url += `${url.includes('?') ? '&' : '?'}sap-client=${config.sap_client}`
   }
-  const base = config.base_url || ''
-  const path = config.endpoint_path || config.api_endpoint || ''
-  return `${base.replace(/\/$/, '')}${path}`
+  return url
 }
 
 // Build auth headers
@@ -188,10 +194,6 @@ function buildAuthHeaders(config: any): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-  }
-
-  if (config.sap_client) {
-    headers['sap-client'] = config.sap_client
   }
 
   if (config.proxy_secret) {
@@ -230,11 +232,13 @@ async function testConnection(config: any): Promise<{ success: boolean; message:
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeout)
 
-    const response = await fetch(url, {
-      method,
-      headers,
-      signal: controller.signal,
-    })
+    const fetchOpts: RequestInit = { method, headers, signal: controller.signal }
+    // For POST/PUT methods, send a minimal valid request body
+    if (['POST', 'PUT', 'PATCH'].includes(method)) {
+      fetchOpts.body = JSON.stringify({})
+    }
+
+    const response = await fetch(url, fetchOpts)
     clearTimeout(timer)
     const elapsed = Date.now() - start
     const bodyText = await response.text()

@@ -32,14 +32,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-// Also keep mock data as fallback
-import {
-  mockAvailableStock,
-  getUniquePlants as getMockPlants,
-  getUniqueMaterials as getMockMaterials,
-  getUniqueBatches as getMockBatches,
-  getUniqueStorageLocations as getMockStorageLocations,
-} from '@/data/shopFloorStockData';
 
 export default function ShopFloorStockSelection() {
   const navigate = useNavigate();
@@ -97,57 +89,17 @@ export default function ShopFloorStockSelection() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Combine database records with mock data for filters
-  const allPlants = useMemo(() => {
-    const dbPlants = getUniquePlants();
-    const mockPlants = getMockPlants();
-    return [...new Set([...dbPlants, ...mockPlants])];
-  }, [stockRecords, getUniquePlants]);
+  // Use only real database data for filters
+  const allPlants = useMemo(() => getUniquePlants(), [stockRecords, getUniquePlants]);
 
-  const allMaterials = useMemo(() => {
-    const dbMaterials = getUniqueMaterials();
-    const mockMaterials = getMockMaterials();
-    const combined = new Map<string, string>();
-    dbMaterials.forEach(m => combined.set(m.code, m.description));
-    mockMaterials.forEach(m => {
-      if (!combined.has(m.code)) combined.set(m.code, m.description);
-    });
-    return Array.from(combined.entries()).map(([code, description]) => ({ code, description }));
-  }, [stockRecords, getUniqueMaterials]);
+  const allMaterials = useMemo(() => getUniqueMaterials(), [stockRecords, getUniqueMaterials]);
 
-  const allBatches = useMemo(() => {
-    const dbBatches = getUniqueBatches();
-    const mockBatches = getMockBatches();
-    return [...new Set([...dbBatches, ...mockBatches])];
-  }, [stockRecords, getUniqueBatches]);
+  const allBatches = useMemo(() => getUniqueBatches(), [stockRecords, getUniqueBatches]);
 
-  const allStorageLocations = useMemo(() => {
-    const dbLocations = getUniqueStorageLocations();
-    const mockLocations = getMockStorageLocations();
-    return [...new Set([...dbLocations, ...mockLocations])];
-  }, [stockRecords, getUniqueStorageLocations]);
+  const allStorageLocations = useMemo(() => getUniqueStorageLocations(), [stockRecords, getUniqueStorageLocations]);
 
-  // Combined stock data (database + mock for demo)
-  const combinedStock = useMemo(() => {
-    // Map mock data to database format
-    const mockFormatted: ShopFloorStockRecord[] = mockAvailableStock.map(m => ({
-      id: m.id,
-      plant: m.plant,
-      material_code: m.materialCode,
-      material_description: m.materialDescription,
-      batch: m.batch,
-      storage_location: m.storageLocation,
-      available_quantity: m.availableQuantity,
-      uom: m.uom,
-      production_order: null,
-      reservation_number: null,
-      status: 'available',
-      source: 'mock',
-      created_at: new Date().toISOString(),
-    }));
-    
-    return [...stockRecords, ...mockFormatted];
-  }, [stockRecords]);
+  // Use only real database stock data
+  const combinedStock = useMemo(() => stockRecords, [stockRecords]);
 
   // Filtered stock results
   const filteredStock = useMemo(() => {
