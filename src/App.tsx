@@ -34,6 +34,7 @@ import UserProfile from "@/pages/UserProfile";
 import HelpSupport from "@/pages/HelpSupport";
 import ProposalGenerator from "@/pages/ProposalGenerator";
 import IMSRedirect from "@/pages/IMSRedirect";
+import SAPApiSettings from "@/pages/SAPApiSettings";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -78,6 +79,7 @@ const App = () => (
                           <Route path="/admin/users" element={<UserManagement />} />
                           <Route path="/profile" element={<UserProfile />} />
                           <Route path="/help" element={<HelpSupport />} />
+                          <Route path="/admin/sap-api" element={<SAPApiSettings />} />
                           <Route path="/proposals" element={<ProposalGenerator />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
