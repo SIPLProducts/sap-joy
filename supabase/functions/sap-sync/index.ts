@@ -170,17 +170,23 @@ Deno.serve(async (req) => {
   }
 })
 
-// Build the full URL based on connection mode
+// Build the full URL based on connection mode, including sap-client query param
 function buildUrl(config: any): string {
+  let url: string
   if (config.connection_mode === 'vpn_tunnel' && config.proxy_tunnel_url) {
-    return `${config.proxy_tunnel_url.replace(/\/$/, '')}${config.endpoint_path || ''}`
+    url = `${config.proxy_tunnel_url.replace(/\/$/, '')}${config.endpoint_path || ''}`
+  } else if (config.connection_mode === 'proxy' && config.proxy_tunnel_url) {
+    url = `${config.proxy_tunnel_url.replace(/\/$/, '')}${config.endpoint_path || ''}`
+  } else {
+    const base = config.base_url || ''
+    const path = config.endpoint_path || config.api_endpoint || ''
+    url = `${base.replace(/\/$/, '')}${path}`
   }
-  if (config.connection_mode === 'proxy' && config.proxy_tunnel_url) {
-    return `${config.proxy_tunnel_url.replace(/\/$/, '')}${config.endpoint_path || ''}`
+  // Append sap-client as query parameter if configured
+  if (config.sap_client) {
+    url += `${url.includes('?') ? '&' : '?'}sap-client=${config.sap_client}`
   }
-  const base = config.base_url || ''
-  const path = config.endpoint_path || config.api_endpoint || ''
-  return `${base.replace(/\/$/, '')}${path}`
+  return url
 }
 
 // Build auth headers
