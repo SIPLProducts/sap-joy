@@ -303,16 +303,18 @@ export default function KPIDashboard() {
     const top5Vendors = topVendorsByDamage.map(v => v.vendorCode);
     
     filteredMRBs.forEach(mrb => {
-      if ((mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0) 
-          && top5Vendors.includes(mrb.vendor_code || '')) {
+      const damageQuantity = Number(mrb.rejected_quantity || 0) + Number(mrb.blocked_quantity || 0);
+      const vendorCode = (mrb.vendor_code || '').trim() || ((mrb.vendor_name || '').trim());
+
+      if (damageQuantity > 0 && top5Vendors.includes(vendorCode)) {
         if (!mrb.created_at) return;
         const month = format(parseISO(mrb.created_at), 'MMM yyyy');
-        const vendor = (mrb.vendor_name || '').split(' ')[0]; // Short name
+        const vendor = ((mrb.vendor_name || vendorCode).trim().split(' ')[0]) || vendorCode;
         
         if (!monthData[month]) {
           monthData[month] = {};
         }
-        monthData[month][vendor] = (monthData[month][vendor] || 0) + 1;
+        monthData[month][vendor] = (monthData[month][vendor] || 0) + damageQuantity;
       }
     });
 
