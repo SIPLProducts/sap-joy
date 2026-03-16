@@ -216,9 +216,10 @@ export default function KPIDashboard() {
     const plantData: Record<string, Record<string, number>> = {};
     
     filteredMRBs.forEach(mrb => {
-      if (mrb.quality_decision === 'reject' || mrb.status === 'rejected') {
+      const isRejected = mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0;
+      if (isRejected) {
         const plant = mrb.plant;
-        const reason = mrb.defect_category || 'Other';
+        const reason = mrb.defect_category || 'unspecified';
         
         if (!plantData[plant]) {
           plantData[plant] = {};
