@@ -1066,17 +1066,29 @@ export type Database = {
         Row: {
           available_quantity: number
           batch: string | null
+          bin_number: string | null
+          blocked_quantity: number | null
+          blocked_value: number | null
           created_at: string
           id: string
           material_code: string
           material_description: string | null
           plant: string
           production_order: string | null
+          quality_inspection_qty: number | null
+          quality_inspection_value: number | null
+          rack_number: string | null
           reservation_number: string | null
+          row_number_custom: string | null
           sap_sync_id: string | null
+          shelf_number: string | null
           source: string | null
           status: string | null
           storage_location: string | null
+          storage_location_desc: string | null
+          transfer_qty: number | null
+          transfer_value: number | null
+          unrestricted_value: number | null
           uom: string | null
           updated_at: string
           upload_batch_id: string | null
@@ -1085,17 +1097,29 @@ export type Database = {
         Insert: {
           available_quantity?: number
           batch?: string | null
+          bin_number?: string | null
+          blocked_quantity?: number | null
+          blocked_value?: number | null
           created_at?: string
           id?: string
           material_code: string
           material_description?: string | null
           plant: string
           production_order?: string | null
+          quality_inspection_qty?: number | null
+          quality_inspection_value?: number | null
+          rack_number?: string | null
           reservation_number?: string | null
+          row_number_custom?: string | null
           sap_sync_id?: string | null
+          shelf_number?: string | null
           source?: string | null
           status?: string | null
           storage_location?: string | null
+          storage_location_desc?: string | null
+          transfer_qty?: number | null
+          transfer_value?: number | null
+          unrestricted_value?: number | null
           uom?: string | null
           updated_at?: string
           upload_batch_id?: string | null
@@ -1104,17 +1128,29 @@ export type Database = {
         Update: {
           available_quantity?: number
           batch?: string | null
+          bin_number?: string | null
+          blocked_quantity?: number | null
+          blocked_value?: number | null
           created_at?: string
           id?: string
           material_code?: string
           material_description?: string | null
           plant?: string
           production_order?: string | null
+          quality_inspection_qty?: number | null
+          quality_inspection_value?: number | null
+          rack_number?: string | null
           reservation_number?: string | null
+          row_number_custom?: string | null
           sap_sync_id?: string | null
+          shelf_number?: string | null
           source?: string | null
           status?: string | null
           storage_location?: string | null
+          storage_location_desc?: string | null
+          transfer_qty?: number | null
+          transfer_value?: number | null
+          unrestricted_value?: number | null
           uom?: string | null
           updated_at?: string
           upload_batch_id?: string | null

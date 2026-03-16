@@ -65,37 +65,34 @@ export default function SAPSyncMonitor() {
     setSyncHistory((data as unknown as SyncRecord[]) || []);
   }, [selectedConfig]);
 
+  // Helper to fetch all rows from a table (handles >1000 row limit)
+  const fetchAllRows = async (table: string): Promise<{ data: any[]; count: number }> => {
+    const { count } = await supabase.from(table as any).select('*', { count: 'exact', head: true });
+    const totalCount = count || 0;
+    const allRows: any[] = [];
+    const batchSize = 1000;
+    for (let offset = 0; offset < totalCount; offset += batchSize) {
+      const { data } = await supabase.from(table as any).select('*').order('created_at', { ascending: false }).range(offset, offset + batchSize - 1);
+      if (data) allRows.push(...data);
+    }
+    return { data: allRows, count: totalCount };
+  };
+
   const fetchDataPreviews = useCallback(async () => {
     setPreviewLoading(true);
     const previews: DataPreview[] = [];
 
-    // Shop floor stock - fetch ALL records
-    const { data: sfData, count: sfCount } = await supabase
-      .from('shop_floor_stock')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
-    previews.push({ table: 'shop_floor_stock', count: sfCount || 0, recentRecords: sfData || [] });
+    const [sfResult, ilResult, matResult, venResult] = await Promise.all([
+      fetchAllRows('shop_floor_stock'),
+      fetchAllRows('inward_inspection_lots'),
+      fetchAllRows('materials'),
+      fetchAllRows('vendors'),
+    ]);
 
-    // Inward inspection lots - fetch ALL records
-    const { data: ilData, count: ilCount } = await supabase
-      .from('inward_inspection_lots')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
-    previews.push({ table: 'inward_inspection_lots', count: ilCount || 0, recentRecords: ilData || [] });
-
-    // Materials - fetch ALL records
-    const { data: matData, count: matCount } = await supabase
-      .from('materials')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
-    previews.push({ table: 'materials', count: matCount || 0, recentRecords: matData || [] });
-
-    // Vendors - fetch ALL records
-    const { data: venData, count: venCount } = await supabase
-      .from('vendors')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
-    previews.push({ table: 'vendors', count: venCount || 0, recentRecords: venData || [] });
+    previews.push({ table: 'shop_floor_stock', count: sfResult.count, recentRecords: sfResult.data });
+    previews.push({ table: 'inward_inspection_lots', count: ilResult.count, recentRecords: ilResult.data });
+    previews.push({ table: 'materials', count: matResult.count, recentRecords: matResult.data });
+    previews.push({ table: 'vendors', count: venResult.count, recentRecords: venResult.data });
 
     setDataPreviews(previews);
     setPreviewLoading(false);
