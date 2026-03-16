@@ -10,7 +10,7 @@ import { toast } from '@/hooks/use-toast';
 import { SAPApiEditForm } from '@/components/sapApi/SAPApiEditForm';
 import { SAPConnectivityGuide } from '@/components/sapApi/SAPConnectivityGuide';
 import { SAPApiFieldsDialog } from '@/components/sapApi/SAPApiFieldsDialog';
-import { useRole } from '@/contexts/RoleContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SAPConfig {
   id: string;
