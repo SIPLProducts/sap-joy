@@ -117,6 +117,14 @@ export default function InwardReport() {
     setSelectedIds(new Set()); // Clear selection on new search
   };
 
+  // Auto-load all records on mount (show data without requiring Search click)
+  useEffect(() => {
+    if (!isLoading && inspectionLotRecords.length > 0 && !hasSearched) {
+      setSearchResults(inspectionLotRecords);
+      setHasSearched(true);
+    }
+  }, [isLoading, inspectionLotRecords, hasSearched]);
+
   const handleReset = () => {
     setFilters({
       plants: [],
