@@ -754,10 +754,10 @@ export default function KPIDashboard() {
                         <p className="font-medium text-foreground truncate">{vendor.vendorName}</p>
                         <p className="text-xs text-muted-foreground">{vendor.vendorCode}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-foreground">{vendor.count} MRBs</p>
-                        <p className="text-xs text-destructive">{vendor.rejectedQuantity} units rejected</p>
-                      </div>
+                        <div className="text-right">
+                          <p className="font-bold text-foreground">{vendor.damageQuantity} units</p>
+                          <p className="text-xs text-muted-foreground">{vendor.count} live MRBs</p>
+                        </div>
                     </div>
                   ))}
                 </div>
