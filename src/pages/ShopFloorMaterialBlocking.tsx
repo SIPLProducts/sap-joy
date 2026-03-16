@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -181,6 +182,12 @@ export default function ShopFloorMaterialBlocking() {
       const sapMatDoc = `49${format(new Date(), 'yyyyMMdd')}${Math.floor(100000 + Math.random() * 900000)}`;
 
       if (mrbResult) {
+        // Update shop_floor_stock status to 'mrb_created'
+        await supabase
+          .from('shop_floor_stock')
+          .update({ status: 'mrb_created', updated_at: new Date().toISOString() })
+          .eq('id', stockItem.id);
+
         setCreatedMRBNumber(mrbNumber);
         setSAPMaterialDocument(sapMatDoc);
         setIsSubmitted(true);
