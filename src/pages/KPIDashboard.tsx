@@ -262,35 +262,38 @@ export default function KPIDashboard() {
 
   // Top 5 Vendors with Material Damage
   const topVendorsByDamage = useMemo(() => {
-    const vendorCounts: Record<string, { 
+    const vendorDamage: Record<string, { 
       vendorName: string; 
       count: number; 
       totalQuantity: number;
-      rejectedQuantity: number;
+      damageQuantity: number;
     }> = {};
     
     filteredMRBs.forEach(mrb => {
-      if (mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0) {
-        const vendorCode = mrb.vendor_code || 'unknown';
-        const vendorName = mrb.vendor_name || vendorCode;
-        
-        if (!vendorCounts[vendorCode]) {
-          vendorCounts[vendorCode] = { 
-            vendorName, 
-            count: 0, 
-            totalQuantity: 0,
-            rejectedQuantity: 0 
-          };
-        }
-        vendorCounts[vendorCode].count++;
-        vendorCounts[vendorCode].totalQuantity += mrb.total_quantity || 0;
-        vendorCounts[vendorCode].rejectedQuantity += mrb.rejected_quantity || mrb.blocked_quantity || 0;
+      const damageQuantity = Number(mrb.rejected_quantity || 0) + Number(mrb.blocked_quantity || 0);
+      const vendorCode = (mrb.vendor_code || '').trim();
+      const vendorName = (mrb.vendor_name || '').trim() || vendorCode;
+
+      if (damageQuantity <= 0 || !vendorName) return;
+      
+      if (!vendorDamage[vendorCode || vendorName]) {
+        vendorDamage[vendorCode || vendorName] = { 
+          vendorName, 
+          count: 0, 
+          totalQuantity: 0,
+          damageQuantity: 0 
+        };
       }
+
+      const key = vendorCode || vendorName;
+      vendorDamage[key].count++;
+      vendorDamage[key].totalQuantity += Number(mrb.total_quantity || 0);
+      vendorDamage[key].damageQuantity += damageQuantity;
     });
 
-    return Object.entries(vendorCounts)
+    return Object.entries(vendorDamage)
       .map(([code, data]) => ({ vendorCode: code, ...data }))
-      .sort((a, b) => b.count - a.count)
+      .sort((a, b) => b.damageQuantity - a.damageQuantity || b.count - a.count)
       .slice(0, 5);
   }, [filteredMRBs]);
 
@@ -300,16 +303,18 @@ export default function KPIDashboard() {
     const top5Vendors = topVendorsByDamage.map(v => v.vendorCode);
     
     filteredMRBs.forEach(mrb => {
-      if ((mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0) 
-          && top5Vendors.includes(mrb.vendor_code || '')) {
+      const damageQuantity = Number(mrb.rejected_quantity || 0) + Number(mrb.blocked_quantity || 0);
+      const vendorCode = (mrb.vendor_code || '').trim() || ((mrb.vendor_name || '').trim());
+
+      if (damageQuantity > 0 && top5Vendors.includes(vendorCode)) {
         if (!mrb.created_at) return;
         const month = format(parseISO(mrb.created_at), 'MMM yyyy');
-        const vendor = (mrb.vendor_name || '').split(' ')[0]; // Short name
+        const vendor = ((mrb.vendor_name || vendorCode).trim().split(' ')[0]) || vendorCode;
         
         if (!monthData[month]) {
           monthData[month] = {};
         }
-        monthData[month][vendor] = (monthData[month][vendor] || 0) + 1;
+        monthData[month][vendor] = (monthData[month][vendor] || 0) + damageQuantity;
       }
     });
 
@@ -324,15 +329,16 @@ export default function KPIDashboard() {
     const plantData: Record<string, { plant: string; vendors: Record<string, number> }> = {};
     
     filteredMRBs.forEach(mrb => {
-      if (mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0) {
-        const plant = mrb.plant;
-        const vendor = mrb.vendor_name || '';
-        
-        if (!plantData[plant]) {
-          plantData[plant] = { plant, vendors: {} };
-        }
-        plantData[plant].vendors[vendor] = (plantData[plant].vendors[vendor] || 0) + 1;
+      const damageQuantity = Number(mrb.rejected_quantity || 0) + Number(mrb.blocked_quantity || 0);
+      const vendor = (mrb.vendor_name || mrb.vendor_code || '').trim();
+      if (damageQuantity <= 0 || !vendor) return;
+
+      const plant = mrb.plant;
+      
+      if (!plantData[plant]) {
+        plantData[plant] = { plant, vendors: {} };
       }
+      plantData[plant].vendors[vendor] = (plantData[plant].vendors[vendor] || 0) + damageQuantity;
     });
 
     return Object.values(plantData).map(data => ({
@@ -748,10 +754,10 @@ export default function KPIDashboard() {
                         <p className="font-medium text-foreground truncate">{vendor.vendorName}</p>
                         <p className="text-xs text-muted-foreground">{vendor.vendorCode}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-foreground">{vendor.count} MRBs</p>
-                        <p className="text-xs text-destructive">{vendor.rejectedQuantity} units rejected</p>
-                      </div>
+                        <div className="text-right">
+                          <p className="font-bold text-foreground">{vendor.damageQuantity} units</p>
+                          <p className="text-xs text-muted-foreground">{vendor.count} live MRBs</p>
+                        </div>
                     </div>
                   ))}
                 </div>
