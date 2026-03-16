@@ -35,15 +35,12 @@ const CHART_COLORS = ['hsl(210, 85%, 35%)', 'hsl(160, 60%, 40%)', 'hsl(38, 92%, 
 const SLA_DAYS = 3;
 
 export default function EngineeringHeadDashboard() {
-  const { mrbRecords, isLoading: mrbLoading, refreshData: refreshMRB } = useMRB();
-  const { inwardMRBRecords, isLoading: inwardLoading, refreshData: refreshInward } = useInwardMRB();
+  const { mrbRecords, isLoading, refreshData } = useMRB();
   const [selectedPlant, setSelectedPlant] = useState('all');
   const [selectedMaterial, setSelectedMaterial] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [lastRefresh, setLastRefresh] = useState(new Date());
-
-  const isLoading = mrbLoading || inwardLoading;
 
   useEffect(() => {
     const interval = setInterval(() => setLastRefresh(new Date()), 30000);
@@ -51,22 +48,11 @@ export default function EngineeringHeadDashboard() {
   }, []);
 
   const handleRefresh = async () => {
-    await Promise.all([refreshMRB(), refreshInward()]);
+    await refreshData();
     setLastRefresh(new Date());
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading dashboard data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const allMRBs = useMemo(() => [...mrbRecords, ...inwardMRBRecords], [mrbRecords, inwardMRBRecords]);
+  const allMRBs = mrbRecords;
 
   const filteredMRBs = useMemo(() => {
     let filtered = [...allMRBs];
