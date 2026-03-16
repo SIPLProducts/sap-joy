@@ -768,15 +768,24 @@ export type Database = {
           api_endpoint: string
           api_key: string | null
           auth_type: string | null
+          base_url: string | null
           client_id: string | null
           client_secret: string | null
           config_name: string
+          connection_mode: string | null
           created_at: string
+          description: string | null
           encrypted_password: string | null
+          endpoint_path: string | null
+          http_method: string | null
           id: string
           is_active: boolean | null
           last_sync_at: string | null
+          proxy_secret: string | null
+          proxy_tunnel_url: string | null
+          sap_client: string | null
           sync_frequency: string | null
+          timeout_ms: number | null
           token_url: string | null
           updated_at: string
           username: string | null
@@ -785,15 +794,24 @@ export type Database = {
           api_endpoint: string
           api_key?: string | null
           auth_type?: string | null
+          base_url?: string | null
           client_id?: string | null
           client_secret?: string | null
           config_name: string
+          connection_mode?: string | null
           created_at?: string
+          description?: string | null
           encrypted_password?: string | null
+          endpoint_path?: string | null
+          http_method?: string | null
           id?: string
           is_active?: boolean | null
           last_sync_at?: string | null
+          proxy_secret?: string | null
+          proxy_tunnel_url?: string | null
+          sap_client?: string | null
           sync_frequency?: string | null
+          timeout_ms?: number | null
           token_url?: string | null
           updated_at?: string
           username?: string | null
@@ -802,15 +820,24 @@ export type Database = {
           api_endpoint?: string
           api_key?: string | null
           auth_type?: string | null
+          base_url?: string | null
           client_id?: string | null
           client_secret?: string | null
           config_name?: string
+          connection_mode?: string | null
           created_at?: string
+          description?: string | null
           encrypted_password?: string | null
+          endpoint_path?: string | null
+          http_method?: string | null
           id?: string
           is_active?: boolean | null
           last_sync_at?: string | null
+          proxy_secret?: string | null
+          proxy_tunnel_url?: string | null
+          sap_client?: string | null
           sync_frequency?: string | null
+          timeout_ms?: number | null
           token_url?: string | null
           updated_at?: string
           username?: string | null
