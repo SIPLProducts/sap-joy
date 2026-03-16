@@ -114,14 +114,15 @@ Deno.serve(async (req) => {
         // Map and insert data
         const mappingResult = await mapAndInsertData(supabase, sapResponse.data, responseFields || [], config)
 
-        // Update sync history
+        const hasErrors = mappingResult.errors.length > 0
+        const finalStatus = (mappingResult.inserted === 0 && hasErrors) ? 'failed' : (hasErrors ? 'partial' : 'success')
         await supabase.from('sap_stock_sync_history').update({
-          status: 'success',
+          status: finalStatus,
           records_fetched: mappingResult.fetched,
           records_inserted: mappingResult.inserted,
           records_updated: mappingResult.updated,
           completed_at: new Date().toISOString(),
-          error_message: mappingResult.errors.length > 0 ? mappingResult.errors.join('; ') : null,
+          error_message: hasErrors ? mappingResult.errors.join('; ') : null,
         }).eq('id', syncRecord.id)
 
         // Update config last_sync_at
@@ -360,16 +361,30 @@ async function mapAndInsertData(
             row[field.map_to_column] = value
           }
         })
-        // Add source metadata
+        // Add source metadata and ensure required NOT NULL columns have defaults
         if (tableName === 'shop_floor_stock') {
           row.source = 'sap_sync'
-          row.status = 'available'
+          row.status = row.status || 'available'
+          if (!row.plant) row.plant = config.sap_client || 'Plant-1000'
+          if (!row.material_code) row.material_code = row.material_description || 'UNKNOWN'
+          if (!row.available_quantity && row.available_quantity !== 0) row.available_quantity = 0
         }
         if (tableName === 'inward_inspection_lots') {
-          row.status = 'pending'
+          row.status = row.status || 'pending'
+          if (!row.plant) row.plant = config.sap_client || 'Plant-1000'
+          if (!row.material_code) row.material_code = row.material_description || 'UNKNOWN'
+          if (!row.inspection_lot) row.inspection_lot = `IL-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`
+        }
+        if (tableName === 'materials') {
+          if (!row.material_number) row.material_number = row.description || 'UNKNOWN'
+          if (!row.description) row.description = row.material_number || 'Unknown Material'
+        }
+        if (tableName === 'vendors') {
+          if (!row.code) row.code = row.name || 'UNKNOWN'
+          if (!row.name) row.name = row.code || 'Unknown Vendor'
         }
         return row
-      }).filter((row) => Object.keys(row).length > 0)
+      }).filter((row) => Object.keys(row).length > 1)
 
       if (mappedRows.length === 0) continue
 
