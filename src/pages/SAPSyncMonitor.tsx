@@ -390,50 +390,57 @@ export default function SAPSyncMonitor() {
         {/* Data Preview Tab */}
         <TabsContent value="data" className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Database Tables — Synced Data</h3>
+            <h3 className="text-lg font-semibold">Database Tables — All Synced Data</h3>
             <Button variant="outline" size="sm" className="gap-1" onClick={fetchDataPreviews} disabled={previewLoading}>
               {previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Refresh
             </Button>
           </div>
-          {dataPreviews.map((preview) => (
-            <Card key={preview.table}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Database className="h-4 w-4" />
-                    {preview.table.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </CardTitle>
-                  <Badge variant="outline">{preview.count} total records</Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {preview.recentRecords.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground text-sm">No records in this table</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          {Object.keys(preview.recentRecords[0]).filter(k => !['id', 'created_at', 'updated_at', 'upload_batch_id', 'uploaded_by', 'sap_sync_id'].includes(k)).slice(0, 8).map(key => (
-                            <TableHead key={key} className="text-xs whitespace-nowrap">{key.replace(/_/g, ' ').toUpperCase()}</TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {preview.recentRecords.map((row, i) => (
-                          <TableRow key={i}>
-                            {Object.entries(row).filter(([k]) => !['id', 'created_at', 'updated_at', 'upload_batch_id', 'uploaded_by', 'sap_sync_id'].includes(k)).slice(0, 8).map(([k, v]) => (
-                              <TableCell key={k} className="text-xs max-w-[150px] truncate">{String(v ?? '-')}</TableCell>
+          {dataPreviews.map((preview) => {
+            const allColumns = preview.recentRecords.length > 0
+              ? Object.keys(preview.recentRecords[0]).filter(k => !['id', 'created_at', 'updated_at', 'upload_batch_id', 'uploaded_by', 'sap_sync_id'].includes(k))
+              : [];
+            return (
+              <Card key={preview.table}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Database className="h-4 w-4" />
+                      {preview.table.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </CardTitle>
+                    <Badge variant="outline">{preview.count} total records — Showing {preview.recentRecords.length}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {preview.recentRecords.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground text-sm">No records in this table</div>
+                  ) : (
+                    <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs whitespace-nowrap">#</TableHead>
+                            {allColumns.map(key => (
+                              <TableHead key={key} className="text-xs whitespace-nowrap">{key.replace(/_/g, ' ').toUpperCase()}</TableHead>
                             ))}
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                        </TableHeader>
+                        <TableBody>
+                          {preview.recentRecords.map((row, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="text-xs font-medium">{i + 1}</TableCell>
+                              {allColumns.map(k => (
+                                <TableCell key={k} className="text-xs max-w-[200px] truncate">{String((row as any)[k] ?? '-')}</TableCell>
+                              ))}
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </TabsContent>
       </Tabs>
     </div>
