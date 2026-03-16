@@ -355,14 +355,17 @@ export default function KPIDashboard() {
     }));
   }, [filteredMRBs]);
 
-  // Defect Category Distribution
+  // Defect Category Distribution – uses live defect_description when defect_category is null
   const defectCategoryData = useMemo(() => {
     const categories: Record<string, number> = {};
     
     filteredMRBs.forEach(mrb => {
-      if (mrb.defect_category) {
-        categories[mrb.defect_category] = (categories[mrb.defect_category] || 0) + 1;
-      }
+      const damageQty = Number(mrb.rejected_quantity || 0) + Number(mrb.blocked_quantity || 0);
+      if (damageQty <= 0) return;
+
+      const label = mrb.defect_category || mrb.defect_description || 'Not specified';
+      const shortLabel = label.length > 25 ? label.substring(0, 23) + '…' : label;
+      categories[shortLabel] = (categories[shortLabel] || 0) + 1;
     });
 
     return Object.entries(categories)
