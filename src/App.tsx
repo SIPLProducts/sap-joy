@@ -35,6 +35,7 @@ import HelpSupport from "@/pages/HelpSupport";
 import ProposalGenerator from "@/pages/ProposalGenerator";
 import IMSRedirect from "@/pages/IMSRedirect";
 import SAPApiSettings from "@/pages/SAPApiSettings";
+import SAPSyncMonitor from "@/pages/SAPSyncMonitor";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
