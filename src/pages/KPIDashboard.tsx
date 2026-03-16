@@ -240,10 +240,11 @@ export default function KPIDashboard() {
     const monthData: Record<string, Record<string, number>> = {};
     
     filteredMRBs.forEach(mrb => {
-      if (mrb.quality_decision === 'reject' || mrb.status === 'rejected') {
+      const isRejected = mrb.quality_decision === 'reject' || mrb.status === 'rejected' || (mrb.rejected_quantity || 0) > 0;
+      if (isRejected) {
         if (!mrb.created_at) return;
         const month = format(parseISO(mrb.created_at), 'MMM yyyy');
-        const reason = mrb.defect_category || 'Other';
+        const reason = mrb.defect_category || 'unspecified';
         
         if (!monthData[month]) {
           monthData[month] = {};
