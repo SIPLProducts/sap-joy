@@ -170,13 +170,16 @@ export default function PurchaseHeadDashboard() {
     }));
   }, [filteredMRBs, repeatVendors]);
 
-  const clearFilters = () => {
-    setSelectedPlant('all');
-    setSelectedVendor('all');
-    setSelectedMaterial('all');
-    setDateFrom(undefined);
-    setDateTo(undefined);
-  };
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-muted/30">
