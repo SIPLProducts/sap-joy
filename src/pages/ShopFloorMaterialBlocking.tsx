@@ -181,6 +181,13 @@ export default function ShopFloorMaterialBlocking() {
       const sapMatDoc = `49${format(new Date(), 'yyyyMMdd')}${Math.floor(100000 + Math.random() * 900000)}`;
 
       if (mrbResult) {
+        // Update shop_floor_stock status to 'mrb_created'
+        const { supabase } = await import('@/integrations/supabase/client');
+        await supabase
+          .from('shop_floor_stock')
+          .update({ status: 'mrb_created', updated_at: new Date().toISOString() })
+          .eq('id', stockItem.id);
+
         setCreatedMRBNumber(mrbNumber);
         setSAPMaterialDocument(sapMatDoc);
         setIsSubmitted(true);
