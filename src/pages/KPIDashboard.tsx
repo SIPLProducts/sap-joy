@@ -628,26 +628,32 @@ export default function KPIDashboard() {
             </CardHeader>
             <CardContent>
               {defectCategoryData.length > 0 ? (
-                <div className="h-[300px]">
+                <div style={{ height: Math.max(300, defectCategoryData.length * 38) }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPie>
-                      <Pie
-                        data={defectCategoryData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={5}
-                        dataKey="value"
-                        label={({ name, value }) => `${name}: ${value}`}
-                      >
-                        {defectCategoryData.map((entry, index) => (
+                    <BarChart data={defectCategoryData} layout="vertical" margin={{ left: 10, right: 30, top: 5, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                      <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                      <YAxis
+                        dataKey="name"
+                        type="category"
+                        width={140}
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={11}
+                        tick={{ fill: 'hsl(var(--foreground))' }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--popover))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                        }}
+                      />
+                      <Bar dataKey="value" name="Count" radius={[0, 4, 4, 0]} barSize={20}>
+                        {defectCategoryData.map((_, index) => (
                           <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                         ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </RechartsPie>
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               ) : (
