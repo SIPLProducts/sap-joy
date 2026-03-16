@@ -35,6 +35,7 @@ import HelpSupport from "@/pages/HelpSupport";
 import ProposalGenerator from "@/pages/ProposalGenerator";
 import IMSRedirect from "@/pages/IMSRedirect";
 import SAPApiSettings from "@/pages/SAPApiSettings";
+import SAPSyncMonitor from "@/pages/SAPSyncMonitor";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -80,6 +81,7 @@ const App = () => (
                           <Route path="/profile" element={<UserProfile />} />
                           <Route path="/help" element={<HelpSupport />} />
                           <Route path="/admin/sap-api" element={<SAPApiSettings />} />
+                          <Route path="/admin/sap-sync" element={<SAPSyncMonitor />} />
                           <Route path="/proposals" element={<ProposalGenerator />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>

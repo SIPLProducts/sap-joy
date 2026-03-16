@@ -42,7 +42,8 @@ const dashboardItems = [
 // Admin items
 const adminItems = [
   { title: 'User Management', url: '/admin/users', icon: UserCog, roles: ['admin'] },
-  { title: 'SAP API Settings', url: '/admin/sap-api', icon: UserCog, roles: ['admin'] },
+  { title: 'SAP API Settings', url: '/admin/sap-api', icon: Settings, roles: ['admin'] },
+  { title: 'SAP Sync Monitor', url: '/admin/sap-sync', icon: TrendingUp, roles: ['admin'] },
 ];
 
 export function AppSidebar() {
