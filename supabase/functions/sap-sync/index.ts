@@ -494,17 +494,20 @@ async function mapAndInsertData(
 
       if (sanitizedRows.length === 0) continue
 
-      const maxRecords = config.max_records || 1000
-      const limitedRows = sanitizedRows.slice(0, maxRecords)
+      const batchSize = 500
 
-      const { data, error } = await supabase
-        .from(tableName)
-        .insert(limitedRows)
-        .select()
+      for (let index = 0; index < sanitizedRows.length; index += batchSize) {
+        const batch = sanitizedRows.slice(index, index + batchSize)
+        const { data, error } = await supabase
+          .from(tableName)
+          .insert(batch)
+          .select()
 
-      if (error) {
-        result.errors.push(`Error inserting into ${tableName}: ${error.message}`)
-      } else {
+        if (error) {
+          result.errors.push(`Error inserting into ${tableName}: ${error.message}`)
+          break
+        }
+
         result.inserted += data?.length || 0
       }
     } catch (tableErr: any) {
