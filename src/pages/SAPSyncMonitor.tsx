@@ -69,36 +69,32 @@ export default function SAPSyncMonitor() {
     setPreviewLoading(true);
     const previews: DataPreview[] = [];
 
-    // Shop floor stock
+    // Shop floor stock - fetch ALL records
     const { data: sfData, count: sfCount } = await supabase
       .from('shop_floor_stock')
       .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .limit(10);
+      .order('created_at', { ascending: false });
     previews.push({ table: 'shop_floor_stock', count: sfCount || 0, recentRecords: sfData || [] });
 
-    // Inward inspection lots
+    // Inward inspection lots - fetch ALL records
     const { data: ilData, count: ilCount } = await supabase
       .from('inward_inspection_lots')
       .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .limit(5);
+      .order('created_at', { ascending: false });
     previews.push({ table: 'inward_inspection_lots', count: ilCount || 0, recentRecords: ilData || [] });
 
-    // Materials
+    // Materials - fetch ALL records
     const { data: matData, count: matCount } = await supabase
       .from('materials')
       .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .limit(5);
+      .order('created_at', { ascending: false });
     previews.push({ table: 'materials', count: matCount || 0, recentRecords: matData || [] });
 
-    // Vendors
+    // Vendors - fetch ALL records
     const { data: venData, count: venCount } = await supabase
       .from('vendors')
       .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .limit(5);
+      .order('created_at', { ascending: false });
     previews.push({ table: 'vendors', count: venCount || 0, recentRecords: venData || [] });
 
     setDataPreviews(previews);
