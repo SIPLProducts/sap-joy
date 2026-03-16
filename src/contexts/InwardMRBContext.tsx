@@ -84,11 +84,10 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       
-      // Fetch only pending inspection lots (exclude mrb_created and cleared)
+      // Fetch all inspection lots synced from SAP / uploads so the page can show the full live picture
       let lotsQuery = supabase
         .from('inward_inspection_lots')
         .select('*')
-        .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
       // Apply plant filter if needed
