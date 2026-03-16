@@ -7,7 +7,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { CalendarIcon, Filter } from 'lucide-react';
-import { plants, vendors, materials } from '@/data/mockData';
 
 interface DashboardFiltersProps {
   selectedPlant: string;
@@ -23,6 +22,9 @@ interface DashboardFiltersProps {
   showVendor?: boolean;
   showMaterial?: boolean;
   onClear: () => void;
+  plants?: string[];
+  vendors?: { code: string; name: string }[];
+  materials?: { number: string; description: string }[];
 }
 
 export function DashboardFilters({
