@@ -14,8 +14,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useInwardMRB, InspectionLotRecord } from '@/contexts/InwardMRBContext';
 import { MultiSelectFilter } from '@/components/inward/MultiSelectFilter';
-import { plants, vendors, materials } from '@/data/mockData';
-import { storageLocations } from '@/data/inwardReportData';
+import {} from '@/data/mockData';
 import {
   Select,
   SelectContent,
