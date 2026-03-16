@@ -360,16 +360,30 @@ async function mapAndInsertData(
             row[field.map_to_column] = value
           }
         })
-        // Add source metadata
+        // Add source metadata and ensure required NOT NULL columns have defaults
         if (tableName === 'shop_floor_stock') {
           row.source = 'sap_sync'
-          row.status = 'available'
+          row.status = row.status || 'available'
+          if (!row.plant) row.plant = config.sap_client || 'Plant-1000'
+          if (!row.material_code) row.material_code = row.material_description || 'UNKNOWN'
+          if (!row.available_quantity && row.available_quantity !== 0) row.available_quantity = 0
         }
         if (tableName === 'inward_inspection_lots') {
-          row.status = 'pending'
+          row.status = row.status || 'pending'
+          if (!row.plant) row.plant = config.sap_client || 'Plant-1000'
+          if (!row.material_code) row.material_code = row.material_description || 'UNKNOWN'
+          if (!row.inspection_lot) row.inspection_lot = `IL-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`
+        }
+        if (tableName === 'materials') {
+          if (!row.material_number) row.material_number = row.description || 'UNKNOWN'
+          if (!row.description) row.description = row.material_number || 'Unknown Material'
+        }
+        if (tableName === 'vendors') {
+          if (!row.code) row.code = row.name || 'UNKNOWN'
+          if (!row.name) row.name = row.code || 'Unknown Vendor'
         }
         return row
-      }).filter((row) => Object.keys(row).length > 0)
+      }).filter((row) => Object.keys(row).length > 1)
 
       if (mappedRows.length === 0) continue
 
