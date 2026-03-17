@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Printer, Download, X, ZoomIn, ZoomOut } from 'lucide-react';
 
@@ -31,17 +31,18 @@ export const PrintPreviewModal = ({
   useEffect(() => {
     if (!isOpen || !previewRef.current) return;
 
-    previewRef.current.innerHTML = '';
+    const previewNode = previewRef.current;
+    previewNode.innerHTML = '';
 
     if (sourceElement) {
       const clonedContent = sourceElement.cloneNode(true) as HTMLDivElement;
       clonedContent.classList.remove('mx-auto');
-      previewRef.current.appendChild(clonedContent);
+      previewNode.appendChild(clonedContent);
       return;
     }
 
     if (content) {
-      previewRef.current.innerHTML = content;
+      previewNode.innerHTML = content;
     }
   }, [isOpen, sourceElement, content]);
 
@@ -52,23 +53,26 @@ export const PrintPreviewModal = ({
   const pageHeight = orientation === 'landscape' ? '210mm' : '297mm';
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="flex h-[95vh] w-[95vw] max-w-[95vw] flex-col overflow-hidden">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center justify-between gap-3 pr-8">
             <span className="text-sm">Preview - {title}</span>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" onClick={handleZoomOut} className="h-7 w-7">
+              <Button type="button" variant="ghost" size="icon" onClick={handleZoomOut} className="h-7 w-7">
                 <ZoomOut className="h-3.5 w-3.5" />
               </Button>
               <span className="min-w-[45px] text-center text-xs text-muted-foreground">
                 {Math.round(zoom * 100)}%
               </span>
-              <Button variant="ghost" size="icon" onClick={handleZoomIn} className="h-7 w-7">
+              <Button type="button" variant="ghost" size="icon" onClick={handleZoomIn} className="h-7 w-7">
                 <ZoomIn className="h-3.5 w-3.5" />
               </Button>
             </div>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Print preview dialog for the selected MRB document.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-auto rounded-lg bg-muted/50 p-4">
@@ -85,20 +89,20 @@ export const PrintPreviewModal = ({
           </div>
         </div>
 
-        <DialogFooter className="flex-shrink-0 gap-2">
-          <Button variant="outline" size="sm" onClick={onClose}>
+        <div className="flex flex-shrink-0 justify-end gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>
             <X className="mr-1.5 h-3.5 w-3.5" />
             Close
           </Button>
-          <Button variant="secondary" size="sm" onClick={onDownloadPDF}>
+          <Button type="button" variant="secondary" size="sm" onClick={onDownloadPDF}>
             <Download className="mr-1.5 h-3.5 w-3.5" />
             PDF
           </Button>
-          <Button size="sm" onClick={onPrint}>
+          <Button type="button" size="sm" onClick={onPrint}>
             <Printer className="mr-1.5 h-3.5 w-3.5" />
             Print
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
