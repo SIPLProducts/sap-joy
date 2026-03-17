@@ -50,7 +50,7 @@ const MRBPrint = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [printerSettings, setPrinterSettings] = useState<PrinterSettings>(loadPrinterSettings);
-  const [previewContent, setPreviewContent] = useState('');
+  const [previewSourceElement, setPreviewSourceElement] = useState<HTMLDivElement | null>(null);
   const [previewTitle, setPreviewTitle] = useState('');
 
   // Load MRB list for dropdown
@@ -219,7 +219,7 @@ const MRBPrint = () => {
     const printRef = formType === 'ncr' ? ncrPrintRef : mrbPrintRef;
     if (!printRef.current) return;
     const title = formType === 'ncr' ? `NCR Report - ${selectedMRB?.mrb_number}` : `MRB Form - ${selectedMRB?.mrb_number}`;
-    setPreviewContent(printRef.current.innerHTML);
+    setPreviewSourceElement(printRef.current);
     setPreviewTitle(title);
     setShowPreview(true);
   };
@@ -704,9 +704,8 @@ const MRBPrint = () => {
       <PrintPreviewModal
         isOpen={showPreview}
         onClose={() => setShowPreview(false)}
-        content={previewContent}
+        sourceElement={previewSourceElement}
         title={previewTitle}
-        styles={getPrintStyles()}
         orientation={printerSettings.orientation}
         onPrint={() => { handlePrint(activeForm, printerSettings.orientation); setShowPreview(false); }}
         onDownloadPDF={() => { handleDownloadPDF(activeForm, printerSettings.orientation); setShowPreview(false); }}
