@@ -429,27 +429,27 @@ export default function KPIDashboard() {
     <div className="min-h-screen bg-muted/30">
       {/* Welcome + Header */}
       <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm">
-        <div className="px-6 py-3">
-          <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="px-6 py-5">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
               <div>
-                <h1 className="text-xl font-bold text-foreground">
+                <h1 className="text-2xl font-bold text-foreground">
                   Welcome back, {profile?.full_name || 'User'}! 👋
                 </h1>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-base text-muted-foreground mt-1">
                   KPI Dashboard • Plant: {profile?.plant || 'All Plants'}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex gap-2 mr-2">
-                <div className="text-center px-3 py-1.5 bg-primary/10 rounded-lg border border-primary/20">
-                  <p className="text-lg font-bold text-foreground leading-tight">{kpis.shopFloorMRBs}</p>
-                  <p className="text-[10px] text-muted-foreground">Shop Floor</p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex gap-3 mr-3">
+                <div className="text-center px-5 py-3 bg-primary/10 rounded-xl border border-primary/20">
+                  <p className="text-2xl font-bold text-foreground leading-tight">{kpis.shopFloorMRBs}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Shop Floor</p>
                 </div>
-                <div className="text-center px-3 py-1.5 bg-primary/10 rounded-lg border border-primary/20">
-                  <p className="text-lg font-bold text-foreground leading-tight">{kpis.inwardMRBs}</p>
-                  <p className="text-[10px] text-muted-foreground">Inward</p>
+                <div className="text-center px-5 py-3 bg-primary/10 rounded-xl border border-primary/20">
+                  <p className="text-2xl font-bold text-foreground leading-tight">{kpis.inwardMRBs}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Inward</p>
                 </div>
               </div>
               <Badge variant="outline" className="px-2 py-1 bg-green-500/10 border-green-500/30 text-xs">
