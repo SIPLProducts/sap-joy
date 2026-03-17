@@ -197,16 +197,27 @@ const MRBPrint = () => {
   const handleDownloadPDF = async (formType: 'ncr' | 'mrb', orientation: 'portrait' | 'landscape' = 'portrait') => {
     const printRef = formType === 'ncr' ? ncrPrintRef : mrbPrintRef;
     if (!printRef.current) return;
-    const filename = formType === 'ncr' ? `NCR_Report_${selectedMRB?.mrb_number || 'MRB'}.pdf` : `MRB_Form_${selectedMRB?.mrb_number || 'MRB'}.pdf`;
+
+    const filename = formType === 'ncr'
+      ? `NCR_Report_${selectedMRB?.mrb_number || 'MRB'}.pdf`
+      : `MRB_Form_${selectedMRB?.mrb_number || 'MRB'}.pdf`;
+
     toast({ title: 'Generating PDF', description: 'Please wait...' });
+
     try {
-      await html2pdf().set({
-        margin: [10, 10, 10, 10],
-        filename,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation }
-      }).from(printRef.current).save();
+      const html2pdf = (await import('html2pdf.js')).default;
+
+      await html2pdf()
+        .set({
+          margin: [10, 10, 10, 10],
+          filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation },
+        })
+        .from(printRef.current)
+        .save();
+
       toast({ title: 'PDF Downloaded', description: `${filename} downloaded!` });
     } catch (error) {
       console.error('PDF error:', error);
