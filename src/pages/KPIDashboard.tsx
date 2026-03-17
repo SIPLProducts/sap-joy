@@ -547,8 +547,34 @@ export default function KPIDashboard() {
       </div>
 
       <div className="p-6 space-y-6">
+        {/* Welcome Card */}
+        <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-primary/20">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-foreground">
+                  Welcome back, {profile?.full_name || 'User'}! 👋
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Role: {roleDisplayName} • Plant: {profile?.plant || 'All Plants'}
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <div className="text-center px-4 py-2 bg-background/80 rounded-lg border border-border">
+                  <p className="text-lg font-bold text-foreground">{kpis.shopFloorMRBs}</p>
+                  <p className="text-[10px] text-muted-foreground">Shop Floor</p>
+                </div>
+                <div className="text-center px-4 py-2 bg-background/80 rounded-lg border border-border">
+                  <p className="text-lg font-bold text-foreground">{kpis.inwardMRBs}</p>
+                  <p className="text-[10px] text-muted-foreground">Inward</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Top KPI Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total MRBs</CardTitle>
@@ -556,7 +582,7 @@ export default function KPIDashboard() {
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-foreground">{kpis.totalMRBs}</p>
-              <p className="text-xs text-muted-foreground mt-1">{kpis.openMRBs} open</p>
+              <p className="text-xs text-muted-foreground mt-1">{kpis.shopFloorMRBs} shop floor • {kpis.inwardMRBs} inward</p>
             </CardContent>
           </Card>
 
@@ -573,25 +599,49 @@ export default function KPIDashboard() {
             </CardContent>
           </Card>
 
+          <Card className="bg-gradient-to-br from-accent/30 to-accent/10 border-accent/20">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Accepted</CardTitle>
+              <ShieldCheck className="h-5 w-5 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-foreground">{kpis.acceptedMRBs}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {kpis.totalMRBs > 0 ? Math.round((kpis.acceptedMRBs / kpis.totalMRBs) * 100) : 0}% acceptance rate
+              </p>
+            </CardContent>
+          </Card>
+
           <Card className="bg-gradient-to-br from-warning/5 to-warning/10 border-warning/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">SLA Breaches</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
               <Clock className="h-5 w-5 text-warning" />
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-foreground">{kpis.slaRed}</p>
-              <p className="text-xs text-muted-foreground mt-1">{kpis.slaYellow} at risk</p>
+              <p className="text-3xl font-bold text-foreground">{kpis.pendingMRBs}</p>
+              <p className="text-xs text-muted-foreground mt-1">Avg. {kpis.avgPendingDays}d</p>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-secondary/5 to-secondary/10 border-secondary/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Closed</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Approved</CardTitle>
               <CheckCircle className="h-5 w-5 text-secondary" />
             </CardHeader>
             <CardContent>
+              <p className="text-3xl font-bold text-foreground">{kpis.approvedMRBs}</p>
+              <p className="text-xs text-muted-foreground mt-1">Final approved</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-muted to-muted/50 border-border">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Closed</CardTitle>
+              <FileText className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
               <p className="text-3xl font-bold text-foreground">{kpis.closedMRBs}</p>
-              <p className="text-xs text-muted-foreground mt-1">Avg. {kpis.avgPendingDays}d pending</p>
+              <p className="text-xs text-muted-foreground mt-1">Completed</p>
             </CardContent>
           </Card>
 
