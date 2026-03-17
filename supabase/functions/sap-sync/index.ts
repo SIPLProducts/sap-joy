@@ -189,11 +189,13 @@ Deno.serve(async (req) => {
         clearTimeout(timer)
 
         const bodyText = await response.text()
+        console.log('SAP 343 raw response status:', response.status, 'body:', bodyText)
+        
         let responseData: any = null
         try {
           responseData = JSON.parse(bodyText)
         } catch {
-          responseData = { raw: bodyText.substring(0, 1000) }
+          responseData = bodyText ? { raw: bodyText.substring(0, 2000) } : null
         }
 
         if (!response.ok) {
@@ -201,14 +203,15 @@ Deno.serve(async (req) => {
             success: false,
             error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
             sap_response: responseData,
+            http_status: response.status,
           }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
-        // Check SAP response CODE for success (100 = success)
-        const sapCode = responseData?.CODE || responseData?.code
-        const sapMsg = responseData?.MSG || responseData?.msg || ''
-        const sapMBLNR = responseData?.MBLNR || responseData?.mblnr || ''
-        const sapMJAHR = responseData?.MJAHR || responseData?.mjahr || ''
+        // Extract SAP fields - try multiple key patterns
+        const sapCode = responseData?.CODE || responseData?.code || responseData?.Code || null
+        const sapMsg = responseData?.MSG || responseData?.msg || responseData?.Message || responseData?.message || null
+        const sapMBLNR = responseData?.MBLNR || responseData?.mblnr || responseData?.MaterialDocument || null
+        const sapMJAHR = responseData?.MJAHR || responseData?.mjahr || responseData?.MaterialDocumentYear || null
 
         return new Response(JSON.stringify({
           success: true,
@@ -217,6 +220,8 @@ Deno.serve(async (req) => {
           message: sapMsg,
           material_document: sapMBLNR,
           material_document_year: sapMJAHR,
+          http_status: response.status,
+          raw_body_length: bodyText.length,
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       } catch (err: any) {
         const errMsg = err.name === 'AbortError'
