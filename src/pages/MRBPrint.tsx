@@ -234,7 +234,15 @@ const MRBPrint = () => {
     setShowPreview(true);
   };
 
-  const formatDate = (dateString: string | null | undefined) => {
+
+  const buildPreviewHTML = (element: HTMLDivElement) => {
+    const appStyles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map((node) => node.outerHTML)
+      .join('');
+
+    return `${appStyles}<div class="print-preview-doc">${element.outerHTML}</div>`;
+  };
+
     if (!dateString) return '';
     return new Date(dateString).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
