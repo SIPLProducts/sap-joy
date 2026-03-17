@@ -125,6 +125,11 @@ export default function KPIDashboard() {
       filtered = filtered.filter(mrb => mrb.plant === selectedPlant);
     }
 
+    // Filter by source (shop_floor / quality_inspection)
+    if (selectedSource !== 'all') {
+      filtered = filtered.filter(mrb => mrb.source === selectedSource);
+    }
+
     // Filter by month
     if (selectedMonth !== 'all') {
       const [year, month] = selectedMonth.split('-').map(Number);
@@ -151,7 +156,7 @@ export default function KPIDashboard() {
     }
 
     return filtered;
-  }, [allMRBs, selectedPlant, selectedMonth, dateFrom, dateTo]);
+  }, [allMRBs, selectedPlant, selectedSource, selectedMonth, dateFrom, dateTo]);
 
 
   // Calculate KPIs based on filtered data
