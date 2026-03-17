@@ -454,11 +454,12 @@ export default function Worklist() {
       const requestBody = await buildUnblockRequestBody(mrb);
       console.log('SAP 343 Unblock Request:', requestBody);
 
-      // Call SAP 343 (Blocked to Unrestricted) via edge function
+      // Call SAP 343 and then verify with live MB52 stock fetch
       const response = await supabase.functions.invoke('sap-sync', {
         body: {
           action: 'unblock',
           config_id: SAP_343_CONFIG_ID,
+          verify_config_id: 'a1000001-0001-0001-0001-000000000001',
           request_body: requestBody,
         },
       });
