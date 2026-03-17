@@ -731,7 +731,7 @@ export default function KPIDashboard() {
         </div>
 
         {/* Reject Reasons by Plant & Month */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           {/* By Plant */}
           <Card>
             <CardHeader>
