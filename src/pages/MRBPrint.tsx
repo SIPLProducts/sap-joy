@@ -14,6 +14,7 @@ import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
 import { PrinterSettingsModal, loadPrinterSettings, type PrinterSettings } from '@/components/print/PrinterSettingsModal';
 import hblLogo from '@/assets/hbl-logo.png';
 import { usePrintConfig } from '@/hooks/usePlantConfig';
+import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 
 type MRBRecord = Database['public']['Tables']['mrb_records']['Row'];
@@ -25,15 +26,12 @@ const MRBPrint = () => {
   const ncrPrintRef = useRef<HTMLDivElement>(null);
   const mrbPrintRef = useRef<HTMLDivElement>(null);
   
-  // Combine all MRB records
+  // Combine all MRB records for the dropdown list
   const allMRBs = [...mrbRecords, ...inwardMRBRecords];
   
-  // Find a sample MRB with comprehensive data for demo
-  const sampleMRB = allMRBs.find(m => m.mrb_number === 'MRB-2024-0004') || allMRBs.find(m => m.status === 'final_approval' || m.status === 'closed') || allMRBs[0];
-  
-  const [searchNumber, setSearchNumber] = useState(sampleMRB?.mrb_number || '');
-  const [selectedMRBId, setSelectedMRBId] = useState<string>(sampleMRB?.id || '');
-  const [selectedMRB, setSelectedMRB] = useState<MRBRecord | null>(sampleMRB || null);
+  const [searchNumber, setSearchNumber] = useState('');
+  const [selectedMRBId, setSelectedMRBId] = useState<string>('');
+  const [selectedMRB, setSelectedMRB] = useState<MRBRecord | null>(null);
   const [activeForm, setActiveForm] = useState<'ncr' | 'mrb'>('ncr');
   
   // Print preview & settings state
@@ -43,14 +41,34 @@ const MRBPrint = () => {
   const [previewContent, setPreviewContent] = useState('');
   const [previewTitle, setPreviewTitle] = useState('');
 
+  // Fetch full MRB record directly from database for accurate data
+  const fetchMRBFromDB = async (id: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('mrb_records')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      if (data) {
+        setSelectedMRB(data);
+        setSelectedMRBId(data.id);
+        setSearchNumber(data.mrb_number);
+        toast({ title: 'MRB Loaded', description: `Loaded ${data.mrb_number} with all data` });
+      }
+    } catch (error) {
+      console.error('Error fetching MRB:', error);
+      toast({ title: 'Error', description: 'Failed to fetch MRB data from database', variant: 'destructive' });
+    }
+  };
+
   const handleSearch = () => {
     const found = allMRBs.find(
       mrb => mrb.mrb_number.toLowerCase() === searchNumber.toLowerCase()
     );
     if (found) {
-      setSelectedMRB(found);
-      setSelectedMRBId(found.id);
-      toast({ title: 'MRB Found', description: `Loaded ${found.mrb_number}` });
+      fetchMRBFromDB(found.id);
     } else {
       toast({ 
         title: 'MRB Not Found', 
@@ -61,12 +79,7 @@ const MRBPrint = () => {
   };
 
   const handleSelectMRB = (id: string) => {
-    const mrb = getMRBById(id) || inwardMRBRecords.find(m => m.id === id);
-    if (mrb) {
-      setSelectedMRB(mrb);
-      setSelectedMRBId(id);
-      setSearchNumber(mrb.mrb_number);
-    }
+    fetchMRBFromDB(id);
   };
 
   const getPrintStyles = () => `
