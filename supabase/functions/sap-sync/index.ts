@@ -160,7 +160,75 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ error: 'Invalid action. Use "test" or "sync".' }), {
+    // UNBLOCK - Call SAP 343 (Blocked to Unrestricted) with dynamic MRB data
+    if (action === 'unblock') {
+      const { request_body } = body
+      if (!request_body) {
+        return new Response(JSON.stringify({ error: 'request_body is required for unblock action' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      try {
+        const url = buildUrl(config)
+        const headers = buildAuthHeaders(config)
+        const method = (config.http_method || 'PUT').toUpperCase()
+        const timeout = config.timeout_ms || 30000
+
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), timeout)
+
+        const fetchOpts: RequestInit = {
+          method,
+          headers,
+          signal: controller.signal,
+          body: JSON.stringify(request_body),
+        }
+
+        const response = await fetch(url, fetchOpts)
+        clearTimeout(timer)
+
+        const bodyText = await response.text()
+        let responseData: any = null
+        try {
+          responseData = JSON.parse(bodyText)
+        } catch {
+          responseData = { raw: bodyText.substring(0, 1000) }
+        }
+
+        if (!response.ok) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
+            sap_response: responseData,
+          }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        // Check SAP response CODE for success (100 = success)
+        const sapCode = responseData?.CODE || responseData?.code
+        const sapMsg = responseData?.MSG || responseData?.msg || ''
+        const sapMBLNR = responseData?.MBLNR || responseData?.mblnr || ''
+        const sapMJAHR = responseData?.MJAHR || responseData?.mjahr || ''
+
+        return new Response(JSON.stringify({
+          success: true,
+          sap_response: responseData,
+          code: sapCode,
+          message: sapMsg,
+          material_document: sapMBLNR,
+          material_document_year: sapMJAHR,
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      } catch (err: any) {
+        const errMsg = err.name === 'AbortError'
+          ? `SAP API timed out after ${config.timeout_ms || 30000}ms`
+          : `Network error: ${err.message}`
+        return new Response(JSON.stringify({ success: false, error: errMsg }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
+    return new Response(JSON.stringify({ error: 'Invalid action. Use "test", "sync", or "unblock".' }), {
       status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err: any) {

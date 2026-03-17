@@ -394,38 +394,87 @@ export default function Worklist() {
     }
   };
 
-  const MB52_CONFIG_ID = 'a1000001-0001-0001-0001-000000000001';
+  const SAP_343_CONFIG_ID = 'a1000001-0001-0001-0001-000000000002';
+
+  // Build SAP 343 request body from MRB data
+  const buildUnblockRequestBody = async (mrb: UnifiedMRBRecord) => {
+    // Try to get storage_location and batch from inward_inspection_lots if inspection_lot is available
+    let storageLocation = '';
+    let batch = '';
+
+    if (mrb.inspectionLot) {
+      const { data: lot } = await supabase
+        .from('inward_inspection_lots')
+        .select('storage_location, batch')
+        .eq('inspection_lot', mrb.inspectionLot)
+        .limit(1)
+        .maybeSingle();
+
+      if (lot) {
+        storageLocation = lot.storage_location || '';
+        batch = lot.batch || '';
+      }
+    }
+
+    // If no lot found, try shop_floor_stock
+    if (!storageLocation || !batch) {
+      const { data: stock } = await supabase
+        .from('shop_floor_stock')
+        .select('storage_location, batch')
+        .eq('material_code', mrb.materialNumber)
+        .eq('plant', mrb.plant)
+        .limit(1)
+        .maybeSingle();
+
+      if (stock) {
+        storageLocation = storageLocation || stock.storage_location || '';
+        batch = batch || stock.batch || '';
+      }
+    }
+
+    return {
+      MATNR: mrb.materialNumber,
+      WERKS: mrb.plant.replace('Plant-', '') || '1300',
+      LGORT: storageLocation || 'S061',
+      CHARG: batch || '',
+      ENTRY_QNT: mrb.blockedQuantity || mrb.totalQuantity || 0,
+      ENTRY_UOM: mrb.uom || 'EA',
+    };
+  };
 
   const handleSAPSync = async (mrbId: string, mrbNumber: string) => {
     setSyncingIds(prev => new Set(prev).add(mrbId));
     
     try {
-      // Call the real SAP sync edge function with MB52 config
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
+      // Find the MRB record to get material details
+      const mrb = unifiedRecords.find(r => r.id === mrbId);
+      if (!mrb) throw new Error('MRB record not found');
 
-      if (!accessToken) {
-        throw new Error('No active session. Please log in again.');
-      }
+      // Build request body from MRB data
+      const requestBody = await buildUnblockRequestBody(mrb);
+      console.log('SAP 343 Unblock Request:', requestBody);
 
+      // Call SAP 343 (Blocked to Unrestricted) via edge function
       const response = await supabase.functions.invoke('sap-sync', {
         body: {
-          action: 'sync',
-          config_id: MB52_CONFIG_ID,
+          action: 'unblock',
+          config_id: SAP_343_CONFIG_ID,
+          request_body: requestBody,
         },
       });
 
       if (response.error) {
-        throw new Error(response.error.message || 'SAP sync edge function failed');
+        throw new Error(response.error.message || 'SAP unblock edge function failed');
       }
 
       const result = response.data;
+      console.log('SAP 343 Unblock Response:', result);
 
       if (!result?.success) {
         throw new Error(result?.error || 'SAP API returned an error');
       }
 
-      // Update MRB with SAP sync status
+      // Update MRB with SAP sync status and material document number
       await updateMRB(mrbId, {
         sap_stock_update_status: 'synced',
         closure_status: 'completed',
@@ -436,23 +485,28 @@ export default function Worklist() {
       await logSyncHistory(mrbId, mrbNumber, 'single', 'success');
 
       toast({
-        title: '✅ SAP Sync Completed',
+        title: '✅ SAP Unblock Completed',
         description: (
           <div className="mt-1">
-            <p><strong>{mrbNumber}</strong> has been synced with SAP.</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Stock unblocked — {result.records_fetched || 0} records fetched, {result.records_inserted || 0} inserted.
-            </p>
+            <p><strong>{mrbNumber}</strong> — Stock unblocked in SAP.</p>
+            {result.material_document && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Material Doc: {result.material_document}/{result.material_document_year}
+              </p>
+            )}
+            {result.message && (
+              <p className="text-xs text-muted-foreground mt-0.5">SAP: {result.message}</p>
+            )}
           </div>
         ),
-        duration: 5000,
+        duration: 6000,
       });
     } catch (error: any) {
-      console.error('SAP sync error:', error);
-      await logSyncHistory(mrbId, mrbNumber, 'single', 'failed', null, error?.message || 'Sync failed');
+      console.error('SAP unblock error:', error);
+      await logSyncHistory(mrbId, mrbNumber, 'single', 'failed', null, error?.message || 'Unblock failed');
       toast({
-        title: 'SAP Sync Failed',
-        description: error?.message || 'Failed to sync with SAP. Please try again.',
+        title: 'SAP Unblock Failed',
+        description: error?.message || 'Failed to unblock stock in SAP. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -484,11 +538,14 @@ export default function Worklist() {
       setSyncingIds(prev => new Set(prev).add(mrb.id));
       
       try {
-        // Call real SAP sync edge function
+        // Build request body from MRB data for SAP 343 unblock
+        const requestBody = await buildUnblockRequestBody(mrb);
+
         const response = await supabase.functions.invoke('sap-sync', {
           body: {
-            action: 'sync',
-            config_id: MB52_CONFIG_ID,
+            action: 'unblock',
+            config_id: SAP_343_CONFIG_ID,
+            request_body: requestBody,
           },
         });
 
