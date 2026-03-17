@@ -485,27 +485,29 @@ export default function Worklist() {
       // Log sync history with SAP response
       await logSyncHistory(mrbId, mrbNumber, 'single', 'success');
 
-      // Show full live SAP response in toast
+      // Show full live SAP response + live MB52 verification in toast
       const sapResponse = result.sap_response;
       const sapCode = result.code;
       const sapMsg = result.message;
       const sapMBLNR = result.material_document;
       const sapMJAHR = result.material_document_year;
+      const verification = result.verification;
+      const liveRecord = verification?.success && verification?.records?.length ? verification.records[0] : null;
 
       toast({
-        title: '✅ SAP 343 Unblock Response',
+        title: '✅ Live SAP Result',
         description: (
           <div className="mt-1 space-y-1 max-w-sm">
             <p className="font-semibold text-sm">{mrbNumber}</p>
             <div className="bg-muted/50 rounded p-2 text-xs space-y-0.5 border">
-              <p><span className="font-medium">Request:</span></p>
+              <p><span className="font-medium">SAP 343 Request</span></p>
               <p className="text-muted-foreground pl-2">MATNR: {requestBody.MATNR}</p>
               <p className="text-muted-foreground pl-2">WERKS: {requestBody.WERKS} | LGORT: {requestBody.LGORT}</p>
               <p className="text-muted-foreground pl-2">CHARG: {requestBody.CHARG || '—'}</p>
               <p className="text-muted-foreground pl-2">QTY: {requestBody.ENTRY_QNT} {requestBody.ENTRY_UOM}</p>
             </div>
             <div className="bg-muted/50 rounded p-2 text-xs space-y-0.5 border">
-              <p><span className="font-medium">SAP Response:</span></p>
+              <p><span className="font-medium">SAP 343 Raw Response</span></p>
               {sapCode !== undefined && sapCode !== null && sapCode !== '' ? (
                 <>
                   <p className="text-muted-foreground pl-2">CODE: {sapCode}</p>
@@ -517,10 +519,23 @@ export default function Worklist() {
                 Object.entries(sapResponse).map(([key, val]) => (
                   <p key={key} className="text-muted-foreground pl-2">{key}: {String(val) || '—'}</p>
                 ))
-              ) : sapResponse && typeof sapResponse === 'string' && sapResponse.length > 0 ? (
-                <p className="text-muted-foreground pl-2">{sapResponse}</p>
               ) : (
-                <p className="text-muted-foreground pl-2 italic">SAP returned empty response (HTTP 200 OK)</p>
+                <p className="text-muted-foreground pl-2 italic">343 returned empty body, so showing live MB52 verification below</p>
+              )}
+            </div>
+            <div className="bg-muted/50 rounded p-2 text-xs space-y-0.5 border">
+              <p><span className="font-medium">Live MB52 Verification</span></p>
+              {verification?.success && liveRecord ? (
+                <>
+                  <p className="text-muted-foreground pl-2">Records found: {verification.count}</p>
+                  <p className="text-muted-foreground pl-2">Material: {liveRecord.MATNR || liveRecord.material_code || '—'}</p>
+                  <p className="text-muted-foreground pl-2">Batch: {liveRecord.CHARG || liveRecord.batch || '—'}</p>
+                  <p className="text-muted-foreground pl-2">Plant: {liveRecord.WERKS || liveRecord.plant || '—'} | SLoc: {liveRecord.LGORT || liveRecord.storage_location || '—'}</p>
+                  <p className="text-muted-foreground pl-2">Blocked Qty: {liveRecord.SPEME || liveRecord.blocked_quantity || '0'}</p>
+                  <p className="text-muted-foreground pl-2">Available Qty: {liveRecord.LABST || liveRecord.available_quantity || '0'}</p>
+                </>
+              ) : (
+                <p className="text-muted-foreground pl-2">{verification?.error || 'No live MB52 data returned'}</p>
               )}
             </div>
           </div>
