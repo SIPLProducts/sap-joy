@@ -239,10 +239,18 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
       filtered = filtered.filter(r => filters.inspectionLots.includes(r.inspectionLot));
     }
     if (filters.postingDateFrom) {
-      filtered = filtered.filter(r => r.postingDate && r.postingDate >= filters.postingDateFrom);
+      filtered = filtered.filter(r => {
+        if (!r.postingDate) return false;
+        const dateOnly = r.postingDate.substring(0, 10);
+        return dateOnly >= filters.postingDateFrom;
+      });
     }
     if (filters.postingDateTo) {
-      filtered = filtered.filter(r => r.postingDate && r.postingDate <= filters.postingDateTo);
+      filtered = filtered.filter(r => {
+        if (!r.postingDate) return false;
+        const dateOnly = r.postingDate.substring(0, 10);
+        return dateOnly <= filters.postingDateTo;
+      });
     }
 
     return filtered;
