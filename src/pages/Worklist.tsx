@@ -538,11 +538,14 @@ export default function Worklist() {
       setSyncingIds(prev => new Set(prev).add(mrb.id));
       
       try {
-        // Call real SAP sync edge function
+        // Build request body from MRB data for SAP 343 unblock
+        const requestBody = await buildUnblockRequestBody(mrb);
+
         const response = await supabase.functions.invoke('sap-sync', {
           body: {
-            action: 'sync',
-            config_id: MB52_CONFIG_ID,
+            action: 'unblock',
+            config_id: SAP_343_CONFIG_ID,
+            request_body: requestBody,
           },
         });
 
