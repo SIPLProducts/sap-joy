@@ -50,7 +50,7 @@ const MRBPrint = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [printerSettings, setPrinterSettings] = useState<PrinterSettings>(loadPrinterSettings);
-  const [previewContent, setPreviewContent] = useState('');
+  const [previewSourceElement, setPreviewSourceElement] = useState<HTMLDivElement | null>(null);
   const [previewTitle, setPreviewTitle] = useState('');
 
   // Load MRB list for dropdown
