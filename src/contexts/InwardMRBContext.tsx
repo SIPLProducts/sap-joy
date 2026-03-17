@@ -80,6 +80,8 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
     vendors: [],
     storageLocations: [],
     inspectionLots: [],
+    postingDateFrom: '',
+    postingDateTo: '',
   });
 
   const fetchData = useCallback(async () => {
