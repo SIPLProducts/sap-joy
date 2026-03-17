@@ -394,13 +394,37 @@ export default function Worklist() {
     }
   };
 
+  const MB52_CONFIG_ID = 'a1000001-0001-0001-0001-000000000001';
+
   const handleSAPSync = async (mrbId: string, mrbNumber: string) => {
     setSyncingIds(prev => new Set(prev).add(mrbId));
     
     try {
-      // Simulate SAP sync - in production this would call SAP API
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
+      // Call the real SAP sync edge function with MB52 config
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        throw new Error('No active session. Please log in again.');
+      }
+
+      const response = await supabase.functions.invoke('sap-sync', {
+        body: {
+          action: 'sync',
+          config_id: MB52_CONFIG_ID,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'SAP sync edge function failed');
+      }
+
+      const result = response.data;
+
+      if (!result?.success) {
+        throw new Error(result?.error || 'SAP API returned an error');
+      }
+
       // Update MRB with SAP sync status
       await updateMRB(mrbId, {
         sap_stock_update_status: 'synced',
@@ -416,17 +440,19 @@ export default function Worklist() {
         description: (
           <div className="mt-1">
             <p><strong>{mrbNumber}</strong> has been synced with SAP.</p>
-            <p className="text-xs text-muted-foreground mt-1">Stock has been unblocked and updated in SAP.</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Stock unblocked — {result.records_fetched || 0} records fetched, {result.records_inserted || 0} inserted.
+            </p>
           </div>
         ),
         duration: 5000,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('SAP sync error:', error);
-      await logSyncHistory(mrbId, mrbNumber, 'single', 'failed', null, 'Sync failed');
+      await logSyncHistory(mrbId, mrbNumber, 'single', 'failed', null, error?.message || 'Sync failed');
       toast({
         title: 'SAP Sync Failed',
-        description: 'Failed to sync with SAP. Please try again.',
+        description: error?.message || 'Failed to sync with SAP. Please try again.',
         variant: 'destructive',
       });
     } finally {
