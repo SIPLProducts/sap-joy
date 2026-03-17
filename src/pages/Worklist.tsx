@@ -1075,17 +1075,17 @@ export default function Worklist() {
                             View
                           </Button>
                           {mrb.status === 'approved' && mrb.sapStockUpdateStatus === 'synced' ? (
-                            <Badge className="bg-green-600 text-white border-green-600">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              SAP Sync Success
-                            </Badge>
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-green-50 border border-green-200 text-green-700 text-xs font-semibold whitespace-nowrap">
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              SAP Synced
+                            </div>
                           ) : mrb.status === 'approved' && mrb.sapStockUpdateStatus !== 'synced' ? (
                             <Button 
                               variant="default" 
                               size="sm" 
                               onClick={() => handleSAPSync(mrb.id, mrb.mrbNumber)}
                               disabled={syncingIds.has(mrb.id)}
-                              className="bg-green-600 hover:bg-green-700"
+                              className="bg-green-600 hover:bg-green-700 whitespace-nowrap"
                             >
                               {syncingIds.has(mrb.id) ? (
                                 <>
