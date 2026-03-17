@@ -235,7 +235,6 @@ const MRBPrint = () => {
     setShowPreview(true);
   };
 
-
   const buildPreviewHTML = (element: HTMLDivElement) => {
     const appStyles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
       .map((node) => node.outerHTML)
@@ -244,6 +243,7 @@ const MRBPrint = () => {
     return `${appStyles}<div class="print-preview-doc">${element.outerHTML}</div>`;
   };
 
+  const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return '';
     return new Date(dateString).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
