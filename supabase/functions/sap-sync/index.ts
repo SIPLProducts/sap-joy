@@ -192,11 +192,40 @@ Deno.serve(async (req) => {
         const bodyText = await response.text()
         console.log('SAP 343 raw response status:', response.status, 'body:', bodyText)
 
+        const normalizedBodyText = bodyText.trim()
+        const emptyResponseMeta = {
+          response_type: 'empty_body',
+          source: config.config_name || 'SAP_343_Blocked_To_Unrestricted',
+          note: 'Upstream SAP endpoint returned success with no payload',
+          http_status: response.status,
+          method,
+          endpoint: url,
+          received_at: new Date().toISOString(),
+          content_type: response.headers.get('content-type') || null,
+          upstream_date: response.headers.get('date') || null,
+          upstream_server: response.headers.get('server') || null,
+          request_matnr: request_body.MATNR ?? null,
+          request_werks: request_body.WERKS ?? null,
+          request_lgort: request_body.LGORT ?? null,
+          request_charg: request_body.CHARG ?? null,
+          request_qty: request_body.ENTRY_QNT ?? null,
+          request_uom: request_body.ENTRY_UOM ?? null,
+        }
+
         let responseData: any = null
         try {
-          responseData = JSON.parse(bodyText)
+          const parsed = normalizedBodyText ? JSON.parse(bodyText) : null
+          responseData = parsed === '' || parsed === null ? emptyResponseMeta : parsed
         } catch {
-          responseData = bodyText ? { raw: bodyText.substring(0, 2000) } : null
+          responseData = normalizedBodyText
+            ? {
+                response_type: 'text_body',
+                http_status: response.status,
+                method,
+                endpoint: url,
+                body: bodyText.substring(0, 2000),
+              }
+            : emptyResponseMeta
         }
 
         if (!response.ok) {
@@ -209,7 +238,7 @@ Deno.serve(async (req) => {
         }
 
         const sapCode = responseData?.CODE || responseData?.code || responseData?.Code || null
-        const sapMsg = responseData?.MSG || responseData?.msg || responseData?.Message || responseData?.message || null
+        const sapMsg = responseData?.MSG || responseData?.msg || responseData?.Message || responseData?.message || responseData?.note || null
         const sapMBLNR = responseData?.MBLNR || responseData?.mblnr || responseData?.MaterialDocument || null
         const sapMJAHR = responseData?.MJAHR || responseData?.mjahr || responseData?.MaterialDocumentYear || null
 
