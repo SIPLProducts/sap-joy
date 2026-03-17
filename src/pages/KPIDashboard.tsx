@@ -979,7 +979,7 @@ export default function KPIDashboard() {
         </div>
 
         {/* SLA Status */}
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-3">
           <Card>
             <CardHeader>
               <CardTitle>SLA Status Distribution</CardTitle>
