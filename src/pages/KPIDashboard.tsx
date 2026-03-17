@@ -886,7 +886,7 @@ export default function KPIDashboard() {
         </Card>
 
         {/* Vendor Damage by Month & Plant */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           {/* By Month - Line Chart */}
           <Card>
             <CardHeader>
