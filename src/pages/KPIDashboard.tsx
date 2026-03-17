@@ -427,33 +427,45 @@ export default function KPIDashboard() {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      {/* Page Header */}
+      {/* Welcome + Header */}
       <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">KPI Dashboard</h1>
-              <p className="text-muted-foreground">Top Reject Reasons & Vendor Performance Analytics</p>
+        <div className="px-6 py-3">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-4">
+              <div>
+                <h1 className="text-xl font-bold text-foreground">
+                  Welcome back, {profile?.full_name || 'User'}! 👋
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  KPI Dashboard • Plant: {profile?.plant || 'All Plants'}
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Badge variant="outline" className="px-3 py-1 bg-green-500/10 border-green-500/30">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex gap-2 mr-2">
+                <div className="text-center px-3 py-1.5 bg-primary/10 rounded-lg border border-primary/20">
+                  <p className="text-lg font-bold text-foreground leading-tight">{kpis.shopFloorMRBs}</p>
+                  <p className="text-[10px] text-muted-foreground">Shop Floor</p>
+                </div>
+                <div className="text-center px-3 py-1.5 bg-primary/10 rounded-lg border border-primary/20">
+                  <p className="text-lg font-bold text-foreground leading-tight">{kpis.inwardMRBs}</p>
+                  <p className="text-[10px] text-muted-foreground">Inward</p>
+                </div>
+              </div>
+              <Badge variant="outline" className="px-2 py-1 bg-green-500/10 border-green-500/30 text-xs">
                 <Activity className="w-3 h-3 mr-1 text-green-500" />
-                Live Data
+                Live
               </Badge>
-              <Badge variant="outline" className="px-3 py-1">
-                <RefreshCw className="w-3 h-3 mr-1" />
-                {format(lastRefresh, 'HH:mm:ss')}
-              </Badge>
-              <Badge variant="outline" className="px-3 py-1">
+              <Badge variant="outline" className="px-2 py-1 text-xs">
                 {filteredMRBs.length} Records
               </Badge>
               <Button variant="outline" size="sm" onClick={handleRefresh}>
-                <RefreshCw className="w-4 h-4 mr-2" />
+                <RefreshCw className="w-3.5 h-3.5 mr-1" />
                 Refresh
               </Button>
               <Button variant="outline" size="sm" asChild>
                 <Link to="/worklist">
-                  <ArrowRight className="w-4 h-4 mr-2" />
+                  <ArrowRight className="w-3.5 h-3.5 mr-1" />
                   Worklist
                 </Link>
               </Button>
@@ -462,12 +474,12 @@ export default function KPIDashboard() {
         </div>
 
         {/* Filters Bar */}
-        <div className="px-6 py-3 bg-muted/50 border-t border-border">
-          <div className="flex items-end gap-4 flex-wrap">
-            <div className="space-y-1">
+        <div className="px-6 py-2 bg-muted/50 border-t border-border">
+          <div className="flex items-end gap-3 flex-wrap">
+            <div className="space-y-0.5">
               <Label className="text-xs text-muted-foreground">Plant</Label>
               <Select value={selectedPlant} onValueChange={setSelectedPlant}>
-                <SelectTrigger className="w-[160px] h-9 bg-background">
+                <SelectTrigger className="w-[140px] h-8 bg-background text-xs">
                   <SelectValue placeholder="All Plants" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border border-border shadow-lg z-50">
@@ -479,10 +491,10 @@ export default function KPIDashboard() {
               </Select>
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <Label className="text-xs text-muted-foreground">Source</Label>
               <Select value={selectedSource} onValueChange={setSelectedSource}>
-                <SelectTrigger className="w-[160px] h-9 bg-background">
+                <SelectTrigger className="w-[140px] h-8 bg-background text-xs">
                   <SelectValue placeholder="All Sources" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border border-border shadow-lg z-50">
@@ -493,10 +505,10 @@ export default function KPIDashboard() {
               </Select>
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <Label className="text-xs text-muted-foreground">Month</Label>
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="w-[160px] h-9 bg-background">
+                <SelectTrigger className="w-[140px] h-8 bg-background text-xs">
                   <SelectValue placeholder="All Months" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border border-border shadow-lg z-50">
@@ -508,12 +520,12 @@ export default function KPIDashboard() {
               </Select>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">From Date</Label>
+            <div className="space-y-0.5">
+              <Label className="text-xs text-muted-foreground">From</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-[140px] h-9 justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
+                  <Button variant="outline" className={cn("w-[120px] h-8 justify-start text-left font-normal text-xs", !dateFrom && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-1 h-3 w-3" />
                     {dateFrom ? format(dateFrom, "dd/MM/yy") : "Select"}
                   </Button>
                 </PopoverTrigger>
@@ -523,12 +535,12 @@ export default function KPIDashboard() {
               </Popover>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">To Date</Label>
+            <div className="space-y-0.5">
+              <Label className="text-xs text-muted-foreground">To</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-[140px] h-9 justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
+                  <Button variant="outline" className={cn("w-[120px] h-8 justify-start text-left font-normal text-xs", !dateTo && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-1 h-3 w-3" />
                     {dateTo ? format(dateTo, "dd/MM/yy") : "Select"}
                   </Button>
                 </PopoverTrigger>
@@ -538,43 +550,17 @@ export default function KPIDashboard() {
               </Popover>
             </div>
 
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9">
-              <Filter className="w-4 h-4 mr-1" />
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs">
+              <Filter className="w-3 h-3 mr-1" />
               Clear
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="p-6 space-y-6">
-        {/* Welcome Card */}
-        <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-primary/20">
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-foreground">
-                  Welcome back, {profile?.full_name || 'User'}! 👋
-                </h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Plant: {profile?.plant || 'All Plants'}
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <div className="text-center px-4 py-2 bg-background/80 rounded-lg border border-border">
-                  <p className="text-lg font-bold text-foreground">{kpis.shopFloorMRBs}</p>
-                  <p className="text-[10px] text-muted-foreground">Shop Floor</p>
-                </div>
-                <div className="text-center px-4 py-2 bg-background/80 rounded-lg border border-border">
-                  <p className="text-lg font-bold text-foreground">{kpis.inwardMRBs}</p>
-                  <p className="text-[10px] text-muted-foreground">Inward</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
+      <div className="p-4 space-y-4">
         {/* Top KPI Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-4 xl:grid-cols-7">
           <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total MRBs</CardTitle>
@@ -658,7 +644,7 @@ export default function KPIDashboard() {
         </div>
 
         {/* Top Reject Reasons Section */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           {/* Top Reject Reasons - Bar Chart */}
           <Card>
             <CardHeader>
@@ -745,7 +731,7 @@ export default function KPIDashboard() {
         </div>
 
         {/* Reject Reasons by Plant & Month */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           {/* By Plant */}
           <Card>
             <CardHeader>
@@ -900,7 +886,7 @@ export default function KPIDashboard() {
         </Card>
 
         {/* Vendor Damage by Month & Plant */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           {/* By Month - Line Chart */}
           <Card>
             <CardHeader>
@@ -993,7 +979,7 @@ export default function KPIDashboard() {
         </div>
 
         {/* SLA Status */}
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-3">
           <Card>
             <CardHeader>
               <CardTitle>SLA Status Distribution</CardTitle>
