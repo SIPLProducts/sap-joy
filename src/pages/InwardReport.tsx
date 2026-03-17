@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, Upload, RefreshCw, Database, FileUp, AlertCircle, CheckCircle2, Download, Loader2, Layers, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -132,6 +133,8 @@ export default function InwardReport() {
       vendors: [],
       storageLocations: [],
       inspectionLots: [],
+      postingDateFrom: '',
+      postingDateTo: '',
     });
     setSearchResults([]);
     setHasSearched(false);
@@ -588,6 +591,32 @@ export default function InwardReport() {
                       onSelectionChange={(values) => setFilters({ ...filters, inspectionLots: values })}
                       placeholder="Select Lot(s)"
                     />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        Posting Date From
+                      </label>
+                      <input
+                        type="date"
+                        value={filters.postingDateFrom}
+                        onChange={(e) => setFilters({ ...filters, postingDateFrom: e.target.value })}
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        Posting Date To
+                      </label>
+                      <input
+                        type="date"
+                        value={filters.postingDateTo}
+                        onChange={(e) => setFilters({ ...filters, postingDateTo: e.target.value })}
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      />
+                    </div>
                   </div>
                 </CardContent>
               </Card>

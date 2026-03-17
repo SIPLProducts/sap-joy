@@ -35,6 +35,8 @@ interface InwardReportFilters {
   vendors: string[];
   storageLocations: string[];
   inspectionLots: string[];
+  postingDateFrom: string;
+  postingDateTo: string;
 }
 
 interface UploadResult {
@@ -78,6 +80,8 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
     vendors: [],
     storageLocations: [],
     inspectionLots: [],
+    postingDateFrom: '',
+    postingDateTo: '',
   });
 
   const fetchData = useCallback(async () => {
@@ -233,6 +237,12 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
     }
     if (filters.inspectionLots.length > 0) {
       filtered = filtered.filter(r => filters.inspectionLots.includes(r.inspectionLot));
+    }
+    if (filters.postingDateFrom) {
+      filtered = filtered.filter(r => r.postingDate && r.postingDate >= filters.postingDateFrom);
+    }
+    if (filters.postingDateTo) {
+      filtered = filtered.filter(r => r.postingDate && r.postingDate <= filters.postingDateTo);
     }
 
     return filtered;
