@@ -4,6 +4,7 @@ import { format, startOfMonth, endOfMonth, subMonths, parseISO, isWithinInterval
 import { useMRB } from '@/contexts/MRBContext';
 import { useInwardMRB } from '@/contexts/InwardMRBContext';
 import { useRole } from '@/contexts/RoleContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -72,6 +73,7 @@ export default function KPIDashboard() {
   const { mrbRecords, emailLogs, isLoading: mrbLoading, refreshData: refreshMRB } = useMRB();
   const { inwardMRBRecords, inspectionLotRecords, isLoading: inwardLoading, refreshData: refreshInward } = useInwardMRB();
   const { currentRole, roleDisplayName } = useRole();
+  const { profile } = useAuth();
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
   // Derive plants from real MRB data
@@ -79,6 +81,7 @@ export default function KPIDashboard() {
   
   // Filters State - must be declared before any conditional returns
   const [selectedPlant, setSelectedPlant] = useState<string>('all');
+  const [selectedSource, setSelectedSource] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
@@ -122,6 +125,11 @@ export default function KPIDashboard() {
       filtered = filtered.filter(mrb => mrb.plant === selectedPlant);
     }
 
+    // Filter by source (shop_floor / quality_inspection)
+    if (selectedSource !== 'all') {
+      filtered = filtered.filter(mrb => mrb.source === selectedSource);
+    }
+
     // Filter by month
     if (selectedMonth !== 'all') {
       const [year, month] = selectedMonth.split('-').map(Number);
@@ -148,20 +156,21 @@ export default function KPIDashboard() {
     }
 
     return filtered;
-  }, [allMRBs, selectedPlant, selectedMonth, dateFrom, dateTo]);
+  }, [allMRBs, selectedPlant, selectedSource, selectedMonth, dateFrom, dateTo]);
 
 
   // Calculate KPIs based on filtered data
   const kpis = useMemo(() => {
-    const now = new Date();
-    const thisMonth = now.getMonth();
-    const thisYear = now.getFullYear();
-    
     // Basic Counts
     const totalMRBs = filteredMRBs.length;
+    const shopFloorMRBs = filteredMRBs.filter(mrb => mrb.source === 'shop_floor').length;
+    const inwardMRBs = filteredMRBs.filter(mrb => mrb.source === 'quality_inspection').length;
     const openMRBs = filteredMRBs.filter(mrb => mrb.status !== 'closed' && mrb.status !== 'approved' && mrb.status !== 'rejected');
-    const closedMRBs = filteredMRBs.filter(mrb => mrb.closure_status === 'closed');
+    const closedMRBs = filteredMRBs.filter(mrb => mrb.closure_status === 'closed' || mrb.status === 'closed');
+    const approvedMRBs = filteredMRBs.filter(mrb => mrb.status === 'approved');
     const rejectedMRBs = filteredMRBs.filter(mrb => mrb.quality_decision === 'reject' || mrb.status === 'rejected');
+    const acceptedMRBs = filteredMRBs.filter(mrb => mrb.quality_decision === 'accept' || mrb.quality_decision === 'partial_accept');
+    const pendingMRBs = filteredMRBs.filter(mrb => mrb.status !== 'closed' && mrb.status !== 'approved' && mrb.status !== 'rejected');
 
     // SLA Status
     const slaGreen = filteredMRBs.filter(mrb => mrb.sla_status === 'green').length;
@@ -178,9 +187,14 @@ export default function KPIDashboard() {
 
     return {
       totalMRBs,
+      shopFloorMRBs,
+      inwardMRBs,
       openMRBs: openMRBs.length,
       closedMRBs: closedMRBs.length,
+      approvedMRBs: approvedMRBs.length,
       rejectedMRBs: rejectedMRBs.length,
+      acceptedMRBs: acceptedMRBs.length,
+      pendingMRBs: pendingMRBs.length,
       slaGreen,
       slaYellow,
       slaRed,
@@ -393,6 +407,7 @@ export default function KPIDashboard() {
 
   const clearFilters = () => {
     setSelectedPlant('all');
+    setSelectedSource('all');
     setSelectedMonth('all');
     setDateFrom(undefined);
     setDateTo(undefined);
@@ -465,6 +480,20 @@ export default function KPIDashboard() {
             </div>
 
             <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Source</Label>
+              <Select value={selectedSource} onValueChange={setSelectedSource}>
+                <SelectTrigger className="w-[160px] h-9 bg-background">
+                  <SelectValue placeholder="All Sources" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border border-border shadow-lg z-50">
+                  <SelectItem value="all">All Sources</SelectItem>
+                  <SelectItem value="shop_floor">Shop Floor</SelectItem>
+                  <SelectItem value="quality_inspection">Inward</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Month</Label>
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                 <SelectTrigger className="w-[160px] h-9 bg-background">
@@ -518,8 +547,34 @@ export default function KPIDashboard() {
       </div>
 
       <div className="p-6 space-y-6">
+        {/* Welcome Card */}
+        <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-primary/20">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-foreground">
+                  Welcome back, {profile?.full_name || 'User'}! 👋
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Role: {roleDisplayName} • Plant: {profile?.plant || 'All Plants'}
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <div className="text-center px-4 py-2 bg-background/80 rounded-lg border border-border">
+                  <p className="text-lg font-bold text-foreground">{kpis.shopFloorMRBs}</p>
+                  <p className="text-[10px] text-muted-foreground">Shop Floor</p>
+                </div>
+                <div className="text-center px-4 py-2 bg-background/80 rounded-lg border border-border">
+                  <p className="text-lg font-bold text-foreground">{kpis.inwardMRBs}</p>
+                  <p className="text-[10px] text-muted-foreground">Inward</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Top KPI Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total MRBs</CardTitle>
@@ -527,7 +582,7 @@ export default function KPIDashboard() {
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-foreground">{kpis.totalMRBs}</p>
-              <p className="text-xs text-muted-foreground mt-1">{kpis.openMRBs} open</p>
+              <p className="text-xs text-muted-foreground mt-1">{kpis.shopFloorMRBs} shop floor • {kpis.inwardMRBs} inward</p>
             </CardContent>
           </Card>
 
@@ -544,25 +599,49 @@ export default function KPIDashboard() {
             </CardContent>
           </Card>
 
+          <Card className="bg-gradient-to-br from-accent/30 to-accent/10 border-accent/20">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Accepted</CardTitle>
+              <ShieldCheck className="h-5 w-5 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-foreground">{kpis.acceptedMRBs}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {kpis.totalMRBs > 0 ? Math.round((kpis.acceptedMRBs / kpis.totalMRBs) * 100) : 0}% acceptance rate
+              </p>
+            </CardContent>
+          </Card>
+
           <Card className="bg-gradient-to-br from-warning/5 to-warning/10 border-warning/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">SLA Breaches</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
               <Clock className="h-5 w-5 text-warning" />
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-foreground">{kpis.slaRed}</p>
-              <p className="text-xs text-muted-foreground mt-1">{kpis.slaYellow} at risk</p>
+              <p className="text-3xl font-bold text-foreground">{kpis.pendingMRBs}</p>
+              <p className="text-xs text-muted-foreground mt-1">Avg. {kpis.avgPendingDays}d</p>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-secondary/5 to-secondary/10 border-secondary/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Closed</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Approved</CardTitle>
               <CheckCircle className="h-5 w-5 text-secondary" />
             </CardHeader>
             <CardContent>
+              <p className="text-3xl font-bold text-foreground">{kpis.approvedMRBs}</p>
+              <p className="text-xs text-muted-foreground mt-1">Final approved</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-muted to-muted/50 border-border">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Closed</CardTitle>
+              <FileText className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
               <p className="text-3xl font-bold text-foreground">{kpis.closedMRBs}</p>
-              <p className="text-xs text-muted-foreground mt-1">Avg. {kpis.avgPendingDays}d pending</p>
+              <p className="text-xs text-muted-foreground mt-1">Completed</p>
             </CardContent>
           </Card>
 

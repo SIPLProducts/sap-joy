@@ -27,7 +27,6 @@ const menuItems = [
   { title: 'MRB Print', url: '/mrb-print', icon: Printer, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin', 'mrb_committee'] },
   { title: 'Email Log', url: '/emails', icon: Mail, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin', 'mrb_committee'] },
   { title: 'Help & Support', url: '/help', icon: HelpCircle, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin', 'mrb_committee'] },
-  { title: 'Proposals', url: '/proposals', icon: FileText, roles: ['admin', 'executive'] },
 ];
 
 // Role-specific dashboards
@@ -41,7 +40,7 @@ const dashboardItems = [
 
 // Admin items
 const adminItems = [
-  { title: 'User Management', url: '/admin/users', icon: UserCog, roles: ['admin'] },
+  { title: 'User & Role Management', url: '/admin/users', icon: UserCog, roles: ['admin'] },
   { title: 'SAP API Settings', url: '/admin/sap-api', icon: Settings, roles: ['admin'] },
   { title: 'SAP Sync Monitor', url: '/admin/sap-sync', icon: TrendingUp, roles: ['admin'] },
 ];
