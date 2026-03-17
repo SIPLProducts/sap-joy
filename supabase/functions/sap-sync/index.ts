@@ -380,29 +380,33 @@ async function testConnection(config: any): Promise<{ success: boolean; message:
 }
 
 // Call SAP API and get data
-async function callSAPApi(config: any, requestFields: any[]): Promise<{ success: boolean; data?: any; error?: string }> {
+async function callSAPApi(
+  config: any,
+  requestFields: any[],
+  requestOverrides: Record<string, any> = {},
+): Promise<{ success: boolean; data?: any; error?: string }> {
   const url = buildUrl(config)
   const headers = buildAuthHeaders(config)
   const method = (config.http_method || 'GET').toUpperCase()
   const timeout = config.timeout_ms || 30000
 
-  // Build request body from request fields (for POST/PUT)
   let requestBody: any = undefined
   if (['POST', 'PUT', 'PATCH'].includes(method) && requestFields.length > 0) {
     requestBody = {}
     requestFields.forEach((field) => {
       const key = field.sap_field_name || field.field_name
-      requestBody[key] = field.default_value || ''
+      requestBody[key] = requestOverrides[key] ?? field.default_value ?? ''
     })
   }
 
-  // Build query params from request fields (for GET)
   let finalUrl = url
   if (method === 'GET' && requestFields.length > 0) {
     const params = new URLSearchParams()
     requestFields.forEach((field) => {
-      if (field.default_value) {
-        params.set(field.sap_field_name || field.field_name, field.default_value)
+      const key = field.sap_field_name || field.field_name
+      const value = requestOverrides[key] ?? field.default_value
+      if (value !== undefined && value !== null && value !== '') {
+        params.set(key, String(value))
       }
     })
     const qs = params.toString()
@@ -426,10 +430,8 @@ async function callSAPApi(config: any, requestFields: any[]): Promise<{ success:
       return { success: false, error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}` }
     }
 
-    // Try to parse as JSON
     try {
       const jsonData = JSON.parse(bodyText)
-      // SAP often wraps data in d.results or value
       const records = jsonData?.d?.results || jsonData?.value || jsonData?.data || (Array.isArray(jsonData) ? jsonData : [jsonData])
       return { success: true, data: records }
     } catch {
