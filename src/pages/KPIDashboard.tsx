@@ -161,15 +161,16 @@ export default function KPIDashboard() {
 
   // Calculate KPIs based on filtered data
   const kpis = useMemo(() => {
-    const now = new Date();
-    const thisMonth = now.getMonth();
-    const thisYear = now.getFullYear();
-    
     // Basic Counts
     const totalMRBs = filteredMRBs.length;
+    const shopFloorMRBs = filteredMRBs.filter(mrb => mrb.source === 'shop_floor').length;
+    const inwardMRBs = filteredMRBs.filter(mrb => mrb.source === 'quality_inspection').length;
     const openMRBs = filteredMRBs.filter(mrb => mrb.status !== 'closed' && mrb.status !== 'approved' && mrb.status !== 'rejected');
-    const closedMRBs = filteredMRBs.filter(mrb => mrb.closure_status === 'closed');
+    const closedMRBs = filteredMRBs.filter(mrb => mrb.closure_status === 'closed' || mrb.status === 'closed');
+    const approvedMRBs = filteredMRBs.filter(mrb => mrb.status === 'approved');
     const rejectedMRBs = filteredMRBs.filter(mrb => mrb.quality_decision === 'reject' || mrb.status === 'rejected');
+    const acceptedMRBs = filteredMRBs.filter(mrb => mrb.quality_decision === 'accept' || mrb.quality_decision === 'partial_accept');
+    const pendingMRBs = filteredMRBs.filter(mrb => mrb.status !== 'closed' && mrb.status !== 'approved' && mrb.status !== 'rejected');
 
     // SLA Status
     const slaGreen = filteredMRBs.filter(mrb => mrb.sla_status === 'green').length;
@@ -186,9 +187,14 @@ export default function KPIDashboard() {
 
     return {
       totalMRBs,
+      shopFloorMRBs,
+      inwardMRBs,
       openMRBs: openMRBs.length,
       closedMRBs: closedMRBs.length,
+      approvedMRBs: approvedMRBs.length,
       rejectedMRBs: rejectedMRBs.length,
+      acceptedMRBs: acceptedMRBs.length,
+      pendingMRBs: pendingMRBs.length,
       slaGreen,
       slaYellow,
       slaRed,
