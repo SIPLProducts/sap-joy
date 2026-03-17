@@ -704,9 +704,8 @@ const MRBPrint = () => {
       <PrintPreviewModal
         isOpen={showPreview}
         onClose={() => setShowPreview(false)}
-        content={previewContent}
+        sourceElement={previewSourceElement}
         title={previewTitle}
-        styles={getPrintStyles()}
         orientation={printerSettings.orientation}
         onPrint={() => { handlePrint(activeForm, printerSettings.orientation); setShowPreview(false); }}
         onDownloadPDF={() => { handleDownloadPDF(activeForm, printerSettings.orientation); setShowPreview(false); }}
