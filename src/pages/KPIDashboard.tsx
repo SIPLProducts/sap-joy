@@ -480,6 +480,20 @@ export default function KPIDashboard() {
             </div>
 
             <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Source</Label>
+              <Select value={selectedSource} onValueChange={setSelectedSource}>
+                <SelectTrigger className="w-[160px] h-9 bg-background">
+                  <SelectValue placeholder="All Sources" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border border-border shadow-lg z-50">
+                  <SelectItem value="all">All Sources</SelectItem>
+                  <SelectItem value="shop_floor">Shop Floor</SelectItem>
+                  <SelectItem value="quality_inspection">Inward</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Month</Label>
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                 <SelectTrigger className="w-[160px] h-9 bg-background">
