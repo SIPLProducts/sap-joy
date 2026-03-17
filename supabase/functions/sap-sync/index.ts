@@ -183,7 +183,7 @@ Deno.serve(async (req) => {
           method,
           headers,
           signal: controller.signal,
-          body: JSON.stringify(request_body),
+          body: JSON.stringify(Array.isArray(request_body) ? request_body : [request_body]),
         }
 
         const response = await fetch(url, fetchOpts)
