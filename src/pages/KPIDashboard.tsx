@@ -556,7 +556,7 @@ export default function KPIDashboard() {
                   Welcome back, {profile?.full_name || 'User'}! 👋
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Role: {roleDisplayName} • Plant: {profile?.plant || 'All Plants'}
+                  Plant: {profile?.plant || 'All Plants'}
                 </p>
               </div>
               <div className="flex gap-3">
