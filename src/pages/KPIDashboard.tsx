@@ -72,6 +72,7 @@ export default function KPIDashboard() {
   const { mrbRecords, emailLogs, isLoading: mrbLoading, refreshData: refreshMRB } = useMRB();
   const { inwardMRBRecords, inspectionLotRecords, isLoading: inwardLoading, refreshData: refreshInward } = useInwardMRB();
   const { currentRole, roleDisplayName } = useRole();
+  const { profile } = useAuth();
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
   // Derive plants from real MRB data
@@ -79,6 +80,7 @@ export default function KPIDashboard() {
   
   // Filters State - must be declared before any conditional returns
   const [selectedPlant, setSelectedPlant] = useState<string>('all');
+  const [selectedSource, setSelectedSource] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
