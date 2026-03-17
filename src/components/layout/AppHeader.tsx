@@ -38,11 +38,6 @@ export function AppHeader() {
       <div className="flex-1" />
 
       <div className="flex items-center gap-4">
-        {/* Role Badge */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10">
-          <Building2 className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium text-primary">{roleDisplayName}</span>
-        </div>
 
 
         {/* User Menu */}
