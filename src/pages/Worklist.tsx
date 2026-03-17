@@ -1074,7 +1074,12 @@ export default function Worklist() {
                             <Eye className="h-4 w-4 mr-1" />
                             View
                           </Button>
-                          {mrb.status === 'approved' && (
+                          {mrb.status === 'approved' && mrb.sapStockUpdateStatus === 'synced' ? (
+                            <Badge className="bg-green-600 text-white border-green-600">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              SAP Sync Success
+                            </Badge>
+                          ) : mrb.status === 'approved' && mrb.sapStockUpdateStatus !== 'synced' ? (
                             <Button 
                               variant="default" 
                               size="sm" 
@@ -1094,7 +1099,7 @@ export default function Worklist() {
                                 </>
                               )}
                             </Button>
-                          )}
+                          ) : null}
                         </div>
                       </td>
                     </tr>
