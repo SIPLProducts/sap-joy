@@ -507,7 +507,7 @@ export default function Worklist() {
               <p className="text-muted-foreground pl-2">QTY: {requestBody.ENTRY_QNT} {requestBody.ENTRY_UOM}</p>
             </div>
             <div className="bg-muted/50 rounded p-2 text-xs space-y-0.5 border">
-              <p><span className="font-medium">SAP 343 Raw Response</span></p>
+              <p><span className="font-medium">SAP 343 Live Response</span></p>
               {sapCode !== undefined && sapCode !== null && sapCode !== '' ? (
                 <>
                   <p className="text-muted-foreground pl-2">CODE: {sapCode}</p>
@@ -516,11 +516,15 @@ export default function Worklist() {
                   <p className="text-muted-foreground pl-2">MJAHR: {sapMJAHR || '—'}</p>
                 </>
               ) : sapResponse && typeof sapResponse === 'object' && Object.keys(sapResponse).length > 0 ? (
-                Object.entries(sapResponse).map(([key, val]) => (
-                  <p key={key} className="text-muted-foreground pl-2">{key}: {String(val) || '—'}</p>
-                ))
+                Object.entries(sapResponse)
+                  .filter(([, val]) => val !== null && val !== undefined && val !== '')
+                  .map(([key, val]) => (
+                    <p key={key} className="text-muted-foreground pl-2">
+                      {key.replace(/_/g, ' ')}: {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                    </p>
+                  ))
               ) : (
-                <p className="text-muted-foreground pl-2 italic">343 returned empty body, so showing live MB52 verification below</p>
+                <p className="text-muted-foreground pl-2 italic">No payload was returned by the live 343 endpoint</p>
               )}
             </div>
             <div className="bg-muted/50 rounded p-2 text-xs space-y-0.5 border">
