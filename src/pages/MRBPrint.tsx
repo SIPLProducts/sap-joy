@@ -613,8 +613,7 @@ const MRBPrint = () => {
   );
 
   return (
-    <div className="space-y-6">
-      {/* Search Section */}
+    <div className="space-y-6 p-4 md:p-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -622,11 +621,11 @@ const MRBPrint = () => {
             MRB Print Forms
           </CardTitle>
           <CardDescription>
-            Generate HBL standard Non-Conformance Report and MRB Committee forms
+            Search an MRB and generate the NCR or MRB committee print layout.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Search by MRB Number</Label>
               <div className="flex gap-2">
@@ -641,6 +640,7 @@ const MRBPrint = () => {
                 </Button>
               </div>
             </div>
+
             <div className="space-y-2">
               <Label>Or Select from List</Label>
               <Select value={selectedMRBId} onValueChange={handleSelectMRB}>
@@ -660,15 +660,14 @@ const MRBPrint = () => {
         </CardContent>
       </Card>
 
-      {/* Print Forms */}
-      {selectedMRB && (
+      {selectedMRB ? (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle>Print Forms - {selectedMRB.mrb_number}</CardTitle>
           </CardHeader>
           <CardContent>
             <Tabs value={activeForm} onValueChange={(v) => setActiveForm(v as 'ncr' | 'mrb')}>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+              <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
                 <TabsList>
                   <TabsTrigger value="ncr" className="flex items-center gap-1.5 text-xs sm:text-sm">
                     <FileText className="h-3.5 w-3.5" />
@@ -680,7 +679,7 @@ const MRBPrint = () => {
                   </TabsTrigger>
                 </TabsList>
 
-                <div className="flex gap-1.5 flex-wrap items-center">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <Button onClick={() => handlePreview(activeForm)} variant="outline" size="sm" className="gap-1.5">
                     <Eye className="h-3.5 w-3.5" />
                     Preview
@@ -699,14 +698,28 @@ const MRBPrint = () => {
                 </div>
               </div>
 
-              <TabsContent value="ncr" className="bg-white p-4 sm:p-8 border rounded-lg overflow-auto">
+              <TabsContent value="ncr" className="overflow-auto rounded-lg border bg-card p-4 sm:p-8">
                 <NCRReport />
               </TabsContent>
 
-              <TabsContent value="mrb" className="bg-white p-4 sm:p-8 border rounded-lg overflow-auto">
+              <TabsContent value="mrb" className="overflow-auto rounded-lg border bg-card p-4 sm:p-8">
                 <MRBCommitteeForm />
               </TabsContent>
             </Tabs>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="flex min-h-48 flex-col items-center justify-center gap-3 p-8 text-center">
+            <div className="rounded-full border bg-muted p-3">
+              <Printer className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold text-foreground">Select an MRB to preview</h2>
+              <p className="max-w-md text-sm text-muted-foreground">
+                Use the search box or dropdown above to load an MRB record before printing or downloading the forms.
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -717,8 +730,14 @@ const MRBPrint = () => {
         sourceElement={previewSourceElement}
         title={previewTitle}
         orientation={printerSettings.orientation}
-        onPrint={() => { handlePrint(activeForm, printerSettings.orientation); setShowPreview(false); }}
-        onDownloadPDF={() => { handleDownloadPDF(activeForm, printerSettings.orientation); setShowPreview(false); }}
+        onPrint={() => {
+          handlePrint(activeForm, printerSettings.orientation);
+          setShowPreview(false);
+        }}
+        onDownloadPDF={() => {
+          handleDownloadPDF(activeForm, printerSettings.orientation);
+          setShowPreview(false);
+        }}
       />
 
       <PrinterSettingsModal
