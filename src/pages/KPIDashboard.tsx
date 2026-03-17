@@ -407,6 +407,7 @@ export default function KPIDashboard() {
 
   const clearFilters = () => {
     setSelectedPlant('all');
+    setSelectedSource('all');
     setSelectedMonth('all');
     setDateFrom(undefined);
     setDateTo(undefined);
