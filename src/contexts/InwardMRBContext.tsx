@@ -35,6 +35,8 @@ interface InwardReportFilters {
   vendors: string[];
   storageLocations: string[];
   inspectionLots: string[];
+  postingDateFrom: string;
+  postingDateTo: string;
 }
 
 interface UploadResult {
