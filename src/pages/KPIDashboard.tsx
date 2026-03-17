@@ -644,7 +644,7 @@ export default function KPIDashboard() {
         </div>
 
         {/* Top Reject Reasons Section */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           {/* Top Reject Reasons - Bar Chart */}
           <Card>
             <CardHeader>
