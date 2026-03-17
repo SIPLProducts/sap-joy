@@ -132,6 +132,8 @@ export default function InwardReport() {
       vendors: [],
       storageLocations: [],
       inspectionLots: [],
+      postingDateFrom: '',
+      postingDateTo: '',
     });
     setSearchResults([]);
     setHasSearched(false);
