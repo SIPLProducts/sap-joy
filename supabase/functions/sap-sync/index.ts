@@ -160,9 +160,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // UNBLOCK - Call SAP 343 (Blocked to Unrestricted) with dynamic MRB data
+    // UNBLOCK - Call SAP 343 (Blocked to Unrestricted) with dynamic MRB data,
+    // then optionally verify live stock via MB52
     if (action === 'unblock') {
-      const { request_body } = body
+      const { request_body, verify_config_id } = body
       if (!request_body) {
         return new Response(JSON.stringify({ error: 'request_body is required for unblock action' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -190,7 +191,7 @@ Deno.serve(async (req) => {
 
         const bodyText = await response.text()
         console.log('SAP 343 raw response status:', response.status, 'body:', bodyText)
-        
+
         let responseData: any = null
         try {
           responseData = JSON.parse(bodyText)
@@ -207,11 +208,47 @@ Deno.serve(async (req) => {
           }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
-        // Extract SAP fields - try multiple key patterns
         const sapCode = responseData?.CODE || responseData?.code || responseData?.Code || null
         const sapMsg = responseData?.MSG || responseData?.msg || responseData?.Message || responseData?.message || null
         const sapMBLNR = responseData?.MBLNR || responseData?.mblnr || responseData?.MaterialDocument || null
         const sapMJAHR = responseData?.MJAHR || responseData?.mjahr || responseData?.MaterialDocumentYear || null
+
+        let verification: any = null
+        if (verify_config_id) {
+          const { data: verifyConfig, error: verifyConfigError } = await supabase
+            .from('sap_api_config')
+            .select('*')
+            .eq('id', verify_config_id)
+            .single()
+
+          if (verifyConfigError || !verifyConfig) {
+            verification = { success: false, error: 'Verification config not found' }
+          } else {
+            const { data: verifyRequestFields } = await supabase
+              .from('sap_api_request_fields')
+              .select('*')
+              .eq('config_id', verify_config_id)
+              .order('sort_order')
+
+            const verifyResponse = await callSAPApi(verifyConfig, verifyRequestFields || [], {
+              WERKS: request_body.WERKS,
+              LGORT: request_body.LGORT,
+              MATNR: request_body.MATNR,
+              CHARG: request_body.CHARG,
+            })
+
+            verification = verifyResponse.success
+              ? {
+                  success: true,
+                  count: Array.isArray(verifyResponse.data) ? verifyResponse.data.length : 0,
+                  records: Array.isArray(verifyResponse.data) ? verifyResponse.data.slice(0, 3) : [],
+                }
+              : {
+                  success: false,
+                  error: verifyResponse.error,
+                }
+          }
+        }
 
         return new Response(JSON.stringify({
           success: true,
@@ -222,6 +259,7 @@ Deno.serve(async (req) => {
           material_document_year: sapMJAHR,
           http_status: response.status,
           raw_body_length: bodyText.length,
+          verification,
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       } catch (err: any) {
         const errMsg = err.name === 'AbortError'
