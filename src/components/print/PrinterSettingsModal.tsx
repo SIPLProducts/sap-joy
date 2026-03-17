@@ -228,13 +228,18 @@ export const PrinterSettingsModal = ({
 };
 
 export const loadPrinterSettings = (): PrinterSettings => {
-  const stored = localStorage.getItem('mrb-printer-settings');
-  if (stored) {
-    try {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
-    } catch {
+  if (typeof window === 'undefined') {
+    return DEFAULT_SETTINGS;
+  }
+
+  try {
+    const stored = window.localStorage.getItem('mrb-printer-settings');
+    if (!stored) {
       return DEFAULT_SETTINGS;
     }
+
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+  } catch {
+    return DEFAULT_SETTINGS;
   }
-  return DEFAULT_SETTINGS;
 };
