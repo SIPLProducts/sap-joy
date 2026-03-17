@@ -736,7 +736,7 @@ const MRBPrint = () => {
       <PrintPreviewModal
         isOpen={showPreview}
         onClose={() => setShowPreview(false)}
-        sourceElement={previewSourceElement}
+        content={previewContent}
         title={previewTitle}
         orientation={printerSettings.orientation}
         onPrint={() => {
