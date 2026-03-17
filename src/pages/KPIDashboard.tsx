@@ -428,47 +428,51 @@ export default function KPIDashboard() {
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Welcome + Header */}
-      <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm">
-        <div className="px-6 py-5">
+      <div className="sticky top-0 z-40 bg-gradient-to-br from-primary/10 via-background to-accent/10 border-b border-border shadow-sm">
+        <div className="px-6 py-6">
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-4">
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  Welcome back, {profile?.full_name || 'User'}! 👋
-                </h1>
-                <p className="text-base text-muted-foreground mt-1">
-                  KPI Dashboard • Plant: {profile?.plant || 'All Plants'}
-                </p>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">
+                Welcome back, {profile?.full_name || 'User'}! 👋
+              </h1>
+              <p className="text-base text-muted-foreground mt-2">
+                KPI Dashboard • Plant: {profile?.plant || 'All Plants'} • {roleDisplayName}
+              </p>
             </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex gap-3 mr-3">
-                <div className="text-center px-5 py-3 bg-primary/10 rounded-xl border border-primary/20">
-                  <p className="text-2xl font-bold text-foreground leading-tight">{kpis.shopFloorMRBs}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Shop Floor</p>
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex gap-4">
+                <div className="text-center px-6 py-4 bg-primary/10 rounded-xl border border-primary/20 min-w-[100px]">
+                  <p className="text-3xl font-bold text-foreground leading-tight">{kpis.shopFloorMRBs}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Shop Floor</p>
                 </div>
-                <div className="text-center px-5 py-3 bg-primary/10 rounded-xl border border-primary/20">
-                  <p className="text-2xl font-bold text-foreground leading-tight">{kpis.inwardMRBs}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Inward</p>
+                <div className="text-center px-6 py-4 bg-primary/10 rounded-xl border border-primary/20 min-w-[100px]">
+                  <p className="text-3xl font-bold text-foreground leading-tight">{kpis.inwardMRBs}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Inward</p>
+                </div>
+                <div className="text-center px-6 py-4 bg-accent/20 rounded-xl border border-accent/30 min-w-[100px]">
+                  <p className="text-3xl font-bold text-foreground leading-tight">{kpis.totalMRBs}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Total</p>
                 </div>
               </div>
-              <Badge variant="outline" className="px-2 py-1 bg-green-500/10 border-green-500/30 text-xs">
-                <Activity className="w-3 h-3 mr-1 text-green-500" />
-                Live
-              </Badge>
-              <Badge variant="outline" className="px-2 py-1 text-xs">
-                {filteredMRBs.length} Records
-              </Badge>
-              <Button variant="outline" size="sm" onClick={handleRefresh}>
-                <RefreshCw className="w-3.5 h-3.5 mr-1" />
-                Refresh
-              </Button>
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/worklist">
-                  <ArrowRight className="w-3.5 h-3.5 mr-1" />
-                  Worklist
-                </Link>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="px-3 py-1.5 bg-green-500/10 border-green-500/30 text-sm">
+                  <Activity className="w-3.5 h-3.5 mr-1.5 text-green-500" />
+                  Live
+                </Badge>
+                <Badge variant="outline" className="px-3 py-1.5 text-sm">
+                  {filteredMRBs.length} Records
+                </Badge>
+                <Button variant="outline" size="sm" onClick={handleRefresh}>
+                  <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                  Refresh
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                  <Link to="/worklist">
+                    <ArrowRight className="w-3.5 h-3.5 mr-1" />
+                    Worklist
+                  </Link>
+                </Button>
+              </div>
             </div>
           </div>
         </div>
