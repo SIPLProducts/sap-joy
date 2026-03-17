@@ -484,8 +484,17 @@ export default function Worklist() {
       setSyncingIds(prev => new Set(prev).add(mrb.id));
       
       try {
-        // Simulate SAP sync for each MRB
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // Call real SAP sync edge function
+        const response = await supabase.functions.invoke('sap-sync', {
+          body: {
+            action: 'sync',
+            config_id: MB52_CONFIG_ID,
+          },
+        });
+
+        if (response.error || !response.data?.success) {
+          throw new Error(response.error?.message || response.data?.error || 'SAP sync failed');
+        }
         
         await updateMRB(mrb.id, {
           sap_stock_update_status: 'synced',
@@ -495,9 +504,9 @@ export default function Worklist() {
 
         await logSyncHistory(mrb.id, mrb.mrbNumber, 'batch', 'success', batchId);
         successCount++;
-      } catch (error) {
+      } catch (error: any) {
         console.error(`SAP sync error for ${mrb.mrbNumber}:`, error);
-        await logSyncHistory(mrb.id, mrb.mrbNumber, 'batch', 'failed', batchId, 'Batch sync failed');
+        await logSyncHistory(mrb.id, mrb.mrbNumber, 'batch', 'failed', batchId, error?.message || 'Batch sync failed');
         failCount++;
       } finally {
         setSyncingIds(prev => {
