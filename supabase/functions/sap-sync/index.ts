@@ -243,7 +243,7 @@ Deno.serve(async (req) => {
   }
 })
 
-// Build the full URL based on connection mode, including sap-client query param
+// Build the full URL based on connection mode, including sap-client query param only when missing
 function buildUrl(config: any): string {
   let url: string
   if (config.connection_mode === 'vpn_tunnel' && config.proxy_tunnel_url) {
@@ -255,10 +255,11 @@ function buildUrl(config: any): string {
     const path = config.endpoint_path || config.api_endpoint || ''
     url = `${base.replace(/\/$/, '')}${path}`
   }
-  // Append sap-client as query parameter if configured
-  if (config.sap_client) {
+
+  if (config.sap_client && !/[?&]sap-client=/.test(url)) {
     url += `${url.includes('?') ? '&' : '?'}sap-client=${config.sap_client}`
   }
+
   return url
 }
 
