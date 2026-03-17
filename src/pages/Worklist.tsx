@@ -474,32 +474,57 @@ export default function Worklist() {
         throw new Error(result?.error || 'SAP API returned an error');
       }
 
-      // Update MRB with SAP sync status and material document number
+      // Update MRB with SAP sync status
       await updateMRB(mrbId, {
         sap_stock_update_status: 'synced',
         closure_status: 'completed',
         closed_at: new Date().toISOString(),
       });
 
-      // Log sync history
+      // Log sync history with SAP response
       await logSyncHistory(mrbId, mrbNumber, 'single', 'success');
 
+      // Show full live SAP response in toast
+      const sapResponse = result.sap_response;
+      const sapCode = result.code;
+      const sapMsg = result.message;
+      const sapMBLNR = result.material_document;
+      const sapMJAHR = result.material_document_year;
+
       toast({
-        title: '✅ SAP Unblock Completed',
+        title: '✅ SAP 343 Unblock Response',
         description: (
-          <div className="mt-1">
-            <p><strong>{mrbNumber}</strong> — Stock unblocked in SAP.</p>
-            {result.material_document && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Material Doc: {result.material_document}/{result.material_document_year}
-              </p>
-            )}
-            {result.message && (
-              <p className="text-xs text-muted-foreground mt-0.5">SAP: {result.message}</p>
-            )}
+          <div className="mt-1 space-y-1 max-w-sm">
+            <p className="font-semibold text-sm">{mrbNumber}</p>
+            <div className="bg-muted/50 rounded p-2 text-xs space-y-0.5 border">
+              <p><span className="font-medium">Request:</span></p>
+              <p className="text-muted-foreground pl-2">MATNR: {requestBody.MATNR}</p>
+              <p className="text-muted-foreground pl-2">WERKS: {requestBody.WERKS} | LGORT: {requestBody.LGORT}</p>
+              <p className="text-muted-foreground pl-2">CHARG: {requestBody.CHARG || '—'}</p>
+              <p className="text-muted-foreground pl-2">QTY: {requestBody.ENTRY_QNT} {requestBody.ENTRY_UOM}</p>
+            </div>
+            <div className="bg-muted/50 rounded p-2 text-xs space-y-0.5 border">
+              <p><span className="font-medium">SAP Response:</span></p>
+              {sapCode !== undefined && sapCode !== null && sapCode !== '' ? (
+                <>
+                  <p className="text-muted-foreground pl-2">CODE: {sapCode}</p>
+                  <p className="text-muted-foreground pl-2">MSG: {sapMsg || '—'}</p>
+                  <p className="text-muted-foreground pl-2">MBLNR: {sapMBLNR || '—'}</p>
+                  <p className="text-muted-foreground pl-2">MJAHR: {sapMJAHR || '—'}</p>
+                </>
+              ) : sapResponse && typeof sapResponse === 'object' && Object.keys(sapResponse).length > 0 ? (
+                Object.entries(sapResponse).map(([key, val]) => (
+                  <p key={key} className="text-muted-foreground pl-2">{key}: {String(val) || '—'}</p>
+                ))
+              ) : sapResponse && typeof sapResponse === 'string' && sapResponse.length > 0 ? (
+                <p className="text-muted-foreground pl-2">{sapResponse}</p>
+              ) : (
+                <p className="text-muted-foreground pl-2 italic">SAP returned empty response (HTTP 200 OK)</p>
+              )}
+            </div>
           </div>
         ),
-        duration: 6000,
+        duration: 12000,
       });
     } catch (error: any) {
       console.error('SAP unblock error:', error);
