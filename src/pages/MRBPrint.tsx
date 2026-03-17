@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import html2pdf from 'html2pdf.js';
 import { Search, Printer, Download, FileText, ClipboardCheck, Eye, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
