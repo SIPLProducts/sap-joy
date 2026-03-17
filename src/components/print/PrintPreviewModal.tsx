@@ -6,8 +6,10 @@ import { Printer, Download, X, ZoomIn, ZoomOut } from 'lucide-react';
 interface PrintPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  sourceElement: HTMLDivElement | null;
+  sourceElement?: HTMLDivElement | null;
+  content?: string;
   title: string;
+  styles?: string;
   orientation: 'portrait' | 'landscape';
   onPrint: () => void;
   onDownloadPDF: () => void;
@@ -17,6 +19,7 @@ export const PrintPreviewModal = ({
   isOpen,
   onClose,
   sourceElement,
+  content,
   title,
   orientation,
   onPrint,
@@ -30,12 +33,17 @@ export const PrintPreviewModal = ({
 
     previewRef.current.innerHTML = '';
 
-    if (!sourceElement) return;
+    if (sourceElement) {
+      const clonedContent = sourceElement.cloneNode(true) as HTMLDivElement;
+      clonedContent.classList.remove('mx-auto');
+      previewRef.current.appendChild(clonedContent);
+      return;
+    }
 
-    const clonedContent = sourceElement.cloneNode(true) as HTMLDivElement;
-    clonedContent.classList.remove('mx-auto');
-    previewRef.current.appendChild(clonedContent);
-  }, [isOpen, sourceElement]);
+    if (content) {
+      previewRef.current.innerHTML = content;
+    }
+  }, [isOpen, sourceElement, content]);
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.1, 1.5));
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.1, 0.3));
