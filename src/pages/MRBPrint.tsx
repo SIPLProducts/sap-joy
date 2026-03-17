@@ -219,7 +219,7 @@ const MRBPrint = () => {
     const printRef = formType === 'ncr' ? ncrPrintRef : mrbPrintRef;
     if (!printRef.current) return;
     const title = formType === 'ncr' ? `NCR Report - ${selectedMRB?.mrb_number}` : `MRB Form - ${selectedMRB?.mrb_number}`;
-    setPreviewContent(printRef.current.innerHTML);
+    setPreviewSourceElement(printRef.current);
     setPreviewTitle(title);
     setShowPreview(true);
   };
