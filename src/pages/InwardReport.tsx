@@ -152,7 +152,6 @@ export default function InwardReport() {
       setSavingQtyId(null);
     }
   }, [editingQtyValue, sapConfigId, updateTransactionQuantity]);
-  const [pendingSingleRecord, setPendingSingleRecord] = useState<InspectionLotRecord | null>(null);
 
   // Build options for filters from real DB data only
   const allPlants = [...new Set(inspectionLotRecords.map(r => r.plant))];
