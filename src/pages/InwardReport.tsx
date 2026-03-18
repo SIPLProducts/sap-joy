@@ -78,6 +78,82 @@ export default function InwardReport() {
   const [showBatchConfirm, setShowBatchConfirm] = useState(false);
   const [pendingSingleRecord, setPendingSingleRecord] = useState<InspectionLotRecord | null>(null);
 
+  // Inline quantity editing state
+  const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
+  const [editingQtyValue, setEditingQtyValue] = useState<string>('');
+  const [savingQtyId, setSavingQtyId] = useState<string | null>(null);
+
+  // SAP config for ZMRB01/04 (Inward Report endpoint)
+  const [sapConfigId, setSapConfigId] = useState<string | null>(null);
+
+  // Fetch the inward SAP API config on mount
+  useEffect(() => {
+    const fetchSapConfig = async () => {
+      const { data } = await (await import('@/integrations/supabase/client')).supabase
+        .from('sap_api_config')
+        .select('id, config_name')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      
+      if (data && data.length > 0) {
+        // Prefer ZMRB or inward config, else fallback to first active
+        const inwardConfig = data.find(c => 
+          c.config_name.toLowerCase().includes('zmrb') || 
+          c.config_name.toLowerCase().includes('inward')
+        );
+        setSapConfigId(inwardConfig?.id || data[0].id);
+      }
+    };
+    fetchSapConfig();
+  }, []);
+
+  const handleStartEditQty = (record: InspectionLotRecord) => {
+    setEditingQtyId(record.id);
+    setEditingQtyValue(String(record.transactionQuantity));
+  };
+
+  const handleCancelEditQty = () => {
+    setEditingQtyId(null);
+    setEditingQtyValue('');
+  };
+
+  const handleSaveQty = useCallback(async (record: InspectionLotRecord) => {
+    const newQty = parseFloat(editingQtyValue);
+    if (isNaN(newQty) || newQty < 0) {
+      toast.error('Quantity must be a non-negative number');
+      return;
+    }
+    if (newQty === record.transactionQuantity) {
+      handleCancelEditQty();
+      return;
+    }
+    if (!sapConfigId) {
+      toast.error('No SAP API configuration found. Please configure SAP settings first.');
+      return;
+    }
+
+    setSavingQtyId(record.id);
+    try {
+      const result = await updateTransactionQuantity(record, newQty, sapConfigId);
+      if (result.success) {
+        toast.success(`Transaction quantity updated to ${newQty}`);
+        setEditingQtyId(null);
+        setEditingQtyValue('');
+      } else {
+        if (result.rolled_back) {
+          toast.error(`SAP sync failed. Database reverted to ${result.old_quantity}. Error: ${result.error}`);
+        } else {
+          toast.error(`Update failed: ${result.error}`);
+        }
+      }
+    } catch (err) {
+      toast.error('Failed to update quantity');
+    } finally {
+      setSavingQtyId(null);
+    }
+  }, [editingQtyValue, sapConfigId, updateTransactionQuantity]);
+  const [pendingSingleRecord, setPendingSingleRecord] = useState<InspectionLotRecord | null>(null);
+
   // Build options for filters from real DB data only
   const allPlants = [...new Set(inspectionLotRecords.map(r => r.plant))];
   const allMaterials = [...new Set(inspectionLotRecords.map(r => r.materialCode))];
