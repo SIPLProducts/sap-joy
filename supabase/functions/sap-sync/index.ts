@@ -300,7 +300,130 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ error: 'Invalid action. Use "test", "sync", or "unblock".' }), {
+    // UPDATE TRANSACTION QUANTITY - Updates qty in DB and calls SAP API
+    if (action === 'update_transaction_qty') {
+      const { lot_id, new_quantity, inspection_lot, material_code, plant, storage_location, batch } = body
+      if (!lot_id || new_quantity === undefined || new_quantity === null) {
+        return new Response(JSON.stringify({ error: 'lot_id and new_quantity are required' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      if (typeof new_quantity !== 'number' || new_quantity < 0) {
+        return new Response(JSON.stringify({ error: 'new_quantity must be a non-negative number' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Step 1: Read old value for rollback
+      const { data: oldRecord, error: readErr } = await supabase
+        .from('inward_inspection_lots')
+        .select('transaction_quantity')
+        .eq('id', lot_id)
+        .single()
+
+      if (readErr || !oldRecord) {
+        return new Response(JSON.stringify({ error: 'Inspection lot not found', details: readErr?.message }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const oldQuantity = oldRecord.transaction_quantity
+
+      // Step 2: Update DB first (optimistic)
+      const { error: updateErr } = await supabase
+        .from('inward_inspection_lots')
+        .update({ transaction_quantity: new_quantity, updated_at: new Date().toISOString() })
+        .eq('id', lot_id)
+
+      if (updateErr) {
+        return new Response(JSON.stringify({ error: 'Database update failed', details: updateErr.message }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Step 3: Call SAP API to update quantity
+      try {
+        const url = buildUrl(config)
+        const headers = buildAuthHeaders(config)
+        const method = (config.http_method || 'POST').toUpperCase()
+        const timeout = config.timeout_ms || 30000
+
+        const sapPayload = {
+          MATNR: material_code || '',
+          WERKS: plant || '',
+          LGORT: storage_location || '',
+          CHARG: batch || '',
+          INSPECTION_LOT: inspection_lot || '',
+          ENTRY_QNT: String(new_quantity),
+          ACTION: 'UPDATE_QTY',
+        }
+
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), timeout)
+
+        const fetchOpts: RequestInit = {
+          method,
+          headers,
+          signal: controller.signal,
+          body: JSON.stringify(sapPayload),
+        }
+
+        const response = await fetch(url, fetchOpts)
+        clearTimeout(timer)
+
+        const bodyText = await response.text()
+        console.log('SAP update_qty raw response:', response.status, bodyText)
+
+        if (!response.ok) {
+          // Step 4: Rollback DB on SAP failure
+          await supabase
+            .from('inward_inspection_lots')
+            .update({ transaction_quantity: oldQuantity, updated_at: new Date().toISOString() })
+            .eq('id', lot_id)
+
+          return new Response(JSON.stringify({
+            success: false,
+            error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
+            rolled_back: true,
+            old_quantity: oldQuantity,
+          }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        let sapResponseData: any = null
+        try {
+          sapResponseData = bodyText.trim() ? JSON.parse(bodyText) : { status: 'ok', http_status: response.status }
+        } catch {
+          sapResponseData = { raw: bodyText.substring(0, 1000), http_status: response.status }
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          new_quantity,
+          old_quantity: oldQuantity,
+          sap_response: sapResponseData,
+          http_status: response.status,
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      } catch (err: any) {
+        // Rollback DB on network error
+        await supabase
+          .from('inward_inspection_lots')
+          .update({ transaction_quantity: oldQuantity, updated_at: new Date().toISOString() })
+          .eq('id', lot_id)
+
+        const errMsg = err.name === 'AbortError'
+          ? `SAP API timed out after ${config.timeout_ms || 30000}ms`
+          : `Network error: ${err.message}`
+        return new Response(JSON.stringify({
+          success: false,
+          error: errMsg,
+          rolled_back: true,
+          old_quantity: oldQuantity,
+        }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+    }
+
+    return new Response(JSON.stringify({ error: 'Invalid action. Use "test", "sync", "unblock", or "update_transaction_qty".' }), {
       status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err: any) {

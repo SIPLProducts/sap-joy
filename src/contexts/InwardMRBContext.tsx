@@ -52,6 +52,15 @@ interface BatchMRBResult {
   createdMRBs: MRBRecord[];
 }
 
+interface UpdateQtyResult {
+  success: boolean;
+  error?: string;
+  rolled_back?: boolean;
+  old_quantity?: number;
+  new_quantity?: number;
+  sap_response?: any;
+}
+
 interface InwardMRBContextType {
   inspectionLotRecords: InspectionLotRecord[];
   inwardMRBRecords: MRBRecord[];
@@ -63,6 +72,7 @@ interface InwardMRBContextType {
   uploadInspectionLots: (data: ParsedInspectionLot[], uploadBatchId: string) => Promise<UploadResult>;
   updateLotStatus: (id: string, status: 'pending' | 'mrb_created' | 'cleared') => Promise<void>;
   createBatchMRBs: (records: InspectionLotRecord[]) => Promise<BatchMRBResult>;
+  updateTransactionQuantity: (record: InspectionLotRecord, newQty: number, sapConfigId: string) => Promise<UpdateQtyResult>;
 }
 
 const InwardMRBContext = createContext<InwardMRBContextType | undefined>(undefined);
