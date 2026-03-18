@@ -52,6 +52,15 @@ interface BatchMRBResult {
   createdMRBs: MRBRecord[];
 }
 
+interface UpdateQtyResult {
+  success: boolean;
+  error?: string;
+  rolled_back?: boolean;
+  old_quantity?: number;
+  new_quantity?: number;
+  sap_response?: any;
+}
+
 interface InwardMRBContextType {
   inspectionLotRecords: InspectionLotRecord[];
   inwardMRBRecords: MRBRecord[];
@@ -63,6 +72,7 @@ interface InwardMRBContextType {
   uploadInspectionLots: (data: ParsedInspectionLot[], uploadBatchId: string) => Promise<UploadResult>;
   updateLotStatus: (id: string, status: 'pending' | 'mrb_created' | 'cleared') => Promise<void>;
   createBatchMRBs: (records: InspectionLotRecord[]) => Promise<BatchMRBResult>;
+  updateTransactionQuantity: (record: InspectionLotRecord, newQty: number, sapConfigId: string) => Promise<UpdateQtyResult>;
 }
 
 const InwardMRBContext = createContext<InwardMRBContextType | undefined>(undefined);
@@ -453,6 +463,59 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
     return result;
   };
 
+  const updateTransactionQuantity = async (
+    record: InspectionLotRecord,
+    newQty: number,
+    sapConfigId: string
+  ): Promise<UpdateQtyResult> => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase.functions.invoke('sap-sync', {
+        body: {
+          action: 'update_transaction_qty',
+          config_id: sapConfigId,
+          lot_id: record.id,
+          new_quantity: newQty,
+          inspection_lot: record.inspectionLot,
+          material_code: record.materialCode,
+          plant: record.plant,
+          storage_location: record.storageLocation,
+          batch: record.batch,
+        },
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      if (!data.success) {
+        return {
+          success: false,
+          error: data.error || 'SAP update failed',
+          rolled_back: data.rolled_back,
+          old_quantity: data.old_quantity,
+        };
+      }
+
+      // Refresh data to reflect the change
+      await fetchData();
+
+      return {
+        success: true,
+        new_quantity: data.new_quantity,
+        old_quantity: data.old_quantity,
+        sap_response: data.sap_response,
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Unknown error',
+      };
+    }
+  };
+
   return (
     <InwardMRBContext.Provider
       value={{
@@ -466,6 +529,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
         uploadInspectionLots,
         updateLotStatus,
         createBatchMRBs,
+        updateTransactionQuantity,
       }}
     >
       {children}

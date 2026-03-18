@@ -1,7 +1,7 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, Upload, RefreshCw, Database, FileUp, AlertCircle, CheckCircle2, Download, Loader2, Layers, XCircle } from 'lucide-react';
+import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, Upload, RefreshCw, Database, FileUp, AlertCircle, CheckCircle2, Download, Loader2, Layers, XCircle, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useInwardMRB, InspectionLotRecord } from '@/contexts/InwardMRBContext';
+import { Input } from '@/components/ui/input';
 import { MultiSelectFilter } from '@/components/inward/MultiSelectFilter';
 import {} from '@/data/mockData';
 import {
@@ -49,7 +50,7 @@ const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 export default function InwardReport() {
   const navigate = useNavigate();
-  const { inspectionLotRecords, filters, setFilters, getFilteredRecords, refreshData, isLoading, uploadInspectionLots, createBatchMRBs } = useInwardMRB();
+  const { inspectionLotRecords, filters, setFilters, getFilteredRecords, refreshData, isLoading, uploadInspectionLots, createBatchMRBs, updateTransactionQuantity } = useInwardMRB();
   const [hasSearched, setHasSearched] = useState(false);
   const [searchResults, setSearchResults] = useState<InspectionLotRecord[]>([]);
   const [activeTab, setActiveTab] = useState<'search' | 'upload' | 'api'>('search');
@@ -76,6 +77,81 @@ export default function InwardReport() {
   const [showSingleConfirm, setShowSingleConfirm] = useState(false);
   const [showBatchConfirm, setShowBatchConfirm] = useState(false);
   const [pendingSingleRecord, setPendingSingleRecord] = useState<InspectionLotRecord | null>(null);
+
+  // Inline quantity editing state
+  const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
+  const [editingQtyValue, setEditingQtyValue] = useState<string>('');
+  const [savingQtyId, setSavingQtyId] = useState<string | null>(null);
+
+  // SAP config for ZMRB01/04 (Inward Report endpoint)
+  const [sapConfigId, setSapConfigId] = useState<string | null>(null);
+
+  // Fetch the inward SAP API config on mount
+  useEffect(() => {
+    const fetchSapConfig = async () => {
+      const { data } = await (await import('@/integrations/supabase/client')).supabase
+        .from('sap_api_config')
+        .select('id, config_name')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      
+      if (data && data.length > 0) {
+        // Prefer ZMRB or inward config, else fallback to first active
+        const inwardConfig = data.find(c => 
+          c.config_name.toLowerCase().includes('zmrb') || 
+          c.config_name.toLowerCase().includes('inward')
+        );
+        setSapConfigId(inwardConfig?.id || data[0].id);
+      }
+    };
+    fetchSapConfig();
+  }, []);
+
+  const handleStartEditQty = (record: InspectionLotRecord) => {
+    setEditingQtyId(record.id);
+    setEditingQtyValue(String(record.transactionQuantity));
+  };
+
+  const handleCancelEditQty = () => {
+    setEditingQtyId(null);
+    setEditingQtyValue('');
+  };
+
+  const handleSaveQty = useCallback(async (record: InspectionLotRecord) => {
+    const newQty = parseFloat(editingQtyValue);
+    if (isNaN(newQty) || newQty < 0) {
+      toast.error('Quantity must be a non-negative number');
+      return;
+    }
+    if (newQty === record.transactionQuantity) {
+      handleCancelEditQty();
+      return;
+    }
+    if (!sapConfigId) {
+      toast.error('No SAP API configuration found. Please configure SAP settings first.');
+      return;
+    }
+
+    setSavingQtyId(record.id);
+    try {
+      const result = await updateTransactionQuantity(record, newQty, sapConfigId);
+      if (result.success) {
+        toast.success(`Transaction quantity updated to ${newQty}`);
+        setEditingQtyId(null);
+        setEditingQtyValue('');
+      } else {
+        if (result.rolled_back) {
+          toast.error(`SAP sync failed. Database reverted to ${result.old_quantity}. Error: ${result.error}`);
+        } else {
+          toast.error(`Update failed: ${result.error}`);
+        }
+      }
+    } catch (err) {
+      toast.error('Failed to update quantity');
+    } finally {
+      setSavingQtyId(null);
+    }
+  }, [editingQtyValue, sapConfigId, updateTransactionQuantity]);
 
   // Build options for filters from real DB data only
   const allPlants = [...new Set(inspectionLotRecords.map(r => r.plant))];
@@ -814,8 +890,55 @@ export default function InwardReport() {
                                 <TableCell className="text-right font-medium text-destructive">
                                   {record.blockedQuantity.toLocaleString()}
                                 </TableCell>
-                                <TableCell className="text-right">
-                                  {record.transactionQuantity.toLocaleString()}
+                                <TableCell className="text-right min-w-[140px]">
+                                  {editingQtyId === record.id ? (
+                                    <div className="flex items-center gap-1 justify-end">
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        step="any"
+                                        value={editingQtyValue}
+                                        onChange={(e) => setEditingQtyValue(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') handleSaveQty(record);
+                                          if (e.key === 'Escape') handleCancelEditQty();
+                                        }}
+                                        className="h-7 w-20 text-right text-sm"
+                                        autoFocus
+                                        disabled={savingQtyId === record.id}
+                                      />
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-100"
+                                        onClick={() => handleSaveQty(record)}
+                                        disabled={savingQtyId === record.id}
+                                      >
+                                        {savingQtyId === record.id ? (
+                                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                          <Save className="h-3.5 w-3.5" />
+                                        )}
+                                      </Button>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onClick={handleCancelEditQty}
+                                        disabled={savingQtyId === record.id}
+                                      >
+                                        <X className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <span
+                                      className="cursor-pointer hover:underline hover:text-primary transition-colors"
+                                      onClick={() => handleStartEditQty(record)}
+                                      title="Click to edit"
+                                    >
+                                      {record.transactionQuantity.toLocaleString()}
+                                    </span>
+                                  )}
                                 </TableCell>
                                 <TableCell>{record.uom}</TableCell>
                                 <TableCell className="whitespace-nowrap">
