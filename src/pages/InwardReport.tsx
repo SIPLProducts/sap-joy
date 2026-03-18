@@ -890,8 +890,55 @@ export default function InwardReport() {
                                 <TableCell className="text-right font-medium text-destructive">
                                   {record.blockedQuantity.toLocaleString()}
                                 </TableCell>
-                                <TableCell className="text-right">
-                                  {record.transactionQuantity.toLocaleString()}
+                                <TableCell className="text-right min-w-[140px]">
+                                  {editingQtyId === record.id ? (
+                                    <div className="flex items-center gap-1 justify-end">
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        step="any"
+                                        value={editingQtyValue}
+                                        onChange={(e) => setEditingQtyValue(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') handleSaveQty(record);
+                                          if (e.key === 'Escape') handleCancelEditQty();
+                                        }}
+                                        className="h-7 w-20 text-right text-sm"
+                                        autoFocus
+                                        disabled={savingQtyId === record.id}
+                                      />
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-100"
+                                        onClick={() => handleSaveQty(record)}
+                                        disabled={savingQtyId === record.id}
+                                      >
+                                        {savingQtyId === record.id ? (
+                                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                          <Save className="h-3.5 w-3.5" />
+                                        )}
+                                      </Button>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onClick={handleCancelEditQty}
+                                        disabled={savingQtyId === record.id}
+                                      >
+                                        <X className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <span
+                                      className="cursor-pointer hover:underline hover:text-primary transition-colors"
+                                      onClick={() => handleStartEditQty(record)}
+                                      title="Click to edit"
+                                    >
+                                      {record.transactionQuantity.toLocaleString()}
+                                    </span>
+                                  )}
                                 </TableCell>
                                 <TableCell>{record.uom}</TableCell>
                                 <TableCell className="whitespace-nowrap">
