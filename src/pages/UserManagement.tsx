@@ -467,7 +467,7 @@ export default function UserManagement() {
               <Label htmlFor="plant">Plant</Label>
               <Input
                 id="plant"
-                placeholder="e.g., Plant-1000"
+                placeholder="e.g., 1300"
                 value={newUserPlant}
                 onChange={(e) => setNewUserPlant(e.target.value)}
               />

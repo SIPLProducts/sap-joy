@@ -14,7 +14,7 @@ export const SHOP_FLOOR_STOCK_TEMPLATE_HEADERS = [
 
 export const SHOP_FLOOR_STOCK_SAMPLE_DATA = [
   {
-    plant: 'Plant-1000',
+    plant: '1300',
     material_code: 'MAT-001',
     material_description: 'Industrial Pipe 4 inch',
     batch: 'B2024-001',

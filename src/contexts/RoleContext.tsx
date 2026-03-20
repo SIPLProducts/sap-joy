@@ -72,7 +72,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     name: profile?.full_name || user?.email?.split('@')[0] || 'Guest User',
     role: currentRole,
     email: profile?.email || user?.email || 'guest@hbl.com',
-    plant: profile?.plant || 'Plant-1000',
+    plant: profile?.plant || '1300',
   };
 
   // setRole is now a no-op since role comes from database
