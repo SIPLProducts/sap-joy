@@ -51,7 +51,7 @@ export function useDashboardConfig() {
     // If no config entries exist, default to enabled (backward compatible)
     if (configs.length === 0) return true;
     
-    const userPlant = profile?.plant || 'Plant-1000';
+    const userPlant = profile?.plant || '1300';
     const matching = configs.find(
       c => c.dashboard_key === dashboardKey && c.plant === userPlant && c.role === userRole
     );

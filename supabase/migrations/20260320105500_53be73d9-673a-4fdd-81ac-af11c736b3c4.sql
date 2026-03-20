@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ALTER COLUMN plant SET DEFAULT '1300'; UPDATE public.profiles SET plant = '1300' WHERE plant IN ('Plant-1000', 'Plant-2000', 'Plant-3000', 'Plant-4000') OR plant IS NULL;

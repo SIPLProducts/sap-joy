@@ -13,10 +13,7 @@ import { User, Mail, Building2, Briefcase, Phone, Save, Loader2 } from 'lucide-r
 import { getRoleDisplayName } from '@/contexts/RoleContext';
 
 const PLANTS = [
-  'Plant-1000',
-  'Plant-2000',
-  'Plant-3000',
-  'Plant-4000',
+  '1300',
 ];
 
 const DEPARTMENTS = [
