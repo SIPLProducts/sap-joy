@@ -52,6 +52,12 @@ const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 export default function InwardReport() {
   const navigate = useNavigate();
   const { inspectionLotRecords, filters, setFilters, getFilteredRecords, refreshData, isLoading, uploadInspectionLots, createBatchMRBs, updateTransactionQuantity } = useInwardMRB();
+  const { userRole } = useAuth();
+
+  // Role-based permissions
+  const canCreateMRB = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
+  const canUploadData = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
+  const canEditQuantity = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
   const [hasSearched, setHasSearched] = useState(false);
   const [searchResults, setSearchResults] = useState<InspectionLotRecord[]>([]);
   const [activeTab, setActiveTab] = useState<'search' | 'upload' | 'api'>('search');
