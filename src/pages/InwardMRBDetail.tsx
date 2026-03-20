@@ -36,7 +36,7 @@ export default function InwardMRBDetail() {
   const { toast } = useToast();
   const { getMRBById, updateMRBStatus, getApprovalHistory } = useMRBDatabase();
   const { currentRole, canEdit } = useRole();
-  const { userRole, profile } = useAuth();
+  const { userRole, profile, user } = useAuth();
   
   const [mrb, setMRB] = useState<MRBRecord | null>(null);
   const [approvalHistory, setApprovalHistory] = useState<ApprovalHistory[]>([]);
@@ -129,44 +129,67 @@ export default function InwardMRBDetail() {
     try {
       let newStatus: MRBStatus = mrb.status;
       let additionalUpdates: Partial<MRBRecord> = {};
+
+      // Map department values to proper app_role enum values
+      const deptToAppRole: Record<string, Database['public']['Enums']['app_role']> = {
+        'engineering': 'engineering',
+        'purchase': 'purchase',
+        'plant_head': 'executive',
+        'quality_head': 'quality_head',
+        'mrb_committee': 'mrb_committee',
+      };
+
+      const deptToStatus: Record<string, MRBStatus> = {
+        'engineering': 'engineering_review',
+        'purchase': 'purchase_review',
+        'plant_head': 'final_approval',
+        'quality_head': 'quality_review',
+        'mrb_committee': 'quality_review',
+      };
       
       // Determine next status based on action and forward settings
       if (reviewData.forwardToNext && reviewData.nextDepartments.length > 0) {
         const firstDept = reviewData.nextDepartments[0];
-        switch (firstDept) {
-          case 'engineering':
-            newStatus = 'engineering_review';
-            break;
-          case 'purchase':
-            newStatus = 'purchase_review';
-            break;
-          case 'plant_head':
-            newStatus = 'final_approval';
-            break;
-          default:
-            newStatus = 'quality_review';
-        }
+        newStatus = deptToStatus[firstDept] || 'quality_review';
+        const nextPendingWith = deptToAppRole[firstDept] || 'quality';
+        additionalUpdates.pending_with = nextPendingWith;
       } else if (reviewData.action === 'approve' || reviewData.action === 'approve_with_deviation' || reviewData.action === 'return_to_vendor') {
         newStatus = 'final_approval';
+        additionalUpdates.pending_with = 'executive';
       }
       
-      // Set additional updates based on current stage
-      if (userRole?.includes('quality')) {
-        additionalUpdates = { quality_remarks: reviewData.reviewComments };
-      } else if (userRole?.includes('purchase')) {
-        additionalUpdates = { purchase_remarks: reviewData.reviewComments };
-      } else if (userRole?.includes('engineering')) {
-        additionalUpdates = { engineering_remarks: reviewData.reviewComments };
+      // Set additional updates based on current reviewing role
+      if (userRole === 'quality' || userRole === 'quality_head') {
+        additionalUpdates.quality_remarks = reviewData.reviewComments;
+        additionalUpdates.quality_approved_by = user?.id || null;
+        additionalUpdates.quality_approved_at = new Date().toISOString();
+      } else if (userRole === 'purchase' || userRole === 'purchase_head') {
+        additionalUpdates.purchase_remarks = reviewData.reviewComments;
+        additionalUpdates.purchase_approved_by = user?.id || null;
+        additionalUpdates.purchase_approved_at = new Date().toISOString();
+        if (reviewData.action === 'return_to_vendor') {
+          additionalUpdates.purchase_action = 'return_to_vendor';
+        }
+      } else if (userRole === 'engineering' || userRole === 'engineering_head') {
+        additionalUpdates.engineering_remarks = reviewData.reviewComments;
+        additionalUpdates.engineering_approved_by = user?.id || null;
+        additionalUpdates.engineering_approved_at = new Date().toISOString();
       } else if (userRole === 'executive' || userRole === 'admin') {
-        additionalUpdates = { 
-          final_remarks: reviewData.reviewComments,
-          final_decision: reviewData.action === 'approve' ? 'approved' : reviewData.action,
-        };
+        additionalUpdates.final_remarks = reviewData.reviewComments;
+        additionalUpdates.final_decision = reviewData.action === 'approve' ? 'approved' : reviewData.action;
+        additionalUpdates.final_approved_by = user?.id || null;
+        additionalUpdates.final_approved_at = new Date().toISOString();
         if (reviewData.action === 'approve') {
           newStatus = 'approved';
           additionalUpdates.closure_status = 'completed';
           additionalUpdates.closed_at = new Date().toISOString();
+          additionalUpdates.closed_by = user?.id || null;
         }
+      } else if (userRole === 'mrb_committee') {
+        additionalUpdates.mrb_committee_remarks = reviewData.reviewComments;
+        additionalUpdates.mrb_committee_decision = reviewData.action;
+        additionalUpdates.mrb_committee_approved_by = profile?.full_name || null;
+        additionalUpdates.mrb_committee_approved_at = new Date().toISOString();
       }
       
       const actionLabel = getActionLabel(reviewData.action);

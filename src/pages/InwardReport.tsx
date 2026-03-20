@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useInwardMRB, InspectionLotRecord } from '@/contexts/InwardMRBContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
 import { MultiSelectFilter } from '@/components/inward/MultiSelectFilter';
 import {} from '@/data/mockData';
@@ -51,6 +52,12 @@ const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 export default function InwardReport() {
   const navigate = useNavigate();
   const { inspectionLotRecords, filters, setFilters, getFilteredRecords, refreshData, isLoading, uploadInspectionLots, createBatchMRBs, updateTransactionQuantity } = useInwardMRB();
+  const { userRole } = useAuth();
+
+  // Role-based permissions
+  const canCreateMRB = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
+  const canUploadData = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
+  const canEditQuantity = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
   const [hasSearched, setHasSearched] = useState(false);
   const [searchResults, setSearchResults] = useState<InspectionLotRecord[]>([]);
   const [activeTab, setActiveTab] = useState<'search' | 'upload' | 'api'>('search');
@@ -601,7 +608,7 @@ export default function InwardReport() {
                 <Search className="h-4 w-4" />
                 Search
               </TabsTrigger>
-              <TabsTrigger value="upload" className="flex items-center gap-2">
+              <TabsTrigger value="upload" className="flex items-center gap-2" disabled={!canUploadData}>
                 <Upload className="h-4 w-4" />
                 Upload Data
               </TabsTrigger>
@@ -702,7 +709,7 @@ export default function InwardReport() {
             {hasSearched && (
               <div className="h-full flex flex-col px-6 py-4 min-h-0">
                 {/* Bulk Action Bar */}
-                {selectedIds.size > 0 && (
+                {selectedIds.size > 0 && canCreateMRB && (
                   <div className="mb-4 p-4 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <Checkbox
@@ -859,16 +866,22 @@ export default function InwardReport() {
                                   />
                                 </TableCell>
                                 <TableCell>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleCreateMRB(record)}
-                                    className="whitespace-nowrap"
-                                    disabled={!eligible}
-                                    variant={eligible ? "default" : "outline"}
-                                  >
-                                    <PlusCircle className="h-4 w-4 mr-1" />
-                                    {eligible ? 'Create MRB' : 'Not Eligible'}
-                                  </Button>
+                                  {canCreateMRB ? (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleCreateMRB(record)}
+                                      className="whitespace-nowrap"
+                                      disabled={!eligible}
+                                      variant={eligible ? "default" : "outline"}
+                                    >
+                                      <PlusCircle className="h-4 w-4 mr-1" />
+                                      {eligible ? 'Create MRB' : 'Not Eligible'}
+                                    </Button>
+                                  ) : (
+                                    <Badge variant="outline" className="text-xs text-muted-foreground">
+                                      View Only
+                                    </Badge>
+                                  )}
                                 </TableCell>
                                 <TableCell>
                                   {getStatusBadge(record.status)}
@@ -931,6 +944,7 @@ export default function InwardReport() {
                                       </Button>
                                     </div>
                                   ) : (
+                                    canEditQuantity ? (
                                     <span
                                       className="cursor-pointer hover:underline hover:text-primary transition-colors"
                                       onClick={() => handleStartEditQty(record)}
@@ -938,6 +952,9 @@ export default function InwardReport() {
                                     >
                                       {record.transactionQuantity.toLocaleString()}
                                     </span>
+                                    ) : (
+                                    <span>{record.transactionQuantity.toLocaleString()}</span>
+                                    )
                                   )}
                                 </TableCell>
                                 <TableCell>{record.uom}</TableCell>

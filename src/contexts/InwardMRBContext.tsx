@@ -358,6 +358,19 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
         throw new Error('User not authenticated');
       }
 
+      // Use actual user role instead of hardcoded 'quality'
+      const actualRole = userRole || 'quality';
+
+      // Determine initial pending_with and status based on user role
+      // Quality users create MRBs that start at quality_review
+      // Other roles also create at quality_review by default
+      const initialPendingWith = actualRole;
+      const initialStatus: Database['public']['Enums']['mrb_status'] = 
+        actualRole === 'quality' || actualRole === 'quality_head' ? 'quality_review' :
+        actualRole === 'purchase' || actualRole === 'purchase_head' ? 'purchase_review' :
+        actualRole === 'engineering' || actualRole === 'engineering_head' ? 'engineering_review' :
+        'quality_review';
+
       // Generate MRB numbers
       const year = new Date().getFullYear();
       const prefix = `MRB-${year}-`;
@@ -404,7 +417,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
             mrb_number: mrbNumber,
             source: 'quality_inspection',
             created_by: user.id,
-            status: 'quality_review',
+            status: initialStatus,
             plant: record.plant,
             material_number: record.materialCode,
             material_description: record.materialDescription,
@@ -417,7 +430,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
             grn_number: record.grnNumber || null,
             inspection_lot: record.inspectionLot,
             defect_description: record.blockReason || null,
-            pending_with: 'quality'
+            pending_with: initialPendingWith as Database['public']['Enums']['app_role']
           };
 
           const { data: createdMRB, error } = await supabase
@@ -429,20 +442,19 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
           if (error) throw error;
 
           // Update lot status in inward_inspection_lots table
-          // Always try to update by inspection_lot number to catch all sources
           await supabase
             .from('inward_inspection_lots')
             .update({ status: 'mrb_created' })
             .eq('inspection_lot', record.inspectionLot);
 
-          // Add to approval history
+          // Add to approval history with actual user role
           await supabase.from('mrb_approval_history').insert({
             mrb_id: createdMRB.id,
             stage: 'Creation',
             action: 'created',
             performed_by: user.id,
-            performed_by_role: 'quality',
-            remarks: `Batch MRB created from inspection lot ${record.inspectionLot}`,
+            performed_by_role: actualRole as Database['public']['Enums']['app_role'],
+            remarks: `MRB created from inspection lot ${record.inspectionLot} by ${actualRole}`,
           });
 
           result.createdMRBs.push(createdMRB);
