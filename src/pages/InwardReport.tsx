@@ -608,7 +608,7 @@ export default function InwardReport() {
                 <Search className="h-4 w-4" />
                 Search
               </TabsTrigger>
-              <TabsTrigger value="upload" className="flex items-center gap-2">
+              <TabsTrigger value="upload" className="flex items-center gap-2" disabled={!canUploadData}>
                 <Upload className="h-4 w-4" />
                 Upload Data
               </TabsTrigger>
