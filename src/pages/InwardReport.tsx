@@ -944,6 +944,7 @@ export default function InwardReport() {
                                       </Button>
                                     </div>
                                   ) : (
+                                    canEditQuantity ? (
                                     <span
                                       className="cursor-pointer hover:underline hover:text-primary transition-colors"
                                       onClick={() => handleStartEditQty(record)}
@@ -951,6 +952,9 @@ export default function InwardReport() {
                                     >
                                       {record.transactionQuantity.toLocaleString()}
                                     </span>
+                                    ) : (
+                                    <span>{record.transactionQuantity.toLocaleString()}</span>
+                                    )
                                   )}
                                 </TableCell>
                                 <TableCell>{record.uom}</TableCell>
