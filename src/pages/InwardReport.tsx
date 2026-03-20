@@ -866,16 +866,22 @@ export default function InwardReport() {
                                   />
                                 </TableCell>
                                 <TableCell>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleCreateMRB(record)}
-                                    className="whitespace-nowrap"
-                                    disabled={!eligible}
-                                    variant={eligible ? "default" : "outline"}
-                                  >
-                                    <PlusCircle className="h-4 w-4 mr-1" />
-                                    {eligible ? 'Create MRB' : 'Not Eligible'}
-                                  </Button>
+                                  {canCreateMRB ? (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleCreateMRB(record)}
+                                      className="whitespace-nowrap"
+                                      disabled={!eligible}
+                                      variant={eligible ? "default" : "outline"}
+                                    >
+                                      <PlusCircle className="h-4 w-4 mr-1" />
+                                      {eligible ? 'Create MRB' : 'Not Eligible'}
+                                    </Button>
+                                  ) : (
+                                    <Badge variant="outline" className="text-xs text-muted-foreground">
+                                      View Only
+                                    </Badge>
+                                  )}
                                 </TableCell>
                                 <TableCell>
                                   {getStatusBadge(record.status)}
