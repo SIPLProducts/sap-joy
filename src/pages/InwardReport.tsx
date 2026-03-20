@@ -709,7 +709,7 @@ export default function InwardReport() {
             {hasSearched && (
               <div className="h-full flex flex-col px-6 py-4 min-h-0">
                 {/* Bulk Action Bar */}
-                {selectedIds.size > 0 && (
+                {selectedIds.size > 0 && canCreateMRB && (
                   <div className="mb-4 p-4 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <Checkbox
