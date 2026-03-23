@@ -207,24 +207,40 @@ export default function SAPApiSettings() {
               <div className="flex items-center gap-3">
                 <Server className="h-5 w-5 text-orange-600 shrink-0" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium">Self-Hosted Backend URL</p>
-                  <p className="text-xs text-muted-foreground">Required when SAP middleware runs on your internal network (e.g. http://10.10.4.178:8000)</p>
+                  <p className="text-sm font-medium">Self-Hosted Supabase URL (Cloud/Ngrok Mode Only)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Use this <strong>only from Lovable preview</strong>. Enter your ngrok URL (e.g. https://abc123.ngrok-free.app) to route edge function calls to your self-hosted backend.
+                    <strong> Leave empty on client server</strong> — the .env already points to local Supabase.
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Input
                     value={selfHostedUrl}
                     onChange={(e) => setSelfHostedUrlState(e.target.value)}
-                    placeholder="http://your-server:8000"
-                    className="w-64 text-sm"
+                    placeholder="https://your-ngrok-url.ngrok-free.app"
+                    className="w-72 text-sm"
                   />
                   <Button size="sm" onClick={handleSaveSelfHostedUrl}>
                     Save
                   </Button>
+                  {getSelfHostedUrl() && (
+                    <Button size="sm" variant="outline" onClick={() => {
+                      setSelfHostedUrlState('');
+                      setSelfHostedUrl(null);
+                      toast({ title: 'Cleared', description: 'SAP calls will now use the default backend from .env' });
+                    }}>
+                      Clear
+                    </Button>
+                  )}
                 </div>
               </div>
-              {getSelfHostedUrl() && (
+              {getSelfHostedUrl() ? (
                 <Badge variant="outline" className="mt-2 ml-8 bg-green-50 text-green-700 border-green-300">
-                  Active: {getSelfHostedUrl()}
+                  ✓ Routing to: {getSelfHostedUrl()}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="mt-2 ml-8 bg-blue-50 text-blue-700 border-blue-300">
+                  Using default backend ({window.location.hostname === 'localhost' || window.location.hostname.includes('lovable') ? 'Lovable Cloud' : 'Self-Hosted from .env'})
                 </Badge>
               )}
             </CardContent>
