@@ -458,6 +458,7 @@ function buildAuthHeaders(config: any): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
+    'ngrok-skip-browser-warning': 'true',  // Skip ngrok interstitial HTML page
   }
 
   if (config.proxy_secret) {

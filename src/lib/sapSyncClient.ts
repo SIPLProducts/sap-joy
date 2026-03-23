@@ -2,11 +2,6 @@ import { supabase } from '@/integrations/supabase/client';
 
 const SELF_HOSTED_URL_KEY = 'sap_self_hosted_supabase_url';
 
-/**
- * Get/set the self-hosted Supabase URL for SAP edge function calls.
- * When set, SAP sync calls route to self-hosted edge functions instead of Lovable Cloud.
- * This is required when the SAP middleware runs on a private network.
- */
 export function getSelfHostedUrl(): string | null {
   return localStorage.getItem(SELF_HOSTED_URL_KEY);
 }
@@ -20,7 +15,9 @@ export function setSelfHostedUrl(url: string | null) {
 }
 
 /**
- * Invoke the sap-sync edge function, routing to self-hosted Supabase if configured.
+ * Invoke the sap-sync edge function.
+ * - If selfHostedUrl is set in localStorage, routes there (advanced override).
+ * - Otherwise uses Lovable Cloud edge functions (default).
  */
 export async function invokeSapSync(body: Record<string, any>): Promise<{ data: any; error: any }> {
   const selfHostedUrl = getSelfHostedUrl();
@@ -43,19 +40,38 @@ export async function invokeSapSync(body: Record<string, any>): Promise<{ data: 
         body: JSON.stringify(body),
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await response.text();
+        return { data: null, error: { message: `Self-hosted backend returned non-JSON (${response.status}): ${text.substring(0, 200)}` } };
+      }
 
+      const data = await response.json();
       if (!response.ok) {
         return { data, error: { message: data.error || data.message || `HTTP ${response.status}` } };
       }
-
       return { data, error: null };
     } catch (err: any) {
       return { data: null, error: { message: err.message || 'Network error calling self-hosted edge function' } };
     }
   }
 
-  // Fallback to Lovable Cloud edge function
-  const { data, error } = await supabase.functions.invoke('sap-sync', { body });
-  return { data, error };
+  // Use Lovable Cloud edge function (default path)
+  try {
+    const { data, error } = await supabase.functions.invoke('sap-sync', { body });
+    
+    // supabase.functions.invoke can return error objects or throw
+    if (error) {
+      // Check if error has a non-JSON message
+      const errMsg = typeof error === 'object' 
+        ? (error.message || error.msg || JSON.stringify(error))
+        : String(error);
+      return { data: null, error: { message: errMsg } };
+    }
+    
+    return { data, error: null };
+  } catch (err: any) {
+    // Handle cases where invoke() throws (e.g., non-JSON response)
+    return { data: null, error: { message: err.message || 'Edge function call failed' } };
+  }
 }
