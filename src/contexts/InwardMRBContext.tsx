@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeSapSync } from '@/lib/sapSyncClient';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Database } from '@/integrations/supabase/types';
 import { ParsedInspectionLot } from '@/lib/csvTemplates';
@@ -484,18 +485,16 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase.functions.invoke('sap-sync', {
-        body: {
-          action: 'update_transaction_qty',
-          config_id: sapConfigId,
-          lot_id: record.id,
-          new_quantity: newQty,
-          inspection_lot: record.inspectionLot,
-          material_code: record.materialCode,
-          plant: record.plant,
-          storage_location: record.storageLocation,
-          batch: record.batch,
-        },
+      const { data, error } = await invokeSapSync({
+        action: 'update_transaction_qty',
+        config_id: sapConfigId,
+        lot_id: record.id,
+        new_quantity: newQty,
+        inspection_lot: record.inspectionLot,
+        material_code: record.materialCode,
+        plant: record.plant,
+        storage_location: record.storageLocation,
+        batch: record.batch,
       });
 
       if (error) {

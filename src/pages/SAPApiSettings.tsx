@@ -5,12 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Settings2, Play, Trash2, FileText, Link2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Plus, Pencil, Settings2, Play, Trash2, FileText, Link2, Server } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { SAPApiEditForm } from '@/components/sapApi/SAPApiEditForm';
 import { SAPConnectivityGuide } from '@/components/sapApi/SAPConnectivityGuide';
 import { SAPApiFieldsDialog } from '@/components/sapApi/SAPApiFieldsDialog';
 import { useAuth } from '@/contexts/AuthContext';
+import { invokeSapSync, getSelfHostedUrl, setSelfHostedUrl } from '@/lib/sapSyncClient';
 
 interface SAPConfig {
   id: string;
@@ -42,6 +44,7 @@ export default function SAPApiSettings() {
   const [isCreating, setIsCreating] = useState(false);
   const [fieldsConfig, setFieldsConfig] = useState<SAPConfig | null>(null);
   const [activeTab, setActiveTab] = useState('configurations');
+  const [selfHostedUrl, setSelfHostedUrlState] = useState(getSelfHostedUrl() || '');
   const { userRole } = useAuth();
 
   const fetchConfigs = async () => {
@@ -73,34 +76,29 @@ export default function SAPApiSettings() {
 
   const handleTest = async (config: SAPConfig) => {
     toast({ title: 'Testing...', description: `Testing connection to ${config.config_name}` });
-    // Build the full URL
-    const fullUrl = config.proxy_tunnel_url
-      ? `${config.proxy_tunnel_url}${config.endpoint_path || config.api_endpoint}`
-      : `${config.base_url || ''}${config.endpoint_path || config.api_endpoint}`;
-
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (config.proxy_secret) {
-        headers['x-proxy-secret'] = config.proxy_secret;
-      }
-      if (config.auth_type === 'basic' && config.username) {
-        headers['Authorization'] = `Basic ${btoa(`${config.username}:${config.encrypted_password || ''}`)}`;
-      } else if (config.auth_type === 'api_key' && config.api_key) {
-        headers['X-API-Key'] = config.api_key;
-      }
-
-      const response = await fetch(fullUrl, {
-        method: config.http_method || 'GET',
-        headers,
-      });
-      if (response.ok) {
-        toast({ title: 'Success', description: `Connection to ${config.config_name} successful (${response.status})` });
+      const { data, error } = await invokeSapSync({ action: 'test', config_id: config.id });
+      if (error) {
+        toast({ title: 'Test Failed', description: error.message, variant: 'destructive' });
+      } else if (data?.success) {
+        toast({ title: 'Success', description: data.message || `Connection to ${config.config_name} successful` });
       } else {
-        toast({ title: 'Failed', description: `HTTP ${response.status}: ${response.statusText}`, variant: 'destructive' });
+        toast({ title: 'Test Failed', description: data?.error || data?.message || 'Unknown error', variant: 'destructive' });
       }
     } catch (err: any) {
       toast({ title: 'Connection Failed', description: err.message || 'Network error', variant: 'destructive' });
     }
+  };
+
+  const handleSaveSelfHostedUrl = () => {
+    const trimmed = selfHostedUrl.trim();
+    setSelfHostedUrl(trimmed || null);
+    toast({
+      title: trimmed ? 'Self-Hosted URL Saved' : 'Self-Hosted URL Cleared',
+      description: trimmed
+        ? `SAP calls will route to: ${trimmed}`
+        : 'SAP calls will use Lovable Cloud edge functions',
+    });
   };
 
   const handleSave = async (data: Partial<SAPConfig>) => {
@@ -203,6 +201,35 @@ export default function SAPApiSettings() {
         </div>
 
         <TabsContent value="configurations" className="space-y-4">
+          {/* Self-Hosted Edge Function URL Config */}
+          <Card className="border-dashed border-orange-300 bg-orange-50/50">
+            <CardContent className="pt-4 pb-3">
+              <div className="flex items-center gap-3">
+                <Server className="h-5 w-5 text-orange-600 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Self-Hosted Backend URL</p>
+                  <p className="text-xs text-muted-foreground">Required when SAP middleware runs on your internal network (e.g. http://10.10.4.178:8000)</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={selfHostedUrl}
+                    onChange={(e) => setSelfHostedUrlState(e.target.value)}
+                    placeholder="http://your-server:8000"
+                    className="w-64 text-sm"
+                  />
+                  <Button size="sm" onClick={handleSaveSelfHostedUrl}>
+                    Save
+                  </Button>
+                </div>
+              </div>
+              {getSelfHostedUrl() && (
+                <Badge variant="outline" className="mt-2 ml-8 bg-green-50 text-green-700 border-green-300">
+                  Active: {getSelfHostedUrl()}
+                </Badge>
+              )}
+            </CardContent>
+          </Card>
+
           <div className="flex justify-end">
             <Button onClick={() => setIsCreating(true)} className="gap-2 bg-primary">
               <Plus className="h-4 w-4" /> Add API Configuration
