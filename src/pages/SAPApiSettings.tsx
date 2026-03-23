@@ -5,14 +5,13 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Input } from '@/components/ui/input';
 import { Plus, Pencil, Settings2, Play, Trash2, FileText, Link2, Server } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { SAPApiEditForm } from '@/components/sapApi/SAPApiEditForm';
 import { SAPConnectivityGuide } from '@/components/sapApi/SAPConnectivityGuide';
 import { SAPApiFieldsDialog } from '@/components/sapApi/SAPApiFieldsDialog';
 import { useAuth } from '@/contexts/AuthContext';
-import { invokeSapSync, getSelfHostedUrl, setSelfHostedUrl } from '@/lib/sapSyncClient';
+import { invokeSapSync } from '@/lib/sapSyncClient';
 
 interface SAPConfig {
   id: string;
@@ -44,7 +43,6 @@ export default function SAPApiSettings() {
   const [isCreating, setIsCreating] = useState(false);
   const [fieldsConfig, setFieldsConfig] = useState<SAPConfig | null>(null);
   const [activeTab, setActiveTab] = useState('configurations');
-  const [selfHostedUrl, setSelfHostedUrlState] = useState(getSelfHostedUrl() || '');
   const { userRole } = useAuth();
 
   const fetchConfigs = async () => {
@@ -90,16 +88,6 @@ export default function SAPApiSettings() {
     }
   };
 
-  const handleSaveSelfHostedUrl = () => {
-    const trimmed = selfHostedUrl.trim();
-    setSelfHostedUrl(trimmed || null);
-    toast({
-      title: trimmed ? 'Self-Hosted URL Saved' : 'Self-Hosted URL Cleared',
-      description: trimmed
-        ? `SAP calls will route to: ${trimmed}`
-        : 'SAP calls will use Lovable Cloud edge functions',
-    });
-  };
 
   const handleSave = async (data: Partial<SAPConfig>) => {
     // Build api_endpoint from base_url + endpoint_path for backward compatibility
@@ -201,87 +189,33 @@ export default function SAPApiSettings() {
         </div>
 
         <TabsContent value="configurations" className="space-y-4">
-          {/* Self-Hosted Edge Function URL Config */}
-          {/* Environment-aware SAP routing info */}
-          {(() => {
-            const isLovable = window.location.hostname.includes('lovable') || window.location.hostname === 'localhost';
-            const currentSelfHosted = getSelfHostedUrl();
-            const isMixedContent = currentSelfHosted && currentSelfHosted.startsWith('http://') && window.location.protocol === 'https:';
-            
-            return (
-              <Card className={`border-dashed ${isMixedContent ? 'border-red-400 bg-red-50/50' : 'border-orange-300 bg-orange-50/50'}`}>
-                <CardContent className="pt-4 pb-3 space-y-3">
-                  {/* Mixed content warning */}
-                  {isMixedContent && (
-                    <div className="flex items-center gap-2 bg-red-100 text-red-800 rounded-md px-3 py-2 text-sm font-medium">
-                      ⚠️ Mixed Content Error: You are on HTTPS but Self-Hosted URL is HTTP. Browser will block this! 
-                      {isLovable && ' Clear the URL below — Lovable Cloud edge functions use the ngrok URL from proxy_tunnel_url in each config.'}
-                    </div>
-                  )}
-
-                  {/* Environment detection banner */}
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={isLovable ? 'bg-purple-50 text-purple-700 border-purple-300' : 'bg-green-50 text-green-700 border-green-300'}>
-                      {isLovable ? '☁️ Lovable Cloud Preview' : '🖥️ Client Server'}
-                    </Badge>
-                    {isLovable ? (
-                      <span className="text-xs text-muted-foreground">
-                        Edge functions run on Lovable Cloud → they read <strong>proxy_tunnel_url</strong> (ngrok) from each SAP config to reach your middleware. 
-                        <strong> Self-Hosted URL should be EMPTY here.</strong>
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        .env points to local Supabase → edge functions run locally → they read <strong>proxy_tunnel_url</strong> from each SAP config.
-                        <strong> Self-Hosted URL should be EMPTY here too.</strong>
-                      </span>
-                    )}
+          {/* How SAP Routing Works */}
+          <Card className="border-dashed border-blue-300 bg-blue-50/50">
+            <CardContent className="pt-4 pb-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <Server className="h-5 w-5 text-blue-600" />
+                <p className="text-sm font-semibold">How SAP Connection Works</p>
+              </div>
+              <div className="text-xs text-muted-foreground space-y-2 ml-7">
+                <p>Your app calls → <strong>Edge Function</strong> (backend) → reads <strong>"Node.js Middleware URL"</strong> from each API config below → forwards request to your Node.js middleware → middleware calls SAP.</p>
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div className="bg-white rounded-md border p-3">
+                    <p className="font-semibold text-purple-700 mb-1">☁️ Using from Lovable Cloud</p>
+                    <p>Edge functions run on Lovable's servers.</p>
+                    <p className="mt-1">→ Set <strong>"Node.js Middleware URL"</strong> in each config to your <strong>ngrok URL</strong></p>
+                    <p className="text-[10px] mt-1 opacity-70">e.g. https://abc123.ngrok-free.app</p>
                   </div>
-
-                  {/* Self-Hosted URL field (for advanced override only) */}
-                  <div className="flex items-center gap-3">
-                    <Server className="h-5 w-5 text-orange-600 shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">Self-Hosted Backend Override (Advanced)</p>
-                      <p className="text-xs text-muted-foreground">
-                        Only use if you need to redirect ALL edge function calls to a different Supabase instance. Usually leave this empty.
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={selfHostedUrl}
-                        onChange={(e) => setSelfHostedUrlState(e.target.value)}
-                        placeholder="Leave empty (recommended)"
-                        className="w-64 text-sm"
-                      />
-                      <Button size="sm" onClick={handleSaveSelfHostedUrl}>
-                        Save
-                      </Button>
-                      {currentSelfHosted && (
-                        <Button size="sm" variant="destructive" onClick={() => {
-                          setSelfHostedUrlState('');
-                          setSelfHostedUrl(null);
-                          toast({ title: 'Cleared', description: 'SAP calls will use the default backend' });
-                        }}>
-                          Clear
-                        </Button>
-                      )}
-                    </div>
+                  <div className="bg-white rounded-md border p-3">
+                    <p className="font-semibold text-green-700 mb-1">🖥️ Using from Client Server</p>
+                    <p>Edge functions run in Docker on your server.</p>
+                    <p className="mt-1">→ Set <strong>"Node.js Middleware URL"</strong> in each config to <strong>http://host.docker.internal:3002</strong></p>
+                    <p className="text-[10px] mt-1 opacity-70">or http://10.10.4.178:3002</p>
                   </div>
-
-                  {/* Status badge */}
-                  {currentSelfHosted ? (
-                    <Badge variant="outline" className="ml-8 bg-orange-50 text-orange-700 border-orange-300">
-                      ⚠️ Override active: {currentSelfHosted}
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="ml-8 bg-green-50 text-green-700 border-green-300">
-                      ✓ Using {isLovable ? 'Lovable Cloud' : 'local .env'} backend (recommended)
-                    </Badge>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })()}
+                </div>
+                <p className="text-[11px] mt-2 font-medium">💡 Since Lovable and Client Server use <strong>separate databases</strong>, each can have different middleware URLs in their configs.</p>
+              </div>
+            </CardContent>
+          </Card>
 
           <div className="flex justify-end">
             <Button onClick={() => setIsCreating(true)} className="gap-2 bg-primary">
