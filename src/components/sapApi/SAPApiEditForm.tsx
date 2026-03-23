@@ -231,7 +231,7 @@ export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
       sap_client: sapClient || null,
       timeout_ms: parseInt(timeoutMs) || 30000,
       connection_mode: connectionMode,
-      proxy_tunnel_url: proxyUrl || null,
+      proxy_tunnel_url: proxyUrl?.trim() || null,
       proxy_secret: proxySecret || null,
       username: authType === 'basic' ? username || null : null,
       encrypted_password: authType === 'basic' ? password || null : null,
