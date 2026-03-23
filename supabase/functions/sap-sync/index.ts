@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-    // Auth client to verify user - use getUser() for broad compatibility
+    // Auth client to verify user
     const authClient = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } },
     })
@@ -45,8 +45,8 @@ Deno.serve(async (req) => {
       .single()
 
     if (configError || !config) {
-      return new Response(JSON.stringify({ error: 'Configuration not found', details: configError?.message }), {
-        status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      return new Response(JSON.stringify({ success: false, error: 'Configuration not found', details: configError?.message }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -54,14 +54,13 @@ Deno.serve(async (req) => {
     if (action === 'test') {
       const result = await testConnection(config)
       return new Response(JSON.stringify(result), {
-        status: result.success ? 200 : 400,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     // TRIGGER SYNC
     if (action === 'sync') {
-      // Create sync history record
       const { data: syncRecord, error: syncInsertErr } = await supabase
         .from('sap_stock_sync_history')
         .insert({
@@ -74,27 +73,24 @@ Deno.serve(async (req) => {
         .single()
 
       if (syncInsertErr) {
-        return new Response(JSON.stringify({ error: 'Failed to create sync record', details: syncInsertErr.message }), {
-          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ success: false, error: 'Failed to create sync record', details: syncInsertErr.message }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
 
       try {
-        // Fetch response field mappings
         const { data: responseFields } = await supabase
           .from('sap_api_response_fields')
           .select('*')
           .eq('config_id', config_id)
           .order('sort_order')
 
-        // Fetch request field defaults
         const { data: requestFields } = await supabase
           .from('sap_api_request_fields')
           .select('*')
           .eq('config_id', config_id)
           .order('sort_order')
 
-        // Build the SAP API request
         const sapResponse = await callSAPApi(config, requestFields || [])
 
         if (!sapResponse.success) {
@@ -108,10 +104,9 @@ Deno.serve(async (req) => {
             success: false,
             error: sapResponse.error,
             sync_id: syncRecord.id,
-          }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+          }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
-        // Map and insert data
         const mappingResult = await mapAndInsertData(
           supabase,
           sapResponse.data,
@@ -131,7 +126,6 @@ Deno.serve(async (req) => {
           error_message: hasErrors ? mappingResult.errors.join('; ') : null,
         }).eq('id', syncRecord.id)
 
-        // Update config last_sync_at
         await supabase.from('sap_api_config').update({
           last_sync_at: new Date().toISOString(),
         }).eq('id', config_id)
@@ -156,17 +150,16 @@ Deno.serve(async (req) => {
           success: false,
           error: syncErr.message,
           sync_id: syncRecord.id,
-        }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }
     }
 
-    // UNBLOCK - Call SAP 343 (Blocked to Unrestricted) with dynamic MRB data,
-    // then optionally verify live stock via MB52
+    // UNBLOCK - SAP 343
     if (action === 'unblock') {
       const { request_body, verify_config_id } = body
       if (!request_body) {
-        return new Response(JSON.stringify({ error: 'request_body is required for unblock action' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ success: false, error: 'request_body is required for unblock action' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
 
@@ -234,7 +227,7 @@ Deno.serve(async (req) => {
             error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
             sap_response: responseData,
             http_status: response.status,
-          }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+          }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
         const sapCode = responseData?.CODE || responseData?.code || responseData?.Code || null
@@ -295,27 +288,26 @@ Deno.serve(async (req) => {
           ? `SAP API timed out after ${config.timeout_ms || 30000}ms`
           : `Network error: ${err.message}`
         return new Response(JSON.stringify({ success: false, error: errMsg }), {
-          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
     }
 
-    // UPDATE TRANSACTION QUANTITY - Updates qty in DB and calls SAP API
+    // UPDATE TRANSACTION QUANTITY
     if (action === 'update_transaction_qty') {
       const { lot_id, new_quantity, inspection_lot, material_code, plant, storage_location, batch } = body
       if (!lot_id || new_quantity === undefined || new_quantity === null) {
-        return new Response(JSON.stringify({ error: 'lot_id and new_quantity are required' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ success: false, error: 'lot_id and new_quantity are required' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
 
       if (typeof new_quantity !== 'number' || new_quantity < 0) {
-        return new Response(JSON.stringify({ error: 'new_quantity must be a non-negative number' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ success: false, error: 'new_quantity must be a non-negative number' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
 
-      // Step 1: Read old value for rollback
       const { data: oldRecord, error: readErr } = await supabase
         .from('inward_inspection_lots')
         .select('transaction_quantity')
@@ -323,26 +315,24 @@ Deno.serve(async (req) => {
         .single()
 
       if (readErr || !oldRecord) {
-        return new Response(JSON.stringify({ error: 'Inspection lot not found', details: readErr?.message }), {
-          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ success: false, error: 'Inspection lot not found', details: readErr?.message }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
 
       const oldQuantity = oldRecord.transaction_quantity
 
-      // Step 2: Update DB first (optimistic)
       const { error: updateErr } = await supabase
         .from('inward_inspection_lots')
         .update({ transaction_quantity: new_quantity, updated_at: new Date().toISOString() })
         .eq('id', lot_id)
 
       if (updateErr) {
-        return new Response(JSON.stringify({ error: 'Database update failed', details: updateErr.message }), {
-          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ success: false, error: 'Database update failed', details: updateErr.message }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
 
-      // Step 3: Call SAP API to update quantity
       try {
         const url = buildUrl(config)
         const headers = buildAuthHeaders(config)
@@ -376,7 +366,6 @@ Deno.serve(async (req) => {
         console.log('SAP update_qty raw response:', response.status, bodyText)
 
         if (!response.ok) {
-          // Step 4: Rollback DB on SAP failure
           await supabase
             .from('inward_inspection_lots')
             .update({ transaction_quantity: oldQuantity, updated_at: new Date().toISOString() })
@@ -387,7 +376,7 @@ Deno.serve(async (req) => {
             error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
             rolled_back: true,
             old_quantity: oldQuantity,
-          }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+          }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
         let sapResponseData: any = null
@@ -405,7 +394,6 @@ Deno.serve(async (req) => {
           http_status: response.status,
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       } catch (err: any) {
-        // Rollback DB on network error
         await supabase
           .from('inward_inspection_lots')
           .update({ transaction_quantity: oldQuantity, updated_at: new Date().toISOString() })
@@ -419,21 +407,21 @@ Deno.serve(async (req) => {
           error: errMsg,
           rolled_back: true,
           old_quantity: oldQuantity,
-        }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }
     }
 
-    return new Response(JSON.stringify({ error: 'Invalid action. Use "test", "sync", "unblock", or "update_transaction_qty".' }), {
-      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    return new Response(JSON.stringify({ success: false, error: 'Invalid action. Use "test", "sync", "unblock", or "update_transaction_qty".' }), {
+      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    return new Response(JSON.stringify({ success: false, error: err.message }), {
+      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })
 
-// Build the full URL based on connection mode, including sap-client query param only when missing
+// Build the full URL based on connection mode
 function buildUrl(config: any): string {
   let url: string
   if (config.connection_mode === 'vpn_tunnel' && config.proxy_tunnel_url) {
@@ -458,7 +446,7 @@ function buildAuthHeaders(config: any): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    'ngrok-skip-browser-warning': 'true',  // Skip ngrok interstitial HTML page
+    'ngrok-skip-browser-warning': 'true',
   }
 
   if (config.proxy_secret) {
@@ -471,11 +459,9 @@ function buildAuthHeaders(config: any): Record<string, string> {
   } else if (config.auth_type === 'api_key' && config.api_key) {
     headers['X-API-Key'] = config.api_key
   } else if (config.auth_type === 'oauth2' && config.token_url) {
-    // OAuth would need a token exchange first - placeholder
     headers['Authorization'] = `Bearer oauth-token-placeholder`
   }
 
-  // Parse custom headers
   if (config.custom_headers && typeof config.custom_headers === 'object') {
     Object.entries(config.custom_headers).forEach(([key, value]) => {
       if (key && value) headers[key] = String(value)
@@ -498,7 +484,6 @@ async function testConnection(config: any): Promise<{ success: boolean; message:
     const timer = setTimeout(() => controller.abort(), timeout)
 
     const fetchOpts: RequestInit = { method, headers, signal: controller.signal }
-    // For POST/PUT methods, send a minimal valid request body
     if (['POST', 'PUT', 'PATCH'].includes(method)) {
       fetchOpts.body = JSON.stringify({})
     }
@@ -598,7 +583,7 @@ async function callSAPApi(
   }
 }
 
-// Map SAP response data to database tables using field mappings
+// Map SAP response data to database tables
 async function mapAndInsertData(
   supabase: any,
   records: any[],
@@ -616,49 +601,16 @@ async function mapAndInsertData(
 
   const allowedColumnsByTable = {
     shop_floor_stock: new Set([
-      'plant',
-      'material_code',
-      'material_description',
-      'batch',
-      'storage_location',
-      'storage_location_desc',
-      'available_quantity',
-      'blocked_quantity',
-      'quality_inspection_qty',
-      'transfer_qty',
-      'unrestricted_value',
-      'blocked_value',
-      'quality_inspection_value',
-      'transfer_value',
-      'row_number_custom',
-      'shelf_number',
-      'rack_number',
-      'bin_number',
-      'uom',
-      'production_order',
-      'reservation_number',
-      'sap_sync_id',
-      'source',
-      'status',
+      'plant', 'material_code', 'material_description', 'batch', 'storage_location',
+      'storage_location_desc', 'available_quantity', 'blocked_quantity', 'quality_inspection_qty',
+      'transfer_qty', 'unrestricted_value', 'blocked_value', 'quality_inspection_value',
+      'transfer_value', 'row_number_custom', 'shelf_number', 'rack_number', 'bin_number',
+      'uom', 'production_order', 'reservation_number', 'sap_sync_id', 'source', 'status',
     ]),
     inward_inspection_lots: new Set([
-      'inspection_lot',
-      'material_code',
-      'material_description',
-      'plant',
-      'storage_location',
-      'batch',
-      'uom',
-      'blocked_quantity',
-      'transaction_quantity',
-      'status',
-      'block_reason',
-      'vendor_code',
-      'vendor_name',
-      'po_number',
-      'grn_number',
-      'uploaded_by',
-      'upload_batch_id',
+      'inspection_lot', 'material_code', 'material_description', 'plant', 'storage_location',
+      'batch', 'uom', 'blocked_quantity', 'transaction_quantity', 'status', 'block_reason',
+      'vendor_code', 'vendor_name', 'po_number', 'grn_number', 'uploaded_by', 'upload_batch_id',
     ]),
     materials: new Set(['material_number', 'description', 'uom', 'category']),
     vendors: new Set(['code', 'name', 'contact_email', 'contact_phone', 'address', 'is_active']),
@@ -673,49 +625,26 @@ async function mapAndInsertData(
 
   const aliasMapByTable: Record<string, Record<string, string>> = {
     shop_floor_stock: {
-      material: 'material_code',
-      matnr: 'material_code',
-      material_desc: 'material_description',
-      maktx: 'material_description',
-      unrestricted_qty: 'available_quantity',
-      labst: 'available_quantity',
-      charg: 'batch',
-      lgobe: 'storage_location_desc',
-      speme: 'blocked_quantity',
-      insme: 'quality_inspection_qty',
-      trame: 'transfer_qty',
-      wlabs: 'unrestricted_value',
-      wspem: 'blocked_value',
-      winsm: 'quality_inspection_value',
-      wtram: 'transfer_value',
-      rowno: 'row_number_custom',
-      shelfno: 'shelf_number',
-      rackno: 'rack_number',
-      binno: 'bin_number',
+      material: 'material_code', matnr: 'material_code', material_desc: 'material_description',
+      maktx: 'material_description', unrestricted_qty: 'available_quantity', labst: 'available_quantity',
+      charg: 'batch', lgobe: 'storage_location_desc', speme: 'blocked_quantity',
+      insme: 'quality_inspection_qty', trame: 'transfer_qty', wlabs: 'unrestricted_value',
+      wspem: 'blocked_value', winsm: 'quality_inspection_value', wtram: 'transfer_value',
+      rowno: 'row_number_custom', shelfno: 'shelf_number', rackno: 'rack_number', binno: 'bin_number',
     },
     inward_inspection_lots: {
-      matnr: 'material_code',
-      material: 'material_code',
-      maktx: 'material_description',
-      material_desc: 'material_description',
-      werks: 'plant',
-      charg: 'batch',
+      matnr: 'material_code', material: 'material_code', maktx: 'material_description',
+      material_desc: 'material_description', werks: 'plant', charg: 'batch',
     },
     materials: {
-      material: 'material_number',
-      matnr: 'material_number',
-      material_desc: 'description',
-      maktx: 'description',
+      material: 'material_number', matnr: 'material_number',
+      material_desc: 'description', maktx: 'description',
     },
     vendors: {
-      vendor_code: 'code',
-      lifnr: 'code',
-      vendor_name: 'name',
-      name1: 'name',
+      vendor_code: 'code', lifnr: 'code', vendor_name: 'name', name1: 'name',
     },
   }
 
-  // Group fields by target table
   const tableFieldMap = new Map<string, any[]>()
   responseFields.forEach((field) => {
     const table = field.map_to_table
@@ -748,9 +677,7 @@ async function mapAndInsertData(
 
           const requestedColumn = String(field.map_to_column).trim()
           const normalizedColumn = aliases[requestedColumn.toLowerCase()] || requestedColumn
-          if (!allowedColumns.has(normalizedColumn)) {
-            return
-          }
+          if (!allowedColumns.has(normalizedColumn)) return
 
           row[normalizedColumn] = value
         })
