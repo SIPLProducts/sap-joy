@@ -1,0 +1,1 @@
+UPDATE sap_api_config SET proxy_tunnel_url = TRIM(proxy_tunnel_url) WHERE proxy_tunnel_url IS NOT NULL AND proxy_tunnel_url != TRIM(proxy_tunnel_url);
