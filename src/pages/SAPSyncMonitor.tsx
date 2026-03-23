@@ -139,9 +139,9 @@ export default function SAPSyncMonitor() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast({ title: 'Error', description: 'Not authenticated', variant: 'destructive' }); return; }
 
-      const res = await supabase.functions.invoke('sap-sync', {
-        body: { action: 'sync', config_id: configId },
-      });
+      const res = await invokeSapSync({ action: 'sync', config_id: configId });
+      const { data: resData, error: resError } = res;
+
 
       if (res.error) {
         toast({ title: 'Sync Failed', description: res.error.message, variant: 'destructive' });
