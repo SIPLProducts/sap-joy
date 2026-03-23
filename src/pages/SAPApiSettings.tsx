@@ -12,7 +12,7 @@ import { SAPApiEditForm } from '@/components/sapApi/SAPApiEditForm';
 import { SAPConnectivityGuide } from '@/components/sapApi/SAPConnectivityGuide';
 import { SAPApiFieldsDialog } from '@/components/sapApi/SAPApiFieldsDialog';
 import { useAuth } from '@/contexts/AuthContext';
-import { invokeSapSync, getSelfHostedUrl, setSelfHostedUrl } from '@/lib/sapSyncClient';
+import { invokeSapSync } from '@/lib/sapSyncClient';
 
 interface SAPConfig {
   id: string;
