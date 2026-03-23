@@ -118,14 +118,13 @@ export default function SAPSyncMonitor() {
 
       const res = await invokeSapSync({ action: 'test', config_id: configId });
       const { data: resData, error: resError } = res;
-      });
 
-      if (res.error) {
-        toast({ title: 'Test Failed', description: res.error.message, variant: 'destructive' });
-      } else if (res.data?.success) {
-        toast({ title: 'Connection Successful', description: res.data.message });
+      if (resError) {
+        toast({ title: 'Test Failed', description: resError.message, variant: 'destructive' });
+      } else if (resData?.success) {
+        toast({ title: 'Connection Successful', description: resData.message });
       } else {
-        toast({ title: 'Test Failed', description: res.data?.message || res.data?.error || 'Unknown error', variant: 'destructive' });
+        toast({ title: 'Test Failed', description: resData?.message || resData?.error || 'Unknown error', variant: 'destructive' });
       }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
