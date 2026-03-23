@@ -584,12 +584,10 @@ export default function Worklist() {
         // Build request body from MRB data for SAP 343 unblock
         const requestBody = await buildUnblockRequestBody(mrb);
 
-        const response = await supabase.functions.invoke('sap-sync', {
-          body: {
-            action: 'unblock',
-            config_id: SAP_343_CONFIG_ID,
-            request_body: requestBody,
-          },
+        const response = await invokeSapSync({
+          action: 'unblock',
+          config_id: SAP_343_CONFIG_ID,
+          request_body: requestBody,
         });
 
         if (response.error || !response.data?.success) {

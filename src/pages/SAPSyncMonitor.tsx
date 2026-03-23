@@ -143,16 +143,16 @@ export default function SAPSyncMonitor() {
       const { data: resData, error: resError } = res;
 
 
-      if (res.error) {
-        toast({ title: 'Sync Failed', description: res.error.message, variant: 'destructive' });
-      } else if (res.data?.success) {
+      if (resError) {
+        toast({ title: 'Sync Failed', description: resError.message, variant: 'destructive' });
+      } else if (resData?.success) {
         toast({
           title: 'Sync Complete',
-          description: `Fetched: ${res.data.records_fetched}, Inserted: ${res.data.records_inserted}, Updated: ${res.data.records_updated}`,
+          description: `Fetched: ${resData.records_fetched}, Inserted: ${resData.records_inserted}, Updated: ${resData.records_updated}`,
         });
         await Promise.all([fetchSyncHistory(), fetchDataPreviews(), fetchConfigs()]);
       } else {
-        toast({ title: 'Sync Failed', description: res.data?.error || 'Unknown error', variant: 'destructive' });
+        toast({ title: 'Sync Failed', description: resData?.error || 'Unknown error', variant: 'destructive' });
       }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
