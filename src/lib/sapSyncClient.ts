@@ -525,9 +525,9 @@ async function mapAndInsertClientSide(
     const batchSize = 500;
     for (let i = 0; i < sanitizedRows.length; i += batchSize) {
       const batch = sanitizedRows.slice(i, i + batchSize);
-      const { data, error } = await supabase
-        .from(tableName)
-        .upsert(batch, tableName === 'inward_inspection_lots' ? { onConflict: 'inspection_lot' } : undefined)
+      const { data, error } = await (supabase
+        .from(tableName as 'shop_floor_stock')
+        .upsert(batch as any, tableName === 'inward_inspection_lots' ? { onConflict: 'inspection_lot' } : undefined) as any)
         .select();
 
       if (error) {
