@@ -76,34 +76,29 @@ export default function SAPApiSettings() {
 
   const handleTest = async (config: SAPConfig) => {
     toast({ title: 'Testing...', description: `Testing connection to ${config.config_name}` });
-    // Build the full URL
-    const fullUrl = config.proxy_tunnel_url
-      ? `${config.proxy_tunnel_url}${config.endpoint_path || config.api_endpoint}`
-      : `${config.base_url || ''}${config.endpoint_path || config.api_endpoint}`;
-
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (config.proxy_secret) {
-        headers['x-proxy-secret'] = config.proxy_secret;
-      }
-      if (config.auth_type === 'basic' && config.username) {
-        headers['Authorization'] = `Basic ${btoa(`${config.username}:${config.encrypted_password || ''}`)}`;
-      } else if (config.auth_type === 'api_key' && config.api_key) {
-        headers['X-API-Key'] = config.api_key;
-      }
-
-      const response = await fetch(fullUrl, {
-        method: config.http_method || 'GET',
-        headers,
-      });
-      if (response.ok) {
-        toast({ title: 'Success', description: `Connection to ${config.config_name} successful (${response.status})` });
+      const { data, error } = await invokeSapSync({ action: 'test', config_id: config.id });
+      if (error) {
+        toast({ title: 'Test Failed', description: error.message, variant: 'destructive' });
+      } else if (data?.success) {
+        toast({ title: 'Success', description: data.message || `Connection to ${config.config_name} successful` });
       } else {
-        toast({ title: 'Failed', description: `HTTP ${response.status}: ${response.statusText}`, variant: 'destructive' });
+        toast({ title: 'Test Failed', description: data?.error || data?.message || 'Unknown error', variant: 'destructive' });
       }
     } catch (err: any) {
       toast({ title: 'Connection Failed', description: err.message || 'Network error', variant: 'destructive' });
     }
+  };
+
+  const handleSaveSelfHostedUrl = () => {
+    const trimmed = selfHostedUrl.trim();
+    setSelfHostedUrl(trimmed || null);
+    toast({
+      title: trimmed ? 'Self-Hosted URL Saved' : 'Self-Hosted URL Cleared',
+      description: trimmed
+        ? `SAP calls will route to: ${trimmed}`
+        : 'SAP calls will use Lovable Cloud edge functions',
+    });
   };
 
   const handleSave = async (data: Partial<SAPConfig>) => {
