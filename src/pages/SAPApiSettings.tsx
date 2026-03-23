@@ -212,7 +212,7 @@ export default function SAPApiSettings() {
                     <p className="text-[10px] mt-1 opacity-70">or http://10.10.4.178:3002</p>
                   </div>
                 </div>
-                <p className="text-[11px] mt-2 font-medium">💡 Since Lovable and Client Server use <strong>separate databases</strong>, each can have different middleware URLs in their configs.</p>
+                <p className="text-[11px] mt-2 font-medium">💡 Lovable preview always calls the hosted edge function. That edge function then uses each config's <strong>Node.js Middleware URL</strong> to reach ngrok or your internal server.</p>
               </div>
             </CardContent>
           </Card>
