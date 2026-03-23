@@ -89,16 +89,6 @@ export default function SAPApiSettings() {
     }
   };
 
-  const handleSaveSelfHostedUrl = () => {
-    const trimmed = selfHostedUrl.trim();
-    setSelfHostedUrl(trimmed || null);
-    toast({
-      title: trimmed ? 'Self-Hosted URL Saved' : 'Self-Hosted URL Cleared',
-      description: trimmed
-        ? `SAP calls will route to: ${trimmed}`
-        : 'SAP calls will use Lovable Cloud edge functions',
-    });
-  };
 
   const handleSave = async (data: Partial<SAPConfig>) => {
     // Build api_endpoint from base_url + endpoint_path for backward compatibility
