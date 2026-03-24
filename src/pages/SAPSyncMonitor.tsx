@@ -122,7 +122,7 @@ export default function SAPSyncMonitor() {
       if (resError) {
         toast({ title: 'Test Failed', description: resError.message, variant: 'destructive' });
       } else if (resData?.success) {
-        toast({ title: 'Connection Successful', description: resData.message });
+        toast({ title: 'Route Reachable', description: resData.message });
       } else {
         toast({ title: 'Test Failed', description: resData?.message || resData?.error || 'Unknown error', variant: 'destructive' });
       }
@@ -284,7 +284,7 @@ export default function SAPSyncMonitor() {
                               onClick={() => handleTestConnection(config.id)}
                             >
                               {testing === config.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
-                              Test Connection
+                              Test Route
                             </Button>
                             <Button
                               size="sm"
@@ -409,7 +409,9 @@ export default function SAPSyncMonitor() {
                 </CardHeader>
                 <CardContent>
                   {preview.recentRecords.length === 0 ? (
-                    <div className="text-center py-4 text-muted-foreground text-sm">No records in this table</div>
+                    <div className="text-center py-4 text-muted-foreground text-sm">
+                      No records visible. If a sync reported inserted rows, check that your plant/filter settings match the synced data.
+                    </div>
                   ) : (
                     <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                       <Table>

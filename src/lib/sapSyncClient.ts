@@ -115,7 +115,7 @@ async function directTest(
     return {
       data: {
         success: true,
-        message: `Connection successful. Status: ${response.status}, Response time: ${elapsed}ms, Body length: ${bodyText.length} chars`,
+        message: `Route reachable (${response.status}), ${elapsed}ms. Note: this only verifies network/auth — use "Trigger Sync" to validate the full payload.`,
         status: response.status,
         responseTime: elapsed,
       },
@@ -169,6 +169,21 @@ async function directSync(
       .select('*')
       .eq('config_id', body.config_id)
       .order('sort_order');
+
+    // Validate required fields before building request
+    const invalidRequired = (requestFields || []).filter(
+      (f: any) => f.is_required && (!f.default_value || String(f.default_value).trim() === '')
+    );
+    if (invalidRequired.length > 0) {
+      const names = invalidRequired.map((f: any) => f.sap_field_name || f.field_name).join(', ');
+      const errMsg = `Config error: required fields [${names}] have no default value. Either set a default or mark them optional in Field Mappings.`;
+      await supabase.from('sap_stock_sync_history').update({
+        status: 'failed',
+        error_message: errMsg,
+        completed_at: new Date().toISOString(),
+      }).eq('id', syncRecord.id);
+      return { data: { success: false, error: errMsg }, error: null };
+    }
 
     let requestBody: any = undefined;
     if (['POST', 'PUT', 'PATCH'].includes(method) && requestFields?.length) {
