@@ -175,7 +175,11 @@ async function directSync(
       requestBody = {};
       requestFields.forEach((field: any) => {
         const key = field.sap_field_name || field.field_name;
-        requestBody[key] = field.default_value ?? '';
+        // Only include fields that are required or have a non-empty default value
+        // Sending empty strings for optional fields causes SAP 500 errors
+        if (field.is_required || (field.default_value && String(field.default_value).trim() !== '')) {
+          requestBody[key] = field.default_value ?? '';
+        }
       });
     }
 
