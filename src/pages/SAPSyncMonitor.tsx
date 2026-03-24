@@ -409,7 +409,9 @@ export default function SAPSyncMonitor() {
                 </CardHeader>
                 <CardContent>
                   {preview.recentRecords.length === 0 ? (
-                    <div className="text-center py-4 text-muted-foreground text-sm">No records in this table</div>
+                    <div className="text-center py-4 text-muted-foreground text-sm">
+                      No records visible. If a sync reported inserted rows, check that your plant/filter settings match the synced data.
+                    </div>
                   ) : (
                     <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                       <Table>
