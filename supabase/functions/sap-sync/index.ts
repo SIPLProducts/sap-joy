@@ -636,6 +636,11 @@ async function mapAndInsertData(
     inward_inspection_lots: {
       matnr: 'material_code', material: 'material_code', maktx: 'material_description',
       material_desc: 'material_description', werks: 'plant', charg: 'batch',
+      lgort: 'storage_location', prueflos: 'inspection_lot', lifnr: 'vendor_code',
+      name1: 'vendor_name', ebeln: 'po_number', meins: 'uom', menge: 'blocked_quantity',
+      inspection_lot: 'inspection_lot', storage_location: 'storage_location',
+      vendor_code: 'vendor_code', vendor_name: 'vendor_name',
+      qals_prueflos: 'inspection_lot', inspection_date: 'inspection_date', posting_date: 'posting_date',
     },
     materials: {
       material: 'material_number', matnr: 'material_number',
