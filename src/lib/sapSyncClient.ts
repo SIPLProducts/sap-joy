@@ -491,12 +491,25 @@ async function mapAndInsertClientSide(
       const row: Record<string, any> = {};
 
       fields.forEach((field: any) => {
-        const value = record[field.sap_field_name || field.field_name];
+        const sapKey = field.sap_field_name || field.field_name;
+        // Case-insensitive lookup: try exact match first, then case-insensitive
+        let value = record[sapKey];
+        if (value === undefined) {
+          const lowerKey = sapKey.toLowerCase();
+          const matchingKey = Object.keys(record).find(k => k.toLowerCase() === lowerKey);
+          if (matchingKey) value = record[matchingKey];
+        }
         if (value === undefined || value === null || value === '') return;
 
         const requestedColumn = String(field.map_to_column).trim();
         const normalizedColumn = aliases[requestedColumn.toLowerCase()] || requestedColumn;
         if (!allowedColumns.has(normalizedColumn)) return;
+
+        // Normalize SAP date formats for date columns
+        if (['inspection_date', 'posting_date'].includes(normalizedColumn)) {
+          value = normalizeSapDate(value);
+          if (!value) return; // skip invalid dates
+        }
 
         row[normalizedColumn] = value;
       });
