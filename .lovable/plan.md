@@ -1,100 +1,47 @@
 
-Goal: remove the false “connection success” signal for MB52, stop the 500 on real sync, and make ZMRB data visibility explicit in the UI.
 
-What I found
-- MB52 “Test Connection” and MB52 “Sync” are not testing the same thing.
-  - `directTest()` sends an empty `{}` body and only checks whether the route is reachable.
-  - `directSync()` builds a real payload from `sap_api_request_fields`.
-- Your current MB52 request-field setup is the likely root cause of the 500:
-  - `WERKS` = required
-  - `LGORT` = required
-  - `MATNR` = required but empty
-  - `MATART` = required (`ZROH`)
-  - `CHARG` = required but empty
-  - `XMCHB` = required (`X`)
-- Because `MATNR` and `CHARG` are marked required, the frontend still sends them as empty strings during sync. That matches the current code and explains why “test connection” passes but the real POST fails with 500.
-- For ZMRB, the backend path itself looks healthy:
-  - recent sync history shows `records_fetched=19` and `records_inserted=19`
-  - `inward_inspection_lots` already contains rows
-  - the `HEAD /rest/v1/inward_inspection_lots?select=*` call is only the count/check request used by the UI, not the row fetch itself
+# Fix ZMRB01 Data Preview — New Fields Not Mapping
 
-Plan
-1. Fix MB52 configuration first
-- In the database, change MB52 request fields `MATNR` and `CHARG` from required to optional.
-- Keep `WERKS`, `LGORT`, `MATART`, and `XMCHB` as required.
-- Re-test MB52 sync after that change before changing code again.
+## Problem
+You added SLOC and Inspection Lot fields to ZMRB01 config, and the sync reports success/fetched rows, but data preview shows nothing. The root cause is that `inspection_lot` is a **required field** for `inward_inspection_lots` — if SAP returns it under a name like `PRUEFLOS` or `QALS-PRUEFLOS` and the alias map doesn't recognize it, every row gets skipped silently.
 
-2. Improve frontend validation for request fields
-- In the sync flow, validate configured request fields before calling SAP.
-- If a field is marked required but has no value, stop locally and show a clear error like:
-  - “MB52 config is invalid: MATNR and CHARG are marked required but have no default values.”
-- This prevents misleading SAP 500s caused by bad config.
+## Root Cause (Two Files)
 
-3. Make “Test Connection” messaging more accurate
-- Rename/reword the success state to mean transport reachability only.
-- Example:
-  - “Connection reachable”
-  - “Route/auth OK, but this does not validate the full sync payload”
-- Add a separate “Validate Payload” or use the real sync payload for POST-based endpoint tests.
+### 1. Alias maps are incomplete
+Both `src/lib/sapSyncClient.ts` (client-side sync) and `supabase/functions/sap-sync/index.ts` (edge function sync) have alias maps for `inward_inspection_lots` that only cover `matnr`, `maktx`, `werks`, `charg`. They are missing common SAP field aliases for:
+- `inspection_lot` — SAP returns as `PRUEFLOS`, `QALS_PRUEFLOS`, `INSPECTION_LOT`, etc.
+- `storage_location` — SAP returns as `LGORT`
+- `vendor_code` — SAP returns as `LIFNR`
+- `vendor_name` — SAP returns as `NAME1`
+- `po_number` — SAP returns as `EBELN`
+- `blocked_quantity` — SAP returns as `MENGE` or similar
+- `uom` — SAP returns as `MEINS`
 
-4. Improve ZMRB visibility after sync
-- After successful sync, refresh the data source used by Inward Report and Sync Monitor.
-- Show explicit counts in the UI:
-  - rows in `inward_inspection_lots`
-  - inserted this sync
-  - last sync time
-- If rows exist but a page shows none, show a friendly empty-state hint:
-  - “Data exists, but current filters/plant restrictions are hiding the rows.”
+### 2. Edge function missing date columns
+The edge function's `allowedColumnsByTable.inward_inspection_lots` is missing `inspection_date` and `posting_date` (the client-side was already fixed).
 
-5. Add better diagnostics in Sync Monitor
-- Show the actual request payload used for POST APIs.
-- Show the first sync-history error inline.
-- Distinguish:
-  - transport test
-  - sync fetch
-  - database insert result
+## Changes
 
-Technical details
-Run this first on your self-hosted database for MB52:
-```sql
-UPDATE public.sap_api_request_fields
-SET is_required = false
-WHERE config_id = 'a1000001-0001-0001-0001-000000000001'
-  AND sap_field_name IN ('MATNR', 'CHARG');
+### File 1: `src/lib/sapSyncClient.ts`
+Expand the `inward_inspection_lots` alias map (around line 507-509) to include all common SAP field name variants:
+
+```typescript
+inward_inspection_lots: {
+  matnr: 'material_code', maktx: 'material_description', werks: 'plant', charg: 'batch',
+  lgort: 'storage_location', prueflos: 'inspection_lot', lifnr: 'vendor_code',
+  name1: 'vendor_name', ebeln: 'po_number', meins: 'uom', menge: 'blocked_quantity',
+  inspection_lot: 'inspection_lot', storage_location: 'storage_location',
+  vendor_code: 'vendor_code', vendor_name: 'vendor_name',
+},
 ```
 
-Verify MB52 request-field config:
-```sql
-SELECT config_id, field_name, sap_field_name, default_value, is_required, sort_order
-FROM public.sap_api_request_fields
-WHERE config_id = 'a1000001-0001-0001-0001-000000000001'
-ORDER BY sort_order;
-```
+### File 2: `supabase/functions/sap-sync/index.ts`
+1. Add `inspection_date` and `posting_date` to the `allowedColumnsByTable.inward_inspection_lots` set (line 610-614).
+2. Expand the `inward_inspection_lots` alias map (line 635-638) with the same SAP field aliases as above.
 
-Verify latest ZMRB sync results:
-```sql
-SELECT id, config_id, status, records_fetched, records_inserted, records_updated, error_message, started_at, completed_at
-FROM public.sap_stock_sync_history
-WHERE config_id = 'a1000001-0001-0001-0001-000000000004'
-ORDER BY started_at DESC
-LIMIT 10;
-```
+## Why This Fixes It
+Since `inspection_lot` is required but has no alias, SAP's response field (e.g. `PRUEFLOS`) doesn't map to `inspection_lot` — causing every row to be skipped with "missing required fields". Adding the alias makes the mapping work, rows pass validation, and data appears in the preview.
 
-Verify ZMRB rows really exist:
-```sql
-SELECT count(*) AS total_rows
-FROM public.inward_inspection_lots;
-```
+## Verification Step
+After deploying, check the sync history error messages — they should no longer show "missing (inspection_lot)" for skipped rows. The Data Preview tab should show the synced records with all fields populated.
 
-Preview the latest inward rows:
-```sql
-SELECT inspection_lot, material_code, plant, vendor_code, vendor_name, status, created_at
-FROM public.inward_inspection_lots
-ORDER BY created_at DESC
-LIMIT 20;
-```
-
-Expected outcome
-- MB52 stops sending empty `MATNR`/`CHARG`, so the 500 should disappear if SAP accepts those fields as optional.
-- If MB52 still fails after that, the next issue is middleware/SAP-side payload rules, not routing.
-- ZMRB should be treated as a visibility/UX issue unless the self-hosted database proves otherwise, because the sync path is already inserting rows successfully.
