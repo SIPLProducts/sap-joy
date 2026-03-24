@@ -175,7 +175,11 @@ async function directSync(
       requestBody = {};
       requestFields.forEach((field: any) => {
         const key = field.sap_field_name || field.field_name;
-        requestBody[key] = field.default_value ?? '';
+        // Only include fields that are required or have a non-empty default value
+        // Sending empty strings for optional fields causes SAP 500 errors
+        if (field.is_required || (field.default_value && String(field.default_value).trim() !== '')) {
+          requestBody[key] = field.default_value ?? '';
+        }
       });
     }
 
@@ -416,6 +420,35 @@ async function directUpdateQty(
 }
 
 /**
+ * Normalize SAP date formats to YYYY-MM-DD for Postgres date columns.
+ * Handles: YYYYMMDD, /Date(ms)/, YYYY-MM-DD (passthrough)
+ */
+function normalizeSapDate(value: any): string | null {
+  if (!value) return null;
+  const str = String(value).trim();
+  if (!str || str === '00000000') return null;
+
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+  // YYYYMMDD
+  if (/^\d{8}$/.test(str)) {
+    return `${str.substring(0, 4)}-${str.substring(4, 6)}-${str.substring(6, 8)}`;
+  }
+
+  // /Date(1234567890000)/
+  const msMatch = str.match(/\/Date\((\d+)\)\//);
+  if (msMatch) {
+    const d = new Date(parseInt(msMatch[1], 10));
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().split('T')[0];
+    }
+  }
+
+  return null;
+}
+
+/**
  * Client-side version of mapAndInsertData for self-hosted mode.
  * Maps SAP response fields to DB columns and upserts.
  */
@@ -444,6 +477,7 @@ async function mapAndInsertClientSide(
       'inspection_lot', 'material_code', 'material_description', 'plant', 'storage_location',
       'batch', 'uom', 'blocked_quantity', 'transaction_quantity', 'status', 'block_reason',
       'vendor_code', 'vendor_name', 'po_number', 'grn_number', 'uploaded_by', 'upload_batch_id',
+      'inspection_date', 'posting_date',
     ]),
   };
 
@@ -486,12 +520,25 @@ async function mapAndInsertClientSide(
       const row: Record<string, any> = {};
 
       fields.forEach((field: any) => {
-        const value = record[field.sap_field_name || field.field_name];
+        const sapKey = field.sap_field_name || field.field_name;
+        // Case-insensitive lookup: try exact match first, then case-insensitive
+        let value = record[sapKey];
+        if (value === undefined) {
+          const lowerKey = sapKey.toLowerCase();
+          const matchingKey = Object.keys(record).find(k => k.toLowerCase() === lowerKey);
+          if (matchingKey) value = record[matchingKey];
+        }
         if (value === undefined || value === null || value === '') return;
 
         const requestedColumn = String(field.map_to_column).trim();
         const normalizedColumn = aliases[requestedColumn.toLowerCase()] || requestedColumn;
         if (!allowedColumns.has(normalizedColumn)) return;
+
+        // Normalize SAP date formats for date columns
+        if (['inspection_date', 'posting_date'].includes(normalizedColumn)) {
+          value = normalizeSapDate(value);
+          if (!value) return; // skip invalid dates
+        }
 
         row[normalizedColumn] = value;
       });
@@ -512,7 +559,13 @@ async function mapAndInsertClientSide(
       const required = requiredByTable[tableName] || [];
       const missing = required.filter((col) => !row[col] && row[col] !== 0);
       if (missing.length > 0) {
-        result.errors.push(`Skipped ${tableName} row ${index + 1}: missing (${missing.join(', ')})`);
+        // For first skipped row, include raw SAP keys to help debug mapping issues
+        if (index === 0 || result.errors.length < 3) {
+          const rawKeys = Object.keys(record).join(', ');
+          result.errors.push(`Skipped ${tableName} row ${index + 1}: missing (${missing.join(', ')}). SAP fields in row: [${rawKeys}]`);
+        } else if (result.errors.length === 3) {
+          result.errors.push(`... and more rows skipped for ${tableName}`);
+        }
         return null;
       }
 
