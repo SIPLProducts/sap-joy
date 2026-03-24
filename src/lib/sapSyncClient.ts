@@ -233,6 +233,7 @@ async function directSync(
     }
 
     const records = jsonData?.d?.results || jsonData?.value || jsonData?.data || (Array.isArray(jsonData) ? jsonData : [jsonData]);
+    console.log("[SAP Sync] Extracted records from SAP response:", records?.length, "records. Sample:", records?.slice(0, 2));
 
     // Get response field mappings
     const { data: responseFields } = await supabase
@@ -240,9 +241,12 @@ async function directSync(
       .select('*')
       .eq('config_id', body.config_id)
       .order('sort_order');
+    console.log("[SAP Sync] Retrieved response field mappings:", responseFields?.length, responseFields);
 
     // Map and insert (reuse edge function's mapping logic client-side)
+    console.log("[SAP Sync] Calling mapAndInsertClientSide...");
     const mappingResult = await mapAndInsertClientSide(records, responseFields || [], syncRecord.id);
+    console.log("[SAP Sync] mapAndInsertClientSide completed. Result:", mappingResult);
 
     const hasErrors = mappingResult.errors.length > 0;
     const finalStatus = (mappingResult.inserted === 0 && hasErrors) ? 'failed' : (hasErrors ? 'partial' : 'success');
@@ -472,6 +476,7 @@ async function mapAndInsertClientSide(
   responseFields: any[],
   syncId: string,
 ): Promise<{ fetched: number; inserted: number; updated: number; errors: string[] }> {
+  console.log(`[SAP Sync Mapping] Starting mapping for ${records.length} records with ${responseFields.length} response fields`);
   const result = { fetched: records.length, inserted: 0, updated: 0, errors: [] as string[] };
 
   if (!records.length || !responseFields.length) {
@@ -503,9 +508,10 @@ async function mapAndInsertClientSide(
       insme: 'quality_inspection_qty', trame: 'transfer_qty', wlabs: 'unrestricted_value',
       wspem: 'blocked_value', winsm: 'quality_inspection_value', wtram: 'transfer_value',
       rowno: 'row_number_custom', shelfno: 'shelf_number', rackno: 'rack_number', binno: 'bin_number',
+      werks: 'plant', werk: 'plant', lgort: 'storage_location',
     },
     inward_inspection_lots: {
-      matnr: 'material_code', maktx: 'material_description', werks: 'plant', charg: 'batch',
+      matnr: 'material_code', maktx: 'material_description', werks: 'plant', werk: 'plant', charg: 'batch',
       lgort: 'storage_location', prueflos: 'inspection_lot', lifnr: 'vendor_code',
       name1: 'vendor_name', ebeln: 'po_number', meins: 'uom', menge: 'blocked_quantity',
       inspection_lot: 'inspection_lot', storage_location: 'storage_location',
@@ -529,6 +535,7 @@ async function mapAndInsertClientSide(
   });
 
   for (const [tableName, fields] of tableFieldMap) {
+    console.log(`[SAP Sync Mapping] Processing target table: ${tableName} using ${fields.length} mapped fields`, fields);
     const allowedColumns = allowedColumnsByTable[tableName];
     if (!allowedColumns) {
       result.errors.push(`Unsupported target table: ${tableName}`);
@@ -548,6 +555,14 @@ async function mapAndInsertClientSide(
           const matchingKey = Object.keys(record).find(k => k.toLowerCase() === lowerKey);
           if (matchingKey) value = record[matchingKey];
         }
+        
+        // Fallback for SAP naming inconsistencies (e.g. WERKS vs WERK)
+        if (value === undefined) {
+          const upKey = String(sapKey).toUpperCase();
+          if (upKey === 'WERKS' && record['WERK'] !== undefined) value = record['WERK'];
+          if (upKey === 'WERK' && record['WERKS'] !== undefined) value = record['WERKS'];
+        }
+
         if (value === undefined || value === null || value === '') return;
 
         const requestedColumn = String(field.map_to_column).trim();
@@ -579,6 +594,9 @@ async function mapAndInsertClientSide(
       const required = requiredByTable[tableName] || [];
       const missing = required.filter((col) => !row[col] && row[col] !== 0);
       if (missing.length > 0) {
+        console.warn(`[SAP Sync Mapping] Skipping row ${index + 1} for ${tableName} due to missing required fields: ${missing.join(', ')}`);
+        console.warn(`[SAP Sync Mapping] Mapped row data:`, row);
+        console.warn(`[SAP Sync Mapping] Original SAP record:`, record);
         // For first skipped row, include raw SAP keys to help debug mapping issues
         if (index === 0 || result.errors.length < 3) {
           const rawKeys = Object.keys(record).join(', ');
@@ -592,21 +610,31 @@ async function mapAndInsertClientSide(
       return row;
     }).filter(Boolean) as Record<string, any>[];
 
-    if (sanitizedRows.length === 0) continue;
+    console.log(`[SAP Sync Mapping] Successfully mapped ${sanitizedRows.length} valid rows for ${tableName}. First row preview:`, sanitizedRows[0]);
+
+    if (sanitizedRows.length === 0) {
+      console.log(`[SAP Sync Mapping] No valid rows to insert for ${tableName}`);
+      continue;
+    }
 
     // Insert in batches
     const batchSize = 500;
     for (let i = 0; i < sanitizedRows.length; i += batchSize) {
       const batch = sanitizedRows.slice(i, i + batchSize);
+      console.log(`[SAP Sync DB] Upserting batch of ${batch.length} rows to ${tableName}...`);
+      
       const { data, error } = await (supabase
         .from(tableName as 'shop_floor_stock')
         .upsert(batch as any, tableName === 'inward_inspection_lots' ? { onConflict: 'inspection_lot' } : undefined) as any)
         .select();
 
       if (error) {
+        console.error(`[SAP Sync DB] Supabase Upsert Error for ${tableName}:`, error);
         result.errors.push(`Error inserting into ${tableName}: ${error.message}`);
         break;
       }
+      
+      console.log(`[SAP Sync DB] Supabase Upsert Success for ${tableName}. Returned data length:`, data?.length);
       result.inserted += data?.length || 0;
     }
   }
