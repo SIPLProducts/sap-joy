@@ -530,7 +530,13 @@ async function mapAndInsertClientSide(
       const required = requiredByTable[tableName] || [];
       const missing = required.filter((col) => !row[col] && row[col] !== 0);
       if (missing.length > 0) {
-        result.errors.push(`Skipped ${tableName} row ${index + 1}: missing (${missing.join(', ')})`);
+        // For first skipped row, include raw SAP keys to help debug mapping issues
+        if (index === 0 || result.errors.length < 3) {
+          const rawKeys = Object.keys(record).join(', ');
+          result.errors.push(`Skipped ${tableName} row ${index + 1}: missing (${missing.join(', ')}). SAP fields in row: [${rawKeys}]`);
+        } else if (result.errors.length === 3) {
+          result.errors.push(`... and more rows skipped for ${tableName}`);
+        }
         return null;
       }
 
