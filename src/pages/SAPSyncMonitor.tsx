@@ -122,7 +122,7 @@ export default function SAPSyncMonitor() {
       if (resError) {
         toast({ title: 'Test Failed', description: resError.message, variant: 'destructive' });
       } else if (resData?.success) {
-        toast({ title: 'Connection Successful', description: resData.message });
+        toast({ title: 'Route Reachable', description: resData.message });
       } else {
         toast({ title: 'Test Failed', description: resData?.message || resData?.error || 'Unknown error', variant: 'destructive' });
       }
