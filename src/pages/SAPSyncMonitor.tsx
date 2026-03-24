@@ -284,7 +284,7 @@ export default function SAPSyncMonitor() {
                               onClick={() => handleTestConnection(config.id)}
                             >
                               {testing === config.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
-                              Test Connection
+                              Test Route
                             </Button>
                             <Button
                               size="sm"
