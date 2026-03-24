@@ -115,7 +115,7 @@ async function directTest(
     return {
       data: {
         success: true,
-        message: `Connection successful. Status: ${response.status}, Response time: ${elapsed}ms, Body length: ${bodyText.length} chars`,
+        message: `Route reachable (${response.status}), ${elapsed}ms. Note: this only verifies network/auth — use "Trigger Sync" to validate the full payload.`,
         status: response.status,
         responseTime: elapsed,
       },
