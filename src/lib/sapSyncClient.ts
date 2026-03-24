@@ -420,6 +420,35 @@ async function directUpdateQty(
 }
 
 /**
+ * Normalize SAP date formats to YYYY-MM-DD for Postgres date columns.
+ * Handles: YYYYMMDD, /Date(ms)/, YYYY-MM-DD (passthrough)
+ */
+function normalizeSapDate(value: any): string | null {
+  if (!value) return null;
+  const str = String(value).trim();
+  if (!str || str === '00000000') return null;
+
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+  // YYYYMMDD
+  if (/^\d{8}$/.test(str)) {
+    return `${str.substring(0, 4)}-${str.substring(4, 6)}-${str.substring(6, 8)}`;
+  }
+
+  // /Date(1234567890000)/
+  const msMatch = str.match(/\/Date\((\d+)\)\//);
+  if (msMatch) {
+    const d = new Date(parseInt(msMatch[1], 10));
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().split('T')[0];
+    }
+  }
+
+  return null;
+}
+
+/**
  * Client-side version of mapAndInsertData for self-hosted mode.
  * Maps SAP response fields to DB columns and upserts.
  */
