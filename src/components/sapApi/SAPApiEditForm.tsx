@@ -383,7 +383,7 @@ export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
                       placeholder="e.g. https://abc.ngrok-free.app or http://host.docker.internal:3002" />
                     <div className="text-xs text-muted-foreground space-y-1">
                       <p><strong>This is the URL of your Node.js middleware</strong> that connects to SAP.</p>
-                      <p>• <strong>Lovable Cloud DB:</strong> Use ngrok URL (e.g. <code>https://abc.ngrok-free.app</code>)</p>
+                      <p>• <strong>UICloud DB:</strong> Use ngrok URL (e.g. <code>https://abc.ngrok-free.app</code>)</p>
                       <p>• <strong>Client Server DB:</strong> Use <code>http://host.docker.internal:3002</code> or <code>http://10.10.4.178:3002</code></p>
                     </div>
                   </div>

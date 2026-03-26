@@ -395,7 +395,7 @@ export default function Worklist() {
     }
   };
 
-  const SAP_343_CONFIG_ID = 'a1000001-0001-0001-0001-000000000002';
+  const SAP_343_CONFIG_ID = 'a1000000-0000-0000-0000-000000000002';
 
   // Build SAP 343 request body from MRB data
   const buildUnblockRequestBody = async (mrb: UnifiedMRBRecord) => {
@@ -434,12 +434,13 @@ export default function Worklist() {
     }
 
     return {
-      MATNR: mrb.materialNumber,
-      WERKS: mrb.plant.replace('Plant-', '') || '1300',
-      LGORT: storageLocation || 'S061',
-      CHARG: batch || '',
-      ENTRY_QNT: mrb.blockedQuantity || mrb.totalQuantity || 0,
-      ENTRY_UOM: mrb.uom || 'EA',
+      MATNR: String(mrb.materialNumber),
+      WERKS: String(mrb.plant).replace('Plant-', '') || '1300',
+      LGORT: String(storageLocation || 'S061'),
+      CHARG: String(batch || ''),
+      ENTRY_QNT: String(mrb.blockedQuantity || mrb.totalQuantity || 0),
+      ENTRY_UOM: String(mrb.uom || 'EA'),
+      // If ART is ever needed here: ART: '01'
     };
   };
 
@@ -459,7 +460,7 @@ export default function Worklist() {
       const response = await invokeSapSync({
         action: 'unblock',
         config_id: SAP_343_CONFIG_ID,
-        verify_config_id: 'a1000001-0001-0001-0001-000000000001',
+        verify_config_id: 'a1000000-0000-0000-0000-000000000001',
         request_body: requestBody,
       });
 

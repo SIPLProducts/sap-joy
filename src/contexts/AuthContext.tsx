@@ -36,6 +36,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string, role: AppRole) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  updatePlant: (newPlant: string) => Promise<{ error: Error | null }>;
   isAuthenticated: boolean;
 }
 
@@ -221,6 +222,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updatePlant = async (newPlant: string) => {
+    if (!user) return { error: new Error("No user logged in") };
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ plant: newPlant })
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      setProfile(prev => prev ? { ...prev, plant: newPlant } : null);
+      toast({
+        title: "Plant Updated",
+        description: `Active plant changed to ${newPlant}.`,
+      });
+      return { error: null };
+    } catch (error: any) {
+      toast({
+        title: "Error fetching/updating plant",
+        description: error.message,
+        variant: "destructive",
+      });
+      return { error };
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -244,6 +270,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signUp,
         signOut,
+        updatePlant,
         isAuthenticated: !!session,
       }}
     >

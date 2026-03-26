@@ -186,27 +186,56 @@ async function directSync(
     }
 
     let requestBody: any = undefined;
-    if (['POST', 'PUT', 'PATCH'].includes(method) && requestFields?.length) {
+    if (['POST', 'PUT', 'PATCH'].includes(method)) {
       requestBody = {};
-      requestFields.forEach((field: any) => {
-        const key = field.sap_field_name || field.field_name;
-        // Only include fields that are required or have a non-empty default value
-        // Sending empty strings for optional fields causes SAP 500 errors
-        if (field.is_required || (field.default_value && String(field.default_value).trim() !== '')) {
-          requestBody[key] = field.default_value ?? '';
-        }
-      });
+      if (requestFields?.length) {
+        requestFields.forEach((field: any) => {
+          const key = field.sap_field_name || field.field_name;
+          if (field.is_required || (field.default_value && String(field.default_value).trim() !== '')) {
+            let val = field.default_value ?? '';
+            
+            // Fix: Do NOT parseInt here. SAP often requires strings even for numeric values like "01"
+            // Ensure specific fields are correctly formatted
+            if (key === 'ART' || key === 'INSPECTION_TYPE') {
+              val = String(val).trim().padStart(2, '0');
+            } else if (key === 'WERKS' || key === 'LGORT') {
+              val = String(val).trim();
+            }
+            
+            requestBody[key] = val;
+          }
+        });
+      }
+
+      // INJECT GLOBAL MAX RECORDS SETTING
+      // The Advanced Settings tab has a "Max Records per Sync" field which defaults to 1000/5000.
+      // We automatically append this as common ABAP row limit parameters in case they weren't mapped in Request Fields
+      if (config.max_records) {
+        if (requestBody.MAX_ROWS === undefined) requestBody.MAX_ROWS = config.max_records;
+        if (requestBody.MAX_HITS === undefined) requestBody.MAX_HITS = config.max_records;
+        if (requestBody.max_rows === undefined) requestBody.max_rows = config.max_records;
+      }
     }
 
     const fetchOpts: RequestInit = { method, headers };
-    if (requestBody) {
+    if (requestBody && Object.keys(requestBody).length > 0) {
       fetchOpts.body = JSON.stringify(requestBody);
+    } else {
+      requestBody = undefined;
     }
+
+    console.log(`[SAP Sync API Request] %c${config.config_name || 'Generic Sync'}`, 'color: #3b82f6; font-weight: bold;');
+    console.log(`[SAP Sync API Request] URL: ${url}`);
+    console.log(`[SAP Sync API Request] Method: ${method}`);
+    if (requestBody) console.log(`[SAP Sync API Request] Payload:`, requestBody);
 
     const response = await fetch(url, fetchOpts);
     const bodyText = await response.text();
 
+    console.log(`[SAP Sync API Response] Status: ${response.status}`);
+    
     if (!response.ok) {
+      console.error(`[SAP Sync API Error] Body:`, bodyText);
       await supabase.from('sap_stock_sync_history').update({
         status: 'failed',
         error_message: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
@@ -301,6 +330,11 @@ async function directUnblock(
   const method = (config.http_method || 'PUT').toUpperCase();
   const payload = Array.isArray(request_body) ? request_body : [request_body];
 
+  console.log(`[SAP Unblock API Request] %c${config.config_name || 'Unblock 343/344'}`, 'color: #f59e0b; font-weight: bold;');
+  console.log(`[SAP Unblock API Request] URL: ${url}`);
+  console.log(`[SAP Unblock API Request] Method: ${method}`);
+  console.log(`[SAP Unblock API Request] Payload:`, payload);
+
   const response = await fetch(url, {
     method,
     headers,
@@ -308,11 +342,15 @@ async function directUnblock(
   });
 
   const bodyText = await response.text();
+  console.log(`[SAP Unblock API Response] Status: ${response.status}`);
+
   let responseData: any;
   try {
     responseData = bodyText.trim() ? JSON.parse(bodyText) : { http_status: response.status };
+    console.log(`[SAP Unblock API Response] Data:`, responseData);
   } catch {
     responseData = { raw: bodyText.substring(0, 1000), http_status: response.status };
+    console.log(`[SAP Unblock API Response] Raw Data (not JSON):`, bodyText);
   }
 
   if (!response.ok) {
@@ -496,7 +534,7 @@ async function mapAndInsertClientSide(
     inward_inspection_lots: new Set([
       'inspection_lot', 'material_code', 'material_description', 'plant', 'storage_location',
       'batch', 'uom', 'blocked_quantity', 'transaction_quantity', 'status', 'block_reason',
-      'vendor_code', 'vendor_name', 'po_number', 'grn_number', 'uploaded_by', 'upload_batch_id',
+      'vendor_code', 'vendor_name', 'po_number', 'po_item_number', 'grn_number', 'uploaded_by', 'upload_batch_id',
       'inspection_date', 'posting_date',
     ]),
   };
@@ -513,7 +551,7 @@ async function mapAndInsertClientSide(
     inward_inspection_lots: {
       matnr: 'material_code', maktx: 'material_description', werks: 'plant', werk: 'plant', charg: 'batch',
       lgort: 'storage_location', prueflos: 'inspection_lot', lifnr: 'vendor_code',
-      name1: 'vendor_name', ebeln: 'po_number', meins: 'uom', menge: 'blocked_quantity',
+      name1: 'vendor_name', ebeln: 'po_number', ebelp: 'po_item_number', mblnr: 'grn_number', meins: 'uom', menge: 'blocked_quantity',
       inspection_lot: 'inspection_lot', storage_location: 'storage_location',
       vendor_code: 'vendor_code', vendor_name: 'vendor_name',
       qals_prueflos: 'inspection_lot', inspection_date: 'inspection_date', posting_date: 'posting_date',

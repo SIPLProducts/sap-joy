@@ -17,6 +17,8 @@ export interface InspectionLotRecord {
   vendorCode: string;
   vendorName: string;
   purchaseOrderNumber: string;
+  poItemNumber: number;
+  grnNumber: number;
 }
 
 export interface InwardReportFilters {

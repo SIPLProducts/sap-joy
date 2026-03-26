@@ -16,6 +16,7 @@ export const INWARD_INSPECTION_LOT_TEMPLATE_HEADERS = [
   'vendor_code',
   'vendor_name',
   'po_number',
+  'po_item_number',
   'grn_number'
 ];
 
@@ -36,6 +37,7 @@ export const INWARD_INSPECTION_LOT_SAMPLE_DATA = [
     vendor_code: 'V001',
     vendor_name: 'ABC Suppliers',
     po_number: 'PO-2024-001',
+    po_item_number: '00010',
     grn_number: 'GRN-2024-001'
   },
   {
@@ -54,6 +56,7 @@ export const INWARD_INSPECTION_LOT_SAMPLE_DATA = [
     vendor_code: 'V002',
     vendor_name: 'XYZ Industries',
     po_number: 'PO-2024-002',
+    po_item_number: '00020',
     grn_number: 'GRN-2024-002'
   }
 ];
@@ -104,6 +107,7 @@ export interface ParsedInspectionLot {
   vendor_code?: string;
   vendor_name?: string;
   po_number?: string;
+  po_item_number?: string;
   grn_number?: string;
 }
 
@@ -236,6 +240,7 @@ export function validateParsedData(data: Record<string, unknown>[]): ParseResult
         vendor_code: String(row.vendor_code || row['Vendor Code'] || row['VENDOR_CODE'] || ''),
         vendor_name: String(row.vendor_name || row['Vendor Name'] || row['VENDOR_NAME'] || ''),
         po_number: String(row.po_number || row['PO Number'] || row['PO_NUMBER'] || ''),
+        po_item_number: String(row.po_item_number || row['PO Item Number'] || row['PO_ITEM_NUMBER'] || ''),
         grn_number: String(row.grn_number || row['GRN Number'] || row['GRN_NUMBER'] || '')
       };
       

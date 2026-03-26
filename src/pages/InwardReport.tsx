@@ -833,12 +833,14 @@ export default function InwardReport() {
                             <TableHead className="font-semibold whitespace-nowrap">Vendor Code</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Vendor Name</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">PO Number</TableHead>
+                            <TableHead className="font-semibold whitespace-nowrap">PO Item Number</TableHead>
+                            <TableHead className="font-semibold whitespace-nowrap">GRN Number</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {paginatedResults.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={18} className="text-center py-12 text-muted-foreground">
+                              <TableCell colSpan={20} className="text-center py-12 text-muted-foreground">
                                 No records found matching the selection criteria
                               </TableCell>
                             </TableRow>
@@ -979,6 +981,12 @@ export default function InwardReport() {
                                 </TableCell>
                                 <TableCell className="font-mono text-sm">
                                   {record.poNumber || '-'}
+                                </TableCell>
+                                <TableCell className="font-mono text-sm">
+                                  {record.poItemNumber || '-'}
+                                </TableCell>
+                                <TableCell className="font-mono text-sm">
+                                  {record.grnNumber || '-'}
                                 </TableCell>
                               </TableRow>
                               );

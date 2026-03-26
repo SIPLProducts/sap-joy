@@ -19,6 +19,7 @@ export interface InspectionLotRecord {
   storageLocation: string;
   batch: string;
   poNumber: string;
+  poItemNumber: string;
   transactionQuantity: number;
   uom: string;
   blockedQuantity: number;
@@ -166,6 +167,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
             storageLocation: lot.storage_location || '',
             batch: lot.batch || '',
             poNumber: lot.po_number || '',
+            poItemNumber: lot.po_item_number || '',
             transactionQuantity: Number(lot.transaction_quantity) || 0,
             uom: lot.uom || 'EA',
             blockedQuantity: Number(lot.blocked_quantity) || 0,
@@ -298,6 +300,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
         vendor_code: row.vendor_code || null,
         vendor_name: row.vendor_name || null,
         po_number: row.po_number || null,
+        po_item_number: row.po_item_number || null,
         grn_number: row.grn_number || null,
         status: 'pending',
         uploaded_by: user?.email || 'unknown',
@@ -428,6 +431,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
             vendor_code: record.vendorCode || null,
             vendor_name: record.vendorName || null,
             po_number: record.poNumber || null,
+            po_item_number: record.poItemNumber || null,
             grn_number: record.grnNumber || null,
             inspection_lot: record.inspectionLot,
             defect_description: record.blockReason || null,

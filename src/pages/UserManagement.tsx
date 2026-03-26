@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { createClient } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -36,7 +37,18 @@ const ROLES: { value: AppRole; label: string; description: string }[] = [
   { value: 'mrb_committee', label: 'MRB Committee', description: 'MRB committee member' },
 ];
 
-const DEPARTMENTS = ['Quality', 'Purchase', 'Engineering', 'Production', 'Shop Floor', 'Management', 'IT'];
+const DEPARTMENTS = ['IT', 'Management', 'Quality', 'Purchase', 'Engineering', 'Shop Floor', 'MRB Committee'];
+
+const getAvailableRolesForDepartment = (dept: string) => {
+  if (dept === 'IT') return ROLES;
+  if (dept === 'Management') return ROLES.filter(r => r.value === 'executive');
+  if (dept === 'Quality') return ROLES.filter(r => r.value === 'quality_head' || r.value === 'quality');
+  if (dept === 'Purchase') return ROLES.filter(r => r.value === 'purchase_head' || r.value === 'purchase');
+  if (dept === 'Engineering') return ROLES.filter(r => r.value === 'engineering_head' || r.value === 'engineering');
+  if (dept === 'Shop Floor') return ROLES.filter(r => r.value === 'shop_floor');
+  if (dept === 'MRB Committee') return ROLES.filter(r => r.value === 'mrb_committee');
+  return ROLES;
+};
 
 const getRoleBadgeVariant = (role: AppRole | null): "default" | "secondary" | "destructive" | "outline" => {
   if (!role) return 'outline';
@@ -55,7 +67,11 @@ export default function UserManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  
+  // Edit logic state
   const [selectedRole, setSelectedRole] = useState<AppRole | ''>('');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('');
+  const [editPassword, setEditPassword] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Create user form state
@@ -84,19 +100,24 @@ export default function UserManagement() {
 
       if (rolesError) throw rolesError;
 
-      const usersWithRoles: UserWithRole[] = (profiles || []).map(profile => {
-        const userRoleData = roles?.find(r => r.user_id === profile.user_id);
-        return {
-          id: profile.id,
-          user_id: profile.user_id,
-          full_name: profile.full_name,
-          email: profile.email,
-          plant: profile.plant,
-          department: profile.department,
-          role: userRoleData?.role as AppRole || null,
-          created_at: profile.created_at,
-        };
-      });
+      const usersWithRoles: UserWithRole[] = (profiles || [])
+        .map(profile => {
+          const userRoleData = roles?.find(r => r.user_id === profile.user_id);
+          return {
+            id: profile.id,
+            user_id: profile.user_id,
+            full_name: profile.full_name,
+            email: profile.email,
+            plant: profile.plant,
+            department: profile.department,
+            role: userRoleData?.role as AppRole || null,
+            created_at: profile.created_at,
+          };
+        })
+        .filter(u => 
+          u.email !== 'masteradmin@sharviinfotech.com' && 
+          u.email !== 'bala@sharviinfotech.com'
+        );
 
       setUsers(usersWithRoles);
     } catch (error) {
@@ -114,6 +135,8 @@ export default function UserManagement() {
   const handleEditRole = (user: UserWithRole) => {
     setSelectedUser(user);
     setSelectedRole(user.role || '');
+    setSelectedDepartment(user.department || '');
+    setEditPassword('');
     setIsEditDialogOpen(true);
   };
 
@@ -121,6 +144,7 @@ export default function UserManagement() {
     if (!selectedUser || !selectedRole) return;
     setSaving(true);
     try {
+      // 1. Update Role Mapping
       const { data: existingRole } = await supabase
         .from('user_roles')
         .select('id')
@@ -135,12 +159,32 @@ export default function UserManagement() {
         if (error) throw error;
       }
 
-      toast({ title: 'Success', description: `Role updated for ${selectedUser.full_name}` });
+      // 2. Update Department
+      if (selectedDepartment !== selectedUser.department) {
+        const { error: deptError } = await supabase.from('profiles').update({ department: selectedDepartment }).eq('user_id', selectedUser.user_id);
+        if (deptError) throw deptError;
+      }
+
+      // 3. Reset Password natively inside DB (if provided)
+      if (editPassword.trim()) {
+        const { error: passError } = await (supabase.rpc as any)('admin_update_user_password', {
+          p_target_id: selectedUser.user_id,
+          p_new_password: editPassword.trim()
+        });
+
+        if (passError) {
+           console.error('Password reset RPC failed:', passError);
+           // Fallback to error
+           throw new Error("Password reset failed: Do you have the RPC function configured?");
+        }
+      }
+
+      toast({ title: 'Success', description: `User details updated for ${selectedUser.full_name}` });
       setIsEditDialogOpen(false);
       fetchUsers();
-    } catch (error) {
-      console.error('Error updating role:', error);
-      toast({ title: 'Error', description: 'Failed to update role', variant: 'destructive' });
+    } catch (error: any) {
+      console.error('Error updating user:', error);
+      toast({ title: 'Error updating user', description: error.message || 'Failed to update user', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -164,35 +208,106 @@ export default function UserManagement() {
   };
 
   const handleCreateUser = async () => {
+    console.log('[Create User] ------------- START -------------');
+    
+    // 1. Validate Form Fields
     if (!newUserEmail || !newUserPassword || !newUserFullName || !newUserRole) {
+      console.error('[Create User] Validation failed: Missing required fields');
       toast({ title: 'Validation Error', description: 'Please fill all required fields', variant: 'destructive' });
       return;
     }
 
-    if (newUserPassword.length < 6) {
-      toast({ title: 'Validation Error', description: 'Password must be at least 6 characters', variant: 'destructive' });
+    // 2. Validate Password Policy (Frontend rules)
+    // Rule: At least one letter, at least one number, min 8, max 10
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{8,10}$/;
+    if (!passwordRegex.test(newUserPassword)) {
+      console.error('[Create User] Validation failed: Password does not meet policy. Length: ' + newUserPassword.length);
+      toast({ 
+        title: 'Password Policy Error', 
+        description: 'Password must be 8-10 characters long, containing at least one letter and one number.', 
+        variant: 'destructive' 
+      });
       return;
     }
 
     setSaving(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-user', {
-        body: {
-          email: newUserEmail.trim(),
-          password: newUserPassword,
-          full_name: newUserFullName.trim(),
-          role: newUserRole,
-          department: newUserDepartment || null,
-          plant: newUserPlant || null,
-        },
+      console.log(`[Create User] Proceeding to create user: ${newUserEmail} without Edge Functions...`);
+      
+      // 3. Create a temporary, non-persisting client so we don't log out the Admin!
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
+      
+      const tempClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          storageKey: 'temp-create-user-token' // Silences "Multiple GoTrueClient" warning
+        }
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      // 4. Call signUp on the Temporary Client
+      console.log(`[Create User] Calling auth.signUp for ${newUserEmail}...`);
+      const { data: signUpData, error: signUpError } = await tempClient.auth.signUp({
+        email: newUserEmail.trim(),
+        password: newUserPassword,
+        options: {
+          data: {
+            full_name: newUserFullName.trim(),
+            role: newUserRole,
+            department: newUserDepartment || null,
+            plant: newUserPlant || null,
+          }
+        }
+      });
 
-      toast({ title: 'User Created', description: `${newUserEmail} has been created successfully with role ${ROLES.find(r => r.value === newUserRole)?.label}` });
+      if (signUpError) {
+        console.error('[Create User] auth.signUp failed:', signUpError);
+        throw new Error(signUpError.message || 'Failed to sign up user');
+      }
+
+      if (!signUpData.user) {
+        console.error('[Create User] auth.signUp succeeded but no user object returned', signUpData);
+        throw new Error('User creation failed silently.');
+      }
       
-      // Reset form
+      console.log(`[Create User] auth.signUp success! New user ID: ${signUpData.user.id}`);
+
+      // 5. Explicitly assign the role in public.user_roles using the Admin's active session!
+      // Your Postgres Database has a trigger that automatically creates a default role 
+      // when a user is created! So we cannot just INSERT, we must UPDATE the row it created to avoid 409 Conflicts.
+      console.log(`[Create User] Assigning role '${newUserRole}' to user [${signUpData.user.id}]`);
+      
+      const { data: existingRole } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', signUpData.user.id)
+        .maybeSingle();
+
+      let roleError;
+      if (existingRole) {
+         console.log(`[Create User] Postgres trigger previously created a role row. Updating it to '${newUserRole}'...`);
+         const { error } = await supabase.from('user_roles').update({ role: newUserRole }).eq('user_id', signUpData.user.id);
+         roleError = error;
+      } else {
+         console.log(`[Create User] No default role found. Inserting '${newUserRole}' directly...`);
+         const { error } = await supabase.from('user_roles').insert({
+           user_id: signUpData.user.id,
+           role: newUserRole
+         });
+         roleError = error;
+      }
+
+      if (roleError) {
+        console.error('[Create User] Role assignment failed. The user was created but role mapping failed.', roleError);
+        toast({ title: 'Warning', description: `User created, but role assignment failed: ${roleError.message}`, variant: 'destructive' });
+      } else {
+        console.log(`[Create User] Role successfully assigned.`);
+        toast({ title: 'User Created', description: `${newUserEmail} has been created successfully with role ${ROLES.find(r => r.value === newUserRole)?.label}` });
+      }
+      
+      // 6. Reset Form & Refresh Users
       setNewUserEmail('');
       setNewUserPassword('');
       setNewUserFullName('');
@@ -201,8 +316,10 @@ export default function UserManagement() {
       setNewUserPlant('');
       setIsCreateDialogOpen(false);
       fetchUsers();
+      
+      console.log('[Create User] ------------- END SUCCESS -------------');
     } catch (error: any) {
-      console.error('Error creating user:', error);
+      console.error('[Create User] Fatal Error:', error);
       toast({ title: 'Error', description: error?.message || 'Failed to create user', variant: 'destructive' });
     } finally {
       setSaving(false);
@@ -482,49 +599,80 @@ export default function UserManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Role Dialog */}
+      {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{selectedUser?.role ? 'Edit User Role' : 'Assign Role'}</DialogTitle>
+            <DialogTitle>{selectedUser?.role ? 'Edit User Details' : 'Assign Details'}</DialogTitle>
             <DialogDescription>
-              {selectedUser?.role
-                ? `Update the role for ${selectedUser?.full_name}`
-                : `Assign a role to ${selectedUser?.full_name}`
-              }
+              Update the department, role, or reset password for {selectedUser?.full_name}.
+              <br/>(Leave password blank to keep current password)
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>User</Label>
-              <div className="p-3 bg-muted rounded-md">
+              <div className="p-3 bg-muted rounded-md border text-sm">
                 <p className="font-medium">{selectedUser?.full_name}</p>
-                <p className="text-sm text-muted-foreground">{selectedUser?.email}</p>
+                <p className="text-muted-foreground">{selectedUser?.email}</p>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as AppRole)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLES.map((role) => (
-                    <SelectItem key={role.value} value={role.value}>
-                      <div className="flex flex-col">
-                        <span>{role.label}</span>
-                        <span className="text-xs text-muted-foreground">{role.description}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="department">Department</Label>
+                <Select value={selectedDepartment} onValueChange={(value) => {
+                  setSelectedDepartment(value);
+                  setSelectedRole(''); // Reset role when department changes
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DEPARTMENTS.map((dept) => (
+                      <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as AppRole)}>
+                  <SelectTrigger disabled={!selectedDepartment}>
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getAvailableRolesForDepartment(selectedDepartment).map((role) => (
+                      <SelectItem key={role.value} value={role.value}>
+                        <div className="flex flex-col">
+                          <span>{role.label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2 border-t">
+              <Label htmlFor="resetPassword">Reset Password (Optional)</Label>
+              <Input
+                id="resetPassword"
+                type="password"
+                placeholder="Type new password to reset"
+                value={editPassword}
+                onChange={(e) => setEditPassword(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Passwords are never shown for security reasons. Type here only if you need to force a reset.
+              </p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleSaveRole} disabled={!selectedRole || saving}>
-              {saving ? 'Saving...' : 'Save'}
+              {saving ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,0 +1,70 @@
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  'http://10.10.4.178:8000', 
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NzM5ODk0MjMsImV4cCI6MTkzMTY2OTQyM30.mjeZP8eVX1rd-cV7s1Ox5Gtjcfc0pBW9ItmUqOIZ5WA'
+);
+
+async function repair() {
+  const email = 'admin.demo@hbl.com';
+  console.log(`Connecting to fix: ${email}...`);
+
+  // 1. Just create it in Public Profile first to see what UID is in Auth (if we don't know it)
+  // Since we can't list users easily, let's try a direct RPC to update the role if we have the email.
+  
+  // Actually, let's just use the RPC I wrote earlier or a direct insert 
+  // into user_roles where we use a subquery to find the ID in auth.users
+  
+  // We can't do subqueries easily in JS for auth.users. 
+  // I will use an SQL block.
+  
+  const sql = `
+  DO $$
+  DECLARE
+    target_uid uuid;
+  BEGIN
+    -- 1. Get the ID from auth.users (this is the source of truth)
+    SELECT id INTO target_uid FROM auth.users WHERE email = 'admin.demo@hbl.com' LIMIT 1;
+    
+    IF target_uid IS NOT NULL THEN
+      -- 2. Grant admin role
+      INSERT INTO public.user_roles (user_id, role) 
+      VALUES (target_uid, 'admin') 
+      ON CONFLICT (user_id, role) DO UPDATE SET role = 'admin';
+      
+      -- 3. Ensure profile is linked
+      INSERT INTO public.profiles (user_id, email, full_name, role)
+      VALUES (target_uid, 'admin.demo@hbl.com', 'Admin Demo', 'admin')
+      ON CONFLICT (user_id) DO UPDATE SET role = 'admin', email = 'admin.demo@hbl.com';
+      
+      -- 4. Fill Matrix
+      DELETE FROM public.role_permissions WHERE role = 'admin';
+      INSERT INTO public.role_permissions (role, screen_key)
+      VALUES 
+        ('admin', 'dashboard_kpi'),
+        ('admin', 'mrb_worklist'),
+        ('admin', 'material_booking'),
+        ('admin', 'inward_materials'),
+        ('admin', 'mrb_print'),
+        ('admin', 'email_log'),
+        ('admin', 'help_support'),
+        ('admin', 'analytics_dashboard'),
+        ('admin', 'quality_dashboard'),
+        ('admin', 'purchase_dashboard'),
+        ('admin', 'engineering_dashboard'),
+        ('admin', 'executive_summary');
+        
+      RAISE NOTICE 'SUCCESS: admin.demo@hbl.com fully repaired.';
+    ELSE
+      RAISE NOTICE 'USER NOT FOUND IN AUTH.USERS';
+    END IF;
+  END $$;
+  `;
+  
+  // We'll execute this as an RPC to ensure it runs as a single atom.
+  // We need to create the 'exec_sql' RPC first if it doesn't exist? No, let's just ask the user to run it.
+  console.log("SQL TO RUN IN SUPABASE SQL EDITOR:");
+  console.log(sql);
+}
+
+repair();

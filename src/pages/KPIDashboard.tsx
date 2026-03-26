@@ -112,9 +112,24 @@ export default function KPIDashboard() {
     return months;
   }, []);
 
-  // Use mrbRecords directly - it already contains ALL records (including quality_inspection source)
-  // Do NOT combine with inwardMRBRecords as that causes duplication
-  const allMRBs = useMemo(() => mrbRecords, [mrbRecords]);
+  // Combine both sources safely to ensure all MRBs show up without duplicates
+  const allMRBs = useMemo(() => {
+    const combined = [...(mrbRecords || [])];
+    const existingIds = new Set(combined.map(r => r.id));
+    
+    if (inwardMRBRecords && inwardMRBRecords.length > 0) {
+      inwardMRBRecords.forEach((inward: any) => {
+        if (!existingIds.has(inward.id)) {
+          combined.push({
+            ...inward,
+            source: inward.source || 'quality_inspection'
+          } as any);
+        }
+      });
+    }
+    
+    return combined;
+  }, [mrbRecords, inwardMRBRecords]);
 
   // Filter MRBs based on selections
   const filteredMRBs = useMemo(() => {
@@ -686,98 +701,102 @@ export default function KPIDashboard() {
             </CardContent>
           </Card>
 
-          {/* Defect Category Pie Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <PieChart className="w-5 h-5 text-primary" />
-                Defect Category Distribution
-              </CardTitle>
-              <CardDescription>Breakdown by defect type</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {defectCategoryData.length > 0 ? (
-                <div style={{ height: Math.max(300, defectCategoryData.length * 38) }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={defectCategoryData} layout="vertical" margin={{ left: 10, right: 30, top: 5, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                      <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                      <YAxis
-                        dataKey="name"
-                        type="category"
-                        width={140}
-                        stroke="hsl(var(--muted-foreground))"
-                        fontSize={11}
-                        tick={{ fill: 'hsl(var(--foreground))' }}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--popover))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                        }}
-                      />
-                      <Bar dataKey="value" name="Count" radius={[0, 4, 4, 0]} barSize={20}>
-                        {defectCategoryData.map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                  No defect data available
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* Defect Category Pie Chart - Temporarily hidden (Change 'false' to 'true' to show) */}
+          {true && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChart className="w-5 h-5 text-primary" />
+                  Defect Category Distribution
+                </CardTitle>
+                <CardDescription>Breakdown by defect type</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {defectCategoryData.length > 0 ? (
+                  <div style={{ height: Math.max(300, defectCategoryData.length * 38) }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={defectCategoryData} layout="vertical" margin={{ left: 10, right: 30, top: 5, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                        <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                        <YAxis
+                          dataKey="name"
+                          type="category"
+                          width={140}
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={11}
+                          tick={{ fill: 'hsl(var(--foreground))' }}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--popover))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px',
+                          }}
+                        />
+                        <Bar dataKey="value" name="Count" radius={[0, 4, 4, 0]} barSize={20}>
+                          {defectCategoryData.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                    No defect data available
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Reject Reasons by Plant & Month */}
         <div className="grid gap-4 lg:grid-cols-2">
-          {/* By Plant */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Factory className="w-5 h-5 text-primary" />
-                Reject Reasons by Plant
-              </CardTitle>
-              <CardDescription>Defect distribution across plants</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {rejectReasonsByPlant.length > 0 ? (
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={rejectReasonsByPlant}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="plant" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                      <YAxis stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--popover))', 
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px'
-                        }}
-                      />
-                      <Legend />
-                      {(() => {
-                        const allKeys = new Set<string>();
-                        rejectReasonsByPlant.forEach(d => Object.keys(d).forEach(k => { if (k !== 'plant' && k !== 'total') allKeys.add(k); }));
-                        return [...allKeys].slice(0, 8).map((key, i) => (
-                          <Bar key={key} dataKey={key} name={key} stackId="a" fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                        ));
-                      })()}
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                  No plant rejection data available
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* By Plant - Temporarily hidden (Change 'false' to 'true' to show) */}
+          {true && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Factory className="w-5 h-5 text-primary" />
+                  Reject Reasons by Plant
+                </CardTitle>
+                <CardDescription>Defect distribution across plants</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {rejectReasonsByPlant.length > 0 ? (
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={rejectReasonsByPlant}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="plant" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                        <YAxis stroke="hsl(var(--muted-foreground))" />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--popover))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px'
+                          }}
+                        />
+                        <Legend />
+                        {(() => {
+                          const allKeys = new Set<string>();
+                          rejectReasonsByPlant.forEach(d => Object.keys(d).forEach(k => { if (k !== 'plant' && k !== 'total') allKeys.add(k); }));
+                          return [...allKeys].slice(0, 8).map((key, i) => (
+                            <Bar key={key} dataKey={key} name={key} stackId="a" fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                          ));
+                        })()}
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                    No plant rejection data available
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* By Month - Area Chart */}
           <Card>
@@ -823,164 +842,169 @@ export default function KPIDashboard() {
           </Card>
         </div>
 
-        {/* Top 5 Vendors Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-destructive" />
-              Top 5 Vendors with Material Damage
-            </CardTitle>
-            <CardDescription>Vendors with highest rejection/damage incidents</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {topVendorsByDamage.length > 0 ? (
-              <div className="grid gap-6 lg:grid-cols-2">
-                {/* Vendor Table */}
-                <div className="space-y-3">
-                  {topVendorsByDamage.map((vendor, index) => (
-                    <div key={vendor.vendorCode} className="flex items-center gap-4 p-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors">
-                      <div 
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-primary-foreground font-bold text-sm flex-shrink-0"
-                        style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
-                      >
-                        #{index + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground truncate">{vendor.vendorName}</p>
-                        <p className="text-xs text-muted-foreground">{vendor.vendorCode}</p>
-                      </div>
-                        <div className="text-right">
-                          <p className="font-bold text-foreground">{vendor.damageQuantity} units</p>
-                          <p className="text-xs text-muted-foreground">{vendor.count} live MRBs</p>
+        {/* Top 5 Vendors & Vendor Damage Section - Temporarily hidden (Change 'false' to 'true' to show) */}
+        {true && (
+          <>
+            {/* Top 5 Vendors Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-destructive" />
+                  Top 5 Vendors with Material Damage
+                </CardTitle>
+                <CardDescription>Vendors with highest rejection/damage incidents</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {topVendorsByDamage.length > 0 ? (
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    {/* Vendor Table */}
+                    <div className="space-y-3">
+                      {topVendorsByDamage.map((vendor, index) => (
+                        <div key={vendor.vendorCode} className="flex items-center gap-4 p-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors">
+                          <div 
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-primary-foreground font-bold text-sm flex-shrink-0"
+                            style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                          >
+                            #{index + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-foreground truncate">{vendor.vendorName}</p>
+                            <p className="text-xs text-muted-foreground">{vendor.vendorCode}</p>
+                          </div>
+                            <div className="text-right">
+                              <p className="font-bold text-foreground">{vendor.damageQuantity} units</p>
+                              <p className="text-xs text-muted-foreground">{vendor.count} live MRBs</p>
+                            </div>
                         </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
 
-                {/* Vendor Pie Chart */}
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPie>
-                      <Pie
-                        data={topVendorsByDamage.map(v => ({ name: v.vendorName.split(' ')[0], value: v.count }))}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={90}
-                        paddingAngle={5}
-                        dataKey="value"
-                        label={({ name, value }) => `${name}: ${value}`}
-                      >
-                        {topVendorsByDamage.map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </RechartsPie>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            ) : (
-              <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-                No vendor damage data available
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    {/* Vendor Pie Chart */}
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPie>
+                          <Pie
+                            data={topVendorsByDamage.map(v => ({ name: v.vendorName.split(' ')[0], value: v.count }))}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={90}
+                            paddingAngle={5}
+                            dataKey="value"
+                            label={({ name, value }) => `${name}: ${value}`}
+                          >
+                            {topVendorsByDamage.map((_, index) => (
+                              <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                          <Legend />
+                        </RechartsPie>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+                    No vendor damage data available
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-        {/* Vendor Damage by Month & Plant */}
-        <div className="grid gap-4 lg:grid-cols-2">
-          {/* By Month - Line Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-primary" />
-                Vendor Damage Trend (Monthly)
-              </CardTitle>
-              <CardDescription>Top 5 vendors damage trend over time</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {vendorDamageByMonth.length > 0 ? (
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={vendorDamageByMonth}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                      <YAxis stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--popover))', 
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px'
-                        }}
-                      />
-                      <Legend />
-                      {topVendorsByDamage.slice(0, 5).map((vendor, index) => (
-                        <Line 
-                          key={vendor.vendorCode}
-                          type="monotone" 
-                          dataKey={vendor.vendorName.split(' ')[0]} 
-                          stroke={CHART_COLORS[index]} 
-                          strokeWidth={2}
-                          dot={{ fill: CHART_COLORS[index] }}
-                        />
-                      ))}
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                  No monthly vendor data available
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            {/* Vendor Damage by Month & Plant */}
+            <div className="grid gap-4 lg:grid-cols-2 mt-4">
+              {/* By Month - Line Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-primary" />
+                    Vendor Damage Trend (Monthly)
+                  </CardTitle>
+                  <CardDescription>Top 5 vendors damage trend over time</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {vendorDamageByMonth.length > 0 ? (
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={vendorDamageByMonth}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                          <YAxis stroke="hsl(var(--muted-foreground))" />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'hsl(var(--popover))', 
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '8px'
+                            }}
+                          />
+                          <Legend />
+                          {topVendorsByDamage.slice(0, 5).map((vendor, index) => (
+                            <Line 
+                              key={vendor.vendorCode}
+                              type="monotone" 
+                              dataKey={vendor.vendorName.split(' ')[0]} 
+                              stroke={CHART_COLORS[index]} 
+                              strokeWidth={2}
+                              dot={{ fill: CHART_COLORS[index] }}
+                            />
+                          ))}
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                      No monthly vendor data available
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
-          {/* By Plant - Radar Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Factory className="w-5 h-5 text-secondary" />
-                Vendor Damage by Plant
-              </CardTitle>
-              <CardDescription>Distribution across plant locations</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {vendorDamageByPlant.length > 0 ? (
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={vendorDamageByPlant}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="plant" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                      <YAxis stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--popover))', 
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px'
-                        }}
-                      />
-                      <Legend />
-                      {topVendorsByDamage.slice(0, 3).map((vendor, index) => (
-                        <Bar 
-                          key={vendor.vendorCode}
-                          dataKey={vendor.vendorName} 
-                          fill={CHART_COLORS[index]} 
-                          radius={[4, 4, 0, 0]}
-                        />
-                      ))}
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                  No plant vendor data available
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              {/* By Plant - Radar Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Factory className="w-5 h-5 text-secondary" />
+                    Vendor Damage by Plant
+                  </CardTitle>
+                  <CardDescription>Distribution across plant locations</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {vendorDamageByPlant.length > 0 ? (
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={vendorDamageByPlant}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis dataKey="plant" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                          <YAxis stroke="hsl(var(--muted-foreground))" />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'hsl(var(--popover))', 
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '8px'
+                            }}
+                          />
+                          <Legend />
+                          {topVendorsByDamage.slice(0, 3).map((vendor, index) => (
+                            <Bar 
+                              key={vendor.vendorCode}
+                              dataKey={vendor.vendorName} 
+                              fill={CHART_COLORS[index]} 
+                              radius={[4, 4, 0, 0]}
+                            />
+                          ))}
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                      No plant vendor data available
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        )}
 
         {/* SLA Status */}
         <div className="grid gap-4 lg:grid-cols-3">

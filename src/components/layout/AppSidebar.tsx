@@ -1,8 +1,9 @@
-import { ClipboardList, Mail, Wrench, FileSpreadsheet, BarChart3, LogOut, Package, Building2, Users, Settings, PieChart, Printer, UserCog, TrendingUp, HelpCircle, FileText } from 'lucide-react';
+import { ClipboardList, Mail, Wrench, FileSpreadsheet, BarChart3, LogOut, Package, Building2, Users, Settings, PieChart, Printer, UserCog, TrendingUp, HelpCircle, FileText, Shield } from 'lucide-react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
 import { useDashboardConfig } from '@/hooks/usePlantConfig';
+import { useRoleMatrix } from '@/hooks/useRoleMatrix';
 import {
   Sidebar,
   SidebarContent,
@@ -18,29 +19,34 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
-// Menu items with role-based access (using new AppRole types)
+// Menu items with role-based access based on User's Matrix from Database
 const menuItems = [
-  { title: 'KPI Dashboard', url: '/', icon: BarChart3, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin', 'mrb_committee'] },
-  { title: 'MRB Worklist', url: '/worklist', icon: ClipboardList, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin', 'mrb_committee'] },
-  { title: 'Material Blocking', url: '/shop-floor/stock-selection', icon: Package, roles: ['shop_floor', 'admin'] },
-  { title: 'MRB - Inward Materials', url: '/inward/report', icon: FileSpreadsheet, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin', 'mrb_committee'] },
-  { title: 'MRB Print', url: '/mrb-print', icon: Printer, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin', 'mrb_committee'] },
-  { title: 'Email Log', url: '/emails', icon: Mail, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin', 'mrb_committee'] },
-  { title: 'Help & Support', url: '/help', icon: HelpCircle, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'admin', 'mrb_committee'] },
+  { title: 'KPI Dashboard', url: '/', icon: BarChart3, matrixKey: 'dashboard_kpi' },
+  { title: 'MRB Worklist', url: '/worklist', icon: ClipboardList, matrixKey: 'mrb_worklist' },
+  { title: 'Material Booking', url: '/shop-floor/stock-selection', icon: Package, matrixKey: 'material_booking' },
+  { title: 'MRB - Inward Materials', url: '/inward/report', icon: FileSpreadsheet, matrixKey: 'inward_materials' },
+  { title: 'MRB Print', url: '/mrb-print', icon: Printer, matrixKey: 'mrb_print' },
+  { title: 'Email Log', url: '/emails', icon: Mail, matrixKey: 'email_log' },
+  { title: 'Help & Support', url: '/help', icon: HelpCircle, matrixKey: 'help_support' },
 ];
 
-// Role-specific dashboards
+// Role-specific dashboards based on User's Matrix from Database
 const dashboardItems = [
-  { title: 'MRB Analytics', url: '/dashboard/analytics', icon: TrendingUp, roles: ['quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'executive', 'admin', 'mrb_committee'], dashboardKey: 'analytics' },
-  { title: 'Quality Dashboard', url: '/dashboard/quality-head', icon: Settings, roles: ['quality', 'quality_head', 'executive', 'admin', 'mrb_committee'], dashboardKey: 'quality_head' },
-  { title: 'Purchase Dashboard', url: '/dashboard/purchase-head', icon: Users, roles: ['purchase', 'purchase_head', 'executive', 'admin', 'mrb_committee'], dashboardKey: 'purchase_head' },
-  { title: 'Engineering Dashboard', url: '/dashboard/engineering-head', icon: Wrench, roles: ['engineering', 'engineering_head', 'executive', 'admin', 'mrb_committee'], dashboardKey: 'engineering_head' },
-  { title: 'Executive Summary', url: '/dashboard/executive-summary', icon: PieChart, roles: ['executive', 'admin', 'mrb_committee'], dashboardKey: 'executive_summary' },
+  { title: 'MRB Analytics', url: '/dashboard/analytics', icon: TrendingUp, dashboardKey: 'analytics', matrixKey: 'analytics_dashboard' },
+  { title: 'Quality Dashboard', url: '/dashboard/quality-head', icon: Settings, dashboardKey: 'quality_head', matrixKey: 'quality_dashboard' },
+  { title: 'Purchase Dashboard', url: '/dashboard/purchase-head', icon: Users, dashboardKey: 'purchase_head', matrixKey: 'purchase_dashboard' },
+  { title: 'Engineering Dashboard', url: '/dashboard/engineering-head', icon: Wrench, dashboardKey: 'engineering_head', matrixKey: 'engineering_dashboard' },
+  { title: 'Executive Summary', url: '/dashboard/executive-summary', icon: PieChart, dashboardKey: 'executive_summary', matrixKey: 'executive_summary' },
 ];
 
 // Admin items
 const adminItems = [
   { title: 'User & Role Management', url: '/admin/users', icon: UserCog, roles: ['admin'] },
+  { title: 'Plant Management', url: '/admin/plants', icon: Building2, roles: ['admin'] },
+  { title: 'Role Access Matrix', url: '/admin/matrix', icon: Shield, roles: ['admin'] },
+];
+
+const superAdminItems = [
   { title: 'SAP API Settings', url: '/admin/sap-api', icon: Settings, roles: ['admin'] },
   { title: 'SAP Sync Monitor', url: '/admin/sap-sync', icon: TrendingUp, roles: ['admin'] },
 ];
@@ -49,16 +55,20 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { roleDisplayName } = useRole();
-  const { signOut, userRole } = useAuth();
+  const { signOut, userRole, user } = useAuth();
   const { isDashboardEnabled } = useDashboardConfig();
+  const { hasAccess } = useRoleMatrix();
 
-  // Filter items based on authenticated user's role
-  const filteredItems = menuItems.filter(item => 
-    userRole && item.roles.includes(userRole)
-  );
+  // Combine items if super admin
+  const allAdminItems = user?.email === 'masteradmin@sharviinfotech.com' 
+    ? [...adminItems, ...superAdminItems] 
+    : adminItems;
+
+  // Filter items based on authenticated user's dynamic role matrix
+  const filteredItems = menuItems.filter(item => hasAccess(item.matrixKey));
 
   const filteredDashboards = dashboardItems.filter(item =>
-    userRole && item.roles.includes(userRole) && isDashboardEnabled(item.dashboardKey)
+    hasAccess(item.matrixKey) && isDashboardEnabled(item.dashboardKey)
   );
 
   const handleLogout = async () => {
@@ -142,7 +152,7 @@ export function AppSidebar() {
             <SidebarGroupLabel className="text-sidebar-foreground/60">Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {adminItems.map((item) => {
+                {allAdminItems.map((item) => {
                   const isActive = location.pathname === item.url;
                   return (
                     <SidebarMenuItem key={item.title}>

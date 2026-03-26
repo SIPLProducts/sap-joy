@@ -55,14 +55,35 @@ export function useShopFloorStock() {
   const fetchStockRecords = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('shop_floor_stock')
-        .select('*')
-        .eq('status', 'available')
-        .order('created_at', { ascending: false });
+      let allData: ShopFloorStockRecord[] = [];
+      let page = 0;
+      let hasMore = true;
+      const CHUNK_SIZE = 1000;
 
-      if (error) throw error;
-      setStockRecords(data || []);
+      while (hasMore) {
+        console.log(`Fetching stock records page ${page}...`);
+        const { data, error } = await supabase
+          .from('shop_floor_stock')
+          .select('*')
+          .eq('status', 'available')
+          .order('created_at', { ascending: false })
+          .range(page * CHUNK_SIZE, (page + 1) * CHUNK_SIZE - 1);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          if (data.length < CHUNK_SIZE) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      setStockRecords(allData);
     } catch (error) {
       console.error('Error fetching stock records:', error);
       toast({
@@ -134,7 +155,10 @@ export function useShopFloorStock() {
 
       const { data, error } = await supabase
         .from('shop_floor_stock')
-        .insert(stockData)
+        .upsert(stockData, { 
+          onConflict: 'plant,material_code,batch,storage_location',
+          ignoreDuplicates: false 
+        })
         .select();
 
       if (error) throw error;

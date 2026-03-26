@@ -490,13 +490,7 @@ export default function Login() {
               <div className="space-y-1.5 text-xs max-h-[320px] overflow-y-auto pr-1">
                 {/* Admin Accounts */}
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide pt-1">Admin Access</p>
-                <DemoAccountRow 
-                  email="bala@sharviinfotech.com"
-                  description="Full system access - all stages"
-                  role="Admin"
-                  roleColor="bg-red-100 text-red-700"
-                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword(''); }}
-                />
+                
                 <DemoAccountRow 
                   email="inturimounika@sharviinfotech.com"
                   description="Full system access - all stages"

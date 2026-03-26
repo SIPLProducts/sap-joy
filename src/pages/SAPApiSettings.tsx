@@ -200,8 +200,8 @@ export default function SAPApiSettings() {
                 <p>Your app calls → <strong>Edge Function</strong> (backend) → reads <strong>"Node.js Middleware URL"</strong> from each API config below → forwards request to your Node.js middleware → middleware calls SAP.</p>
                 <div className="grid grid-cols-2 gap-3 mt-2">
                   <div className="bg-white rounded-md border p-3">
-                    <p className="font-semibold text-purple-700 mb-1">☁️ Using from Lovable Cloud</p>
-                    <p>Edge functions run on Lovable's servers.</p>
+                    <p className="font-semibold text-purple-700 mb-1">☁️ Using from UI Cloud</p>
+                    <p>Edge functions run on UI Cloud's servers.</p>
                     <p className="mt-1">→ Set <strong>"Node.js Middleware URL"</strong> in each config to your <strong>ngrok URL</strong></p>
                     <p className="text-[10px] mt-1 opacity-70">e.g. https://abc123.ngrok-free.app</p>
                   </div>
@@ -212,7 +212,7 @@ export default function SAPApiSettings() {
                     <p className="text-[10px] mt-1 opacity-70">or http://10.10.4.178:3002</p>
                   </div>
                 </div>
-                <p className="text-[11px] mt-2 font-medium">💡 Lovable preview always calls the hosted edge function. That edge function then uses each config's <strong>Node.js Middleware URL</strong> to reach ngrok or your internal server.</p>
+                <p className="text-[11px] mt-2 font-medium">💡 UI preview always calls the hosted edge function. That edge function then uses each config's <strong>Node.js Middleware URL</strong> to reach ngrok or your internal server.</p>
               </div>
             </CardContent>
           </Card>

@@ -36,6 +36,8 @@ import ProposalGenerator from "@/pages/ProposalGenerator";
 import IMSRedirect from "@/pages/IMSRedirect";
 import SAPApiSettings from "@/pages/SAPApiSettings";
 import SAPSyncMonitor from "@/pages/SAPSyncMonitor";
+import PlantManagement from "@/pages/PlantManagement";
+import RoleMatrix from "@/pages/RoleMatrix";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,7 +51,7 @@ const App = () => (
             <InwardMRBProvider>
               <Toaster />
               <Sonner />
-              <BrowserRouter>
+              <BrowserRouter basename="/mrb">
                 <Routes>
                   <Route path="/login" element={<Login />} />
                   <Route path="/ims-redirect" element={<IMSRedirect />} />
@@ -57,32 +59,34 @@ const App = () => (
                     <ProtectedRoute>
                       <AppLayout>
                         <Routes>
-                          <Route path="/" element={<KPIDashboard />} />
-                          <Route path="/worklist" element={<Worklist />} />
-                          <Route path="/inward/worklist" element={<Worklist />} />
-                          <Route path="/mrb/:id" element={<MRBDetail />} />
-                          <Route path="/create/quality" element={<CreateMRBQuality />} />
-                          <Route path="/create/shop-floor" element={<CreateMRBShopFloor />} />
-                          <Route path="/emails" element={<EmailLog />} />
-                          <Route path="/inward/report" element={<InwardReport />} />
-                          <Route path="/inward/create-mrb" element={<CreateInwardMRB />} />
-                          <Route path="/inward/mrb/:id" element={<InwardMRBDetail />} />
-                          <Route path="/inward/mrb/:id/committee" element={<MRBCommitteeReview />} />
-                          <Route path="/shop-floor/stock-selection" element={<ShopFloorStockSelection />} />
-                          <Route path="/shop-floor/material-blocking" element={<ShopFloorMaterialBlocking />} />
-                          <Route path="/shop-floor/mrb/:id" element={<ShopFloorMRBDetail />} />
-                          <Route path="/dashboard/quality-head" element={<QualityHeadDashboard />} />
-                          <Route path="/dashboard/purchase-head" element={<PurchaseHeadDashboard />} />
-                          <Route path="/dashboard/engineering-head" element={<EngineeringHeadDashboard />} />
-                          <Route path="/dashboard/executive-summary" element={<ExecutiveSummaryDashboard />} />
-                          <Route path="/dashboard/analytics" element={<MRBAnalyticsDashboard />} />
-                          <Route path="/mrb-print" element={<MRBPrint />} />
-                          <Route path="/admin/users" element={<UserManagement />} />
-                          <Route path="/profile" element={<UserProfile />} />
-                          <Route path="/help" element={<HelpSupport />} />
-                          <Route path="/admin/sap-api" element={<SAPApiSettings />} />
-                          <Route path="/admin/sap-sync" element={<SAPSyncMonitor />} />
-                          <Route path="/proposals" element={<ProposalGenerator />} />
+                          <Route index element={<KPIDashboard />} />
+                          <Route path="worklist" element={<Worklist />} />
+                          <Route path="inward/worklist" element={<Worklist />} />
+                          <Route path="mrb/:id" element={<MRBDetail />} />
+                          <Route path="create/quality" element={<CreateMRBQuality />} />
+                          <Route path="create/shop-floor" element={<CreateMRBShopFloor />} />
+                          <Route path="emails" element={<EmailLog />} />
+                          <Route path="inward/report" element={<InwardReport />} />
+                          <Route path="inward/create-mrb" element={<CreateInwardMRB />} />
+                          <Route path="inward/mrb/:id" element={<InwardMRBDetail />} />
+                          <Route path="inward/mrb/:id/committee" element={<MRBCommitteeReview />} />
+                          <Route path="shop-floor/stock-selection" element={<ShopFloorStockSelection />} />
+                          <Route path="shop-floor/material-blocking" element={<ShopFloorMaterialBlocking />} />
+                          <Route path="shop-floor/mrb/:id" element={<ShopFloorMRBDetail />} />
+                          <Route path="dashboard/quality-head" element={<QualityHeadDashboard />} />
+                          <Route path="dashboard/purchase-head" element={<PurchaseHeadDashboard />} />
+                          <Route path="dashboard/engineering-head" element={<EngineeringHeadDashboard />} />
+                          <Route path="dashboard/executive-summary" element={<ExecutiveSummaryDashboard />} />
+                          <Route path="dashboard/analytics" element={<MRBAnalyticsDashboard />} />
+                          <Route path="mrb-print" element={<MRBPrint />} />
+                          <Route path="admin/users" element={<UserManagement />} />
+                          <Route path="admin/plants" element={<PlantManagement />} />
+                          <Route path="admin/matrix" element={<RoleMatrix />} />
+                          <Route path="profile" element={<UserProfile />} />
+                          <Route path="help" element={<HelpSupport />} />
+                          <Route path="admin/sap-api" element={<SAPApiSettings />} />
+                          <Route path="admin/sap-sync" element={<SAPSyncMonitor />} />
+                          <Route path="proposals" element={<ProposalGenerator />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
                       </AppLayout>
