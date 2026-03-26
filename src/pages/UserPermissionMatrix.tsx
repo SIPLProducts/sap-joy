@@ -4,9 +4,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Shield, Save, RefreshCw, Eye, Pencil } from 'lucide-react';
+import { Shield, Save, RefreshCw } from 'lucide-react';
 
 interface Permission {
   id: string;
@@ -58,13 +57,11 @@ export default function UserPermissionMatrix() {
   const rolePermissions = permissions.filter(p => p.role === selectedRole);
   const currentRoleMeta = ALL_ROLES.find(r => r.key === selectedRole);
 
-  const togglePermission = (moduleKey: string, field: 'can_view' | 'can_edit') => {
+  const toggleAccess = (moduleKey: string) => {
     setPermissions(prev => prev.map(p => {
       if (p.role === selectedRole && p.module_key === moduleKey) {
-        const updated = { ...p, [field]: !p[field] };
-        if (field === 'can_view' && !updated.can_view) updated.can_edit = false;
-        if (field === 'can_edit' && updated.can_edit) updated.can_view = true;
-        return updated;
+        const newVal = !p.can_view;
+        return { ...p, can_view: newVal, can_edit: newVal };
       }
       return p;
     }));
@@ -87,20 +84,17 @@ export default function UserPermissionMatrix() {
     }
   };
 
-  const viewCount = rolePermissions.filter(p => p.can_view).length;
-  const editCount = rolePermissions.filter(p => p.can_edit).length;
-  const totalModules = rolePermissions.length;
+  const enabledCount = rolePermissions.filter(p => p.can_view).length;
 
   return (
     <div className="p-6 space-y-6 max-w-4xl mx-auto">
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Shield className="h-7 w-7 text-primary" />
             Permission Matrix
           </h1>
-          <p className="text-muted-foreground mt-1">Control module access per role and plant</p>
+          <p className="text-muted-foreground mt-1">Control screen access per role and plant</p>
         </div>
         <div className="flex items-center gap-3">
           <Select value={selectedPlant} onValueChange={setSelectedPlant}>
@@ -137,63 +131,31 @@ export default function UserPermissionMatrix() {
         ))}
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-4 pb-4 flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg"><Shield className="h-4 w-4 text-primary" /></div>
-            <div><p className="text-lg font-bold">{totalModules}</p><p className="text-xs text-muted-foreground">Total Modules</p></div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4 flex items-center gap-3">
-            <div className="p-2 bg-emerald-100 rounded-lg"><Eye className="h-4 w-4 text-emerald-600" /></div>
-            <div><p className="text-lg font-bold">{viewCount}</p><p className="text-xs text-muted-foreground">Can View</p></div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4 flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg"><Pencil className="h-4 w-4 text-blue-600" /></div>
-            <div><p className="text-lg font-bold">{editCount}</p><p className="text-xs text-muted-foreground">Can Edit</p></div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Summary */}
+      <p className="text-sm text-muted-foreground">
+        <span className="font-medium text-foreground">{enabledCount}</span> of {rolePermissions.length} screens enabled for <span className={`font-semibold ${currentRoleMeta?.text || ''}`}>{currentRoleMeta?.label}</span>
+      </p>
 
       {/* Permissions List */}
       <Card className="overflow-hidden">
         <CardHeader className={`${currentRoleMeta?.bg || 'bg-muted/30'} border-b`}>
           <CardTitle className={`text-lg flex items-center gap-2 ${currentRoleMeta?.text || ''}`}>
             <span className={`inline-block w-3 h-3 rounded-full ${currentRoleMeta?.dot || 'bg-muted'}`} />
-            {currentRoleMeta?.label || selectedRole} — Module Permissions
+            {currentRoleMeta?.label || selectedRole} — Screen Access
           </CardTitle>
-          <CardDescription>Toggle view and edit access for each module</CardDescription>
+          <CardDescription>Toggle access to each screen for this role</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y">
             {rolePermissions.map((perm) => (
               <div key={perm.id} className="flex items-center justify-between px-5 py-4 hover:bg-muted/20 transition-colors">
-                <div className="flex-1">
+                <div>
                   <p className="font-medium text-foreground">{perm.module_label}</p>
-                  <p className="text-xs text-muted-foreground">{perm.module_key}</p>
                 </div>
-                <div className="flex items-center gap-6">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <Eye className="h-4 w-4 text-emerald-500" />
-                    <span className="text-sm text-muted-foreground">View</span>
-                    <Switch
-                      checked={perm.can_view}
-                      onCheckedChange={() => togglePermission(perm.module_key, 'can_view')}
-                    />
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <Pencil className="h-4 w-4 text-blue-500" />
-                    <span className="text-sm text-muted-foreground">Edit</span>
-                    <Switch
-                      checked={perm.can_edit}
-                      onCheckedChange={() => togglePermission(perm.module_key, 'can_edit')}
-                    />
-                  </label>
-                </div>
+                <Switch
+                  checked={perm.can_view}
+                  onCheckedChange={() => toggleAccess(perm.module_key)}
+                />
               </div>
             ))}
             {rolePermissions.length === 0 && (
@@ -203,12 +165,12 @@ export default function UserPermissionMatrix() {
         </CardContent>
       </Card>
 
-      {/* Save Button - Sticky */}
+      {/* Sticky Save */}
       {dirty && (
         <div className="sticky bottom-4 flex justify-center">
           <Button onClick={handleSave} disabled={saving} size="lg" className="gap-2 shadow-lg">
             <Save className="h-4 w-4" />
-            {saving ? 'Saving...' : 'Save All Changes'}
+            {saving ? 'Saving...' : 'Save Changes'}
           </Button>
         </div>
       )}
