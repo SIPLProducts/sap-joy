@@ -147,7 +147,9 @@ export function AppSidebar() {
             <SidebarGroupLabel className="text-sidebar-foreground/60">Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {adminItems.map((item) => {
+                {adminItems
+                  .filter(item => !item.masterOnly || isMasterAdmin)
+                  .map((item) => {
                   const isActive = location.pathname === item.url;
                   return (
                     <SidebarMenuItem key={item.title}>
