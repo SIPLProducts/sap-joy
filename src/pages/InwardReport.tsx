@@ -980,6 +980,9 @@ export default function InwardReport() {
                                 <TableCell className="font-mono text-sm">
                                   {record.poNumber || '-'}
                                 </TableCell>
+                                <TableCell className="font-mono text-sm">
+                                  {record.grnNumber || '-'}
+                                </TableCell>
                               </TableRow>
                               );
                             })
