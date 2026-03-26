@@ -726,11 +726,15 @@ async function mapAndInsertData(
 
       for (let index = 0; index < sanitizedRows.length; index += batchSize) {
         const batch = sanitizedRows.slice(index, index + batchSize)
+        const upsertOptions = tableName === 'inward_inspection_lots'
+          ? { onConflict: 'inspection_lot' }
+          : tableName === 'shop_floor_stock'
+          ? { onConflict: 'stock_key' }
+          : undefined
+
         const { data, error } = await supabase
           .from(tableName)
-          .upsert(batch, tableName === 'inward_inspection_lots'
-            ? { onConflict: 'inspection_lot' }
-            : undefined)
+          .upsert(batch, upsertOptions)
           .select()
 
         if (error) {

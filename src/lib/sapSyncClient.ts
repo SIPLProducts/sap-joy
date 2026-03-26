@@ -623,9 +623,15 @@ async function mapAndInsertClientSide(
       const batch = sanitizedRows.slice(i, i + batchSize);
       console.log(`[SAP Sync DB] Upserting batch of ${batch.length} rows to ${tableName}...`);
       
+      const upsertOptions = tableName === 'inward_inspection_lots'
+        ? { onConflict: 'inspection_lot' }
+        : tableName === 'shop_floor_stock'
+        ? { onConflict: 'stock_key' }
+        : undefined;
+
       const { data, error } = await (supabase
         .from(tableName as 'shop_floor_stock')
-        .upsert(batch as any, tableName === 'inward_inspection_lots' ? { onConflict: 'inspection_lot' } : undefined) as any)
+        .upsert(batch as any, upsertOptions as any) as any)
         .select();
 
       if (error) {
