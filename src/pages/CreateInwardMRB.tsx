@@ -150,6 +150,8 @@ export default function CreateInwardMRB() {
     vendorCode: inspectionLot.vendorCode,
     vendorName: inspectionLot.vendorName,
     purchaseOrderNumber: inspectionLot.purchaseOrderNumber || inspectionLot.poNumber || '',
+    poItemNumber: inspectionLot.poItemNumber || '',
+    grnNumber: inspectionLot.grnNumber || '',
     
     // Quality inspection input - restore from draft or empty
     qualityDecision: savedDraft?.qualityDecision || '',

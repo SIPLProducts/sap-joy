@@ -167,7 +167,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
             storageLocation: lot.storage_location || '',
             batch: lot.batch || '',
             poNumber: lot.po_number || '',
-            poItemNumber: (lot as any).po_line_item || (lot as any).po_item_number || '',
+            poItemNumber: lot.po_item_number || '',
             transactionQuantity: Number(lot.transaction_quantity) || 0,
             uom: lot.uom || 'EA',
             blockedQuantity: Number(lot.blocked_quantity) || 0,
