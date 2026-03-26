@@ -6,6 +6,11 @@ import { useAuth } from '@/contexts/AuthContext';
 export interface RolePermission {
   role: AppRole;
   screen_key: string;
+  module_key?: string;
+  module_label?: string;
+  can_view?: boolean;
+  can_edit?: boolean;
+  plant?: string;
 }
 
 export function useRoleMatrix() {
