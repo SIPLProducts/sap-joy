@@ -76,7 +76,7 @@ interface InwardMRBContextType {
   updateTransactionQuantity: (record: InspectionLotRecord, newQty: number, sapConfigId: string) => Promise<UpdateQtyResult>;
 }
 
-const InwardMRBContext = createContext<InwardMRBContextType | undefined>(undefined);
+const InwardMRBContext = createContext<InwardMRBContextType | undefined>(undefined); // stable context ref
 
 export function InwardMRBProvider({ children }: { children: ReactNode }) {
   const [inspectionLotRecords, setInspectionLotRecords] = useState<InspectionLotRecord[]>([]);
