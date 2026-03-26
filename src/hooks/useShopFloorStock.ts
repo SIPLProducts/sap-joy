@@ -151,7 +151,7 @@ export function useShopFloorStock() {
 
       const { data, error } = await supabase
         .from('shop_floor_stock')
-        .insert(stockData)
+        .upsert(stockData, { onConflict: 'stock_key' })
         .select();
 
       if (error) throw error;
