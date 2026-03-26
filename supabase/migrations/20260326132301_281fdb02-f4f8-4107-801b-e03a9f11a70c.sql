@@ -1,0 +1,1 @@
+ALTER TABLE public.inward_inspection_lots ADD COLUMN IF NOT EXISTS po_item_number text;
