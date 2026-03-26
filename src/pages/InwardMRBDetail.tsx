@@ -302,16 +302,32 @@ export default function InwardMRBDetail() {
                 <p className="font-medium">{mrb.plant}</p>
               </div>
               <div className="space-y-1">
-                <Label className="text-muted-foreground text-xs">Vendor</Label>
+                <Label className="text-muted-foreground text-xs">Vendor Code</Label>
+                <p className="font-medium font-mono">{mrb.vendor_code || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Vendor Name</Label>
                 <p className="font-medium">{mrb.vendor_name || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">PO Number</Label>
+                <p className="font-medium font-mono">{mrb.po_number || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">GRN Number</Label>
+                <p className="font-medium font-mono">{mrb.grn_number || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Batch</Label>
+                <p className="font-medium font-mono">{(mrb as any).batch || '-'}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Blocked Quantity</Label>
                 <p className="font-medium text-destructive">{mrb.blocked_quantity} {mrb.uom}</p>
               </div>
               <div className="space-y-1">
-                <Label className="text-muted-foreground text-xs">PO Number</Label>
-                <p className="font-medium font-mono">{mrb.po_number || '-'}</p>
+                <Label className="text-muted-foreground text-xs">Block Reason</Label>
+                <p className="font-medium">{mrb.defect_description || '-'}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Pending With</Label>
