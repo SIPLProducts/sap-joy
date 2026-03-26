@@ -36,6 +36,8 @@ import ProposalGenerator from "@/pages/ProposalGenerator";
 import IMSRedirect from "@/pages/IMSRedirect";
 import SAPApiSettings from "@/pages/SAPApiSettings";
 import SAPSyncMonitor from "@/pages/SAPSyncMonitor";
+import PlantManagement from "@/pages/PlantManagement";
+import UserPermissionMatrix from "@/pages/UserPermissionMatrix";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -82,6 +84,8 @@ const App = () => (
                           <Route path="/help" element={<HelpSupport />} />
                           <Route path="/admin/sap-api" element={<SAPApiSettings />} />
                           <Route path="/admin/sap-sync" element={<SAPSyncMonitor />} />
+                          <Route path="/admin/plants" element={<PlantManagement />} />
+                          <Route path="/admin/user-matrix" element={<UserPermissionMatrix />} />
                           <Route path="/proposals" element={<ProposalGenerator />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>

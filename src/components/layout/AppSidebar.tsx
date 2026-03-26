@@ -1,4 +1,4 @@
-import { ClipboardList, Mail, Wrench, FileSpreadsheet, BarChart3, LogOut, Package, Building2, Users, Settings, PieChart, Printer, UserCog, TrendingUp, HelpCircle, FileText } from 'lucide-react';
+import { ClipboardList, Mail, Wrench, FileSpreadsheet, BarChart3, LogOut, Package, Building2, Users, Settings, PieChart, Printer, UserCog, TrendingUp, HelpCircle, FileText, Shield } from 'lucide-react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
@@ -41,6 +41,8 @@ const dashboardItems = [
 // Admin items
 const adminItems = [
   { title: 'User & Role Management', url: '/admin/users', icon: UserCog, roles: ['admin'] },
+  { title: 'Permission Matrix', url: '/admin/user-matrix', icon: Shield, roles: ['admin'] },
+  { title: 'Plant Management', url: '/admin/plants', icon: Building2, roles: ['admin'] },
   { title: 'SAP API Settings', url: '/admin/sap-api', icon: Settings, roles: ['admin'] },
   { title: 'SAP Sync Monitor', url: '/admin/sap-sync', icon: TrendingUp, roles: ['admin'] },
 ];
