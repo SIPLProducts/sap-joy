@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Search, UserCog, Shield, Building2, Edit, Trash2, Plus, RefreshCw, UserPlus } from 'lucide-react';
+import { Search, UserCog, Shield, Building2, Edit, Trash2, Plus, RefreshCw, UserPlus, KeyRound } from 'lucide-react';
 
 interface UserWithRole {
   id: string;
@@ -36,13 +36,29 @@ const ROLES: { value: AppRole; label: string; description: string }[] = [
   { value: 'mrb_committee', label: 'MRB Committee', description: 'MRB committee member' },
 ];
 
-const DEPARTMENTS = ['Quality', 'Purchase', 'Engineering', 'Production', 'Shop Floor', 'Management', 'IT'];
+const DEPARTMENTS = ['IT', 'Management', 'Quality', 'Purchase', 'Engineering', 'Shop Floor'];
+
+// Department → allowed roles mapping
+const DEPARTMENT_ROLE_MAP: Record<string, AppRole[]> = {
+  'IT': ['admin', 'executive', 'quality_head', 'quality', 'purchase_head', 'purchase', 'engineering_head', 'engineering', 'shop_floor', 'mrb_committee'],
+  'Management': ['executive', 'mrb_committee'],
+  'Quality': ['quality_head', 'quality'],
+  'Purchase': ['purchase_head', 'purchase'],
+  'Engineering': ['engineering_head', 'engineering'],
+  'Shop Floor': ['shop_floor'],
+};
 
 const getRoleBadgeVariant = (role: AppRole | null): "default" | "secondary" | "destructive" | "outline" => {
   if (!role) return 'outline';
   if (role === 'admin') return 'destructive';
   if (role.includes('head') || role === 'executive') return 'default';
   return 'secondary';
+};
+
+const getFilteredRoles = (department: string) => {
+  const allowedRoles = DEPARTMENT_ROLE_MAP[department];
+  if (!allowedRoles) return ROLES;
+  return ROLES.filter(r => allowedRoles.includes(r.value));
 };
 
 export default function UserManagement() {
@@ -56,6 +72,8 @@ export default function UserManagement() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<AppRole | ''>('');
+  const [selectedDepartment, setSelectedDepartment] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Create user form state
@@ -67,6 +85,18 @@ export default function UserManagement() {
   const [newUserPlant, setNewUserPlant] = useState('');
 
   const isAdmin = userRole === 'admin';
+
+  // Filtered roles based on selected department for Create dialog
+  const createDialogRoles = useMemo(() => {
+    if (!newUserDepartment) return ROLES;
+    return getFilteredRoles(newUserDepartment);
+  }, [newUserDepartment]);
+
+  // Filtered roles based on selected department for Edit dialog
+  const editDialogRoles = useMemo(() => {
+    if (!selectedDepartment) return ROLES;
+    return getFilteredRoles(selectedDepartment);
+  }, [selectedDepartment]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -114,33 +144,39 @@ export default function UserManagement() {
   const handleEditRole = (user: UserWithRole) => {
     setSelectedUser(user);
     setSelectedRole(user.role || '');
+    setSelectedDepartment(user.department || '');
+    setResetPassword('');
     setIsEditDialogOpen(true);
   };
 
-  const handleSaveRole = async () => {
-    if (!selectedUser || !selectedRole) return;
+  const handleSaveEdit = async () => {
+    if (!selectedUser) return;
     setSaving(true);
     try {
-      const { data: existingRole } = await supabase
-        .from('user_roles')
-        .select('id')
-        .eq('user_id', selectedUser.user_id)
-        .maybeSingle();
+      // Use edge function for all updates (role, department, password)
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: {
+          action: 'update_user',
+          user_id: selectedUser.user_id,
+          role: selectedRole || undefined,
+          department: selectedDepartment,
+          new_password: resetPassword || undefined,
+        },
+      });
 
-      if (existingRole) {
-        const { error } = await supabase.from('user_roles').update({ role: selectedRole }).eq('user_id', selectedUser.user_id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('user_roles').insert({ user_id: selectedUser.user_id, role: selectedRole });
-        if (error) throw error;
-      }
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
-      toast({ title: 'Success', description: `Role updated for ${selectedUser.full_name}` });
+      toast({
+        title: 'Success',
+        description: `User ${selectedUser.full_name} updated successfully${resetPassword ? ' (password reset)' : ''}`,
+      });
       setIsEditDialogOpen(false);
+      setResetPassword('');
       fetchUsers();
-    } catch (error) {
-      console.error('Error updating role:', error);
-      toast({ title: 'Error', description: 'Failed to update role', variant: 'destructive' });
+    } catch (error: any) {
+      console.error('Error updating user:', error);
+      toast({ title: 'Error', description: error?.message || 'Failed to update user', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -162,6 +198,26 @@ export default function UserManagement() {
       setSaving(false);
     }
   };
+
+  // When department changes in Create dialog, reset role if it's no longer valid
+  useEffect(() => {
+    if (newUserDepartment && newUserRole) {
+      const allowed = DEPARTMENT_ROLE_MAP[newUserDepartment];
+      if (allowed && !allowed.includes(newUserRole as AppRole)) {
+        setNewUserRole('');
+      }
+    }
+  }, [newUserDepartment]);
+
+  // When department changes in Edit dialog, reset role if it's no longer valid
+  useEffect(() => {
+    if (selectedDepartment && selectedRole) {
+      const allowed = DEPARTMENT_ROLE_MAP[selectedDepartment];
+      if (allowed && !allowed.includes(selectedRole as AppRole)) {
+        setSelectedRole('');
+      }
+    }
+  }, [selectedDepartment]);
 
   const handleCreateUser = async () => {
     if (!newUserEmail || !newUserPassword || !newUserFullName || !newUserRole) {
@@ -192,7 +248,6 @@ export default function UserManagement() {
 
       toast({ title: 'User Created', description: `${newUserEmail} has been created successfully with role ${ROLES.find(r => r.value === newUserRole)?.label}` });
       
-      // Reset form
       setNewUserEmail('');
       setNewUserPassword('');
       setNewUserFullName('');
@@ -213,6 +268,7 @@ export default function UserManagement() {
     user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (user.plant?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (user.department?.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (user.role?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
@@ -320,7 +376,7 @@ export default function UserManagement() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <CardTitle>Users</CardTitle>
-              <CardDescription>View and manage user roles</CardDescription>
+              <CardDescription>View and manage user roles and departments</CardDescription>
             </div>
             <div className="relative w-full md:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -358,7 +414,13 @@ export default function UserManagement() {
                     <TableCell className="font-medium">{user.full_name}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{user.plant || '-'}</TableCell>
-                    <TableCell>{user.department || '-'}</TableCell>
+                    <TableCell>
+                      {user.department ? (
+                        <Badge variant="outline">{user.department}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {user.role ? (
                         <Badge variant={getRoleBadgeVariant(user.role)}>
@@ -408,41 +470,37 @@ export default function UserManagement() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name *</Label>
-              <Input
-                id="fullName"
-                placeholder="Enter full name"
-                value={newUserFullName}
-                onChange={(e) => setNewUserFullName(e.target.value)}
-              />
+              <Input id="fullName" placeholder="Enter full name" value={newUserFullName} onChange={(e) => setNewUserFullName(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="user@example.com"
-                value={newUserEmail}
-                onChange={(e) => setNewUserEmail(e.target.value)}
-              />
+              <Input id="email" type="email" placeholder="user@example.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password *</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Min 6 characters"
-                value={newUserPassword}
-                onChange={(e) => setNewUserPassword(e.target.value)}
-              />
+              <Input id="password" type="password" placeholder="Min 6 characters" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="role">Role *</Label>
-              <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as AppRole)}>
+              <Label>Department *</Label>
+              <Select value={newUserDepartment} onValueChange={setNewUserDepartment}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
+                  <SelectValue placeholder="Select department first" />
                 </SelectTrigger>
                 <SelectContent>
-                  {ROLES.map((role) => (
+                  {DEPARTMENTS.map((dept) => (
+                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Role *</Label>
+              <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as AppRole)} disabled={!newUserDepartment}>
+                <SelectTrigger>
+                  <SelectValue placeholder={newUserDepartment ? "Select role" : "Select department first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {createDialogRoles.map((role) => (
                     <SelectItem key={role.value} value={role.value}>
                       {role.label}
                     </SelectItem>
@@ -451,8 +509,45 @@ export default function UserManagement() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="department">Department</Label>
-              <Select value={newUserDepartment} onValueChange={setNewUserDepartment}>
+              <Label htmlFor="plant">Plant</Label>
+              <Input id="plant" placeholder="e.g., 1300" value={newUserPlant} onChange={(e) => setNewUserPlant(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateUser} disabled={saving || !newUserEmail || !newUserPassword || !newUserFullName || !newUserRole || !newUserDepartment}>
+              {saving ? 'Creating...' : 'Create User'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5" />
+              Edit User
+            </DialogTitle>
+            <DialogDescription>
+              Update department, role, or reset password for {selectedUser?.full_name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* User Info (read-only) */}
+            <div className="space-y-2">
+              <Label>User</Label>
+              <div className="p-3 bg-muted rounded-md">
+                <p className="font-medium">{selectedUser?.full_name}</p>
+                <p className="text-sm text-muted-foreground">{selectedUser?.email}</p>
+              </div>
+            </div>
+
+            {/* Department */}
+            <div className="space-y-2">
+              <Label>Department</Label>
+              <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select department" />
                 </SelectTrigger>
@@ -463,53 +558,16 @@ export default function UserManagement() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="plant">Plant</Label>
-              <Input
-                id="plant"
-                placeholder="e.g., 1300"
-                value={newUserPlant}
-                onChange={(e) => setNewUserPlant(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateUser} disabled={saving || !newUserEmail || !newUserPassword || !newUserFullName || !newUserRole}>
-              {saving ? 'Creating...' : 'Create User'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      {/* Edit Role Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{selectedUser?.role ? 'Edit User Role' : 'Assign Role'}</DialogTitle>
-            <DialogDescription>
-              {selectedUser?.role
-                ? `Update the role for ${selectedUser?.full_name}`
-                : `Assign a role to ${selectedUser?.full_name}`
-              }
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
+            {/* Role (filtered by department) */}
             <div className="space-y-2">
-              <Label>User</Label>
-              <div className="p-3 bg-muted rounded-md">
-                <p className="font-medium">{selectedUser?.full_name}</p>
-                <p className="text-sm text-muted-foreground">{selectedUser?.email}</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
+              <Label>Role</Label>
               <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as AppRole)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a role" />
+                  <SelectValue placeholder={selectedDepartment ? "Select role" : "Select department first"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {ROLES.map((role) => (
+                  {editDialogRoles.map((role) => (
                     <SelectItem key={role.value} value={role.value}>
                       <div className="flex flex-col">
                         <span>{role.label}</span>
@@ -520,11 +578,31 @@ export default function UserManagement() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Reset Password */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <KeyRound className="h-4 w-4" />
+                Reset Password
+              </Label>
+              <Input
+                type="password"
+                placeholder="Leave blank to keep current password"
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+              />
+              {resetPassword && resetPassword.length < 6 && (
+                <p className="text-xs text-destructive">Password must be at least 6 characters</p>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveRole} disabled={!selectedRole || saving}>
-              {saving ? 'Saving...' : 'Save'}
+            <Button
+              onClick={handleSaveEdit}
+              disabled={saving || (!selectedRole && !resetPassword && !selectedDepartment) || (resetPassword.length > 0 && resetPassword.length < 6)}
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
