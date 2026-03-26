@@ -51,18 +51,35 @@ export function useShopFloorStock() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Fetch stock records from database
+  // Fetch ALL stock records from database (no 1000-row limit)
   const fetchStockRecords = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      // First get total count
+      const { count, error: countError } = await supabase
         .from('shop_floor_stock')
-        .select('*')
-        .eq('status', 'available')
-        .order('created_at', { ascending: false });
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'available');
 
-      if (error) throw error;
-      setStockRecords(data || []);
+      if (countError) throw countError;
+
+      const totalCount = count || 0;
+      const allRows: any[] = [];
+      const batchSize = 1000;
+
+      for (let offset = 0; offset < totalCount; offset += batchSize) {
+        const { data, error } = await supabase
+          .from('shop_floor_stock')
+          .select('*')
+          .eq('status', 'available')
+          .order('created_at', { ascending: false })
+          .range(offset, offset + batchSize - 1);
+
+        if (error) throw error;
+        if (data) allRows.push(...data);
+      }
+
+      setStockRecords(allRows);
     } catch (error) {
       console.error('Error fetching stock records:', error);
       toast({
