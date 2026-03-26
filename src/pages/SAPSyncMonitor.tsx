@@ -316,12 +316,12 @@ export default function SAPSyncMonitor() {
                             <Button
                               size="sm"
                               className="gap-1"
-                              disabled={syncing === config.id || isActionConfig(config)}
+                              disabled={syncing === config.id}
                               onClick={() => handleTriggerSync(config.id)}
-                              title={isActionConfig(config) ? '343/344 are action APIs. Run them from the MRB flow; this monitor shows their history only.' : undefined}
                             >
                               {syncing === config.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                              {isActionConfig(config) ? 'Action API' : 'Trigger Sync'}
+                              Trigger Sync
+                            </Button>
                             </Button>
                           </div>
                         </div>
