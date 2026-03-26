@@ -610,7 +610,7 @@ async function mapAndInsertData(
     inward_inspection_lots: new Set([
       'inspection_lot', 'material_code', 'material_description', 'plant', 'storage_location',
       'batch', 'uom', 'blocked_quantity', 'transaction_quantity', 'status', 'block_reason',
-      'vendor_code', 'vendor_name', 'po_number', 'grn_number', 'uploaded_by', 'upload_batch_id',
+      'vendor_code', 'vendor_name', 'po_number', 'po_item_number', 'grn_number', 'uploaded_by', 'upload_batch_id',
       'inspection_date', 'posting_date',
     ]),
     materials: new Set(['material_number', 'description', 'uom', 'category']),
