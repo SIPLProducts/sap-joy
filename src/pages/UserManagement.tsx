@@ -171,13 +171,14 @@ export default function UserManagement() {
         }
       }
 
-      // Password reset - use supabase auth admin update (requires service role, so we use the edge function only for password)
+      // Password reset via secure database RPC (no edge function needed)
       if (resetPassword && resetPassword.length >= 6) {
-        const { error: pwErr } = await supabase.functions.invoke('create-user', {
-          body: { action: 'update_user', user_id: selectedUser.user_id, new_password: resetPassword },
+        const { error: pwErr } = await supabase.rpc('admin_update_user_password', {
+          target_user_id: selectedUser.user_id,
+          new_password: resetPassword,
         });
         if (pwErr) {
-          toast({ title: 'Warning', description: 'Role/department updated but password reset requires backend function. Contact your system administrator.', variant: 'destructive' });
+          toast({ title: 'Warning', description: `Role/department updated but password reset failed: ${pwErr.message}`, variant: 'destructive' });
         }
       }
 
@@ -244,7 +245,12 @@ export default function UserManagement() {
 
     setSaving(true);
     try {
-      // Sign up user via Supabase Auth
+      // Save current admin session before creating new user
+      const { data: { session: adminSession } } = await supabase.auth.getSession();
+      const adminRefreshToken = adminSession?.refresh_token;
+      const adminAccessToken = adminSession?.access_token;
+
+      // Sign up user via Supabase Auth (auto-confirm is enabled)
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: newUserEmail.trim(),
         password: newUserPassword,
@@ -257,6 +263,14 @@ export default function UserManagement() {
 
       const newUserId = signUpData.user?.id;
       if (!newUserId) throw new Error('User creation failed - no user ID returned');
+
+      // Restore admin session immediately so we don't lose admin access
+      if (adminRefreshToken) {
+        await supabase.auth.setSession({
+          access_token: adminAccessToken!,
+          refresh_token: adminRefreshToken,
+        });
+      }
 
       // Wait briefly for the trigger to create profile
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -271,7 +285,7 @@ export default function UserManagement() {
       // Assign role
       await supabase.from('user_roles').insert({
         user_id: newUserId,
-        role: newUserRole,
+        role: newUserRole as AppRole,
       });
 
       toast({ title: 'User Created', description: `${newUserEmail} created with role ${ROLES.find(r => r.value === newUserRole)?.label}` });

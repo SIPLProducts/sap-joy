@@ -1256,6 +1256,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_update_user_password: {
+        Args: { new_password: string; target_user_id: string }
+        Returns: undefined
+      }
       get_user_plant: { Args: { _user_id: string }; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
