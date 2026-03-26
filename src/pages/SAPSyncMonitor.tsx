@@ -325,11 +325,6 @@ export default function SAPSyncMonitor() {
                             </Button>
                           </div>
                         </div>
-                        {isActionConfig(config) && (
-                          <p className="mt-3 text-xs text-muted-foreground">
-                            343/344 are movement APIs, so this page shows their recent history in Data Preview instead of running bulk data sync.
-                          </p>
-                        )}
                       </CardContent>
                     </Card>
                   ))}
