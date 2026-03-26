@@ -145,7 +145,7 @@ export default function UserManagement() {
 
   const handleEditRole = (user: UserWithRole) => {
     setSelectedUser(user);
-    setSelectedRole((user.role || '') as string);
+    setSelectedRole((user.role || '') as '' | AppRole);
     setSelectedDepartment(user.department || '');
     setResetPassword('');
     setIsEditDialogOpen(true);
