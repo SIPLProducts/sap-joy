@@ -423,7 +423,7 @@ export default function SAPSyncMonitor() {
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2 text-base">
                       <Database className="h-4 w-4" />
-                      {preview.table.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      {preview.table}
                     </CardTitle>
                     <Badge variant="outline">{preview.count} total records — Showing {preview.recentRecords.length}</Badge>
                   </div>
