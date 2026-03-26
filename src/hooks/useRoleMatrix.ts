@@ -6,6 +6,11 @@ import { useAuth } from '@/contexts/AuthContext';
 export interface RolePermission {
   role: AppRole;
   screen_key: string;
+  module_key?: string;
+  module_label?: string;
+  can_view?: boolean;
+  can_edit?: boolean;
+  plant?: string;
 }
 
 export function useRoleMatrix() {
@@ -21,7 +26,7 @@ export function useRoleMatrix() {
         .select('*');
       
       if (!error && data) {
-        setPermissions(data as RolePermission[]);
+        setPermissions(data.map(d => ({ ...d, screen_key: d.module_key, role: d.role as AppRole })) as RolePermission[]);
       }
     } catch (e) {
       console.error('Error fetching role permissions', e);

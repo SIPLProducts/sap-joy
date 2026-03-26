@@ -73,7 +73,7 @@ export default function RoleMatrix() {
         // Filter out admin since we hardcode admin access, and deduplicate
         const toInsert = internalPermissions
           .filter(p => p.role !== 'admin')
-          .map(p => ({ role: p.role, screen_key: p.screen_key }));
+          .map(p => ({ role: p.role as string, module_key: p.screen_key, module_label: p.screen_key }));
 
         const { error: insertError } = await supabase.from('role_permissions').insert(toInsert);
         if (insertError) throw insertError;
