@@ -8,6 +8,7 @@ import { RoleProvider } from "@/contexts/RoleContext";
 import { MRBProvider } from "@/contexts/MRBContext";
 import { InwardMRBProvider } from "@/contexts/InwardMRBContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { MasterAdminGuard } from "@/components/auth/MasterAdminGuard";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Login from "@/pages/Login";
 import KPIDashboard from "@/pages/KPIDashboard";
