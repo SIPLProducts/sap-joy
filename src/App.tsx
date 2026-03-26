@@ -36,6 +36,8 @@ import ProposalGenerator from "@/pages/ProposalGenerator";
 import IMSRedirect from "@/pages/IMSRedirect";
 import SAPApiSettings from "@/pages/SAPApiSettings";
 import SAPSyncMonitor from "@/pages/SAPSyncMonitor";
+import PlantManagement from "@/pages/PlantManagement";
+import UserPermissionMatrix from "@/pages/UserPermissionMatrix";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
