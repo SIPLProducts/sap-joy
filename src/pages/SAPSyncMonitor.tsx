@@ -339,6 +339,7 @@ export default function SAPSyncMonitor() {
                             </p>
                           </div>
                         )}
+                      </CardContent>
                     </Card>
                   ))}
                 </div>
