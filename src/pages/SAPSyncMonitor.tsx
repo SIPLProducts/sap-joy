@@ -313,17 +313,32 @@ export default function SAPSyncMonitor() {
                               {testing === config.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
                               Test Route
                             </Button>
-                            <Button
-                              size="sm"
-                              className="gap-1"
-                              disabled={syncing === config.id}
-                              onClick={() => handleTriggerSync(config.id)}
-                            >
-                              {syncing === config.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                              Trigger Sync
-                            </Button>
+                            {isActionConfig(config) ? (
+                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 px-3 py-1.5 text-xs">
+                                Action API — triggered from MRB Worklist
+                              </Badge>
+                            ) : (
+                              <Button
+                                size="sm"
+                                className="gap-1"
+                                disabled={syncing === config.id}
+                                onClick={() => handleTriggerSync(config.id)}
+                              >
+                                {syncing === config.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                Trigger Sync
+                              </Button>
+                            )}
                           </div>
                         </div>
+                        {isActionConfig(config) && (
+                          <div className="mt-3 p-2 rounded bg-amber-50 border border-amber-200">
+                            <p className="text-xs text-amber-800">
+                              <strong>343 (Blocked → Unrestricted)</strong> and <strong>344 (Unrestricted → Blocked)</strong> are transactional movement APIs. 
+                              They require a specific material payload (Material, Plant, SLoc, Batch, Qty) and are automatically triggered from the <strong>MRB Worklist</strong> during "Unblock & SAP Sync" actions. 
+                              Use "Test Route" to verify connectivity only.
+                            </p>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
