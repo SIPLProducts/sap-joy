@@ -38,13 +38,75 @@ Deno.serve(async (req) => {
     // Check if calling user is admin
     const { data: roleData } = await anonClient.from("user_roles").select("role").eq("user_id", callingUser.id).maybeSingle();
     if (roleData?.role !== "admin") {
-      return new Response(JSON.stringify({ error: "Only admins can create users" }), {
+      return new Response(JSON.stringify({ error: "Only admins can manage users" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { email, password, full_name, role, department, plant } = await req.json();
+    const body = await req.json();
+    const { action } = body;
+
+    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    // ─── UPDATE USER (role, department, password) ───
+    if (action === "update_user") {
+      const { user_id, role, department, plant, new_password } = body;
+
+      if (!user_id) {
+        return new Response(JSON.stringify({ error: "Missing user_id" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Update password if provided
+      if (new_password && new_password.length >= 6) {
+        const { error: pwError } = await adminClient.auth.admin.updateUserById(user_id, {
+          password: new_password,
+        });
+        if (pwError) {
+          return new Response(JSON.stringify({ error: `Password update failed: ${pwError.message}` }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
+      // Update profile (department, plant)
+      if (department !== undefined || plant !== undefined) {
+        const updates: Record<string, string | null> = {};
+        if (department !== undefined) updates.department = department || null;
+        if (plant !== undefined) updates.plant = plant || null;
+
+        await adminClient.from("profiles").update(updates).eq("user_id", user_id);
+      }
+
+      // Update role if provided
+      if (role) {
+        const { data: existingRole } = await adminClient
+          .from("user_roles")
+          .select("id")
+          .eq("user_id", user_id)
+          .maybeSingle();
+
+        if (existingRole) {
+          await adminClient.from("user_roles").update({ role }).eq("user_id", user_id);
+        } else {
+          await adminClient.from("user_roles").insert({ user_id, role });
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: "User updated successfully" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ─── CREATE USER (default action) ───
+    const { email, password, full_name, role, department, plant } = body;
 
     if (!email || !password || !full_name || !role) {
       return new Response(JSON.stringify({ error: "Missing required fields: email, password, full_name, role" }), {
@@ -53,12 +115,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Use service role client to create user
-    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-
-    // Create the auth user with auto-confirm
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
       password,
@@ -75,13 +131,11 @@ Deno.serve(async (req) => {
 
     const userId = newUser.user.id;
 
-    // Update profile with department and plant
     await adminClient.from("profiles").update({
       department: department || null,
       plant: plant || null,
     }).eq("user_id", userId);
 
-    // Assign role
     const { error: roleError } = await adminClient.from("user_roles").insert({
       user_id: userId,
       role,
