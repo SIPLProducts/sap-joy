@@ -73,6 +73,8 @@ interface FormData {
   vendorCode: string;
   vendorName: string;
   purchaseOrderNumber: string;
+  poItemNumber: string;
+  grnNumber: string;
   qualityDecision: string;
   defectCategory: string;
   defectDescription: string;
