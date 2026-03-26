@@ -39,6 +39,8 @@ interface InspectionLotRecord {
   storageLocation: string;
   batch: string;
   poNumber: string;
+  poItemNumber: string;
+  grnNumber: string;
   transactionQuantity: number;
   uom: string;
   blockedQuantity: number;
