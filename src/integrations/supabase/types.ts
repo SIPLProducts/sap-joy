@@ -1120,6 +1120,7 @@ export type Database = {
           shelf_number: string | null
           source: string | null
           status: string | null
+          stock_key: string | null
           storage_location: string | null
           storage_location_desc: string | null
           transfer_qty: number | null
@@ -1151,6 +1152,7 @@ export type Database = {
           shelf_number?: string | null
           source?: string | null
           status?: string | null
+          stock_key?: string | null
           storage_location?: string | null
           storage_location_desc?: string | null
           transfer_qty?: number | null
@@ -1182,6 +1184,7 @@ export type Database = {
           shelf_number?: string | null
           source?: string | null
           status?: string | null
+          stock_key?: string | null
           storage_location?: string | null
           storage_location_desc?: string | null
           transfer_qty?: number | null
