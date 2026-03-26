@@ -460,6 +460,7 @@ export default function CreateInwardMRB() {
         vendor_name: formData.vendorName,
         inspection_lot: formData.inspectionLot,
         po_number: formData.purchaseOrderNumber,
+        grn_number: formData.grnNumber || null,
         total_quantity: formData.transactionQuantity,
         blocked_quantity: formData.blockedQuantity,
         accepted_quantity: formData.qualityDecision === 'accept' ? formData.transactionQuantity : 0,
