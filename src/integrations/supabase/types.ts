@@ -165,8 +165,6 @@ export type Database = {
           material_description: string | null
           plant: string
           po_number: string | null
-          po_item_number: string | null
-          po_line_item: string | null
           posting_date: string | null
           status: string
           storage_location: string | null
@@ -191,8 +189,6 @@ export type Database = {
           material_description?: string | null
           plant: string
           po_number?: string | null
-          po_item_number?: string | null
-          po_line_item?: string | null
           posting_date?: string | null
           status?: string
           storage_location?: string | null
@@ -217,8 +213,6 @@ export type Database = {
           material_description?: string | null
           plant?: string
           po_number?: string | null
-          po_item_number?: string | null
-          po_line_item?: string | null
           posting_date?: string | null
           status?: string
           storage_location?: string | null
@@ -401,8 +395,6 @@ export type Database = {
           plant: string
           plant_id: string | null
           po_number: string | null
-          po_item_number: string | null
-          po_line_item: string | null
           production_order_number: string | null
           purchase_action: string | null
           purchase_approved_at: string | null
@@ -487,8 +479,6 @@ export type Database = {
           plant: string
           plant_id?: string | null
           po_number?: string | null
-          po_item_number?: string | null
-          po_line_item?: string | null
           production_order_number?: string | null
           purchase_action?: string | null
           purchase_approved_at?: string | null
@@ -573,8 +563,6 @@ export type Database = {
           plant?: string
           plant_id?: string | null
           po_number?: string | null
-          po_item_number?: string | null
-          po_line_item?: string | null
           production_order_number?: string | null
           purchase_action?: string | null
           purchase_approved_at?: string | null
