@@ -301,7 +301,6 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
         vendor_name: row.vendor_name || null,
         po_number: row.po_number || null,
         po_item_number: row.po_item_number || null,
-        po_line_item: row.po_item_number || null,
         grn_number: row.grn_number || null,
         status: 'pending',
         uploaded_by: user?.email || 'unknown',
