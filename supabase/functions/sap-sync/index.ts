@@ -610,7 +610,7 @@ async function mapAndInsertData(
     inward_inspection_lots: new Set([
       'inspection_lot', 'material_code', 'material_description', 'plant', 'storage_location',
       'batch', 'uom', 'blocked_quantity', 'transaction_quantity', 'status', 'block_reason',
-      'vendor_code', 'vendor_name', 'po_number', 'grn_number', 'uploaded_by', 'upload_batch_id',
+      'vendor_code', 'vendor_name', 'po_number', 'po_item_number', 'grn_number', 'uploaded_by', 'upload_batch_id',
       'inspection_date', 'posting_date',
     ]),
     materials: new Set(['material_number', 'description', 'uom', 'category']),
@@ -637,9 +637,11 @@ async function mapAndInsertData(
       matnr: 'material_code', material: 'material_code', maktx: 'material_description',
       material_desc: 'material_description', werks: 'plant', charg: 'batch',
       lgort: 'storage_location', prueflos: 'inspection_lot', lifnr: 'vendor_code',
-      name1: 'vendor_name', ebeln: 'po_number', meins: 'uom', menge: 'blocked_quantity',
+      name1: 'vendor_name', ebeln: 'po_number', ebelp: 'po_item_number', mblnr: 'grn_number',
+      meins: 'uom', menge: 'blocked_quantity',
       inspection_lot: 'inspection_lot', storage_location: 'storage_location',
-      vendor_code: 'vendor_code', vendor_name: 'vendor_name',
+      vendor_code: 'vendor_code', vendor_name: 'vendor_name', po_item_number: 'po_item_number',
+      grn_number: 'grn_number',
       qals_prueflos: 'inspection_lot', inspection_date: 'inspection_date', posting_date: 'posting_date',
     },
     materials: {
