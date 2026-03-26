@@ -38,21 +38,24 @@ const dashboardItems = [
   { title: 'Executive Summary', url: '/dashboard/executive-summary', icon: PieChart, roles: ['executive', 'admin', 'mrb_committee'], dashboardKey: 'executive_summary' },
 ];
 
-// Admin items
+// Admin items (non-SAP)
 const adminItems = [
-  { title: 'User & Role Management', url: '/admin/users', icon: UserCog, roles: ['admin'] },
-  { title: 'Permission Matrix', url: '/admin/user-matrix', icon: Shield, roles: ['admin'] },
-  { title: 'Plant Management', url: '/admin/plants', icon: Building2, roles: ['admin'] },
-  { title: 'SAP API Settings', url: '/admin/sap-api', icon: Settings, roles: ['admin'] },
-  { title: 'SAP Sync Monitor', url: '/admin/sap-sync', icon: TrendingUp, roles: ['admin'] },
+  { title: 'User & Role Management', url: '/admin/users', icon: UserCog, roles: ['admin'], masterOnly: false },
+  { title: 'Permission Matrix', url: '/admin/user-matrix', icon: Shield, roles: ['admin'], masterOnly: false },
+  { title: 'Plant Management', url: '/admin/plants', icon: Building2, roles: ['admin'], masterOnly: false },
+  { title: 'SAP API Settings', url: '/admin/sap-api', icon: Settings, roles: ['admin'], masterOnly: true },
+  { title: 'SAP Sync Monitor', url: '/admin/sap-sync', icon: TrendingUp, roles: ['admin'], masterOnly: true },
 ];
+
+const MASTER_ADMIN_EMAIL = 'masteradmin@sharviinfotech.com';
 
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { roleDisplayName } = useRole();
-  const { signOut, userRole } = useAuth();
+  const { signOut, userRole, profile } = useAuth();
   const { isDashboardEnabled } = useDashboardConfig();
+  const isMasterAdmin = profile?.email === MASTER_ADMIN_EMAIL;
 
   // Filter items based on authenticated user's role
   const filteredItems = menuItems.filter(item => 
@@ -144,7 +147,9 @@ export function AppSidebar() {
             <SidebarGroupLabel className="text-sidebar-foreground/60">Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {adminItems.map((item) => {
+                {adminItems
+                  .filter(item => !item.masterOnly || isMasterAdmin)
+                  .map((item) => {
                   const isActive = location.pathname === item.url;
                   return (
                     <SidebarMenuItem key={item.title}>
