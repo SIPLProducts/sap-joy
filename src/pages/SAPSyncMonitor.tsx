@@ -322,7 +322,6 @@ export default function SAPSyncMonitor() {
                               {syncing === config.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                               Trigger Sync
                             </Button>
-                            </Button>
                           </div>
                         </div>
                       </CardContent>
