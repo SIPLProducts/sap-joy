@@ -1,0 +1,1 @@
+UPDATE public.sap_api_config SET username = 'wfms_user', encrypted_password = 'R@p!d#3126';
