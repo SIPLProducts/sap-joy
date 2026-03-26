@@ -245,7 +245,12 @@ export default function UserManagement() {
 
     setSaving(true);
     try {
-      // Sign up user via Supabase Auth
+      // Save current admin session before creating new user
+      const { data: { session: adminSession } } = await supabase.auth.getSession();
+      const adminRefreshToken = adminSession?.refresh_token;
+      const adminAccessToken = adminSession?.access_token;
+
+      // Sign up user via Supabase Auth (auto-confirm is enabled)
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: newUserEmail.trim(),
         password: newUserPassword,
@@ -258,6 +263,14 @@ export default function UserManagement() {
 
       const newUserId = signUpData.user?.id;
       if (!newUserId) throw new Error('User creation failed - no user ID returned');
+
+      // Restore admin session immediately so we don't lose admin access
+      if (adminRefreshToken) {
+        await supabase.auth.setSession({
+          access_token: adminAccessToken!,
+          refresh_token: adminRefreshToken,
+        });
+      }
 
       // Wait briefly for the trigger to create profile
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -272,7 +285,7 @@ export default function UserManagement() {
       // Assign role
       await supabase.from('user_roles').insert({
         user_id: newUserId,
-        role: newUserRole,
+        role: newUserRole as AppRole,
       });
 
       toast({ title: 'User Created', description: `${newUserEmail} created with role ${ROLES.find(r => r.value === newUserRole)?.label}` });
