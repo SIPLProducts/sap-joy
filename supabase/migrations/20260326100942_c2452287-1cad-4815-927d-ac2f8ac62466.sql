@@ -1,0 +1,2 @@
+ALTER TABLE public.sap_api_config DROP CONSTRAINT sap_api_config_sync_frequency_check;
+ALTER TABLE public.sap_api_config ADD CONSTRAINT sap_api_config_sync_frequency_check CHECK (sync_frequency::text = ANY (ARRAY['manual', 'every_5_min', 'every_15_min', 'every_30_min', 'hourly', 'every_6_hours', 'daily', 'weekly', 'custom']::text[]));
