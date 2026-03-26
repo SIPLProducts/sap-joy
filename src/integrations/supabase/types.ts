@@ -166,6 +166,7 @@ export type Database = {
           plant: string
           po_number: string | null
           po_item_number: string | null
+          po_line_item: string | null
           posting_date: string | null
           status: string
           storage_location: string | null
@@ -191,6 +192,7 @@ export type Database = {
           plant: string
           po_number?: string | null
           po_item_number?: string | null
+          po_line_item?: string | null
           posting_date?: string | null
           status?: string
           storage_location?: string | null
@@ -216,6 +218,7 @@ export type Database = {
           plant?: string
           po_number?: string | null
           po_item_number?: string | null
+          po_line_item?: string | null
           posting_date?: string | null
           status?: string
           storage_location?: string | null
@@ -399,6 +402,7 @@ export type Database = {
           plant_id: string | null
           po_number: string | null
           po_item_number: string | null
+          po_line_item: string | null
           production_order_number: string | null
           purchase_action: string | null
           purchase_approved_at: string | null
@@ -484,6 +488,7 @@ export type Database = {
           plant_id?: string | null
           po_number?: string | null
           po_item_number?: string | null
+          po_line_item?: string | null
           production_order_number?: string | null
           purchase_action?: string | null
           purchase_approved_at?: string | null
@@ -569,6 +574,7 @@ export type Database = {
           plant_id?: string | null
           po_number?: string | null
           po_item_number?: string | null
+          po_line_item?: string | null
           production_order_number?: string | null
           purchase_action?: string | null
           purchase_approved_at?: string | null
@@ -766,6 +772,42 @@ export type Database = {
           plant?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      role_permissions: {
+        Row: {
+          can_edit: boolean
+          can_view: boolean
+          created_at: string
+          id: string
+          module_key: string
+          module_label: string
+          plant: string
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          can_edit?: boolean
+          can_view?: boolean
+          created_at?: string
+          id?: string
+          module_key: string
+          module_label: string
+          plant?: string
+          role: string
+          updated_at?: string
+        }
+        Update: {
+          can_edit?: boolean
+          can_view?: boolean
+          created_at?: string
+          id?: string
+          module_key?: string
+          module_label?: string
+          plant?: string
+          role?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1090,6 +1132,7 @@ export type Database = {
           shelf_number: string | null
           source: string | null
           status: string | null
+          stock_key: string | null
           storage_location: string | null
           storage_location_desc: string | null
           transfer_qty: number | null
@@ -1121,6 +1164,7 @@ export type Database = {
           shelf_number?: string | null
           source?: string | null
           status?: string | null
+          stock_key?: string | null
           storage_location?: string | null
           storage_location_desc?: string | null
           transfer_qty?: number | null
@@ -1152,6 +1196,7 @@ export type Database = {
           shelf_number?: string | null
           source?: string | null
           status?: string | null
+          stock_key?: string | null
           storage_location?: string | null
           storage_location_desc?: string | null
           transfer_qty?: number | null
@@ -1226,6 +1271,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_update_user_password: {
+        Args: { new_password: string; target_user_id: string }
+        Returns: undefined
+      }
       get_user_plant: { Args: { _user_id: string }; Returns: string }
       get_user_role: {
         Args: { _user_id: string }

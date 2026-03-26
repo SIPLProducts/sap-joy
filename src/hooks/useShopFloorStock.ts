@@ -51,39 +51,36 @@ export function useShopFloorStock() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Fetch stock records from database
+  // Fetch ALL stock records from database (no 1000-row limit)
   const fetchStockRecords = useCallback(async () => {
     setIsLoading(true);
     try {
-      let allData: ShopFloorStockRecord[] = [];
-      let page = 0;
-      let hasMore = true;
-      const CHUNK_SIZE = 1000;
+      // First get total count
+      const { count, error: countError } = await supabase
+        .from('shop_floor_stock')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'available');
 
-      while (hasMore) {
-        console.log(`Fetching stock records page ${page}...`);
+      if (countError) throw countError;
+
+      const totalCount = count || 0;
+      const allRows: any[] = [];
+      const batchSize = 1000;
+
+      for (let offset = 0; offset < totalCount; offset += batchSize) {
+        console.log(`Fetching stock records offset ${offset}...`);
         const { data, error } = await supabase
           .from('shop_floor_stock')
           .select('*')
           .eq('status', 'available')
           .order('created_at', { ascending: false })
-          .range(page * CHUNK_SIZE, (page + 1) * CHUNK_SIZE - 1);
+          .range(offset, offset + batchSize - 1);
 
         if (error) throw error;
-
-        if (data && data.length > 0) {
-          allData = [...allData, ...data];
-          if (data.length < CHUNK_SIZE) {
-            hasMore = false;
-          } else {
-            page++;
-          }
-        } else {
-          hasMore = false;
-        }
+        if (data) allRows.push(...data);
       }
 
-      setStockRecords(allData);
+      setStockRecords(allRows);
     } catch (error) {
       console.error('Error fetching stock records:', error);
       toast({
@@ -155,10 +152,7 @@ export function useShopFloorStock() {
 
       const { data, error } = await supabase
         .from('shop_floor_stock')
-        .upsert(stockData, { 
-          onConflict: 'plant,material_code,batch,storage_location',
-          ignoreDuplicates: false 
-        })
+        .upsert(stockData, { onConflict: 'stock_key' })
         .select();
 
       if (error) throw error;

@@ -534,7 +534,7 @@ async function mapAndInsertClientSide(
     inward_inspection_lots: new Set([
       'inspection_lot', 'material_code', 'material_description', 'plant', 'storage_location',
       'batch', 'uom', 'blocked_quantity', 'transaction_quantity', 'status', 'block_reason',
-      'vendor_code', 'vendor_name', 'po_number', 'po_item_number', 'grn_number', 'uploaded_by', 'upload_batch_id',
+      'vendor_code', 'vendor_name', 'po_number', 'po_item_number', 'po_line_item', 'grn_number', 'uploaded_by', 'upload_batch_id',
       'inspection_date', 'posting_date',
     ]),
   };
@@ -551,7 +551,7 @@ async function mapAndInsertClientSide(
     inward_inspection_lots: {
       matnr: 'material_code', maktx: 'material_description', werks: 'plant', werk: 'plant', charg: 'batch',
       lgort: 'storage_location', prueflos: 'inspection_lot', lifnr: 'vendor_code',
-      name1: 'vendor_name', ebeln: 'po_number', ebelp: 'po_item_number', mblnr: 'grn_number', meins: 'uom', menge: 'blocked_quantity',
+      name1: 'vendor_name', ebeln: 'po_number', ebelp: 'po_item_number', po_line_item: 'po_line_item', mblnr: 'grn_number', meins: 'uom', menge: 'blocked_quantity',
       inspection_lot: 'inspection_lot', storage_location: 'storage_location',
       vendor_code: 'vendor_code', vendor_name: 'vendor_name',
       qals_prueflos: 'inspection_lot', inspection_date: 'inspection_date', posting_date: 'posting_date',
@@ -661,9 +661,15 @@ async function mapAndInsertClientSide(
       const batch = sanitizedRows.slice(i, i + batchSize);
       console.log(`[SAP Sync DB] Upserting batch of ${batch.length} rows to ${tableName}...`);
       
+      const upsertOptions = tableName === 'inward_inspection_lots'
+        ? { onConflict: 'inspection_lot' }
+        : tableName === 'shop_floor_stock'
+        ? { onConflict: 'stock_key' }
+        : undefined;
+
       const { data, error } = await (supabase
         .from(tableName as 'shop_floor_stock')
-        .upsert(batch as any, tableName === 'inward_inspection_lots' ? { onConflict: 'inspection_lot' } : undefined) as any)
+        .upsert(batch as any, upsertOptions as any) as any)
         .select();
 
       if (error) {

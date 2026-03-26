@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { createClient } from '@supabase/supabase-js';
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Search, UserCog, Shield, Building2, Edit, Trash2, Plus, RefreshCw, UserPlus } from 'lucide-react';
+import { Search, UserCog, Shield, Building2, Edit, Trash2, Plus, RefreshCw, UserPlus, KeyRound } from 'lucide-react';
 
 interface UserWithRole {
   id: string;
@@ -39,22 +39,29 @@ const ROLES: { value: AppRole; label: string; description: string }[] = [
 
 const DEPARTMENTS = ['IT', 'Management', 'Quality', 'Purchase', 'Engineering', 'Shop Floor', 'MRB Committee'];
 
-const getAvailableRolesForDepartment = (dept: string) => {
-  if (dept === 'IT') return ROLES;
-  if (dept === 'Management') return ROLES.filter(r => r.value === 'executive');
-  if (dept === 'Quality') return ROLES.filter(r => r.value === 'quality_head' || r.value === 'quality');
-  if (dept === 'Purchase') return ROLES.filter(r => r.value === 'purchase_head' || r.value === 'purchase');
-  if (dept === 'Engineering') return ROLES.filter(r => r.value === 'engineering_head' || r.value === 'engineering');
-  if (dept === 'Shop Floor') return ROLES.filter(r => r.value === 'shop_floor');
-  if (dept === 'MRB Committee') return ROLES.filter(r => r.value === 'mrb_committee');
-  return ROLES;
+const DEPARTMENT_ROLE_MAP: Record<string, AppRole[]> = {
+  'IT': ['admin', 'executive', 'quality_head', 'quality', 'purchase_head', 'purchase', 'engineering_head', 'engineering', 'shop_floor', 'mrb_committee'],
+  'Management': ['executive', 'mrb_committee'],
+  'Quality': ['quality_head', 'quality'],
+  'Purchase': ['purchase_head', 'purchase'],
+  'Engineering': ['engineering_head', 'engineering'],
+  'Shop Floor': ['shop_floor'],
+  'MRB Committee': ['mrb_committee'],
 };
+
+const HIDDEN_EMAILS = ['masteradmin@sharviinfotech.com', 'bala@sharviinfotech.com'];
 
 const getRoleBadgeVariant = (role: AppRole | null): "default" | "secondary" | "destructive" | "outline" => {
   if (!role) return 'outline';
   if (role === 'admin') return 'destructive';
   if (role.includes('head') || role === 'executive') return 'default';
   return 'secondary';
+};
+
+const getFilteredRoles = (department: string) => {
+  const allowedRoles = DEPARTMENT_ROLE_MAP[department];
+  if (!allowedRoles) return ROLES;
+  return ROLES.filter(r => allowedRoles.includes(r.value));
 };
 
 export default function UserManagement() {
@@ -71,18 +78,27 @@ export default function UserManagement() {
   // Edit logic state
   const [selectedRole, setSelectedRole] = useState<AppRole | ''>('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
-  const [editPassword, setEditPassword] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Create user form state
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserFullName, setNewUserFullName] = useState('');
   const [newUserRole, setNewUserRole] = useState<AppRole | ''>('');
   const [newUserDepartment, setNewUserDepartment] = useState('');
-  const [newUserPlant, setNewUserPlant] = useState('');
+  const [newUserPlant, setNewUserPlant] = useState('1300');
 
   const isAdmin = userRole === 'admin';
+
+  const createDialogRoles = useMemo(() => {
+    if (!newUserDepartment) return ROLES;
+    return getFilteredRoles(newUserDepartment);
+  }, [newUserDepartment]);
+
+  const editDialogRoles = useMemo(() => {
+    if (!selectedDepartment) return ROLES;
+    return getFilteredRoles(selectedDepartment);
+  }, [selectedDepartment]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -101,6 +117,7 @@ export default function UserManagement() {
       if (rolesError) throw rolesError;
 
       const usersWithRoles: UserWithRole[] = (profiles || [])
+        .filter(p => !HIDDEN_EMAILS.includes(p.email))
         .map(profile => {
           const userRoleData = roles?.find(r => r.user_id === profile.user_id);
           return {
@@ -113,11 +130,7 @@ export default function UserManagement() {
             role: userRoleData?.role as AppRole || null,
             created_at: profile.created_at,
           };
-        })
-        .filter(u => 
-          u.email !== 'masteradmin@sharviinfotech.com' && 
-          u.email !== 'bala@sharviinfotech.com'
-        );
+        });
 
       setUsers(usersWithRoles);
     } catch (error) {
@@ -128,23 +141,26 @@ export default function UserManagement() {
     }
   };
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  useEffect(() => { fetchUsers(); }, []);
 
   const handleEditRole = (user: UserWithRole) => {
     setSelectedUser(user);
     setSelectedRole(user.role || '');
     setSelectedDepartment(user.department || '');
-    setEditPassword('');
+    setResetPassword('');
     setIsEditDialogOpen(true);
   };
 
-  const handleSaveRole = async () => {
-    if (!selectedUser || !selectedRole) return;
+  const handleSaveEdit = async () => {
+    if (!selectedUser) return;
     setSaving(true);
     try {
-      // 1. Update Role Mapping
+      // Update profile (department)
+      if (selectedDepartment) {
+        await supabase.from('profiles').update({ department: selectedDepartment }).eq('user_id', selectedUser.user_id);
+      }
+
+      // Update role mapping
       const { data: existingRole } = await supabase
         .from('user_roles')
         .select('id')
@@ -159,32 +175,30 @@ export default function UserManagement() {
         if (error) throw error;
       }
 
-      // 2. Update Department
-      if (selectedDepartment !== selectedUser.department) {
-        const { error: deptError } = await supabase.from('profiles').update({ department: selectedDepartment }).eq('user_id', selectedUser.user_id);
-        if (deptError) throw deptError;
-      }
-
-      // 3. Reset Password natively inside DB (if provided)
-      if (editPassword.trim()) {
-        const { error: passError } = await (supabase.rpc as any)('admin_update_user_password', {
-          p_target_id: selectedUser.user_id,
-          p_new_password: editPassword.trim()
-        });
-
-        if (passError) {
-           console.error('Password reset RPC failed:', passError);
-           // Fallback to error
-           throw new Error("Password reset failed: Do you have the RPC function configured?");
+      // Password reset via secure database RPC
+      if (resetPassword.trim()) {
+        const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{8,10}$/;
+        if (!passwordRegex.test(resetPassword.trim())) {
+          throw new Error('Password must be 8-10 characters long, containing at least one letter and one number.');
         }
+
+        const { error: pwErr } = await supabase.rpc('admin_update_user_password', {
+          target_user_id: selectedUser.user_id,
+          new_password: resetPassword.trim(),
+        });
+        if (pwErr) throw pwErr;
       }
 
-      toast({ title: 'Success', description: `User details updated for ${selectedUser.full_name}` });
+      toast({
+        title: 'Success',
+        description: `User ${selectedUser.full_name} updated successfully`,
+      });
       setIsEditDialogOpen(false);
+      setResetPassword('');
       fetchUsers();
     } catch (error: any) {
       console.error('Error updating user:', error);
-      toast({ title: 'Error updating user', description: error.message || 'Failed to update user', variant: 'destructive' });
+      toast({ title: 'Error', description: error?.message || 'Failed to update user', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -207,21 +221,34 @@ export default function UserManagement() {
     }
   };
 
+  useEffect(() => {
+    if (newUserDepartment && newUserRole) {
+      const allowed = DEPARTMENT_ROLE_MAP[newUserDepartment];
+      if (allowed && !allowed.includes(newUserRole as AppRole)) {
+        setNewUserRole('');
+      }
+    }
+  }, [newUserDepartment]);
+
+  useEffect(() => {
+    if (selectedDepartment && selectedRole) {
+      const allowed = DEPARTMENT_ROLE_MAP[selectedDepartment];
+      if (allowed && !allowed.includes(selectedRole as AppRole)) {
+        setSelectedRole('');
+      }
+    }
+  }, [selectedDepartment]);
+
+  // Create user using supabase.auth.signUp (no edge function)
   const handleCreateUser = async () => {
-    console.log('[Create User] ------------- START -------------');
-    
-    // 1. Validate Form Fields
-    if (!newUserEmail || !newUserPassword || !newUserFullName || !newUserRole) {
-      console.error('[Create User] Validation failed: Missing required fields');
+    if (!newUserEmail || !newUserPassword || !newUserFullName || !newUserRole || !newUserDepartment) {
       toast({ title: 'Validation Error', description: 'Please fill all required fields', variant: 'destructive' });
       return;
     }
-
-    // 2. Validate Password Policy (Frontend rules)
-    // Rule: At least one letter, at least one number, min 8, max 10
+    
+    // Validate Password Policy: 8-10 characters, at least one letter and one number
     const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{8,10}$/;
     if (!passwordRegex.test(newUserPassword)) {
-      console.error('[Create User] Validation failed: Password does not meet policy. Length: ' + newUserPassword.length);
       toast({ 
         title: 'Password Policy Error', 
         description: 'Password must be 8-10 characters long, containing at least one letter and one number.', 
@@ -232,9 +259,7 @@ export default function UserManagement() {
 
     setSaving(true);
     try {
-      console.log(`[Create User] Proceeding to create user: ${newUserEmail} without Edge Functions...`);
-      
-      // 3. Create a temporary, non-persisting client so we don't log out the Admin!
+      // Use a temporary client to avoid logging out the current admin session
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
       const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
       
@@ -243,77 +268,50 @@ export default function UserManagement() {
           persistSession: false,
           autoRefreshToken: false,
           detectSessionInUrl: false,
-          storageKey: 'temp-create-user-token' // Silences "Multiple GoTrueClient" warning
+          storageKey: 'temp-create-user-token'
         }
       });
 
-      // 4. Call signUp on the Temporary Client
-      console.log(`[Create User] Calling auth.signUp for ${newUserEmail}...`);
       const { data: signUpData, error: signUpError } = await tempClient.auth.signUp({
         email: newUserEmail.trim(),
         password: newUserPassword,
         options: {
           data: {
             full_name: newUserFullName.trim(),
-            role: newUserRole,
-            department: newUserDepartment || null,
-            plant: newUserPlant || null,
           }
         }
       });
 
-      if (signUpError) {
-        console.error('[Create User] auth.signUp failed:', signUpError);
-        throw new Error(signUpError.message || 'Failed to sign up user');
-      }
-
-      if (!signUpData.user) {
-        console.error('[Create User] auth.signUp succeeded but no user object returned', signUpData);
-        throw new Error('User creation failed silently.');
-      }
+      if (signUpError) throw signUpError;
+      if (!signUpData.user) throw new Error('User creation failed silently.');
       
-      console.log(`[Create User] auth.signUp success! New user ID: ${signUpData.user.id}`);
+      const newUserId = signUpData.user.id;
 
-      // 5. Explicitly assign the role in public.user_roles using the Admin's active session!
-      // Your Postgres Database has a trigger that automatically creates a default role 
-      // when a user is created! So we cannot just INSERT, we must UPDATE the row it created to avoid 409 Conflicts.
-      console.log(`[Create User] Assigning role '${newUserRole}' to user [${signUpData.user.id}]`);
-      
-      const { data: existingRole } = await supabase
-        .from('user_roles')
-        .select('id')
-        .eq('user_id', signUpData.user.id)
-        .maybeSingle();
+      // Update profile and assign role using the active admin session
+      const { error: profileUpdateError } = await supabase.from('profiles').update({
+        department: newUserDepartment,
+        plant: newUserPlant || '1300',
+        full_name: newUserFullName.trim(),
+      }).eq('user_id', newUserId);
 
-      let roleError;
-      if (existingRole) {
-         console.log(`[Create User] Postgres trigger previously created a role row. Updating it to '${newUserRole}'...`);
-         const { error } = await supabase.from('user_roles').update({ role: newUserRole }).eq('user_id', signUpData.user.id);
-         roleError = error;
-      } else {
-         console.log(`[Create User] No default role found. Inserting '${newUserRole}' directly...`);
-         const { error } = await supabase.from('user_roles').insert({
-           user_id: signUpData.user.id,
-           role: newUserRole
-         });
-         roleError = error;
-      }
+      if (profileUpdateError) throw profileUpdateError;
 
-      if (roleError) {
-        console.error('[Create User] Role assignment failed. The user was created but role mapping failed.', roleError);
-        toast({ title: 'Warning', description: `User created, but role assignment failed: ${roleError.message}`, variant: 'destructive' });
-      } else {
-        console.log(`[Create User] Role successfully assigned.`);
-        toast({ title: 'User Created', description: `${newUserEmail} has been created successfully with role ${ROLES.find(r => r.value === newUserRole)?.label}` });
-      }
-      
-      // 6. Reset Form & Refresh Users
+      const { error: roleInsertError } = await supabase.from('user_roles').upsert({
+        user_id: newUserId,
+        role: newUserRole as AppRole,
+      }, {
+        onConflict: 'user_id',
+      });
+
+      if (roleInsertError) throw roleInsertError;
+
+      toast({ title: 'User Created', description: `${newUserEmail} created with role ${ROLES.find(r => r.value === newUserRole)?.label}` });
       setNewUserEmail('');
       setNewUserPassword('');
       setNewUserFullName('');
       setNewUserRole('');
       setNewUserDepartment('');
-      setNewUserPlant('');
+      setNewUserPlant('1300');
       setIsCreateDialogOpen(false);
       fetchUsers();
       
@@ -330,6 +328,7 @@ export default function UserManagement() {
     user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (user.plant?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (user.department?.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (user.role?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
@@ -341,8 +340,7 @@ export default function UserManagement() {
             <Shield className="h-16 w-16 text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold text-foreground mb-2">Access Denied</h2>
             <p className="text-muted-foreground text-center">
-              You don't have permission to access the User & Role Management page.
-              <br />Only administrators can manage users and roles.
+              Only administrators can manage users and roles.
             </p>
           </CardContent>
         </Card>
@@ -352,109 +350,72 @@ export default function UserManagement() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <UserCog className="h-7 w-7" />
             User & Role Management
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Create user accounts, assign roles, and manage access
-          </p>
+          <p className="text-muted-foreground mt-1">Create user accounts, assign roles, and manage access</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
-            <UserPlus className="h-4 w-4" />
-            Create User
+            <UserPlus className="h-4 w-4" /> Create User
           </Button>
           <Button onClick={fetchUsers} variant="outline" disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <UserCog className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{users.length}</p>
-                <p className="text-sm text-muted-foreground">Total Users</p>
-              </div>
+              <div className="p-2 bg-primary/10 rounded-lg"><UserCog className="h-5 w-5 text-primary" /></div>
+              <div><p className="text-2xl font-bold">{users.length}</p><p className="text-sm text-muted-foreground">Total Users</p></div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-destructive/10 rounded-lg">
-                <Shield className="h-5 w-5 text-destructive" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{users.filter(u => u.role === 'admin').length}</p>
-                <p className="text-sm text-muted-foreground">Administrators</p>
-              </div>
+              <div className="p-2 bg-destructive/10 rounded-lg"><Shield className="h-5 w-5 text-destructive" /></div>
+              <div><p className="text-2xl font-bold">{users.filter(u => u.role === 'admin').length}</p><p className="text-sm text-muted-foreground">Administrators</p></div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-secondary/50 rounded-lg">
-                <Building2 className="h-5 w-5 text-secondary-foreground" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{users.filter(u => u.role?.includes('head')).length}</p>
-                <p className="text-sm text-muted-foreground">Department Heads</p>
-              </div>
+              <div className="p-2 bg-secondary/10 rounded-lg"><Building2 className="h-5 w-5 text-secondary" /></div>
+              <div><p className="text-2xl font-bold">{users.filter(u => u.role?.includes('head')).length}</p><p className="text-sm text-muted-foreground">Department Heads</p></div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-muted rounded-lg">
-                <UserCog className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{users.filter(u => !u.role).length}</p>
-                <p className="text-sm text-muted-foreground">Unassigned</p>
-              </div>
+              <div className="p-2 bg-muted rounded-lg"><UserCog className="h-5 w-5 text-muted-foreground" /></div>
+              <div><p className="text-2xl font-bold">{users.filter(u => !u.role).length}</p><p className="text-sm text-muted-foreground">Unassigned</p></div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Users Table */}
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <CardTitle>Users</CardTitle>
-              <CardDescription>View and manage user roles</CardDescription>
-            </div>
+            <div><CardTitle>Users</CardTitle><CardDescription>View and manage user roles and departments</CardDescription></div>
             <div className="relative w-full md:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search users..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
+              <Input placeholder="Search users..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
             </div>
           </div>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
+            <div className="flex items-center justify-center py-8"><RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : filteredUsers.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">No users found</div>
           ) : (
@@ -475,7 +436,9 @@ export default function UserManagement() {
                     <TableCell className="font-medium">{user.full_name}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{user.plant || '-'}</TableCell>
-                    <TableCell>{user.department || '-'}</TableCell>
+                    <TableCell>
+                      {user.department ? <Badge variant="outline">{user.department}</Badge> : <span className="text-muted-foreground">-</span>}
+                    </TableCell>
                     <TableCell>
                       {user.role ? (
                         <Badge variant={getRoleBadgeVariant(user.role)}>
@@ -491,12 +454,8 @@ export default function UserManagement() {
                           {user.role ? (<><Edit className="h-3 w-3 mr-1" />Edit</>) : (<><Plus className="h-3 w-3 mr-1" />Assign</>)}
                         </Button>
                         {user.role && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => { setSelectedUser(user); setIsDeleteDialogOpen(true); }}
-                          >
+                          <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive"
+                            onClick={() => { setSelectedUser(user); setIsDeleteDialogOpen(true); }}>
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         )}
@@ -514,85 +473,48 @@ export default function UserManagement() {
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5" />
-              Create New User
-            </DialogTitle>
-            <DialogDescription>
-              Create a new user account with role and department assignment
-            </DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5" /> Create New User</DialogTitle>
+            <DialogDescription>Create a new user account with role and department</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name *</Label>
-              <Input
-                id="fullName"
-                placeholder="Enter full name"
-                value={newUserFullName}
-                onChange={(e) => setNewUserFullName(e.target.value)}
-              />
+              <Label>Full Name *</Label>
+              <Input placeholder="Enter full name" value={newUserFullName} onChange={(e) => setNewUserFullName(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="user@example.com"
-                value={newUserEmail}
-                onChange={(e) => setNewUserEmail(e.target.value)}
-              />
+              <Label>Email *</Label>
+              <Input type="email" placeholder="user@example.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password *</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Min 6 characters"
-                value={newUserPassword}
-                onChange={(e) => setNewUserPassword(e.target.value)}
-              />
+              <Label>Password *</Label>
+              <Input type="password" placeholder="Min 6 characters" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="role">Role *</Label>
-              <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as AppRole)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLES.map((role) => (
-                    <SelectItem key={role.value} value={role.value}>
-                      {role.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="department">Department</Label>
+              <Label>Department *</Label>
               <Select value={newUserDepartment} onValueChange={setNewUserDepartment}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select department" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
                 <SelectContent>
-                  {DEPARTMENTS.map((dept) => (
-                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                  ))}
+                  {DEPARTMENTS.map((dept) => (<SelectItem key={dept} value={dept}>{dept}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="plant">Plant</Label>
-              <Input
-                id="plant"
-                placeholder="e.g., 1300"
-                value={newUserPlant}
-                onChange={(e) => setNewUserPlant(e.target.value)}
-              />
+              <Label>Role *</Label>
+              <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as AppRole)} disabled={!newUserDepartment}>
+                <SelectTrigger><SelectValue placeholder={newUserDepartment ? "Select role" : "Select department first"} /></SelectTrigger>
+                <SelectContent>
+                  {createDialogRoles.map((role) => (<SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Plant</Label>
+              <Input placeholder="e.g., 1300" value={newUserPlant} onChange={(e) => setNewUserPlant(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateUser} disabled={saving || !newUserEmail || !newUserPassword || !newUserFullName || !newUserRole}>
+            <Button onClick={handleCreateUser} disabled={saving || !newUserEmail || !newUserPassword || !newUserFullName || !newUserRole || !newUserDepartment}>
               {saving ? 'Creating...' : 'Create User'}
             </Button>
           </DialogFooter>
@@ -601,13 +523,10 @@ export default function UserManagement() {
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{selectedUser?.role ? 'Edit User Details' : 'Assign Details'}</DialogTitle>
-            <DialogDescription>
-              Update the department, role, or reset password for {selectedUser?.full_name}.
-              <br/>(Leave password blank to keep current password)
-            </DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><Edit className="h-5 w-5" /> Edit User</DialogTitle>
+            <DialogDescription>Update department, role, or reset password for {selectedUser?.full_name}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -617,61 +536,44 @@ export default function UserManagement() {
                 <p className="text-muted-foreground">{selectedUser?.email}</p>
               </div>
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="department">Department</Label>
-                <Select value={selectedDepartment} onValueChange={(value) => {
-                  setSelectedDepartment(value);
-                  setSelectedRole(''); // Reset role when department changes
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DEPARTMENTS.map((dept) => (
-                      <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as AppRole)}>
-                  <SelectTrigger disabled={!selectedDepartment}>
-                    <SelectValue placeholder="Select a role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getAvailableRolesForDepartment(selectedDepartment).map((role) => (
-                      <SelectItem key={role.value} value={role.value}>
-                        <div className="flex flex-col">
-                          <span>{role.label}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label>Department</Label>
+              <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+                <SelectContent>
+                  {DEPARTMENTS.map((dept) => (<SelectItem key={dept} value={dept}>{dept}</SelectItem>))}
+                </SelectContent>
+              </Select>
             </div>
-
-            <div className="space-y-2 pt-2 border-t">
-              <Label htmlFor="resetPassword">Reset Password (Optional)</Label>
-              <Input
-                id="resetPassword"
-                type="password"
-                placeholder="Type new password to reset"
-                value={editPassword}
-                onChange={(e) => setEditPassword(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Passwords are never shown for security reasons. Type here only if you need to force a reset.
-              </p>
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as AppRole)}>
+                <SelectTrigger><SelectValue placeholder={selectedDepartment ? "Select role" : "Select department first"} /></SelectTrigger>
+                <SelectContent>
+                  {editDialogRoles.map((role) => (
+                    <SelectItem key={role.value} value={role.value}>
+                      <div className="flex flex-col">
+                        <span>{role.label}</span>
+                        <span className="text-xs text-muted-foreground">{role.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> Reset Password</Label>
+              <Input type="password" placeholder="Leave blank to keep current" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} />
+              {resetPassword && (
+                <p className="text-xs text-muted-foreground">
+                  New password will be set exactly as typed above.
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveRole} disabled={!selectedRole || saving}>
+            <Button onClick={handleSaveEdit} disabled={saving}>
               {saving ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
@@ -683,10 +585,7 @@ export default function UserManagement() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Remove Role</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to remove the role from {selectedUser?.full_name}?
-              They will lose all associated permissions.
-            </DialogDescription>
+            <DialogDescription>Are you sure you want to remove the role from {selectedUser?.full_name}?</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>

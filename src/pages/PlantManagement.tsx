@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Building2, Plus, Edit, Trash2, RefreshCw } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { Building2, Plus, Edit, Trash2, RefreshCw, MapPin } from 'lucide-react';
 
 interface Plant {
+  id: string;
   code: string;
   name: string;
   location: string | null;
@@ -21,31 +23,30 @@ export default function PlantManagement() {
   const [plants, setPlants] = useState<Plant[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+  const { userRole } = useAuth();
   
   const [isOpen, setIsOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  
-  // Form state
-  const [code, setCode] = useState('');
-  const [name, setName] = useState('');
-  const [location, setLocation] = useState('');
-  
-  const { userRole } = useAuth();
+  const [editingPlant, setEditingPlant] = useState<Plant | null>(null);
+  const [form, setForm] = useState({ code: '', name: '', location: '' });
+
   const isAdmin = userRole === 'admin';
 
   const fetchPlants = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('plants')
-      .select('*')
-      .order('code', { ascending: true });
-      
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
+    try {
+      const { data, error } = await supabase
+        .from('plants')
+        .select('*')
+        .order('code', { ascending: true });
+        
+      if (error) throw error;
       setPlants(data || []);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -53,42 +54,38 @@ export default function PlantManagement() {
   }, [isAdmin]);
 
   const handleOpenCreate = () => {
-    setCode('');
-    setName('');
-    setLocation('');
-    setIsEditing(false);
+    setForm({ code: '', name: '', location: '' });
+    setEditingPlant(null);
     setIsOpen(true);
   };
 
   const handleOpenEdit = (plant: Plant) => {
-    setCode(plant.code);
-    setName(plant.name);
-    setLocation(plant.location || '');
-    setIsEditing(true);
+    setForm({ code: plant.code, name: plant.name, location: plant.location || '' });
+    setEditingPlant(plant);
     setIsOpen(true);
   };
 
   const handleSave = async () => {
-    if (!code || !name) {
+    if (!form.code || !form.name) {
       toast({ title: 'Validation error', description: 'Plant code and name are required', variant: 'destructive' });
       return;
     }
     
     setSaving(true);
     try {
-      if (isEditing) {
+      if (editingPlant) {
         const { error } = await supabase
           .from('plants')
-          .update({ name, location })
-          .eq('code', code);
+          .update({ name: form.name, location: form.location })
+          .eq('id', editingPlant.id);
         if (error) throw error;
-        toast({ title: 'Success', description: `Plant ${code} updated successfully` });
+        toast({ title: 'Success', description: `Plant ${form.code} updated successfully` });
       } else {
         const { error } = await supabase
           .from('plants')
-          .insert({ code, name, location });
+          .insert({ code: form.code, name: form.name, location: form.location });
         if (error) throw error;
-        toast({ title: 'Success', description: `Plant ${code} created successfully` });
+        toast({ title: 'Success', description: `Plant ${form.code} created successfully` });
       }
       setIsOpen(false);
       fetchPlants();
@@ -99,10 +96,10 @@ export default function PlantManagement() {
     }
   };
 
-  const handleDelete = async (plantCode: string) => {
-    if (!confirm(`Are you sure you want to delete plant ${plantCode}?`)) return;
+  const handleDelete = async (plant: Plant) => {
+    if (!confirm(`Are you sure you want to delete plant ${plant.code} (${plant.name})?`)) return;
     try {
-      const { error } = await supabase.from('plants').delete().eq('code', plantCode);
+      const { error } = await supabase.from('plants').delete().eq('id', plant.id);
       if (error) throw error;
       toast({ title: 'Success', description: 'Plant deleted' });
       fetchPlants();
@@ -112,17 +109,27 @@ export default function PlantManagement() {
   };
 
   if (!isAdmin) {
-    return <div className="p-6 text-center text-muted-foreground">Access denied. Admin only.</div>;
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <Building2 className="h-16 w-16 text-muted-foreground mb-4" />
+            <h2 className="text-xl font-semibold text-foreground mb-2">Access Denied</h2>
+            <p className="text-muted-foreground text-center">Only administrators can manage plant configurations.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Building2 className="h-6 w-6" /> Plant Management
+            <Building2 className="h-7 w-7 text-primary" /> Plant Management
           </h1>
-          <p className="text-muted-foreground">Create and manage your organization's plants</p>
+          <p className="text-muted-foreground mt-1">Create and manage manufacturing plants</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={fetchPlants} variant="outline" disabled={loading}>
@@ -135,6 +142,10 @@ export default function PlantManagement() {
       </div>
 
       <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">All Plants</CardTitle>
+          <CardDescription>{plants.length} plant(s) configured</CardDescription>
+        </CardHeader>
         <CardContent className="p-0">
           {loading ? (
              <div className="flex justify-center py-10"><RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" /></div>
@@ -145,23 +156,41 @@ export default function PlantManagement() {
                   <TableHead>Plant Code</TableHead>
                   <TableHead>Plant Name</TableHead>
                   <TableHead>Location</TableHead>
+                  <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {plants.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">No plants configured yet.</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                      No plants configured yet. Click "Add Plant" to create one.
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   plants.map((plant) => (
-                    <TableRow key={plant.code}>
-                      <TableCell className="font-bold">{plant.code}</TableCell>
-                      <TableCell>{plant.name}</TableCell>
-                      <TableCell>{plant.location || '-'}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(plant)}>
-                          <Edit className="h-4 w-4 mr-1" /> Edit
+                    <TableRow key={plant.id}>
+                      <TableCell>
+                        <Badge variant="outline" className="font-mono text-primary border-primary/30">
+                          {plant.code}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">{plant.name}</TableCell>
+                      <TableCell>
+                        {plant.location ? (
+                          <span className="flex items-center gap-1 text-muted-foreground text-sm">
+                            <MapPin className="h-3 w-3" /> {plant.location}
+                          </span>
+                        ) : '—'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {new Date(plant.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-right space-x-2">
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(plant)}>
+                          <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDelete(plant.code)}>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDelete(plant)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -177,9 +206,9 @@ export default function PlantManagement() {
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{isEditing ? 'Edit Plant' : 'Create New Plant'}</DialogTitle>
+            <DialogTitle>{editingPlant ? 'Edit Plant' : 'Create New Plant'}</DialogTitle>
             <DialogDescription>
-              {isEditing ? 'Update plant details below' : 'A plant code is the unique identifier (e.g. 1300) in SAP.'}
+              {editingPlant ? 'Update plant details below' : 'A plant code is the unique identifier (e.g. 1300) in SAP.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -187,9 +216,9 @@ export default function PlantManagement() {
               <Label htmlFor="code">Plant Code *</Label>
               <Input 
                 id="code" 
-                value={code} 
-                onChange={e => setCode(e.target.value)} 
-                disabled={isEditing} 
+                value={form.code} 
+                onChange={e => setForm({ ...form, code: e.target.value })} 
+                disabled={!!editingPlant} 
                 placeholder="e.g. 1300"
               />
             </div>
@@ -197,8 +226,8 @@ export default function PlantManagement() {
               <Label htmlFor="name">Plant Name *</Label>
               <Input 
                 id="name" 
-                value={name} 
-                onChange={e => setName(e.target.value)} 
+                value={form.name} 
+                onChange={e => setForm({ ...form, name: e.target.value })} 
                 placeholder="e.g. Hyderabad Main Plant"
               />
             </div>
@@ -206,16 +235,16 @@ export default function PlantManagement() {
               <Label htmlFor="location">Location / City</Label>
               <Input 
                 id="location" 
-                value={location} 
-                onChange={e => setLocation(e.target.value)} 
-                placeholder="e.g. Hyderabad"
+                value={form.location} 
+                onChange={e => setForm({ ...form, location: e.target.value })} 
+                placeholder="e.g. Hyderabad, India"
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || !code || !name}>
-              {saving ? 'Saving...' : 'Save Plant'}
+            <Button onClick={handleSave} disabled={saving || !form.code || !form.name}>
+              {saving ? 'Saving...' : editingPlant ? 'Update' : 'Create'}
             </Button>
           </DialogFooter>
         </DialogContent>

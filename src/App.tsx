@@ -8,6 +8,7 @@ import { RoleProvider } from "@/contexts/RoleContext";
 import { MRBProvider } from "@/contexts/MRBContext";
 import { InwardMRBProvider } from "@/contexts/InwardMRBContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { MasterAdminGuard } from "@/components/auth/MasterAdminGuard";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Login from "@/pages/Login";
 import KPIDashboard from "@/pages/KPIDashboard";
@@ -84,8 +85,8 @@ const App = () => (
                           <Route path="admin/matrix" element={<RoleMatrix />} />
                           <Route path="profile" element={<UserProfile />} />
                           <Route path="help" element={<HelpSupport />} />
-                          <Route path="admin/sap-api" element={<SAPApiSettings />} />
-                          <Route path="admin/sap-sync" element={<SAPSyncMonitor />} />
+                          <Route path="admin/sap-api" element={<MasterAdminGuard><SAPApiSettings /></MasterAdminGuard>} />
+                          <Route path="admin/sap-sync" element={<MasterAdminGuard><SAPSyncMonitor /></MasterAdminGuard>} />
                           <Route path="proposals" element={<ProposalGenerator />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>

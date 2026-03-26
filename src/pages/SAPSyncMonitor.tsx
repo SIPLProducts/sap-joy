@@ -83,21 +83,48 @@ export default function SAPSyncMonitor() {
     setPreviewLoading(true);
     const previews: DataPreview[] = [];
 
-    const [sfResult, ilResult, matResult, venResult] = await Promise.all([
+    // Fetch main data tables
+    const [sfResult, ilResult] = await Promise.all([
       fetchAllRows('shop_floor_stock'),
       fetchAllRows('inward_inspection_lots'),
-      fetchAllRows('materials'),
-      fetchAllRows('vendors'),
     ]);
 
-    previews.push({ table: 'shop_floor_stock', count: sfResult.count, recentRecords: sfResult.data });
-    previews.push({ table: 'inward_inspection_lots', count: ilResult.count, recentRecords: ilResult.data });
-    previews.push({ table: 'materials', count: matResult.count, recentRecords: matResult.data });
-    previews.push({ table: 'vendors', count: venResult.count, recentRecords: venResult.data });
+    previews.push({ table: 'MB52 — Shop Floor Stock', count: sfResult.count, recentRecords: sfResult.data });
+    previews.push({ table: 'ZMRB01 — Inward Inspection Lots', count: ilResult.count, recentRecords: ilResult.data });
+
+    // Fetch sync history for 343 and 344 APIs
+    const { data: allHistory } = await supabase
+      .from('sap_stock_sync_history')
+      .select('*')
+      .order('started_at', { ascending: false });
+
+    const { data: allConfigs } = await supabase
+      .from('sap_api_config')
+      .select('id, config_name');
+
+    const configMap = new Map((allConfigs || []).map((c: any) => [c.id, c.config_name]));
+
+    const history343 = (allHistory || []).filter((h: any) => {
+      const name = (configMap.get(h.config_id) || '').toLowerCase();
+      return name.includes('343');
+    });
+    const history344 = (allHistory || []).filter((h: any) => {
+      const name = (configMap.get(h.config_id) || '').toLowerCase();
+      return name.includes('344');
+    });
+
+    previews.push({ table: 'SAP 343 — Blocked → Unrestricted', count: history343.length, recentRecords: history343 });
+    previews.push({ table: 'SAP 344 — Unrestricted → Blocked', count: history344.length, recentRecords: history344 });
 
     setDataPreviews(previews);
     setPreviewLoading(false);
   }, []);
+
+  const isActionConfig = (config: SAPConfig) => {
+    const name = (config.config_name || '').toLowerCase();
+    const endpoint = (config.api_endpoint || '').toLowerCase();
+    return name.includes('343') || name.includes('344') || endpoint.includes('/343') || endpoint.includes('/344');
+  };
 
   useEffect(() => {
     const loadAll = async () => {
@@ -286,17 +313,32 @@ export default function SAPSyncMonitor() {
                               {testing === config.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
                               Test Route
                             </Button>
-                            <Button
-                              size="sm"
-                              className="gap-1"
-                              disabled={syncing === config.id}
-                              onClick={() => handleTriggerSync(config.id)}
-                            >
-                              {syncing === config.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                              Trigger Sync
-                            </Button>
+                            {isActionConfig(config) ? (
+                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 px-3 py-1.5 text-xs">
+                                Action API — triggered from MRB Worklist
+                              </Badge>
+                            ) : (
+                              <Button
+                                size="sm"
+                                className="gap-1"
+                                disabled={syncing === config.id}
+                                onClick={() => handleTriggerSync(config.id)}
+                              >
+                                {syncing === config.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                Trigger Sync
+                              </Button>
+                            )}
                           </div>
                         </div>
+                        {isActionConfig(config) && (
+                          <div className="mt-3 p-2 rounded bg-amber-50 border border-amber-200">
+                            <p className="text-xs text-amber-800">
+                              <strong>343 (Blocked → Unrestricted)</strong> and <strong>344 (Unrestricted → Blocked)</strong> are transactional movement APIs. 
+                              They require a specific material payload (Material, Plant, SLoc, Batch, Qty) and are automatically triggered from the <strong>MRB Worklist</strong> during "Unblock & SAP Sync" actions. 
+                              Use "Test Route" to verify connectivity only.
+                            </p>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
@@ -402,7 +444,7 @@ export default function SAPSyncMonitor() {
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2 text-base">
                       <Database className="h-4 w-4" />
-                      {preview.table.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      {preview.table}
                     </CardTitle>
                     <Badge variant="outline">{preview.count} total records — Showing {preview.recentRecords.length}</Badge>
                   </div>

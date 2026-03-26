@@ -148,7 +148,24 @@ export default function InwardMRBDetail() {
       };
       
       // Determine next status based on action and forward settings
-      if (reviewData.forwardToNext && reviewData.nextDepartments.length > 0) {
+      if (userRole === 'engineering' || userRole === 'engineering_head') {
+        // Engineering has final acceptance - no forwarding
+        if (reviewData.action === 'approve' || reviewData.action === 'approve_with_deviation') {
+          newStatus = 'approved';
+          additionalUpdates.closure_status = 'completed';
+          additionalUpdates.closed_at = new Date().toISOString();
+          additionalUpdates.closed_by = user?.id || null;
+          additionalUpdates.final_decision = reviewData.action === 'approve' ? 'approved' : 'approved_with_deviation';
+          additionalUpdates.final_approved_by = user?.id || null;
+          additionalUpdates.final_approved_at = new Date().toISOString();
+        } else if (reviewData.action === 'return_to_vendor') {
+          newStatus = 'rejected';
+          additionalUpdates.final_decision = 'return_to_vendor';
+          additionalUpdates.closure_status = 'return_to_vendor';
+          additionalUpdates.closed_at = new Date().toISOString();
+          additionalUpdates.closed_by = user?.id || null;
+        }
+      } else if (reviewData.forwardToNext && reviewData.nextDepartments.length > 0) {
         const firstDept = reviewData.nextDepartments[0];
         newStatus = deptToStatus[firstDept] || 'quality_review';
         const nextPendingWith = deptToAppRole[firstDept] || 'quality';
@@ -302,16 +319,32 @@ export default function InwardMRBDetail() {
                 <p className="font-medium">{mrb.plant}</p>
               </div>
               <div className="space-y-1">
-                <Label className="text-muted-foreground text-xs">Vendor</Label>
+                <Label className="text-muted-foreground text-xs">Vendor Code</Label>
+                <p className="font-medium font-mono">{mrb.vendor_code || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Vendor Name</Label>
                 <p className="font-medium">{mrb.vendor_name || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">PO Number</Label>
+                <p className="font-medium font-mono">{mrb.po_number || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">GRN Number</Label>
+                <p className="font-medium font-mono">{mrb.grn_number || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Batch</Label>
+                <p className="font-medium font-mono">{(mrb as any).batch || '-'}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Blocked Quantity</Label>
                 <p className="font-medium text-destructive">{mrb.blocked_quantity} {mrb.uom}</p>
               </div>
               <div className="space-y-1">
-                <Label className="text-muted-foreground text-xs">PO Number</Label>
-                <p className="font-medium font-mono">{mrb.po_number || '-'}</p>
+                <Label className="text-muted-foreground text-xs">Block Reason</Label>
+                <p className="font-medium">{mrb.defect_description || '-'}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Pending With</Label>
@@ -438,7 +471,8 @@ export default function InwardMRBDetail() {
                   />
                 </div>
 
-                {/* Forward to next */}
+                {/* Forward to next - hidden for engineering (they have final acceptance) */}
+                {userRole !== 'engineering' && userRole !== 'engineering_head' && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <Checkbox
@@ -493,6 +527,14 @@ export default function InwardMRBDetail() {
                     </div>
                   )}
                 </div>
+                )}
+
+                {/* Engineering final acceptance notice */}
+                {(userRole === 'engineering' || userRole === 'engineering_head') && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                    <strong>Engineering Final Acceptance:</strong> Your decision is final. No further department transfer is required.
+                  </div>
+                )}
               </CardContent>
             </Card>
           </>

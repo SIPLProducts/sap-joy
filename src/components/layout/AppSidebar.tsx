@@ -39,30 +39,27 @@ const dashboardItems = [
   { title: 'Executive Summary', url: '/dashboard/executive-summary', icon: PieChart, dashboardKey: 'executive_summary', matrixKey: 'executive_summary' },
 ];
 
-// Admin items
 const adminItems = [
-  { title: 'User & Role Management', url: '/admin/users', icon: UserCog, roles: ['admin'] },
-  { title: 'Plant Management', url: '/admin/plants', icon: Building2, roles: ['admin'] },
-  { title: 'Role Access Matrix', url: '/admin/matrix', icon: Shield, roles: ['admin'] },
+  { title: 'User & Role Management', url: '/admin/users', icon: UserCog, roles: ['admin'], masterOnly: false },
+  { title: 'Role Access Matrix', url: '/admin/matrix', icon: Shield, roles: ['admin'], masterOnly: false },
+  { title: 'Plant Management', url: '/admin/plants', icon: Building2, roles: ['admin'], masterOnly: false },
+  { title: 'SAP API Settings', url: '/admin/sap-api', icon: Settings, roles: ['admin'], masterOnly: true },
+  { title: 'SAP Sync Monitor', url: '/admin/sap-sync', icon: TrendingUp, roles: ['admin'], masterOnly: true },
 ];
 
-const superAdminItems = [
-  { title: 'SAP API Settings', url: '/admin/sap-api', icon: Settings, roles: ['admin'] },
-  { title: 'SAP Sync Monitor', url: '/admin/sap-sync', icon: TrendingUp, roles: ['admin'] },
-];
+const MASTER_ADMIN_EMAIL = 'masteradmin@sharviinfotech.com';
 
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { roleDisplayName } = useRole();
-  const { signOut, userRole, user } = useAuth();
+  const { signOut, userRole, profile, user } = useAuth();
   const { isDashboardEnabled } = useDashboardConfig();
   const { hasAccess } = useRoleMatrix();
+  const isMasterAdmin = profile?.email === MASTER_ADMIN_EMAIL || user?.email === MASTER_ADMIN_EMAIL;
 
-  // Combine items if super admin
-  const allAdminItems = user?.email === 'masteradmin@sharviinfotech.com' 
-    ? [...adminItems, ...superAdminItems] 
-    : adminItems;
+  // Admin items filtered by master status
+  const visibleAdminItems = adminItems.filter(item => !item.masterOnly || isMasterAdmin);
 
   // Filter items based on authenticated user's dynamic role matrix
   const filteredItems = menuItems.filter(item => hasAccess(item.matrixKey));
@@ -152,7 +149,7 @@ export function AppSidebar() {
             <SidebarGroupLabel className="text-sidebar-foreground/60">Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {allAdminItems.map((item) => {
+                {visibleAdminItems.map((item) => {
                   const isActive = location.pathname === item.url;
                   return (
                     <SidebarMenuItem key={item.title}>
