@@ -39,6 +39,8 @@ interface InspectionLotRecord {
   storageLocation: string;
   batch: string;
   poNumber: string;
+  poItemNumber: string;
+  grnNumber: string;
   transactionQuantity: number;
   uom: string;
   blockedQuantity: number;
@@ -73,6 +75,8 @@ interface FormData {
   vendorCode: string;
   vendorName: string;
   purchaseOrderNumber: string;
+  poItemNumber: string;
+  grnNumber: string;
   qualityDecision: string;
   defectCategory: string;
   defectDescription: string;
@@ -148,6 +152,8 @@ export default function CreateInwardMRB() {
     vendorCode: inspectionLot.vendorCode,
     vendorName: inspectionLot.vendorName,
     purchaseOrderNumber: inspectionLot.purchaseOrderNumber || inspectionLot.poNumber || '',
+    poItemNumber: inspectionLot.poItemNumber || '',
+    grnNumber: inspectionLot.grnNumber || '',
     
     // Quality inspection input - restore from draft or empty
     qualityDecision: savedDraft?.qualityDecision || '',
@@ -454,6 +460,7 @@ export default function CreateInwardMRB() {
         vendor_name: formData.vendorName,
         inspection_lot: formData.inspectionLot,
         po_number: formData.purchaseOrderNumber,
+        grn_number: formData.grnNumber || null,
         total_quantity: formData.transactionQuantity,
         blocked_quantity: formData.blockedQuantity,
         accepted_quantity: formData.qualityDecision === 'accept' ? formData.transactionQuantity : 0,
@@ -677,6 +684,14 @@ export default function CreateInwardMRB() {
               <div className="space-y-2">
                 <Label className="text-muted-foreground">Purchase Order Number</Label>
                 <Input value={formData.purchaseOrderNumber} readOnly className="bg-muted" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">PO Item Number</Label>
+                <Input value={formData.poItemNumber} readOnly className="bg-muted" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">GRN Number</Label>
+                <Input value={formData.grnNumber} readOnly className="bg-muted" />
               </div>
             </div>
           </div>

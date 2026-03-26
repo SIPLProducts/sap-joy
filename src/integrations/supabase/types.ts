@@ -164,6 +164,7 @@ export type Database = {
           material_code: string
           material_description: string | null
           plant: string
+          po_item_number: string | null
           po_number: string | null
           posting_date: string | null
           status: string
@@ -188,6 +189,7 @@ export type Database = {
           material_code: string
           material_description?: string | null
           plant: string
+          po_item_number?: string | null
           po_number?: string | null
           posting_date?: string | null
           status?: string
@@ -212,6 +214,7 @@ export type Database = {
           material_code?: string
           material_description?: string | null
           plant?: string
+          po_item_number?: string | null
           po_number?: string | null
           posting_date?: string | null
           status?: string
