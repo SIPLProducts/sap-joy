@@ -171,13 +171,14 @@ export default function UserManagement() {
         }
       }
 
-      // Password reset - use supabase auth admin update (requires service role, so we use the edge function only for password)
+      // Password reset via secure database RPC (no edge function needed)
       if (resetPassword && resetPassword.length >= 6) {
-        const { error: pwErr } = await supabase.functions.invoke('create-user', {
-          body: { action: 'update_user', user_id: selectedUser.user_id, new_password: resetPassword },
+        const { error: pwErr } = await supabase.rpc('admin_update_user_password', {
+          target_user_id: selectedUser.user_id,
+          new_password: resetPassword,
         });
         if (pwErr) {
-          toast({ title: 'Warning', description: 'Role/department updated but password reset requires backend function. Contact your system administrator.', variant: 'destructive' });
+          toast({ title: 'Warning', description: `Role/department updated but password reset failed: ${pwErr.message}`, variant: 'destructive' });
         }
       }
 
