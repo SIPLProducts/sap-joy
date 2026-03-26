@@ -42,6 +42,7 @@ import RoleMatrix from "@/pages/RoleMatrix";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
+const routerBasename = window.location.pathname.startsWith('/mrb') ? '/mrb' : undefined;
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -52,7 +53,7 @@ const App = () => (
             <InwardMRBProvider>
               <Toaster />
               <Sonner />
-              <BrowserRouter basename="/mrb">
+              <BrowserRouter basename={routerBasename}>
                 <Routes>
                   <Route path="/login" element={<Login />} />
                   <Route path="/ims-redirect" element={<IMSRedirect />} />
