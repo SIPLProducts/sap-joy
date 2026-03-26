@@ -53,8 +53,9 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { roleDisplayName } = useRole();
-  const { signOut, userRole } = useAuth();
+  const { signOut, userRole, profile } = useAuth();
   const { isDashboardEnabled } = useDashboardConfig();
+  const isMasterAdmin = profile?.email === MASTER_ADMIN_EMAIL;
 
   // Filter items based on authenticated user's role
   const filteredItems = menuItems.filter(item => 
