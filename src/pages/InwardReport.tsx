@@ -833,7 +833,7 @@ export default function InwardReport() {
                             <TableHead className="font-semibold whitespace-nowrap">Vendor Code</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Vendor Name</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">PO Number</TableHead>
-                          </TableRow>
+                            <TableHead className="font-semibold whitespace-nowrap">GRN Number</TableHead>
                         </TableHeader>
                         <TableBody>
                           {paginatedResults.length === 0 ? (
