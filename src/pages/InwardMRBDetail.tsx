@@ -148,7 +148,24 @@ export default function InwardMRBDetail() {
       };
       
       // Determine next status based on action and forward settings
-      if (reviewData.forwardToNext && reviewData.nextDepartments.length > 0) {
+      if (userRole === 'engineering' || userRole === 'engineering_head') {
+        // Engineering has final acceptance - no forwarding
+        if (reviewData.action === 'approve' || reviewData.action === 'approve_with_deviation') {
+          newStatus = 'approved';
+          additionalUpdates.closure_status = 'completed';
+          additionalUpdates.closed_at = new Date().toISOString();
+          additionalUpdates.closed_by = user?.id || null;
+          additionalUpdates.final_decision = reviewData.action === 'approve' ? 'approved' : 'approved_with_deviation';
+          additionalUpdates.final_approved_by = user?.id || null;
+          additionalUpdates.final_approved_at = new Date().toISOString();
+        } else if (reviewData.action === 'return_to_vendor') {
+          newStatus = 'rejected';
+          additionalUpdates.final_decision = 'return_to_vendor';
+          additionalUpdates.closure_status = 'return_to_vendor';
+          additionalUpdates.closed_at = new Date().toISOString();
+          additionalUpdates.closed_by = user?.id || null;
+        }
+      } else if (reviewData.forwardToNext && reviewData.nextDepartments.length > 0) {
         const firstDept = reviewData.nextDepartments[0];
         newStatus = deptToStatus[firstDept] || 'quality_review';
         const nextPendingWith = deptToAppRole[firstDept] || 'quality';
