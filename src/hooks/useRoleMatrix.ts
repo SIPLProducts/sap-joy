@@ -26,7 +26,7 @@ export function useRoleMatrix() {
         .select('*');
       
       if (!error && data) {
-        setPermissions(data as RolePermission[]);
+        setPermissions(data.map(d => ({ ...d, screen_key: d.module_key, role: d.role as AppRole })) as RolePermission[]);
       }
     } catch (e) {
       console.error('Error fetching role permissions', e);

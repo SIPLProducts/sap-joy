@@ -168,10 +168,10 @@ export default function UserManagement() {
         .maybeSingle();
 
       if (existingRole) {
-        const { error } = await supabase.from('user_roles').update({ role: selectedRole }).eq('user_id', selectedUser.user_id);
+        const { error } = await supabase.from('user_roles').update({ role: selectedRole as any }).eq('user_id', selectedUser.user_id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('user_roles').insert({ user_id: selectedUser.user_id, role: selectedRole });
+        const { error } = await supabase.from('user_roles').insert([{ user_id: selectedUser.user_id, role: selectedRole as any }]);
         if (error) throw error;
       }
 
