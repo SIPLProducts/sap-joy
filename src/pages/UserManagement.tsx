@@ -275,18 +275,22 @@ export default function UserManagement() {
       // Wait briefly for the trigger to create profile
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Update profile with department and plant
-      await supabase.from('profiles').update({
+      const { error: profileUpdateError } = await supabase.from('profiles').update({
         department: newUserDepartment,
         plant: newUserPlant || '1300',
         full_name: newUserFullName.trim(),
       }).eq('user_id', newUserId);
 
-      // Assign role
-      await supabase.from('user_roles').insert({
+      if (profileUpdateError) throw profileUpdateError;
+
+      const { error: roleInsertError } = await supabase.from('user_roles').upsert({
         user_id: newUserId,
         role: newUserRole as AppRole,
+      }, {
+        onConflict: 'user_id,role',
       });
+
+      if (roleInsertError) throw roleInsertError;
 
       toast({ title: 'User Created', description: `${newUserEmail} created with role ${ROLES.find(r => r.value === newUserRole)?.label}` });
 
