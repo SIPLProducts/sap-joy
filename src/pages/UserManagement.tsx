@@ -82,6 +82,8 @@ export default function UserManagement() {
   const [selectedRole, setSelectedRole] = useState<AppRole | ''>('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
   const [resetPassword, setResetPassword] = useState('');
+  const [passwordHistory, setPasswordHistory] = useState<{ changed_at: string }[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [newUserEmail, setNewUserEmail] = useState('');
