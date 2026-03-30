@@ -13,7 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Search, UserCog, Shield, Building2, Edit, Trash2, Plus, RefreshCw, UserPlus, KeyRound } from 'lucide-react';
 import { PasswordPolicyIndicator } from '@/components/auth/PasswordPolicyIndicator';
-import { validatePassword } from '@/lib/passwordPolicy';
+import { validatePassword, hashPasswordForHistory } from '@/lib/passwordPolicy';
+import { format } from 'date-fns';
 
 interface UserWithRole {
   id: string;
@@ -81,6 +82,8 @@ export default function UserManagement() {
   const [selectedRole, setSelectedRole] = useState<AppRole | ''>('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
   const [resetPassword, setResetPassword] = useState('');
+  const [passwordHistory, setPasswordHistory] = useState<{ changed_at: string }[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [newUserEmail, setNewUserEmail] = useState('');
@@ -145,12 +148,32 @@ export default function UserManagement() {
 
   useEffect(() => { fetchUsers(); }, []);
 
+  const fetchPasswordHistory = async (userId: string) => {
+    setLoadingHistory(true);
+    try {
+      const { data } = await supabase
+        .from('password_history')
+        .select('changed_at')
+        .eq('user_id', userId)
+        .order('changed_at', { ascending: false })
+        .limit(5);
+      setPasswordHistory(data || []);
+    } catch (err) {
+      console.error('Error fetching password history:', err);
+      setPasswordHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
   const handleEditRole = (user: UserWithRole) => {
     setSelectedUser(user);
     setSelectedRole((user.role || '') as '' | AppRole);
     setSelectedDepartment(user.department || '');
     setResetPassword('');
+    setPasswordHistory([]);
     setIsEditDialogOpen(true);
+    fetchPasswordHistory(user.user_id);
   };
 
   const handleSaveEdit = async () => {
@@ -179,9 +202,22 @@ export default function UserManagement() {
 
       // Password reset via secure database RPC
       if (resetPassword.trim()) {
-        const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{8,10}$/;
-        if (!passwordRegex.test(resetPassword.trim())) {
-          throw new Error('Password must be 8-10 characters long, containing at least one letter and one number.');
+        const validation = validatePassword(resetPassword.trim());
+        if (!validation.isValid) {
+          throw new Error(validation.errors.join('. '));
+        }
+
+        // Check password reuse (last 4 passwords)
+        const pwHash = await hashPasswordForHistory(resetPassword.trim());
+        const { data: historyRecords } = await supabase
+          .from('password_history')
+          .select('password_hash')
+          .eq('user_id', selectedUser.user_id)
+          .order('changed_at', { ascending: false })
+          .limit(4);
+
+        if (historyRecords?.some(h => h.password_hash === pwHash)) {
+          throw new Error('Cannot reuse any of the last 4 passwords. Please choose a different password.');
         }
 
         const { error: pwErr } = await supabase.rpc('admin_update_user_password', {
@@ -189,6 +225,32 @@ export default function UserManagement() {
           new_password: resetPassword.trim(),
         });
         if (pwErr) throw pwErr;
+
+        // Record in password history
+        await supabase.from('password_history').insert({
+          user_id: selectedUser.user_id,
+          password_hash: pwHash,
+        });
+
+        // Update user_security last_password_change
+        const { data: existingSec } = await supabase
+          .from('user_security')
+          .select('id')
+          .eq('user_id', selectedUser.user_id)
+          .maybeSingle();
+
+        if (existingSec) {
+          await supabase.from('user_security').update({
+            last_password_change: new Date().toISOString(),
+            failed_login_attempts: 0,
+            locked_until: null,
+          }).eq('user_id', selectedUser.user_id);
+        } else {
+          await supabase.from('user_security').insert({
+            user_id: selectedUser.user_id,
+            last_password_change: new Date().toISOString(),
+          });
+        }
       }
 
       toast({
@@ -248,12 +310,11 @@ export default function UserManagement() {
       return;
     }
     
-    // Validate Password Policy: 8-10 characters, at least one letter and one number
-    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{8,10}$/;
-    if (!passwordRegex.test(newUserPassword)) {
+    const validation = validatePassword(newUserPassword);
+    if (!validation.isValid) {
       toast({ 
         title: 'Password Policy Error', 
-        description: 'Password must be 8-10 characters long, containing at least one letter and one number.', 
+        description: validation.errors.join('. '), 
         variant: 'destructive' 
       });
       return;
@@ -306,6 +367,19 @@ export default function UserManagement() {
       });
 
       if (roleInsertError) throw roleInsertError;
+
+      // Record initial password in history
+      const pwHash = await hashPasswordForHistory(newUserPassword);
+      await supabase.from('password_history').insert({
+        user_id: newUserId,
+        password_hash: pwHash,
+      });
+
+      // Create user_security record
+      await supabase.from('user_security').insert({
+        user_id: newUserId,
+        last_password_change: new Date().toISOString(),
+      });
 
       toast({ title: 'User Created', description: `${newUserEmail} created with role ${ROLES.find(r => r.value === newUserRole)?.label}` });
       setNewUserEmail('');
@@ -568,6 +642,27 @@ export default function UserManagement() {
               <Label className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> Reset Password <span className="text-xs text-muted-foreground">(8-10 chars)</span></Label>
               <Input type="password" placeholder="Leave blank to keep current" value={resetPassword} onChange={(e) => setResetPassword(e.target.value.slice(0, 10))} maxLength={10} />
               <PasswordPolicyIndicator password={resetPassword} />
+            </div>
+
+            {/* Password History */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Password Change History</Label>
+              {loadingHistory ? (
+                <p className="text-xs text-muted-foreground">Loading...</p>
+              ) : passwordHistory.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">No password changes recorded</p>
+              ) : (
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {passwordHistory.map((entry, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-xs p-2 rounded bg-muted/50 border">
+                      <span className="text-muted-foreground">Password Change #{passwordHistory.length - idx}</span>
+                      <span className="font-medium text-foreground">
+                        {format(new Date(entry.changed_at), 'dd MMM yyyy, hh:mm a')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
