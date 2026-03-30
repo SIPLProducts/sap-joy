@@ -348,7 +348,14 @@ export default function Login() {
             </Alert>
           )}
 
-          <Card className="shadow-xl border-0 bg-card/80 backdrop-blur">
+          {/* Login Error Banner */}
+          {loginError && (
+            <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{loginError}</AlertDescription>
+            </Alert>
+          )}
+
             <Tabs defaultValue="signin" className="w-full">
               <CardHeader className="pb-4">
                 <TabsList className="grid w-full grid-cols-2">
