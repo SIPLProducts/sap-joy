@@ -470,10 +470,11 @@ export default function Login() {
                           id="signup-password"
                           type={showSignUpPassword ? 'text' : 'password'}
                           value={signUpPassword}
-                          onChange={(e) => setSignUpPassword(e.target.value)}
-                          placeholder="Create a password (min 6 characters)"
+                          onChange={(e) => setSignUpPassword(e.target.value.slice(0, 10))}
+                          placeholder="8-10 chars, letter + number"
                           className="h-11 pr-10"
-                          minLength={6}
+                          minLength={8}
+                          maxLength={10}
                           required
                         />
                         <button
