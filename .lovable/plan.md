@@ -1,47 +1,30 @@
 
 
-# Fix ZMRB01 Data Preview — New Fields Not Mapping
-
 ## Problem
-You added SLOC and Inspection Lot fields to ZMRB01 config, and the sync reports success/fetched rows, but data preview shows nothing. The root cause is that `inspection_lot` is a **required field** for `inward_inspection_lots` — if SAP returns it under a name like `PRUEFLOS` or `QALS-PRUEFLOS` and the alias map doesn't recognize it, every row gets skipped silently.
 
-## Root Cause (Two Files)
+The error `Cannot read properties of undefined (reading 'digest')` occurs because `crypto.subtle` is **only available in secure contexts** (HTTPS or `localhost`). Your self-hosted Supabase deployment is likely served over HTTP, so `crypto.subtle` is `undefined`.
 
-### 1. Alias maps are incomplete
-Both `src/lib/sapSyncClient.ts` (client-side sync) and `supabase/functions/sap-sync/index.ts` (edge function sync) have alias maps for `inward_inspection_lots` that only cover `matnr`, `maktx`, `werks`, `charg`. They are missing common SAP field aliases for:
-- `inspection_lot` — SAP returns as `PRUEFLOS`, `QALS_PRUEFLOS`, `INSPECTION_LOT`, etc.
-- `storage_location` — SAP returns as `LGORT`
-- `vendor_code` — SAP returns as `LIFNR`
-- `vendor_name` — SAP returns as `NAME1`
-- `po_number` — SAP returns as `EBELN`
-- `blocked_quantity` — SAP returns as `MENGE` or similar
-- `uom` — SAP returns as `MEINS`
+The `hashPasswordForHistory()` function in `src/lib/passwordPolicy.ts` uses `crypto.subtle.digest('SHA-256', ...)` which fails on HTTP deployments.
 
-### 2. Edge function missing date columns
-The edge function's `allowedColumnsByTable.inward_inspection_lots` is missing `inspection_date` and `posting_date` (the client-side was already fixed).
+## Solution
+
+Replace the Web Crypto API (`crypto.subtle`) with a pure JavaScript SHA-256 implementation that works in any context (HTTP or HTTPS). We'll use a simple inline SHA-256 function — no new dependencies needed.
 
 ## Changes
 
-### File 1: `src/lib/sapSyncClient.ts`
-Expand the `inward_inspection_lots` alias map (around line 507-509) to include all common SAP field name variants:
+### 1. Update `src/lib/passwordPolicy.ts` — Replace `hashPasswordForHistory`
 
-```typescript
-inward_inspection_lots: {
-  matnr: 'material_code', maktx: 'material_description', werks: 'plant', charg: 'batch',
-  lgort: 'storage_location', prueflos: 'inspection_lot', lifnr: 'vendor_code',
-  name1: 'vendor_name', ebeln: 'po_number', meins: 'uom', menge: 'blocked_quantity',
-  inspection_lot: 'inspection_lot', storage_location: 'storage_location',
-  vendor_code: 'vendor_code', vendor_name: 'vendor_name',
-},
-```
+Replace `crypto.subtle.digest` with a pure JS SHA-256 implementation using a fallback approach:
+- Try `crypto.subtle.digest` first (works on HTTPS)
+- If unavailable, use a bundled pure-JS SHA-256 function
 
-### File 2: `supabase/functions/sap-sync/index.ts`
-1. Add `inspection_date` and `posting_date` to the `allowedColumnsByTable.inward_inspection_lots` set (line 610-614).
-2. Expand the `inward_inspection_lots` alias map (line 635-638) with the same SAP field aliases as above.
+This ensures the password history check works on both HTTPS and HTTP self-hosted deployments.
 
-## Why This Fixes It
-Since `inspection_lot` is required but has no alias, SAP's response field (e.g. `PRUEFLOS`) doesn't map to `inspection_lot` — causing every row to be skipped with "missing required fields". Adding the alias makes the mapping work, rows pass validation, and data appears in the preview.
+### 2. No other files need changes
 
-## Verification Step
-After deploying, check the sync history error messages — they should no longer show "missing (inspection_lot)" for skipped rows. The Data Preview tab should show the synced records with all fields populated.
+`UserManagement.tsx` already imports and calls `hashPasswordForHistory` — the fix is entirely within the utility function.
+
+## Technical Detail
+
+The fallback will implement SHA-256 using standard bitwise operations (the same algorithm, just not relying on the browser's native crypto API). This is safe for password history comparison purposes (not used for authentication — that's handled by `pgcrypto` in the database).
 
