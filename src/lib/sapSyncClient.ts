@@ -51,10 +51,15 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
   };
 
   if (config.proxy_secret) {
     headers['x-proxy-secret'] = config.proxy_secret;
+  }
+
+  if (config.sap_client) {
+    headers['sap-client'] = String(config.sap_client);
   }
 
   // Auth headers — send SAP credentials from the config (edit section)
