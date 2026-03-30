@@ -1,30 +1,92 @@
 
+Fix the issue by aligning the live Role Access Matrix page with the actual permission schema the app now uses.
 
-## Problem
+1. Replace the route’s implementation source
+- The app route `/admin/matrix` currently renders `src/pages/RoleMatrix.tsx`, not `src/pages/UserPermissionMatrix.tsx`.
+- `RoleMatrix.tsx` is still using the old sparse model (`screen_key` rows exist only when enabled).
+- I will update the routed page to use the new dense model already reflected in the database types and in `UserPermissionMatrix.tsx`:
+  - `module_key`
+  - `module_label`
+  - `can_view`
+  - `can_edit`
+  - `plant`
 
-The error `Cannot read properties of undefined (reading 'digest')` occurs because `crypto.subtle` is **only available in secure contexts** (HTTPS or `localhost`). Your self-hosted Supabase deployment is likely served over HTTP, so `crypto.subtle` is `undefined`.
+2. Fix save logic so it updates rows instead of delete+reinsert
+- Remove the current pattern in `RoleMatrix.tsx` that:
+  - deletes non-admin permissions
+  - reinserts rows with only `module_key/module_label`
+- Replace it with the safer approach used in `UserPermissionMatrix.tsx`:
+  - load all rows for the selected plant
+  - toggle `can_view` / `can_edit`
+  - save with `upsert(..., { onConflict: 'role,module_key,plant' })`
+- This will stop the `null value in column "screen_key"` failure on self-hosted setups that still enforce legacy columns.
 
-The `hashPasswordForHistory()` function in `src/lib/passwordPolicy.ts` uses `crypto.subtle.digest('SHA-256', ...)` which fails on HTTP deployments.
+3. Unify frontend permission keys
+- Right now the sidebar uses keys like:
+  - `mrb_worklist`
+  - `material_booking`
+  - `analytics_dashboard`
+- But the migration seed uses keys like:
+  - `worklist`
+  - `material_blocking`
+  - `analytics`
+- I will standardize the screen/module key map in one place so:
+  - the matrix labels,
+  - sidebar access checks,
+  - and saved DB values
+  all use the same identifiers.
+- This avoids roles appearing enabled in the matrix but hidden in navigation.
 
-## Solution
+4. Update `useRoleMatrix` to respect actual access flags
+- `useRoleMatrix.ts` currently grants access if any row exists for a role+screen key.
+- That is incorrect for the new schema because disabled rows still exist.
+- I will change `hasAccess()` to require:
+  - matching role
+  - matching normalized key
+  - `can_view === true`
+- This ensures the matrix actually controls visibility.
 
-Replace the Web Crypto API (`crypto.subtle`) with a pure JavaScript SHA-256 implementation that works in any context (HTTP or HTTPS). We'll use a simple inline SHA-256 function — no new dependencies needed.
+5. Make the UI consistent with the newer matrix design
+- Reuse the friendlier layout pattern already present:
+  - role tabs
+  - grouped sections
+  - counts per role
+  - select/deselect all
+  - unsaved changes banner
+- Keep the simpler, cleaner interaction model the user asked for, while wiring it to the correct data structure.
 
-## Changes
+6. Handle compatibility with your self-hosted DB
+- Your self-hosted table still appears to have legacy `screen_key` constraints, while this project now expects `module_key`.
+- I will make the frontend robust for the current app schema, and I recommend one database alignment step in parallel:
+```text
+Either:
+A) migrate self-hosted role_permissions fully to module_key model
+or
+B) keep a temporary compatibility column mapping until migration is complete
+```
+- If needed, I can next give you one clean self-hosted SQL patch specifically for `role_permissions` compatibility.
 
-### 1. Update `src/lib/passwordPolicy.ts` — Replace `hashPasswordForHistory`
+Files to update
+- `src/pages/RoleMatrix.tsx`
+- `src/hooks/useRoleMatrix.ts`
+- likely one shared constants location or the route page itself for screen/module definitions
+- optionally remove or merge `src/pages/UserPermissionMatrix.tsx` to avoid duplicate logic
 
-Replace `crypto.subtle.digest` with a pure JS SHA-256 implementation using a fallback approach:
-- Try `crypto.subtle.digest` first (works on HTTPS)
-- If unavailable, use a bundled pure-JS SHA-256 function
+Technical details
+```text
+Current bug source:
+Route -> RoleMatrix.tsx
+RoleMatrix save -> insert { role, module_key, module_label }
+Self-hosted DB -> still requires screen_key
+Result -> POST 400, null screen_key violation
 
-This ensures the password history check works on both HTTPS and HTTP self-hosted deployments.
+Additional hidden bug:
+hasAccess() only checks row existence, not can_view
+So dense permission rows would grant access even when disabled
+```
 
-### 2. No other files need changes
-
-`UserManagement.tsx` already imports and calls `hashPasswordForHistory` — the fix is entirely within the utility function.
-
-## Technical Detail
-
-The fallback will implement SHA-256 using standard bitwise operations (the same algorithm, just not relying on the browser's native crypto API). This is safe for password history comparison purposes (not used for authentication — that's handled by `pgcrypto` in the database).
-
+Expected result
+- Save works without the `screen_key` null error
+- Matrix changes persist correctly
+- Sidebar visibility matches saved permissions
+- Admin matrix page uses one consistent permission model instead of two conflicting ones
