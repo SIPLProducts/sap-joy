@@ -60,3 +60,15 @@ export function getPasswordStrengthIndicators(password: string) {
     withinMaxLength: password.length <= PASSWORD_POLICY.maxLength,
   };
 }
+
+/**
+ * Hash a password for history comparison (NOT for auth).
+ * Uses SHA-256 with a fixed salt for deterministic comparison.
+ */
+export async function hashPasswordForHistory(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password + 'mrb_pw_salt_v1');
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
