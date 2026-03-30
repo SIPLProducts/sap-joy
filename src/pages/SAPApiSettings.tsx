@@ -45,6 +45,7 @@ export default function SAPApiSettings() {
   const [fieldsConfig, setFieldsConfig] = useState<SAPConfig | null>(null);
   const [activeTab, setActiveTab] = useState('configurations');
   const { userRole } = useAuth();
+  const autoSync = useAutoSyncContext();
 
   const fetchConfigs = async () => {
     setLoading(true);
