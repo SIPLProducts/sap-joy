@@ -16,6 +16,7 @@ function isLovableCloud(): boolean {
  */
 async function invokeDirect(body: Record<string, any>): Promise<{ data: any; error: any }> {
   const { action, config_id } = body;
+  console.log(`%c[SAP Direct] invokeDirect called — action="${action}", config_id="${config_id}"`, 'color: #4caf50; font-weight: bold;');
 
   if (!config_id) {
     return { data: null, error: { message: 'config_id is required' } };
@@ -29,8 +30,11 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
     .single();
 
   if (configError || !config) {
+    console.error('[SAP Direct] Config fetch error:', configError);
     return { data: null, error: { message: configError?.message || 'Configuration not found' } };
   }
+
+  console.log(`[SAP Direct] Config loaded: "${config.config_name}", auth_type="${config.auth_type}", username="${config.username}", password_length=${config.encrypted_password?.length || 0}, proxy_url="${config.proxy_tunnel_url}", sap_client="${config.sap_client}"`);
 
   const proxyUrl = config.proxy_tunnel_url;
   if (!proxyUrl) {
@@ -262,20 +266,22 @@ async function directSync(
       requestBody = undefined;
     }
 
-    console.groupCollapsed(debugLabel);
-    console.log('Resolved URL:', url);
-    console.log('HTTP method:', method);
-    console.log('Connection mode:', config.connection_mode || 'direct');
-    console.log('Auth type:', config.auth_type || 'none');
-    console.log('SAP client:', config.sap_client || 'not set');
-    console.log('Headers:', maskSensitiveHeaders(headers));
-    console.log('Request fields count:', requestFields?.length || 0);
+    console.log(`%c${debugLabel} ========= REQUEST =========`, 'color: #00bcd4; font-weight: bold; font-size: 14px;');
+    console.log(`${debugLabel} Resolved URL:`, url);
+    console.log(`${debugLabel} HTTP method:`, method);
+    console.log(`${debugLabel} Connection mode:`, config.connection_mode || 'direct');
+    console.log(`${debugLabel} Auth type:`, config.auth_type || 'none');
+    console.log(`${debugLabel} Username:`, config.username || 'NOT SET');
+    console.log(`${debugLabel} Password present:`, config.encrypted_password ? `YES (${config.encrypted_password.length} chars)` : 'NO / EMPTY');
+    console.log(`${debugLabel} SAP client:`, config.sap_client || 'not set');
+    console.log(`${debugLabel} Headers (masked):`, maskSensitiveHeaders(headers));
+    console.log(`${debugLabel} Authorization header present:`, !!headers['Authorization']);
+    console.log(`${debugLabel} Request fields count:`, requestFields?.length || 0);
     if (requestBody) {
-      console.log('Payload:', requestBody);
+      console.log(`${debugLabel} Payload:`, JSON.parse(JSON.stringify(requestBody)));
     } else {
-      console.log('Payload: none');
+      console.log(`${debugLabel} Payload: none (${method} request)`);
     }
-    console.groupEnd();
 
     const response = await fetch(url, fetchOpts);
     const bodyText = await response.text();
@@ -283,14 +289,14 @@ async function directSync(
     const responsePreview = bodyText.substring(0, 2000);
     const detectedSapError = extractSapErrorSummary(bodyText);
 
-    console.groupCollapsed(`${debugLabel} response`);
-    console.log('Status:', response.status, response.statusText);
-    console.log('Content-Type:', contentType);
-    console.log('Response preview:', responsePreview);
+    console.log(`%c${debugLabel} ========= RESPONSE =========`, 'color: #ff9800; font-weight: bold; font-size: 14px;');
+    console.log(`${debugLabel} Status:`, response.status, response.statusText);
+    console.log(`${debugLabel} Content-Type:`, contentType);
+    console.log(`${debugLabel} Response preview:`, responsePreview);
     if (detectedSapError) {
-      console.error('Detected SAP error:', detectedSapError);
+      console.error(`%c${debugLabel} SAP ERROR DETECTED: ${detectedSapError}`, 'color: red; font-weight: bold; font-size: 14px;');
+      console.error(`${debugLabel} HINT: Check username/password in SAP API Settings Edit form. Current username="${config.username}", sap-client="${config.sap_client}"`);
     }
-    console.groupEnd();
     
     if (!response.ok) {
       console.error(`${debugLabel} HTTP failure body:`, bodyText);
