@@ -565,13 +565,9 @@ export default function UserManagement() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> Reset Password</Label>
-              <Input type="password" placeholder="Leave blank to keep current" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} />
-              {resetPassword && (
-                <p className="text-xs text-muted-foreground">
-                  New password will be set exactly as typed above.
-                </p>
-              )}
+              <Label className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> Reset Password <span className="text-xs text-muted-foreground">(8-10 chars)</span></Label>
+              <Input type="password" placeholder="Leave blank to keep current" value={resetPassword} onChange={(e) => setResetPassword(e.target.value.slice(0, 10))} maxLength={10} />
+              <PasswordPolicyIndicator password={resetPassword} />
             </div>
           </div>
           <DialogFooter>
