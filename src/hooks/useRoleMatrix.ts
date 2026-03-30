@@ -41,18 +41,17 @@ export function useRoleMatrix() {
     }
   }, [isAuthenticated]);
 
-  // Check if the current user has access to a specific screen key
   const hasAccess = (screenKey: string): boolean => {
-    // If no permissions loaded yet, fallback to true for admins or false for others 
-    // to prevent complete lockout before data loads
-    if (permissions.length === 0) {
-      return userRole === 'admin'; 
-    }
     if (!userRole) return false;
-    
-    // Always allow admin super access, or check the explicit mapping
-    return userRole === 'admin' || permissions.some(
-      (p) => p.role === userRole && p.screen_key === screenKey
+    // Admin always has full access
+    if (userRole === 'admin') return true;
+
+    // If no permissions loaded yet, deny access for non-admins to prevent showing screens before data loads
+    if (permissions.length === 0) return false;
+
+    // Check that a matching row exists AND can_view is true
+    return permissions.some(
+      (p) => p.role === userRole && p.screen_key === screenKey && p.can_view === true
     );
   };
 
