@@ -285,14 +285,14 @@ async function directSync(
     const responsePreview = bodyText.substring(0, 2000);
     const detectedSapError = extractSapErrorSummary(bodyText);
 
-    console.groupCollapsed(`${debugLabel} response`);
-    console.log('Status:', response.status, response.statusText);
-    console.log('Content-Type:', contentType);
-    console.log('Response preview:', responsePreview);
+    console.log(`%c${debugLabel} ========= RESPONSE =========`, 'color: #ff9800; font-weight: bold; font-size: 14px;');
+    console.log(`${debugLabel} Status:`, response.status, response.statusText);
+    console.log(`${debugLabel} Content-Type:`, contentType);
+    console.log(`${debugLabel} Response preview:`, responsePreview);
     if (detectedSapError) {
-      console.error('Detected SAP error:', detectedSapError);
+      console.error(`%c${debugLabel} SAP ERROR DETECTED: ${detectedSapError}`, 'color: red; font-weight: bold; font-size: 14px;');
+      console.error(`${debugLabel} HINT: Check username/password in SAP API Settings Edit form. Current username="${config.username}", sap-client="${config.sap_client}"`);
     }
-    console.groupEnd();
     
     if (!response.ok) {
       console.error(`${debugLabel} HTTP failure body:`, bodyText);
