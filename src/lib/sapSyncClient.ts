@@ -16,6 +16,7 @@ function isLovableCloud(): boolean {
  */
 async function invokeDirect(body: Record<string, any>): Promise<{ data: any; error: any }> {
   const { action, config_id } = body;
+  console.log(`%c[SAP Direct] invokeDirect called — action="${action}", config_id="${config_id}"`, 'color: #4caf50; font-weight: bold;');
 
   if (!config_id) {
     return { data: null, error: { message: 'config_id is required' } };
@@ -29,8 +30,11 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
     .single();
 
   if (configError || !config) {
+    console.error('[SAP Direct] Config fetch error:', configError);
     return { data: null, error: { message: configError?.message || 'Configuration not found' } };
   }
+
+  console.log(`[SAP Direct] Config loaded: "${config.config_name}", auth_type="${config.auth_type}", username="${config.username}", password_length=${config.encrypted_password?.length || 0}, proxy_url="${config.proxy_tunnel_url}", sap_client="${config.sap_client}"`);
 
   const proxyUrl = config.proxy_tunnel_url;
   if (!proxyUrl) {
