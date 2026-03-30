@@ -761,42 +761,10 @@ async function mapAndInsertClientSide(
  * Self-hosted → Direct middleware call
  */
 export async function invokeSapSync(body: Record<string, any>): Promise<{ data: any; error: any }> {
-  // Self-hosted: call middleware directly
-  if (!isLovableCloud()) {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      return { data: null, error: { message: 'Not authenticated' } };
-    }
-    return invokeDirect(body);
-  }
-
-  // Lovable Cloud: use edge function
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
     return { data: null, error: { message: 'Not authenticated' } };
   }
 
-  try {
-    const { data, error } = await supabase.functions.invoke('sap-sync', { body });
-
-    if (data?.debug) {
-      const debugLabel = `[SAP Edge Debug] ${data.debug.config_name || body.config_id || 'Unknown API'}`;
-      if (data?.success === false || data?.error) {
-        console.error(debugLabel, data.debug);
-      } else {
-        console.log(debugLabel, data.debug);
-      }
-    }
-
-    if (error) {
-      const errMsg = typeof error === 'object'
-        ? (error.message || error.name || JSON.stringify(error))
-        : String(error);
-      return { data: null, error: { message: errMsg } };
-    }
-
-    return { data, error: null };
-  } catch (err: any) {
-    return { data: null, error: { message: err?.message || 'Edge function call failed' } };
-  }
+  return invokeDirect(body);
 }
