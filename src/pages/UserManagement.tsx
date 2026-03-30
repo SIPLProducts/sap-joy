@@ -202,9 +202,22 @@ export default function UserManagement() {
 
       // Password reset via secure database RPC
       if (resetPassword.trim()) {
-        const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{8,10}$/;
-        if (!passwordRegex.test(resetPassword.trim())) {
-          throw new Error('Password must be 8-10 characters long, containing at least one letter and one number.');
+        const validation = validatePassword(resetPassword.trim());
+        if (!validation.isValid) {
+          throw new Error(validation.errors.join('. '));
+        }
+
+        // Check password reuse (last 4 passwords)
+        const pwHash = await hashPasswordForHistory(resetPassword.trim());
+        const { data: historyRecords } = await supabase
+          .from('password_history')
+          .select('password_hash')
+          .eq('user_id', selectedUser.user_id)
+          .order('changed_at', { ascending: false })
+          .limit(4);
+
+        if (historyRecords?.some(h => h.password_hash === pwHash)) {
+          throw new Error('Cannot reuse any of the last 4 passwords. Please choose a different password.');
         }
 
         const { error: pwErr } = await supabase.rpc('admin_update_user_password', {
@@ -212,6 +225,32 @@ export default function UserManagement() {
           new_password: resetPassword.trim(),
         });
         if (pwErr) throw pwErr;
+
+        // Record in password history
+        await supabase.from('password_history').insert({
+          user_id: selectedUser.user_id,
+          password_hash: pwHash,
+        });
+
+        // Update user_security last_password_change
+        const { data: existingSec } = await supabase
+          .from('user_security')
+          .select('id')
+          .eq('user_id', selectedUser.user_id)
+          .maybeSingle();
+
+        if (existingSec) {
+          await supabase.from('user_security').update({
+            last_password_change: new Date().toISOString(),
+            failed_login_attempts: 0,
+            locked_until: null,
+          }).eq('user_id', selectedUser.user_id);
+        } else {
+          await supabase.from('user_security').insert({
+            user_id: selectedUser.user_id,
+            last_password_change: new Date().toISOString(),
+          });
+        }
       }
 
       toast({
