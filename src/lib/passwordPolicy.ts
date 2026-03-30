@@ -125,25 +125,10 @@ function sha256JS(message: string): string {
 
 /**
  * Hash a password for history comparison (NOT for auth).
- * Uses SHA-256 with a fixed salt for deterministic comparison.
- * Falls back to pure JS implementation when crypto.subtle is unavailable (HTTP).
+ * Uses a pure JS SHA-256 implementation so it works consistently on
+ * self-hosted HTTP deployments where Web Crypto may be unavailable.
  */
 export async function hashPasswordForHistory(password: string): Promise<string> {
   const salted = password + 'mrb_pw_salt_v1';
-
-  // Try native Web Crypto first (available on HTTPS / localhost)
-  if (typeof crypto !== 'undefined' && crypto.subtle) {
-    try {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(salted);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    } catch {
-      // Fall through to JS implementation
-    }
-  }
-
-  // Fallback: pure JS SHA-256
   return sha256JS(salted);
 }
