@@ -643,6 +643,27 @@ export default function UserManagement() {
               <Input type="password" placeholder="Leave blank to keep current" value={resetPassword} onChange={(e) => setResetPassword(e.target.value.slice(0, 10))} maxLength={10} />
               <PasswordPolicyIndicator password={resetPassword} />
             </div>
+
+            {/* Password History */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Password Change History</Label>
+              {loadingHistory ? (
+                <p className="text-xs text-muted-foreground">Loading...</p>
+              ) : passwordHistory.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">No password changes recorded</p>
+              ) : (
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {passwordHistory.map((entry, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-xs p-2 rounded bg-muted/50 border">
+                      <span className="text-muted-foreground">Password Change #{passwordHistory.length - idx}</span>
+                      <span className="font-medium text-foreground">
+                        {format(new Date(entry.changed_at), 'dd MMM yyyy, hh:mm a')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
