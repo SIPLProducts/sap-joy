@@ -619,6 +619,27 @@ export type Database = {
           },
         ]
       }
+      password_history: {
+        Row: {
+          changed_at: string
+          id: string
+          password_hash: string
+          user_id: string
+        }
+        Insert: {
+          changed_at?: string
+          id?: string
+          password_hash: string
+          user_id: string
+        }
+        Update: {
+          changed_at?: string
+          id?: string
+          password_hash?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       plant_print_config: {
         Row: {
           company_name: string
@@ -1221,6 +1242,42 @@ export type Database = {
         }
         Relationships: []
       }
+      user_security: {
+        Row: {
+          created_at: string
+          failed_login_attempts: number
+          id: string
+          last_password_change: string | null
+          locked_until: string | null
+          max_failed_attempts: number
+          password_expiry_days: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          failed_login_attempts?: number
+          id?: string
+          last_password_change?: string | null
+          locked_until?: string | null
+          max_failed_attempts?: number
+          password_expiry_days?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          failed_login_attempts?: number
+          id?: string
+          last_password_change?: string | null
+          locked_until?: string | null
+          max_failed_attempts?: number
+          password_expiry_days?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       vendors: {
         Row: {
           address: string | null
@@ -1266,6 +1323,11 @@ export type Database = {
         Args: { new_password: string; target_user_id: string }
         Returns: undefined
       }
+      check_login_security: { Args: { _user_id: string }; Returns: Json }
+      check_password_reuse: {
+        Args: { _new_password_hash: string; _user_id: string }
+        Returns: boolean
+      }
       get_user_plant: { Args: { _user_id: string }; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
@@ -1278,6 +1340,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      record_failed_login: { Args: { _user_id: string }; Returns: Json }
+      record_password_change: {
+        Args: { _password_hash: string; _user_id: string }
+        Returns: undefined
+      }
+      reset_failed_login: { Args: { _user_id: string }; Returns: undefined }
     }
     Enums: {
       app_role:

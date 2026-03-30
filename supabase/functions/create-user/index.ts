@@ -1,9 +1,28 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { encode as base64Encode } from "https://deno.land/std@0.208.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Password policy validation
+function validatePasswordPolicy(password: string): { valid: boolean; error?: string } {
+  if (password.length < 8) return { valid: false, error: "Password must be at least 8 characters" };
+  if (password.length > 10) return { valid: false, error: "Password must not exceed 10 characters" };
+  if (!/[a-zA-Z]/.test(password)) return { valid: false, error: "Password must contain at least one letter" };
+  if (!/\d/.test(password)) return { valid: false, error: "Password must contain at least one number" };
+  return { valid: true };
+}
+
+// Simple hash for password history (not for auth, just comparison)
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password + "mrb_pw_salt_v1");
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = new Uint8Array(hashBuffer);
+  return base64Encode(hashArray);
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -63,7 +82,32 @@ Deno.serve(async (req) => {
       }
 
       // Update password if provided
-      if (new_password && new_password.length >= 6) {
+      if (new_password) {
+        // Validate password policy
+        const policyCheck = validatePasswordPolicy(new_password);
+        if (!policyCheck.valid) {
+          return new Response(JSON.stringify({ error: policyCheck.error }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Check password reuse (last 4 passwords)
+        const pwHash = await hashPassword(new_password);
+        const { data: historyRecords } = await adminClient
+          .from("password_history")
+          .select("password_hash")
+          .eq("user_id", user_id)
+          .order("changed_at", { ascending: false })
+          .limit(4);
+
+        if (historyRecords?.some(h => h.password_hash === pwHash)) {
+          return new Response(JSON.stringify({ error: "Cannot reuse any of your last 4 passwords. Please choose a different password." }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
         const { error: pwError } = await adminClient.auth.admin.updateUserById(user_id, {
           password: new_password,
         });
@@ -73,6 +117,20 @@ Deno.serve(async (req) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
+
+        // Record password in history
+        await adminClient.from("password_history").insert({
+          user_id,
+          password_hash: pwHash,
+        });
+
+        // Update last password change date in user_security
+        await adminClient.from("user_security").upsert({
+          user_id,
+          last_password_change: new Date().toISOString(),
+          failed_login_attempts: 0,
+          locked_until: null,
+        }, { onConflict: "user_id" });
       }
 
       // Update profile (department, plant)
@@ -115,6 +173,15 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Validate password policy
+    const policyCheck = validatePasswordPolicy(password);
+    if (!policyCheck.valid) {
+      return new Response(JSON.stringify({ error: policyCheck.error }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
       password,
@@ -144,6 +211,19 @@ Deno.serve(async (req) => {
     if (roleError) {
       console.error("Role assignment error:", roleError);
     }
+
+    // Record initial password in history
+    const pwHash = await hashPassword(password);
+    await adminClient.from("password_history").insert({
+      user_id: userId,
+      password_hash: pwHash,
+    });
+
+    // Create user_security record
+    await adminClient.from("user_security").insert({
+      user_id: userId,
+      last_password_change: new Date().toISOString(),
+    });
 
     return new Response(
       JSON.stringify({ success: true, user_id: userId, message: `User ${email} created successfully` }),

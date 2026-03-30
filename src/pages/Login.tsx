@@ -1,16 +1,19 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award, UserPlus, Eye, EyeOff, Zap, WifiOff, RefreshCw, Activity, Trash2 } from 'lucide-react';
+import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award, UserPlus, Eye, EyeOff, Zap, WifiOff, RefreshCw, Activity, Trash2, AlertTriangle } from 'lucide-react';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHealthCheck, ConnectionStatus } from '@/hooks/useHealthCheck';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { validatePassword } from '@/lib/passwordPolicy';
+import { PasswordPolicyIndicator } from '@/components/auth/PasswordPolicyIndicator';
 import loginHeroImage from '@/assets/login-hero.jpg';
 import hblLogo from '@/assets/hbl-logo.png';
 
@@ -105,6 +108,7 @@ export default function Login() {
   
   const [isLoading, setIsLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const MAX_RETRIES = 3;
 
   const roles: { value: AppRole; label: string; description: string; icon: typeof Shield }[] = [
@@ -129,6 +133,8 @@ export default function Login() {
     e.preventDefault();
     if (!signInEmail || !signInPassword) return;
     
+    setLoginError(null);
+    
     // Clear any stale session data before attempting login
     const staleKeys = Object.keys(localStorage).filter(
       key => key.includes('supabase') || key.includes('sb-')
@@ -148,6 +154,26 @@ export default function Login() {
       const { error } = await signIn(signInEmail, signInPassword);
       
       if (!error) {
+        // Reset failed login attempts on success
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await supabase.rpc('reset_failed_login', { _user_id: user.id });
+            
+            // Check password expiry
+            const { data: secData } = await supabase.rpc('check_login_security', { _user_id: user.id });
+            if (secData && typeof secData === 'object' && 'password_expired' in secData && secData.password_expired) {
+              setLoginError(`Your password has expired. Please contact your administrator to reset it.`);
+              await supabase.auth.signOut();
+              setIsLoading(false);
+              setRetryCount(0);
+              return;
+            }
+          }
+        } catch (secErr) {
+          console.warn('Security check warning:', secErr);
+        }
+        
         setIsLoading(false);
         setRetryCount(0);
         const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
@@ -156,9 +182,35 @@ export default function Login() {
       }
       
       lastError = error;
-      // Only retry on network errors
-      if (error.message !== 'Failed to fetch' && 
-          (error as any)?.name !== 'AuthRetryableFetchError') {
+      
+      // Record failed login attempt if it's an auth error (not network)
+      if (error.message !== 'Failed to fetch' && (error as any)?.name !== 'AuthRetryableFetchError') {
+        try {
+          // Try to find the user by email to record failed attempt
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('user_id')
+            .eq('email', signInEmail)
+            .maybeSingle();
+          
+          if (profileData?.user_id) {
+            const { data: lockData } = await supabase.rpc('record_failed_login', { _user_id: profileData.user_id });
+            if (lockData && typeof lockData === 'object' && 'locked' in lockData && lockData.locked) {
+              setLoginError('Your account has been locked due to too many failed login attempts. Please try again after 30 minutes.');
+              setIsLoading(false);
+              setRetryCount(0);
+              return;
+            }
+            if (lockData && typeof lockData === 'object' && 'attempts' in lockData) {
+              const remaining = 5 - Number(lockData.attempts);
+              if (remaining > 0 && remaining <= 3) {
+                setLoginError(`Invalid credentials. ${remaining} attempt(s) remaining before account lock.`);
+              }
+            }
+          }
+        } catch (secErr) {
+          console.warn('Failed to record login attempt:', secErr);
+        }
         break;
       }
     }
@@ -171,6 +223,14 @@ export default function Login() {
     e.preventDefault();
     if (!signUpEmail || !signUpPassword || !signUpFullName || !signUpRole) return;
     
+    // Validate password policy
+    const validation = validatePassword(signUpPassword);
+    if (!validation.isValid) {
+      setLoginError(validation.errors.join('. '));
+      return;
+    }
+    
+    setLoginError(null);
     setIsLoading(true);
     const { error } = await signUp(signUpEmail, signUpPassword, signUpFullName, signUpRole);
     setIsLoading(false);
@@ -285,6 +345,14 @@ export default function Login() {
                   <RefreshCw className="h-3 w-3 mr-1" /> Retry
                 </Button>
               </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Login Error Banner */}
+          {loginError && (
+            <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{loginError}</AlertDescription>
             </Alert>
           )}
 
@@ -403,10 +471,11 @@ export default function Login() {
                           id="signup-password"
                           type={showSignUpPassword ? 'text' : 'password'}
                           value={signUpPassword}
-                          onChange={(e) => setSignUpPassword(e.target.value)}
-                          placeholder="Create a password (min 6 characters)"
+                          onChange={(e) => setSignUpPassword(e.target.value.slice(0, 10))}
+                          placeholder="8-10 chars, letter + number"
                           className="h-11 pr-10"
-                          minLength={6}
+                          minLength={8}
+                          maxLength={10}
                           required
                         />
                         <button
@@ -417,6 +486,7 @@ export default function Login() {
                           {showSignUpPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
+                      <PasswordPolicyIndicator password={signUpPassword} />
                     </div>
 
                     <div className="space-y-2">
