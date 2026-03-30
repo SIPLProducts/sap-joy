@@ -453,6 +453,10 @@ function buildAuthHeaders(config: any): Record<string, string> {
     headers['x-proxy-secret'] = config.proxy_secret
   }
 
+  if (config.sap_client) {
+    headers['sap-client'] = String(config.sap_client)
+  }
+
   if (config.auth_type === 'basic' && config.username) {
     const credentials = `${config.username}:${config.encrypted_password || ''}`
     headers['Authorization'] = `Basic ${btoa(credentials)}`
