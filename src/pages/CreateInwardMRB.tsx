@@ -483,24 +483,98 @@ export default function CreateInwardMRB() {
             .eq('inspection_lot', formData.inspectionLot);
         }
 
+        // Log email notification for MRB forwarding
+        try {
+          const departmentLabels = formData.nextReviewDepartments.map(d => 
+            nextReviewDepartments.find(dept => dept.value === d)?.label || d
+          );
+          const qualityDecisionLabel = inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label || formData.qualityDecision;
+
+          // Fetch recipients from profiles matching the pending_with role
+          const { data: roleUsers } = await supabase
+            .from('user_roles')
+            .select('user_id')
+            .eq('role', pendingWith);
+
+          let recipientEmails: string[] = [];
+          if (roleUsers && roleUsers.length > 0) {
+            const userIds = roleUsers.map(r => r.user_id);
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('email, plant')
+              .in('user_id', userIds);
+            if (profiles) {
+              recipientEmails = profiles
+                .filter(p => p.plant === formData.plant || !p.plant)
+                .map(p => p.email);
+            }
+          }
+
+          const emailSubject = `Approval Request: Quality Non-Conformance | ${formData.vendorName} | Lot ${formData.inspectionLot}`;
+          
+          const emailBody = `Dear Material Review Board,
+
+A quality discrepancy has been identified in a recent shipment of ${formData.materialDescription} from ${formData.vendorName}. To maintain our production schedule and quality standards, we require your collective review and approval on the proposed disposition.
+
+1. Defect Overview
+   Total Quantity: ${formData.transactionQuantity} ${formData.uom}
+   Blocked Quantity: ${formData.blockedQuantity} ${formData.uom}
+   Primary Issue: ${formData.defectDescription || formData.blockReason || 'N/A'}
+   Quality Decision: ${qualityDecisionLabel}
+   Defect Category: ${formData.defectCategory ? inwardDefectCategories.find(c => c.value === formData.defectCategory)?.label || formData.defectCategory : 'N/A'}
+
+2. Material & Vendor Details
+   Material Code: ${formData.materialCode}
+   Plant: ${formData.plant}
+   Vendor Code: ${formData.vendorCode}
+   GRN Number: ${formData.grnNumber || 'N/A'}
+   PO Number: ${formData.purchaseOrderNumber || 'N/A'}
+   PO Item: ${formData.poItemNumber || 'N/A'}
+   Inspection Lot: ${formData.inspectionLot}
+
+3. Proposed Disposition
+   Recommended Action: ${qualityDecisionLabel}
+   Routed To: ${departmentLabels.join(', ')}
+
+4. Required Action
+   Please review the Non-Conformance Report (NCR) and provide your decision at the earliest.
+
+Best regards,
+${formData.qualityInspectorName}
+Quality Department`;
+
+          await supabase.from('email_logs').insert({
+            mrb_id: newMRB.id,
+            mrb_number: mrbNumber,
+            subject: emailSubject,
+            body: emailBody,
+            recipients: recipientEmails.length > 0 ? recipientEmails : ['mrb-board@hbl.com'],
+            template: 'quality_to_engineering',
+            sent_by: user?.id || '',
+            status: 'sent',
+          });
+        } catch (emailError) {
+          console.error('Email log error (non-blocking):', emailError);
+        }
+
         // Clear autosave on successful submission
         clearAutosave();
         
-        const departmentLabels = formData.nextReviewDepartments.map(d => 
+        const departmentLabels2 = formData.nextReviewDepartments.map(d => 
           nextReviewDepartments.find(dept => dept.value === d)?.label || d
         );
-        const qualityDecisionLabel = inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label || formData.qualityDecision;
+        const qualityDecisionLabel2 = inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label || formData.qualityDecision;
 
         toast({
           title: '✅ MRB Created Successfully',
           description: (
             <div className="mt-2 space-y-2">
               <p className="font-medium">MRB Number: <span className="text-primary">{mrbNumber}</span></p>
-              <p>Quality Decision: <span className="font-medium">{qualityDecisionLabel}</span></p>
+              <p>Quality Decision: <span className="font-medium">{qualityDecisionLabel2}</span></p>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Routed to:</p>
                 <div className="flex flex-wrap gap-1">
-                  {departmentLabels.map((dept, idx) => (
+                  {departmentLabels2.map((dept, idx) => (
                     <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
                       {dept}
                     </span>
@@ -677,6 +751,10 @@ export default function CreateInwardMRB() {
                 <Label className="text-muted-foreground">Vendor Code</Label>
                 <Input value={formData.vendorCode} readOnly className="bg-muted" />
               </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">GRN Number</Label>
+                <Input value={formData.grnNumber} readOnly className="bg-muted" />
+              </div>
               <div className="space-y-2 lg:col-span-2">
                 <Label className="text-muted-foreground">Vendor Name</Label>
                 <Input value={formData.vendorName} readOnly className="bg-muted" />
@@ -688,10 +766,6 @@ export default function CreateInwardMRB() {
               <div className="space-y-2">
                 <Label className="text-muted-foreground">PO Item Number</Label>
                 <Input value={formData.poItemNumber} readOnly className="bg-muted" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">GRN Number</Label>
-                <Input value={formData.grnNumber} readOnly className="bg-muted" />
               </div>
             </div>
           </div>
