@@ -16,6 +16,27 @@ function removeSapClientFromUrl(rawUrl: string): string {
   }
 }
 
+function buildCredentialForwardHeaders(username: string, password: string, sapClient?: string | null): Record<string, string> {
+  const forwarded: Record<string, string> = {
+    'x-sap-username': username,
+    'x-sap-password': password,
+    'sap-username': username,
+    'sap-password': password,
+    'sap_user': username,
+    'sap_password': password,
+    'x-username': username,
+    'x-password': password,
+    'x-auth-username': username,
+    'x-auth-password': password,
+  };
+
+  if (sapClient) {
+    forwarded['x-sap-client'] = String(sapClient);
+  }
+
+  return forwarded;
+}
+
 /**
  * Detect if we're running against Lovable Cloud (supabase.co)
  * or a self-hosted Supabase instance (private IP / custom domain).
@@ -87,11 +108,7 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
   // Auth headers — send SAP credentials from the config (edit section)
   if (authType === 'basic' && username) {
     headers['Authorization'] = `Basic ${btoa(`${username}:${passwordRaw}`)}`;
-    headers['x-sap-username'] = username;
-    headers['x-sap-password'] = passwordRaw;
-    if (config.sap_client) {
-      headers['x-sap-client'] = String(config.sap_client);
-    }
+    Object.assign(headers, buildCredentialForwardHeaders(username, passwordRaw, config.sap_client));
   } else if (authType === 'api_key' && config.api_key) {
     headers['X-API-Key'] = config.api_key;
   }
@@ -317,6 +334,21 @@ async function directSync(
     ];
 
     if (authType === 'basic' && trimmedUsername && trimmedPassword) {
+      const minimalHeaders: Record<string, string> = {
+        'Content-Type': headers['Content-Type'],
+        Accept: headers['Accept'],
+        'ngrok-skip-browser-warning': headers['ngrok-skip-browser-warning'],
+      };
+      if (headers['x-proxy-secret']) minimalHeaders['x-proxy-secret'] = headers['x-proxy-secret'];
+      if (headers['sap-client']) minimalHeaders['sap-client'] = headers['sap-client'];
+      minimalHeaders.Authorization = `Basic ${btoa(`${trimmedUsername}:${trimmedPassword}`)}`;
+
+      attemptQueue.push({
+        label: 'basic_auth_minimal_headers',
+        requestUrl: url,
+        requestHeaders: minimalHeaders,
+      });
+
       const noQuerySapClientUrl = removeSapClientFromUrl(url);
       if (noQuerySapClientUrl !== url) {
         attemptQueue.push({
@@ -332,8 +364,17 @@ async function directSync(
         requestHeaders: {
           ...headers,
           Authorization: `Basic ${btoa(`${trimmedUsername}:${trimmedPassword}`)}`,
-          'x-sap-username': trimmedUsername,
-          'x-sap-password': trimmedPassword,
+          ...buildCredentialForwardHeaders(trimmedUsername, trimmedPassword, config.sap_client),
+        },
+      });
+
+      attemptQueue.push({
+        label: 'basic_auth_payload_credentials',
+        requestUrl: url,
+        requestHeaders: {
+          ...headers,
+          Authorization: `Basic ${btoa(`${trimmedUsername}:${trimmedPassword}`)}`,
+          ...buildCredentialForwardHeaders(trimmedUsername, trimmedPassword, config.sap_client),
         },
       });
     }
@@ -348,7 +389,19 @@ async function directSync(
     for (const attempt of attemptQueue) {
       const attemptOpts: RequestInit = { method, headers: attempt.requestHeaders };
       if (requestBody && Object.keys(requestBody).length > 0) {
-        attemptOpts.body = JSON.stringify(requestBody);
+        if (attempt.label === 'basic_auth_payload_credentials' && authType === 'basic' && trimmedUsername && trimmedPassword) {
+          attemptOpts.body = JSON.stringify({
+            ...requestBody,
+            username: trimmedUsername,
+            password: trimmedPassword,
+            sap_client: config.sap_client || undefined,
+            USERNAME: trimmedUsername,
+            PASSWORD: trimmedPassword,
+            SAP_CLIENT: config.sap_client || undefined,
+          });
+        } else {
+          attemptOpts.body = JSON.stringify(requestBody);
+        }
       }
 
       console.log(`${debugLabel} Attempt: ${attempt.label}`);
