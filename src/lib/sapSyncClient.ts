@@ -262,20 +262,22 @@ async function directSync(
       requestBody = undefined;
     }
 
-    console.groupCollapsed(debugLabel);
-    console.log('Resolved URL:', url);
-    console.log('HTTP method:', method);
-    console.log('Connection mode:', config.connection_mode || 'direct');
-    console.log('Auth type:', config.auth_type || 'none');
-    console.log('SAP client:', config.sap_client || 'not set');
-    console.log('Headers:', maskSensitiveHeaders(headers));
-    console.log('Request fields count:', requestFields?.length || 0);
+    console.log(`%c${debugLabel} ========= REQUEST =========`, 'color: #00bcd4; font-weight: bold; font-size: 14px;');
+    console.log(`${debugLabel} Resolved URL:`, url);
+    console.log(`${debugLabel} HTTP method:`, method);
+    console.log(`${debugLabel} Connection mode:`, config.connection_mode || 'direct');
+    console.log(`${debugLabel} Auth type:`, config.auth_type || 'none');
+    console.log(`${debugLabel} Username:`, config.username || 'NOT SET');
+    console.log(`${debugLabel} Password present:`, config.encrypted_password ? `YES (${config.encrypted_password.length} chars)` : 'NO / EMPTY');
+    console.log(`${debugLabel} SAP client:`, config.sap_client || 'not set');
+    console.log(`${debugLabel} Headers (masked):`, maskSensitiveHeaders(headers));
+    console.log(`${debugLabel} Authorization header present:`, !!headers['Authorization']);
+    console.log(`${debugLabel} Request fields count:`, requestFields?.length || 0);
     if (requestBody) {
-      console.log('Payload:', requestBody);
+      console.log(`${debugLabel} Payload:`, JSON.parse(JSON.stringify(requestBody)));
     } else {
-      console.log('Payload: none');
+      console.log(`${debugLabel} Payload: none (${method} request)`);
     }
-    console.groupEnd();
 
     const response = await fetch(url, fetchOpts);
     const bodyText = await response.text();
