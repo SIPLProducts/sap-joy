@@ -16,14 +16,52 @@ function removeSapClientFromUrl(rawUrl: string): string {
   }
 }
 
+function normalizeCredential(value: string | null | undefined): string {
+  return typeof value === 'string' ? value.replace(/\r?\n/g, '').trim() : '';
+}
+
+function addCredentialQueryParams(rawUrl: string, username: string, password: string, sapClient?: string | null): string {
+  if (!username || !password) return rawUrl;
+  try {
+    const parsed = new URL(rawUrl);
+    parsed.searchParams.set('username', username);
+    parsed.searchParams.set('password', password);
+    parsed.searchParams.set('user', username);
+    parsed.searchParams.set('pass', password);
+    parsed.searchParams.set('sap_user', username);
+    parsed.searchParams.set('sap_password', password);
+    parsed.searchParams.set('sapUsername', username);
+    parsed.searchParams.set('sapPassword', password);
+    if (sapClient) {
+      const client = String(sapClient);
+      parsed.searchParams.set('sap_client', client);
+      parsed.searchParams.set('sap-client', client);
+      parsed.searchParams.set('sapClient', client);
+      parsed.searchParams.set('client', client);
+      parsed.searchParams.set('mandt', client);
+    }
+    return parsed.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
 function buildCredentialForwardHeaders(username: string, password: string, sapClient?: string | null): Record<string, string> {
   const forwarded: Record<string, string> = {
+    username,
+    password,
+    user: username,
+    pass: password,
     'x-sap-username': username,
     'x-sap-password': password,
+    'x-sap-user': username,
+    'x-sap-pass': password,
     'sap-username': username,
     'sap-password': password,
     'sap_user': username,
     'sap_password': password,
+    sapUsername: username,
+    sapPassword: password,
     'x-username': username,
     'x-password': password,
     'x-auth-username': username,
@@ -31,7 +69,14 @@ function buildCredentialForwardHeaders(username: string, password: string, sapCl
   };
 
   if (sapClient) {
-    forwarded['x-sap-client'] = String(sapClient);
+    const client = String(sapClient);
+    forwarded['sap-client'] = client;
+    forwarded['sap_client'] = client;
+    forwarded['sapClient'] = client;
+    forwarded['x-sap-client'] = client;
+    forwarded['x-client'] = client;
+    forwarded['client'] = client;
+    forwarded['mandt'] = client;
   }
 
   return forwarded;
@@ -70,8 +115,8 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
   }
 
   const authType = normalizeAuthType(config.auth_type);
-  const username = typeof config.username === 'string' ? config.username.trim() : '';
-  const passwordRaw = typeof config.encrypted_password === 'string' ? config.encrypted_password.replace(/\r?\n/g, '') : '';
+  const username = normalizeCredential(config.username);
+  const passwordRaw = normalizeCredential(config.encrypted_password);
 
   console.log(`[SAP Direct] Config loaded: "${config.config_name}", auth_type="${authType}", username="${username}", password_length=${passwordRaw.length || 0}, proxy_url="${config.proxy_tunnel_url}", sap_client="${config.sap_client}", credential_source="sap_api_config"`);
 
@@ -106,7 +151,7 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
   }
 
   // Auth headers — send SAP credentials from the config (edit section)
-  if (authType === 'basic' && username) {
+  if (authType === 'basic' && username && passwordRaw) {
     headers['Authorization'] = `Basic ${btoa(`${username}:${passwordRaw}`)}`;
     Object.assign(headers, buildCredentialForwardHeaders(username, passwordRaw, config.sap_client));
   } else if (authType === 'api_key' && config.api_key) {
@@ -196,11 +241,16 @@ async function directSync(
     return Object.fromEntries(
       Object.entries(sourceHeaders).map(([key, value]) => {
         const normalizedKey = key.toLowerCase();
-        if (normalizedKey === 'authorization') {
+        if (normalizedKey.includes('authorization')) {
           const scheme = value.includes(' ') ? value.split(' ')[0] : 'Basic';
           return [key, `${scheme} ***masked***`];
         }
-        if (normalizedKey === 'x-proxy-secret' || normalizedKey === 'x-api-key' || normalizedKey === 'x-sap-password') {
+        if (
+          normalizedKey.includes('password') ||
+          normalizedKey.includes('secret') ||
+          normalizedKey.includes('api-key') ||
+          normalizedKey.includes('token')
+        ) {
           return [key, '***masked***'];
         }
         return [key, value];
@@ -324,10 +374,8 @@ async function directSync(
     }
 
     const authType = normalizeAuthType(config.auth_type);
-    const trimmedUsername = typeof config.username === 'string' ? config.username.trim() : '';
-    const trimmedPassword = typeof config.encrypted_password === 'string'
-      ? config.encrypted_password.replace(/\r?\n/g, '').trim()
-      : '';
+    const trimmedUsername = normalizeCredential(config.username);
+    const trimmedPassword = normalizeCredential(config.encrypted_password);
 
     const attemptQueue: Array<{ label: string; requestUrl: string; requestHeaders: Record<string, string> }> = [
       { label: 'default', requestUrl: url, requestHeaders: headers },
@@ -377,6 +425,19 @@ async function directSync(
           ...buildCredentialForwardHeaders(trimmedUsername, trimmedPassword, config.sap_client),
         },
       });
+
+      const queryCredentialUrl = addCredentialQueryParams(url, trimmedUsername, trimmedPassword, config.sap_client);
+      if (queryCredentialUrl !== url) {
+        attemptQueue.push({
+          label: 'basic_auth_query_credentials',
+          requestUrl: queryCredentialUrl,
+          requestHeaders: {
+            ...headers,
+            Authorization: `Basic ${btoa(`${trimmedUsername}:${trimmedPassword}`)}`,
+            ...buildCredentialForwardHeaders(trimmedUsername, trimmedPassword, config.sap_client),
+          },
+        });
+      }
     }
 
     let response: Response | null = null;
@@ -394,9 +455,22 @@ async function directSync(
             ...requestBody,
             username: trimmedUsername,
             password: trimmedPassword,
+            user: trimmedUsername,
+            pass: trimmedPassword,
+            sap_user: trimmedUsername,
+            sap_password: trimmedPassword,
+            sapUsername: trimmedUsername,
+            sapPassword: trimmedPassword,
             sap_client: config.sap_client || undefined,
+            sapClient: config.sap_client || undefined,
+            client: config.sap_client || undefined,
+            mandt: config.sap_client || undefined,
             USERNAME: trimmedUsername,
             PASSWORD: trimmedPassword,
+            USER: trimmedUsername,
+            PASS: trimmedPassword,
+            SAP_USER: trimmedUsername,
+            SAP_PASSWORD: trimmedPassword,
             SAP_CLIENT: config.sap_client || undefined,
           });
         } else {
