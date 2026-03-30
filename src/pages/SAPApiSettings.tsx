@@ -5,13 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Settings2, Play, Trash2, FileText, Link2, Server } from 'lucide-react';
+import { Plus, Pencil, Settings2, Play, Trash2, FileText, Link2, Server, Timer, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { SAPApiEditForm } from '@/components/sapApi/SAPApiEditForm';
 import { SAPConnectivityGuide } from '@/components/sapApi/SAPConnectivityGuide';
 import { SAPApiFieldsDialog } from '@/components/sapApi/SAPApiFieldsDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { invokeSapSync } from '@/lib/sapSyncClient';
+import { useAutoSyncContext } from '@/components/layout/AppLayout';
 
 interface SAPConfig {
   id: string;
@@ -44,6 +45,7 @@ export default function SAPApiSettings() {
   const [fieldsConfig, setFieldsConfig] = useState<SAPConfig | null>(null);
   const [activeTab, setActiveTab] = useState('configurations');
   const { userRole } = useAuth();
+  const autoSync = useAutoSyncContext();
 
   const fetchConfigs = async () => {
     setLoading(true);
@@ -216,6 +218,66 @@ export default function SAPApiSettings() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Auto-Sync Scheduler Status */}
+          {autoSync && autoSync.statuses.length > 0 && (
+            <Card className="border-green-300 bg-green-50/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Timer className="h-5 w-5 text-green-600" />
+                  Auto-Sync Scheduler
+                  <Badge className="bg-green-100 text-green-700 hover:bg-green-100 ml-2">Active</Badge>
+                  <span className="text-xs text-muted-foreground font-normal ml-auto">
+                    Checks every 30s · Last check: {autoSync.lastCheck ? new Date(autoSync.lastCheck).toLocaleTimeString() : '—'}
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>API</TableHead>
+                      <TableHead>Frequency</TableHead>
+                      <TableHead>Last Sync</TableHead>
+                      <TableHead>Next Sync</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {autoSync.statuses.map((s) => (
+                      <TableRow key={s.configId}>
+                        <TableCell className="font-medium">{s.configName}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                            {s.syncFrequency.replace(/_/g, ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {s.lastSyncAt ? new Date(s.lastSyncAt).toLocaleString() : 'Never'}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {s.nextSyncAt === 'Now' ? (
+                            <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Due Now</Badge>
+                          ) : s.nextSyncAt ? (
+                            new Date(s.nextSyncAt).toLocaleString()
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {s.isSyncing ? (
+                            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 gap-1">
+                              <Loader2 className="h-3 w-3 animate-spin" /> Syncing...
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Idle</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="flex justify-end">
             <Button onClick={() => setIsCreating(true)} className="gap-2 bg-primary">
