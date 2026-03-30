@@ -2,6 +2,20 @@ import { supabase } from '@/integrations/supabase/client';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 
+function normalizeAuthType(authType: string | null | undefined): string {
+  return (authType || 'none').toLowerCase().trim();
+}
+
+function removeSapClientFromUrl(rawUrl: string): string {
+  try {
+    const parsed = new URL(rawUrl);
+    parsed.searchParams.delete('sap-client');
+    return parsed.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
 /**
  * Detect if we're running against Lovable Cloud (supabase.co)
  * or a self-hosted Supabase instance (private IP / custom domain).
@@ -34,7 +48,11 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
     return { data: null, error: { message: configError?.message || 'Configuration not found' } };
   }
 
-  console.log(`[SAP Direct] Config loaded: "${config.config_name}", auth_type="${config.auth_type}", username="${config.username}", password_length=${config.encrypted_password?.length || 0}, proxy_url="${config.proxy_tunnel_url}", sap_client="${config.sap_client}"`);
+  const authType = normalizeAuthType(config.auth_type);
+  const username = typeof config.username === 'string' ? config.username.trim() : '';
+  const passwordRaw = typeof config.encrypted_password === 'string' ? config.encrypted_password.replace(/\r?\n/g, '') : '';
+
+  console.log(`[SAP Direct] Config loaded: "${config.config_name}", auth_type="${authType}", username="${username}", password_length=${passwordRaw.length || 0}, proxy_url="${config.proxy_tunnel_url}", sap_client="${config.sap_client}", credential_source="sap_api_config"`);
 
   const proxyUrl = config.proxy_tunnel_url;
   if (!proxyUrl) {
@@ -67,9 +85,14 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
   }
 
   // Auth headers — send SAP credentials from the config (edit section)
-  if (config.auth_type === 'basic' && config.username) {
-    headers['Authorization'] = `Basic ${btoa(`${config.username}:${config.encrypted_password || ''}`)}`;
-  } else if (config.auth_type === 'api_key' && config.api_key) {
+  if (authType === 'basic' && username) {
+    headers['Authorization'] = `Basic ${btoa(`${username}:${passwordRaw}`)}`;
+    headers['x-sap-username'] = username;
+    headers['x-sap-password'] = passwordRaw;
+    if (config.sap_client) {
+      headers['x-sap-client'] = String(config.sap_client);
+    }
+  } else if (authType === 'api_key' && config.api_key) {
     headers['X-API-Key'] = config.api_key;
   }
 
@@ -160,7 +183,7 @@ async function directSync(
           const scheme = value.includes(' ') ? value.split(' ')[0] : 'Basic';
           return [key, `${scheme} ***masked***`];
         }
-        if (normalizedKey === 'x-proxy-secret' || normalizedKey === 'x-api-key') {
+        if (normalizedKey === 'x-proxy-secret' || normalizedKey === 'x-api-key' || normalizedKey === 'x-sap-password') {
           return [key, '***masked***'];
         }
         return [key, value];
@@ -283,13 +306,78 @@ async function directSync(
       console.log(`${debugLabel} Payload: none (${method} request)`);
     }
 
-    const response = await fetch(url, fetchOpts);
-    const bodyText = await response.text();
-    const contentType = response.headers.get('content-type') || 'unknown';
-    const responsePreview = bodyText.substring(0, 2000);
-    const detectedSapError = extractSapErrorSummary(bodyText);
+    const authType = normalizeAuthType(config.auth_type);
+    const trimmedUsername = typeof config.username === 'string' ? config.username.trim() : '';
+    const trimmedPassword = typeof config.encrypted_password === 'string'
+      ? config.encrypted_password.replace(/\r?\n/g, '').trim()
+      : '';
+
+    const attemptQueue: Array<{ label: string; requestUrl: string; requestHeaders: Record<string, string> }> = [
+      { label: 'default', requestUrl: url, requestHeaders: headers },
+    ];
+
+    if (authType === 'basic' && trimmedUsername && trimmedPassword) {
+      const noQuerySapClientUrl = removeSapClientFromUrl(url);
+      if (noQuerySapClientUrl !== url) {
+        attemptQueue.push({
+          label: 'basic_auth_header_only_client',
+          requestUrl: noQuerySapClientUrl,
+          requestHeaders: headers,
+        });
+      }
+
+      attemptQueue.push({
+        label: 'basic_auth_trimmed_creds',
+        requestUrl: url,
+        requestHeaders: {
+          ...headers,
+          Authorization: `Basic ${btoa(`${trimmedUsername}:${trimmedPassword}`)}`,
+          'x-sap-username': trimmedUsername,
+          'x-sap-password': trimmedPassword,
+        },
+      });
+    }
+
+    let response: Response | null = null;
+    let bodyText = '';
+    let contentType = 'unknown';
+    let responsePreview = '';
+    let detectedSapError: string | null = null;
+    let selectedAttempt = 'default';
+
+    for (const attempt of attemptQueue) {
+      const attemptOpts: RequestInit = { method, headers: attempt.requestHeaders };
+      if (requestBody && Object.keys(requestBody).length > 0) {
+        attemptOpts.body = JSON.stringify(requestBody);
+      }
+
+      console.log(`${debugLabel} Attempt: ${attempt.label}`);
+      const currentResponse = await fetch(attempt.requestUrl, attemptOpts);
+      const currentBodyText = await currentResponse.text();
+      const currentContentType = currentResponse.headers.get('content-type') || 'unknown';
+      const currentPreview = currentBodyText.substring(0, 2000);
+      const currentDetectedSapError = extractSapErrorSummary(currentBodyText);
+
+      console.log(`${debugLabel} Attempt status (${attempt.label}):`, currentResponse.status, currentResponse.statusText);
+
+      response = currentResponse;
+      bodyText = currentBodyText;
+      contentType = currentContentType;
+      responsePreview = currentPreview;
+      detectedSapError = currentDetectedSapError;
+      selectedAttempt = attempt.label;
+
+      if (currentResponse.ok || currentResponse.status !== 401) {
+        break;
+      }
+    }
+
+    if (!response) {
+      throw new Error('No response received from middleware');
+    }
 
     console.log(`%c${debugLabel} ========= RESPONSE =========`, 'color: #ff9800; font-weight: bold; font-size: 14px;');
+    console.log(`${debugLabel} Final attempt used:`, selectedAttempt);
     console.log(`${debugLabel} Status:`, response.status, response.statusText);
     console.log(`${debugLabel} Content-Type:`, contentType);
     console.log(`${debugLabel} Response preview:`, responsePreview);
@@ -302,12 +390,12 @@ async function directSync(
       console.error(`${debugLabel} HTTP failure body:`, bodyText);
       await supabase.from('sap_stock_sync_history').update({
         status: 'failed',
-        error_message: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
+        error_message: `SAP API returned ${response.status} (attempt: ${selectedAttempt}): ${bodyText.substring(0, 500)}`,
         completed_at: new Date().toISOString(),
       }).eq('id', syncRecord.id);
 
       return {
-        data: { success: false, error: `SAP API returned ${response.status}`, sync_id: syncRecord.id },
+        data: { success: false, error: `SAP API returned ${response.status} (attempt: ${selectedAttempt})`, sync_id: syncRecord.id },
         error: null,
       };
     }
