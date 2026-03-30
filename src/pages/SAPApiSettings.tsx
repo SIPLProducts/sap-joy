@@ -5,13 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Settings2, Play, Trash2, FileText, Link2, Server } from 'lucide-react';
+import { Plus, Pencil, Settings2, Play, Trash2, FileText, Link2, Server, Timer, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { SAPApiEditForm } from '@/components/sapApi/SAPApiEditForm';
 import { SAPConnectivityGuide } from '@/components/sapApi/SAPConnectivityGuide';
 import { SAPApiFieldsDialog } from '@/components/sapApi/SAPApiFieldsDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { invokeSapSync } from '@/lib/sapSyncClient';
+import { useAutoSyncContext } from '@/components/layout/AppLayout';
 
 interface SAPConfig {
   id: string;
