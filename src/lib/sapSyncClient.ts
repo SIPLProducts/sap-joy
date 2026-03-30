@@ -57,16 +57,11 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
     headers['x-proxy-secret'] = config.proxy_secret;
   }
 
-  // Auth headers — only send when NOT using a proxy middleware.
-  // When proxy_tunnel_url is set, the middleware handles SAP authentication
-  // internally using its own stored credentials. Sending an Authorization
-  // header from the browser would override/conflict with the middleware's auth.
-  if (!config.proxy_tunnel_url) {
-    if (config.auth_type === 'basic' && config.username) {
-      headers['Authorization'] = `Basic ${btoa(`${config.username}:${config.encrypted_password || ''}`)}`;
-    } else if (config.auth_type === 'api_key' && config.api_key) {
-      headers['X-API-Key'] = config.api_key;
-    }
+  // Auth headers — send SAP credentials from the config (edit section)
+  if (config.auth_type === 'basic' && config.username) {
+    headers['Authorization'] = `Basic ${btoa(`${config.username}:${config.encrypted_password || ''}`)}`;
+  } else if (config.auth_type === 'api_key' && config.api_key) {
+    headers['X-API-Key'] = config.api_key;
   }
 
   // Custom headers
