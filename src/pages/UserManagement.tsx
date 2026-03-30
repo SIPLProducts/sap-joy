@@ -368,6 +368,19 @@ export default function UserManagement() {
 
       if (roleInsertError) throw roleInsertError;
 
+      // Record initial password in history
+      const pwHash = await hashPasswordForHistory(newUserPassword);
+      await supabase.from('password_history').insert({
+        user_id: newUserId,
+        password_hash: pwHash,
+      });
+
+      // Create user_security record
+      await supabase.from('user_security').insert({
+        user_id: newUserId,
+        last_password_change: new Date().toISOString(),
+      });
+
       toast({ title: 'User Created', description: `${newUserEmail} created with role ${ROLES.find(r => r.value === newUserRole)?.label}` });
       setNewUserEmail('');
       setNewUserPassword('');
