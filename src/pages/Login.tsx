@@ -133,6 +133,8 @@ export default function Login() {
     e.preventDefault();
     if (!signInEmail || !signInPassword) return;
     
+    setLoginError(null);
+    
     // Clear any stale session data before attempting login
     const staleKeys = Object.keys(localStorage).filter(
       key => key.includes('supabase') || key.includes('sb-')
@@ -152,6 +154,26 @@ export default function Login() {
       const { error } = await signIn(signInEmail, signInPassword);
       
       if (!error) {
+        // Reset failed login attempts on success
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await supabase.rpc('reset_failed_login', { _user_id: user.id });
+            
+            // Check password expiry
+            const { data: secData } = await supabase.rpc('check_login_security', { _user_id: user.id });
+            if (secData && typeof secData === 'object' && 'password_expired' in secData && secData.password_expired) {
+              setLoginError(`Your password has expired. Please contact your administrator to reset it.`);
+              await supabase.auth.signOut();
+              setIsLoading(false);
+              setRetryCount(0);
+              return;
+            }
+          }
+        } catch (secErr) {
+          console.warn('Security check warning:', secErr);
+        }
+        
         setIsLoading(false);
         setRetryCount(0);
         const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
@@ -160,9 +182,35 @@ export default function Login() {
       }
       
       lastError = error;
-      // Only retry on network errors
-      if (error.message !== 'Failed to fetch' && 
-          (error as any)?.name !== 'AuthRetryableFetchError') {
+      
+      // Record failed login attempt if it's an auth error (not network)
+      if (error.message !== 'Failed to fetch' && (error as any)?.name !== 'AuthRetryableFetchError') {
+        try {
+          // Try to find the user by email to record failed attempt
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('user_id')
+            .eq('email', signInEmail)
+            .maybeSingle();
+          
+          if (profileData?.user_id) {
+            const { data: lockData } = await supabase.rpc('record_failed_login', { _user_id: profileData.user_id });
+            if (lockData && typeof lockData === 'object' && 'locked' in lockData && lockData.locked) {
+              setLoginError('Your account has been locked due to too many failed login attempts. Please try again after 30 minutes.');
+              setIsLoading(false);
+              setRetryCount(0);
+              return;
+            }
+            if (lockData && typeof lockData === 'object' && 'attempts' in lockData) {
+              const remaining = 5 - Number(lockData.attempts);
+              if (remaining > 0 && remaining <= 3) {
+                setLoginError(`Invalid credentials. ${remaining} attempt(s) remaining before account lock.`);
+              }
+            }
+          }
+        } catch (secErr) {
+          console.warn('Failed to record login attempt:', secErr);
+        }
         break;
       }
     }
