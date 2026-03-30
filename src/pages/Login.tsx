@@ -356,6 +356,7 @@ export default function Login() {
             </Alert>
           )}
 
+          <Card className="shadow-xl border-0 bg-card/80 backdrop-blur">
             <Tabs defaultValue="signin" className="w-full">
               <CardHeader className="pb-4">
                 <TabsList className="grid w-full grid-cols-2">
