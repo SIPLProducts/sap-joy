@@ -310,12 +310,11 @@ export default function UserManagement() {
       return;
     }
     
-    // Validate Password Policy: 8-10 characters, at least one letter and one number
-    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{8,10}$/;
-    if (!passwordRegex.test(newUserPassword)) {
+    const validation = validatePassword(newUserPassword);
+    if (!validation.isValid) {
       toast({ 
         title: 'Password Policy Error', 
-        description: 'Password must be 8-10 characters long, containing at least one letter and one number.', 
+        description: validation.errors.join('. '), 
         variant: 'destructive' 
       });
       return;
