@@ -104,6 +104,7 @@ Deno.serve(async (req) => {
             success: false,
             error: sapResponse.error,
             sync_id: syncRecord.id,
+            debug: sapResponse.debug,
           }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
@@ -138,6 +139,7 @@ Deno.serve(async (req) => {
           records_updated: mappingResult.updated,
           errors: mappingResult.errors,
           sample_data: sapResponse.data?.slice?.(0, 3) || null,
+          debug: sapResponse.debug,
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       } catch (syncErr: any) {
         await supabase.from('sap_stock_sync_history').update({
@@ -449,6 +451,10 @@ function buildAuthHeaders(config: any): Record<string, string> {
     'ngrok-skip-browser-warning': 'true',
   }
 
+  const authType = String(config.auth_type || 'basic').toLowerCase()
+  const username = typeof config.username === 'string' ? config.username : ''
+  const password = typeof config.encrypted_password === 'string' ? config.encrypted_password : ''
+
   if (config.proxy_secret) {
     headers['x-proxy-secret'] = config.proxy_secret
   }
@@ -457,12 +463,11 @@ function buildAuthHeaders(config: any): Record<string, string> {
     headers['sap-client'] = String(config.sap_client)
   }
 
-  if (config.auth_type === 'basic' && config.username) {
-    const credentials = `${config.username}:${config.encrypted_password || ''}`
-    headers['Authorization'] = `Basic ${btoa(credentials)}`
-  } else if (config.auth_type === 'api_key' && config.api_key) {
+  if (authType === 'basic' && username) {
+    headers['Authorization'] = `Basic ${btoa(`${username}:${password}`)}`
+  } else if (authType === 'api_key' && config.api_key) {
     headers['X-API-Key'] = config.api_key
-  } else if (config.auth_type === 'oauth2' && config.token_url) {
+  } else if ((authType === 'oauth' || authType === 'oauth2') && config.token_url) {
     headers['Authorization'] = `Bearer oauth-token-placeholder`
   }
 
@@ -475,12 +480,38 @@ function buildAuthHeaders(config: any): Record<string, string> {
   return headers
 }
 
+function buildDebugMeta(config: any, url: string, headers: Record<string, string>, method: string) {
+  const username = typeof config.username === 'string' ? config.username : ''
+  const password = typeof config.encrypted_password === 'string' ? config.encrypted_password : ''
+
+  return {
+    credentials_source: 'sap_api_config',
+    config_name: config.config_name || null,
+    auth_type: config.auth_type || 'basic',
+    username,
+    username_length: username.length,
+    password_length: password.length,
+    sap_client: config.sap_client || null,
+    connection_mode: config.connection_mode || null,
+    proxy_tunnel_url: config.proxy_tunnel_url || null,
+    endpoint_path: config.endpoint_path || null,
+    method,
+    url,
+    has_proxy_secret: Boolean(config.proxy_secret),
+    has_authorization_header: Boolean(headers['Authorization']),
+    authorization_scheme: headers['Authorization']?.split(' ')[0] || null,
+  }
+}
+
 // Test SAP connection
-async function testConnection(config: any): Promise<{ success: boolean; message: string; status?: number; responseTime?: number }> {
+async function testConnection(config: any): Promise<{ success: boolean; message: string; status?: number; responseTime?: number; debug: ReturnType<typeof buildDebugMeta> }> {
   const url = buildUrl(config)
   const headers = buildAuthHeaders(config)
   const method = (config.http_method || 'GET').toUpperCase()
   const timeout = config.timeout_ms || 30000
+  const debug = buildDebugMeta(config, url, headers, method)
+
+  console.log('[sap-sync:test] Using DB credentials', debug)
 
   const start = Date.now()
   try {
@@ -503,6 +534,7 @@ async function testConnection(config: any): Promise<{ success: boolean; message:
         message: `Connection successful. Status: ${response.status}, Response time: ${elapsed}ms, Body length: ${bodyText.length} chars`,
         status: response.status,
         responseTime: elapsed,
+        debug,
       }
     } else {
       return {
@@ -510,14 +542,15 @@ async function testConnection(config: any): Promise<{ success: boolean; message:
         message: `HTTP ${response.status}: ${response.statusText}. Body: ${bodyText.substring(0, 500)}`,
         status: response.status,
         responseTime: elapsed,
+        debug,
       }
     }
   } catch (err: any) {
     const elapsed = Date.now() - start
     if (err.name === 'AbortError') {
-      return { success: false, message: `Connection timed out after ${timeout}ms`, responseTime: elapsed }
+      return { success: false, message: `Connection timed out after ${timeout}ms`, responseTime: elapsed, debug }
     }
-    return { success: false, message: `Network error: ${err.message}`, responseTime: elapsed }
+    return { success: false, message: `Network error: ${err.message}`, responseTime: elapsed, debug }
   }
 }
 
@@ -526,7 +559,7 @@ async function callSAPApi(
   config: any,
   requestFields: any[],
   requestOverrides: Record<string, any> = {},
-): Promise<{ success: boolean; data?: any; error?: string }> {
+): Promise<{ success: boolean; data?: any; error?: string; debug: ReturnType<typeof buildDebugMeta> }> {
   const url = buildUrl(config)
   const headers = buildAuthHeaders(config)
   const method = (config.http_method || 'GET').toUpperCase()
@@ -555,6 +588,9 @@ async function callSAPApi(
     if (qs) finalUrl = `${url}${url.includes('?') ? '&' : '?'}${qs}`
   }
 
+  const debug = buildDebugMeta(config, finalUrl, headers, method)
+  console.log('[sap-sync:sync] Using DB credentials', debug)
+
   try {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeout)
@@ -569,21 +605,21 @@ async function callSAPApi(
 
     const bodyText = await response.text()
     if (!response.ok) {
-      return { success: false, error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}` }
+      return { success: false, error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`, debug }
     }
 
     try {
       const jsonData = JSON.parse(bodyText)
       const records = jsonData?.d?.results || jsonData?.value || jsonData?.data || (Array.isArray(jsonData) ? jsonData : [jsonData])
-      return { success: true, data: records }
+      return { success: true, data: records, debug }
     } catch {
-      return { success: false, error: `Response is not valid JSON: ${bodyText.substring(0, 200)}` }
+      return { success: false, error: `Response is not valid JSON: ${bodyText.substring(0, 200)}`, debug }
     }
   } catch (err: any) {
     if (err.name === 'AbortError') {
-      return { success: false, error: `SAP API timed out after ${timeout}ms` }
+      return { success: false, error: `SAP API timed out after ${timeout}ms`, debug }
     }
-    return { success: false, error: `Network error calling SAP: ${err.message}` }
+    return { success: false, error: `Network error calling SAP: ${err.message}`, debug }
   }
 }
 

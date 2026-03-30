@@ -779,6 +779,15 @@ export async function invokeSapSync(body: Record<string, any>): Promise<{ data: 
   try {
     const { data, error } = await supabase.functions.invoke('sap-sync', { body });
 
+    if (data?.debug) {
+      const debugLabel = `[SAP Edge Debug] ${data.debug.config_name || body.config_id || 'Unknown API'}`;
+      if (data?.success === false || data?.error) {
+        console.error(debugLabel, data.debug);
+      } else {
+        console.log(debugLabel, data.debug);
+      }
+    }
+
     if (error) {
       const errMsg = typeof error === 'object'
         ? (error.message || error.name || JSON.stringify(error))
