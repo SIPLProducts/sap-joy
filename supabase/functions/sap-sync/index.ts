@@ -104,6 +104,7 @@ Deno.serve(async (req) => {
             success: false,
             error: sapResponse.error,
             sync_id: syncRecord.id,
+            debug: sapResponse.debug,
           }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
@@ -138,6 +139,7 @@ Deno.serve(async (req) => {
           records_updated: mappingResult.updated,
           errors: mappingResult.errors,
           sample_data: sapResponse.data?.slice?.(0, 3) || null,
+          debug: sapResponse.debug,
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       } catch (syncErr: any) {
         await supabase.from('sap_stock_sync_history').update({
