@@ -146,6 +146,37 @@ async function directSync(
   body: Record<string, any>,
 ): Promise<{ data: any; error: any }> {
   const method = (config.http_method || 'GET').toUpperCase();
+  const debugLabel = `[SAP Sync Debug] ${config.config_name || config.endpoint_path || body.config_id || 'Unknown API'}`;
+
+  const maskSensitiveHeaders = (sourceHeaders: Record<string, string>): Record<string, string> => {
+    return Object.fromEntries(
+      Object.entries(sourceHeaders).map(([key, value]) => {
+        const normalizedKey = key.toLowerCase();
+        if (normalizedKey === 'authorization') {
+          const scheme = value.includes(' ') ? value.split(' ')[0] : 'Basic';
+          return [key, `${scheme} ***masked***`];
+        }
+        if (normalizedKey === 'x-proxy-secret' || normalizedKey === 'x-api-key') {
+          return [key, '***masked***'];
+        }
+        return [key, value];
+      })
+    );
+  };
+
+  const extractSapErrorSummary = (rawBody: string): string | null => {
+    const normalized = rawBody.toLowerCase();
+    if (normalized.includes('anmeldung fehlgeschlagen') || normalized.includes('logon error message')) {
+      return 'SAP login failed: username/password or sap-client was rejected by SAP.';
+    }
+
+    const h1Match = rawBody.match(/<h1[^>]*>(.*?)<\/h1>/i);
+    if (h1Match?.[1]) {
+      return h1Match[1].replace(/<[^>]+>/g, '').trim();
+    }
+
+    return null;
+  };
 
   // Get user email for sync record
   const { data: { user } } = await supabase.auth.getUser();
@@ -164,6 +195,7 @@ async function directSync(
     .single();
 
   if (syncInsertErr || !syncRecord) {
+    console.error(`${debugLabel} Failed to create sync history record:`, syncInsertErr);
     return { data: { success: false, error: 'Failed to create sync record' }, error: null };
   }
 
@@ -182,6 +214,7 @@ async function directSync(
     if (invalidRequired.length > 0) {
       const names = invalidRequired.map((f: any) => f.sap_field_name || f.field_name).join(', ');
       const errMsg = `Config error: required fields [${names}] have no default value. Either set a default or mark them optional in Field Mappings.`;
+      console.error(`${debugLabel} ${errMsg}`);
       await supabase.from('sap_stock_sync_history').update({
         status: 'failed',
         error_message: errMsg,
@@ -229,18 +262,38 @@ async function directSync(
       requestBody = undefined;
     }
 
-    console.log(`[SAP Sync API Request] %c${config.config_name || 'Generic Sync'}`, 'color: #3b82f6; font-weight: bold;');
-    console.log(`[SAP Sync API Request] URL: ${url}`);
-    console.log(`[SAP Sync API Request] Method: ${method}`);
-    if (requestBody) console.log(`[SAP Sync API Request] Payload:`, requestBody);
+    console.groupCollapsed(debugLabel);
+    console.log('Resolved URL:', url);
+    console.log('HTTP method:', method);
+    console.log('Connection mode:', config.connection_mode || 'direct');
+    console.log('Auth type:', config.auth_type || 'none');
+    console.log('SAP client:', config.sap_client || 'not set');
+    console.log('Headers:', maskSensitiveHeaders(headers));
+    console.log('Request fields count:', requestFields?.length || 0);
+    if (requestBody) {
+      console.log('Payload:', requestBody);
+    } else {
+      console.log('Payload: none');
+    }
+    console.groupEnd();
 
     const response = await fetch(url, fetchOpts);
     const bodyText = await response.text();
+    const contentType = response.headers.get('content-type') || 'unknown';
+    const responsePreview = bodyText.substring(0, 2000);
+    const detectedSapError = extractSapErrorSummary(bodyText);
 
-    console.log(`[SAP Sync API Response] Status: ${response.status}`);
+    console.groupCollapsed(`${debugLabel} response`);
+    console.log('Status:', response.status, response.statusText);
+    console.log('Content-Type:', contentType);
+    console.log('Response preview:', responsePreview);
+    if (detectedSapError) {
+      console.error('Detected SAP error:', detectedSapError);
+    }
+    console.groupEnd();
     
     if (!response.ok) {
-      console.error(`[SAP Sync API Error] Body:`, bodyText);
+      console.error(`${debugLabel} HTTP failure body:`, bodyText);
       await supabase.from('sap_stock_sync_history').update({
         status: 'failed',
         error_message: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
@@ -257,6 +310,7 @@ async function directSync(
     try {
       jsonData = JSON.parse(bodyText);
     } catch {
+      console.error(`${debugLabel} Response is not valid JSON. Raw body:`, bodyText);
       await supabase.from('sap_stock_sync_history').update({
         status: 'failed',
         error_message: 'Response is not valid JSON',
@@ -267,7 +321,10 @@ async function directSync(
     }
 
     const records = jsonData?.d?.results || jsonData?.value || jsonData?.data || (Array.isArray(jsonData) ? jsonData : [jsonData]);
-    console.log("[SAP Sync] Extracted records from SAP response:", records?.length, "records. Sample:", records?.slice(0, 2));
+    console.log(`${debugLabel} Extracted records:`, records?.length || 0);
+    if (Array.isArray(records) && records.length > 0) {
+      console.log(`${debugLabel} First record sample:`, records[0]);
+    }
 
     // Get response field mappings
     const { data: responseFields } = await supabase
@@ -275,12 +332,12 @@ async function directSync(
       .select('*')
       .eq('config_id', body.config_id)
       .order('sort_order');
-    console.log("[SAP Sync] Retrieved response field mappings:", responseFields?.length, responseFields);
+    console.log(`${debugLabel} Response field mappings:`, responseFields?.length || 0, responseFields);
 
     // Map and insert (reuse edge function's mapping logic client-side)
-    console.log("[SAP Sync] Calling mapAndInsertClientSide...");
+    console.log(`${debugLabel} Calling mapAndInsertClientSide...`);
     const mappingResult = await mapAndInsertClientSide(records, responseFields || [], syncRecord.id);
-    console.log("[SAP Sync] mapAndInsertClientSide completed. Result:", mappingResult);
+    console.log(`${debugLabel} mapAndInsertClientSide result:`, mappingResult);
 
     const hasErrors = mappingResult.errors.length > 0;
     const finalStatus = (mappingResult.inserted === 0 && hasErrors) ? 'failed' : (hasErrors ? 'partial' : 'success');
@@ -311,6 +368,7 @@ async function directSync(
       error: null,
     };
   } catch (err: any) {
+    console.error(`${debugLabel} Exception:`, err);
     await supabase.from('sap_stock_sync_history').update({
       status: 'failed',
       error_message: err.message || 'Unknown sync error',
