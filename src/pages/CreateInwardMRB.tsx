@@ -677,6 +677,10 @@ export default function CreateInwardMRB() {
                 <Label className="text-muted-foreground">Vendor Code</Label>
                 <Input value={formData.vendorCode} readOnly className="bg-muted" />
               </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">GRN Number</Label>
+                <Input value={formData.grnNumber} readOnly className="bg-muted" />
+              </div>
               <div className="space-y-2 lg:col-span-2">
                 <Label className="text-muted-foreground">Vendor Name</Label>
                 <Input value={formData.vendorName} readOnly className="bg-muted" />
@@ -688,10 +692,6 @@ export default function CreateInwardMRB() {
               <div className="space-y-2">
                 <Label className="text-muted-foreground">PO Item Number</Label>
                 <Input value={formData.poItemNumber} readOnly className="bg-muted" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">GRN Number</Label>
-                <Input value={formData.grnNumber} readOnly className="bg-muted" />
               </div>
             </div>
           </div>
