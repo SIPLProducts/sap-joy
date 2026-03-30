@@ -5,9 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Shield, Save, RefreshCw, Check, X, Info } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { useRoleMatrix, RolePermission } from '@/hooks/useRoleMatrix';
 
 const SCREENS = [
   { key: 'dashboard_kpi', label: 'KPI Dashboard', group: 'Dashboards' },
@@ -38,64 +38,114 @@ const ROLES: { value: AppRole; label: string; color: string }[] = [
 
 const GROUPS = ['Dashboards', 'Operations', 'Tools'];
 
+interface PermRow {
+  id?: string;
+  role: string;
+  module_key: string;
+  module_label: string;
+  can_view: boolean;
+  can_edit: boolean;
+  plant: string;
+}
+
 export default function RoleMatrix() {
   const { userRole } = useAuth();
   const isAdmin = userRole === 'admin';
-  const { permissions: dbPermissions, loading: loadingMatrix, refetch } = useRoleMatrix();
-  const [internalPermissions, setInternalPermissions] = useState<RolePermission[]>([]);
+  const [permissions, setPermissions] = useState<PermRow[]>([]);
+  const [plants, setPlants] = useState<{ code: string; name: string }[]>([]);
+  const [selectedPlant, setSelectedPlant] = useState('1300');
+  const [selectedRole, setSelectedRole] = useState<AppRole>(ROLES[0].value);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<AppRole>(ROLES[0].value);
 
-  useEffect(() => {
-    setInternalPermissions(dbPermissions);
-    setHasChanges(false);
-  }, [dbPermissions]);
+  const fetchData = async () => {
+    setLoading(true);
+    const [permRes, plantRes] = await Promise.all([
+      supabase.from('role_permissions').select('*').eq('plant', selectedPlant).order('module_key'),
+      supabase.from('plants').select('code, name').order('code'),
+    ]);
 
-  const togglePermission = (role: AppRole, screenKey: string) => {
-    const exists = internalPermissions.some(p => p.role === role && p.screen_key === screenKey);
-    setHasChanges(true);
-    if (exists) {
-      setInternalPermissions(internalPermissions.filter(p => !(p.role === role && p.screen_key === screenKey)));
-    } else {
-      setInternalPermissions([...internalPermissions, { role, screen_key: screenKey }]);
+    if (plantRes.data) setPlants(plantRes.data);
+
+    // Build dense permission grid from DB data
+    const dbPerms = (permRes.data || []) as PermRow[];
+    const dense: PermRow[] = [];
+
+    for (const role of ROLES) {
+      for (const screen of SCREENS) {
+        const existing = dbPerms.find(p => p.role === role.value && p.module_key === screen.key);
+        if (existing) {
+          dense.push(existing);
+        } else {
+          dense.push({
+            role: role.value,
+            module_key: screen.key,
+            module_label: screen.label,
+            can_view: false,
+            can_edit: false,
+            plant: selectedPlant,
+          });
+        }
+      }
     }
+
+    setPermissions(dense);
+    setLoading(false);
+    setHasChanges(false);
   };
 
-  const isChecked = (role: AppRole, screenKey: string) =>
-    internalPermissions.some(p => p.role === role && p.screen_key === screenKey);
+  useEffect(() => { fetchData(); }, [selectedPlant]);
 
-  const getAccessCount = (role: AppRole) =>
-    internalPermissions.filter(p => p.role === role).length;
-
-  const toggleAllForRole = (role: AppRole, enable: boolean) => {
+  const togglePermission = (role: string, moduleKey: string) => {
     setHasChanges(true);
-    if (enable) {
-      const newPerms = [...internalPermissions.filter(p => p.role !== role)];
-      SCREENS.forEach(s => newPerms.push({ role, screen_key: s.key }));
-      setInternalPermissions(newPerms);
-    } else {
-      setInternalPermissions(internalPermissions.filter(p => p.role !== role));
-    }
+    setPermissions(prev => prev.map(p => {
+      if (p.role === role && p.module_key === moduleKey) {
+        const newVal = !p.can_view;
+        return { ...p, can_view: newVal, can_edit: newVal };
+      }
+      return p;
+    }));
+  };
+
+  const isChecked = (role: string, moduleKey: string) =>
+    permissions.some(p => p.role === role && p.module_key === moduleKey && p.can_view);
+
+  const getAccessCount = (role: string) =>
+    permissions.filter(p => p.role === role && p.can_view).length;
+
+  const toggleAllForRole = (role: string, enable: boolean) => {
+    setHasChanges(true);
+    setPermissions(prev => prev.map(p => {
+      if (p.role === role) {
+        return { ...p, can_view: enable, can_edit: enable };
+      }
+      return p;
+    }));
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { error: deleteError } = await supabase.from('role_permissions').delete().neq('role', 'admin');
-      if (deleteError) throw deleteError;
+      const toUpsert = permissions.map(p => ({
+        ...(p.id ? { id: p.id } : {}),
+        role: p.role,
+        module_key: p.module_key,
+        module_label: p.module_label,
+        can_view: p.can_view,
+        can_edit: p.can_edit,
+        plant: p.plant,
+      }));
 
-      if (internalPermissions.length > 0) {
-        const toInsert = internalPermissions
-          .filter(p => p.role !== 'admin')
-          .map(p => ({ role: p.role as string, module_key: p.screen_key, module_label: p.screen_key }));
-        const { error: insertError } = await supabase.from('role_permissions').insert(toInsert);
-        if (insertError) throw insertError;
-      }
+      const { error } = await supabase
+        .from('role_permissions')
+        .upsert(toUpsert, { onConflict: 'role,module_key,plant' });
+
+      if (error) throw error;
 
       toast({ title: 'Saved!', description: 'Role permissions updated successfully.' });
       setHasChanges(false);
-      refetch();
+      fetchData();
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     } finally {
@@ -132,9 +182,19 @@ export default function RoleMatrix() {
             Control which screens each role can access
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => { refetch(); }} variant="outline" size="sm" disabled={loadingMatrix || saving}>
-            <RefreshCw className={`h-4 w-4 mr-1.5 ${loadingMatrix ? 'animate-spin' : ''}`} />
+        <div className="flex items-center gap-2">
+          <Select value={selectedPlant} onValueChange={setSelectedPlant}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select Plant" />
+            </SelectTrigger>
+            <SelectContent>
+              {plants.map(p => (
+                <SelectItem key={p.code} value={p.code}>{p.code} — {p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={fetchData} variant="outline" size="sm" disabled={loading || saving}>
+            <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
             Reset
           </Button>
           <Button onClick={handleSave} size="sm" disabled={!hasChanges || saving}>
@@ -187,16 +247,14 @@ export default function RoleMatrix() {
               {getAccessCount(selectedRole)} of {SCREENS.length} screens enabled
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={() => toggleAllForRole(selectedRole, getAccessCount(selectedRole) < SCREENS.length)}
-            >
-              {getAccessCount(selectedRole) === SCREENS.length ? 'Deselect All' : 'Select All'}
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => toggleAllForRole(selectedRole, getAccessCount(selectedRole) < SCREENS.length)}
+          >
+            {getAccessCount(selectedRole) === SCREENS.length ? 'Deselect All' : 'Select All'}
+          </Button>
         </div>
 
         <CardContent className="p-0">
@@ -248,7 +306,7 @@ export default function RoleMatrix() {
         </CardContent>
       </Card>
 
-      {/* Summary Grid - shows all roles at a glance */}
+      {/* Summary Grid */}
       <Card>
         <CardContent className="p-4">
           <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
