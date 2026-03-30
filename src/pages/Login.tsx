@@ -223,6 +223,14 @@ export default function Login() {
     e.preventDefault();
     if (!signUpEmail || !signUpPassword || !signUpFullName || !signUpRole) return;
     
+    // Validate password policy
+    const validation = validatePassword(signUpPassword);
+    if (!validation.isValid) {
+      setLoginError(validation.errors.join('. '));
+      return;
+    }
+    
+    setLoginError(null);
     setIsLoading(true);
     const { error } = await signUp(signUpEmail, signUpPassword, signUpFullName, signUpRole);
     setIsLoading(false);
