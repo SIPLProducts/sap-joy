@@ -13,7 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Search, UserCog, Shield, Building2, Edit, Trash2, Plus, RefreshCw, UserPlus, KeyRound } from 'lucide-react';
 import { PasswordPolicyIndicator } from '@/components/auth/PasswordPolicyIndicator';
-import { validatePassword } from '@/lib/passwordPolicy';
+import { validatePassword, hashPasswordForHistory } from '@/lib/passwordPolicy';
+import { format } from 'date-fns';
 
 interface UserWithRole {
   id: string;
