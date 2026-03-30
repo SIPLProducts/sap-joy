@@ -108,6 +108,7 @@ export default function Login() {
   
   const [isLoading, setIsLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const MAX_RETRIES = 3;
 
   const roles: { value: AppRole; label: string; description: string; icon: typeof Shield }[] = [
