@@ -148,12 +148,32 @@ export default function UserManagement() {
 
   useEffect(() => { fetchUsers(); }, []);
 
+  const fetchPasswordHistory = async (userId: string) => {
+    setLoadingHistory(true);
+    try {
+      const { data } = await supabase
+        .from('password_history')
+        .select('changed_at')
+        .eq('user_id', userId)
+        .order('changed_at', { ascending: false })
+        .limit(5);
+      setPasswordHistory(data || []);
+    } catch (err) {
+      console.error('Error fetching password history:', err);
+      setPasswordHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
   const handleEditRole = (user: UserWithRole) => {
     setSelectedUser(user);
     setSelectedRole((user.role || '') as '' | AppRole);
     setSelectedDepartment(user.department || '');
     setResetPassword('');
+    setPasswordHistory([]);
     setIsEditDialogOpen(true);
+    fetchPasswordHistory(user.user_id);
   };
 
   const handleSaveEdit = async () => {
