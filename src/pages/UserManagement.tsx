@@ -488,8 +488,9 @@ export default function UserManagement() {
               <Input type="email" placeholder="user@example.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Password *</Label>
-              <Input type="password" placeholder="Min 6 characters" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} />
+              <Label>Password * <span className="text-xs text-muted-foreground">(8-10 chars, letter + number)</span></Label>
+              <Input type="password" placeholder="8-10 characters" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value.slice(0, 10))} maxLength={10} />
+              <PasswordPolicyIndicator password={newUserPassword} />
             </div>
             <div className="space-y-2">
               <Label>Department *</Label>
