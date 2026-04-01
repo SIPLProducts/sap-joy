@@ -76,28 +76,12 @@ export default function KPIDashboard() {
   const { currentRole, roleDisplayName } = useRole();
   const { profile, userRole } = useAuth();
   const { hasAccess, loading: permissionsLoading } = useRoleMatrix();
-
-  // If permissions are loaded and user has no access to KPI dashboard, show a message
-  if (!permissionsLoading && !hasAccess('dashboard_kpi')) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="max-w-md w-full">
-          <CardHeader className="text-center">
-            <CardTitle className="text-lg text-muted-foreground">No Access</CardTitle>
-            <CardDescription>
-              You don't have permission to view this page. Please contact your administrator to get access to the required modules.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
   // Derive plants from real MRB data
   const plants = useMemo(() => [...new Set(mrbRecords.map(r => r.plant))], [mrbRecords]);
   
-  // Filters State - must be declared before any conditional returns
+  // Filters State
   const [selectedPlant, setSelectedPlant] = useState<string>('all');
   const [selectedSource, setSelectedSource] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
