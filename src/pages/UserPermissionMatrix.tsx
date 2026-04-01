@@ -71,7 +71,8 @@ export default function UserPermissionMatrix() {
   const handleSave = async () => {
     setSaving(true);
     const updates = permissions.map(p => ({
-      id: p.id, role: p.role, module_key: p.module_key, module_label: p.module_label,
+      ...(p.id ? { id: p.id } : {}),
+      role: p.role, module_key: p.module_key, module_label: p.module_label,
       can_view: p.can_view, can_edit: p.can_edit, plant: p.plant,
     }));
     const { error } = await supabase.from('role_permissions').upsert(updates, { onConflict: 'role,module_key,plant' });
