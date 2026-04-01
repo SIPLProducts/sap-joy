@@ -73,7 +73,24 @@ export default function KPIDashboard() {
   const { mrbRecords, emailLogs, isLoading: mrbLoading, refreshData: refreshMRB } = useMRB();
   const { inwardMRBRecords, inspectionLotRecords, isLoading: inwardLoading, refreshData: refreshInward } = useInwardMRB();
   const { currentRole, roleDisplayName } = useRole();
-  const { profile } = useAuth();
+  const { profile, userRole } = useAuth();
+  const { hasAccess, loading: permissionsLoading } = useRoleMatrix();
+
+  // If permissions are loaded and user has no access to KPI dashboard, show a message
+  if (!permissionsLoading && !hasAccess('dashboard_kpi')) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <CardTitle className="text-lg text-muted-foreground">No Access</CardTitle>
+            <CardDescription>
+              You don't have permission to view this page. Please contact your administrator to get access to the required modules.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
   // Derive plants from real MRB data
