@@ -78,7 +78,7 @@ export default function UserPermissionMatrix() {
       if (p.id && p.id.length > 0) row.id = p.id;
       return row;
     });
-    const { error } = await supabase.from('role_permissions').upsert(updates, { onConflict: 'role,module_key,plant' });
+    const { error } = await supabase.from('role_permissions').upsert(updates as any, { onConflict: 'role,module_key,plant' });
     setSaving(false);
     if (error) {
       toast({ title: 'Error saving', description: error.message, variant: 'destructive' });

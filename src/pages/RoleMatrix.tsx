@@ -142,7 +142,7 @@ export default function RoleMatrix() {
 
       const { error } = await supabase
         .from('role_permissions')
-        .upsert(toUpsert, { onConflict: 'role,module_key,plant' });
+        .upsert(toUpsert as any, { onConflict: 'role,module_key,plant' });
 
       if (error) throw error;
 
