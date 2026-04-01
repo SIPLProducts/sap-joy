@@ -1,0 +1,1 @@
+ALTER TABLE public.role_permissions ADD CONSTRAINT role_permissions_role_module_plant_unique UNIQUE (role, module_key, plant);
