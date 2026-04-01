@@ -127,19 +127,22 @@ export default function RoleMatrix() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const toUpsert = permissions.map(p => ({
-        ...(p.id ? { id: p.id } : {}),
-        role: p.role,
-        module_key: p.module_key,
-        module_label: p.module_label,
-        can_view: p.can_view,
-        can_edit: p.can_edit,
-        plant: p.plant,
-      }));
+      const toUpsert = permissions.map(p => {
+        const row: Record<string, any> = {
+          role: p.role,
+          module_key: p.module_key,
+          module_label: p.module_label,
+          can_view: !!p.can_view,
+          can_edit: !!p.can_edit,
+          plant: p.plant,
+        };
+        if (p.id && p.id.length > 0) row.id = p.id;
+        return row;
+      });
 
       const { error } = await supabase
         .from('role_permissions')
-        .upsert(toUpsert, { onConflict: 'role,module_key,plant' });
+        .upsert(toUpsert as any, { onConflict: 'role,module_key,plant' });
 
       if (error) throw error;
 
