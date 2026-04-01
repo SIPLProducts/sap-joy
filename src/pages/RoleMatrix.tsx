@@ -127,16 +127,30 @@ export default function RoleMatrix() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const toUpsert = permissions.map(p => {
+      // Filter out any rows with missing required fields
+      const validPerms = permissions.filter(p => 
+        p.role && p.role.trim().length > 0 && 
+        p.module_key && p.module_key.trim().length > 0 && 
+        p.plant && p.plant.trim().length > 0
+      );
+
+      if (validPerms.length === 0) {
+        toast({ title: 'Validation Error', description: 'No valid permissions to save.', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+
+      const toUpsert = validPerms.map(p => {
         const row: Record<string, any> = {
           role: p.role,
           module_key: p.module_key,
-          module_label: p.module_label,
+          module_label: p.module_label || p.module_key,
           can_view: !!p.can_view,
           can_edit: !!p.can_edit,
           plant: p.plant,
         };
-        if (p.id && p.id.length > 0) row.id = p.id;
+        // Only include id if it's a valid existing UUID — omit for new rows so DB generates it
+        if (p.id && typeof p.id === 'string' && p.id.length > 10) row.id = p.id;
         return row;
       });
 
@@ -150,6 +164,7 @@ export default function RoleMatrix() {
       setHasChanges(false);
       fetchData();
     } catch (e: any) {
+      console.error('Permission save error:', e);
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     } finally {
       setSaving(false);

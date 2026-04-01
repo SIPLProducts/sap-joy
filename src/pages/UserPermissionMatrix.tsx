@@ -70,17 +70,30 @@ export default function UserPermissionMatrix() {
 
   const handleSave = async () => {
     setSaving(true);
-    const updates = permissions.map(p => {
+    // Filter out invalid rows
+    const validPerms = permissions.filter(p =>
+      p.role && p.role.trim().length > 0 &&
+      p.module_key && p.module_key.trim().length > 0 &&
+      p.plant && p.plant.trim().length > 0
+    );
+    if (validPerms.length === 0) {
+      toast({ title: 'Validation Error', description: 'No valid permissions to save.', variant: 'destructive' });
+      setSaving(false);
+      return;
+    }
+    const updates = validPerms.map(p => {
       const row: Record<string, any> = {
-        role: p.role, module_key: p.module_key, module_label: p.module_label,
+        role: p.role, module_key: p.module_key, module_label: p.module_label || p.module_key,
         can_view: !!p.can_view, can_edit: !!p.can_edit, plant: p.plant,
       };
-      if (p.id && p.id.length > 0) row.id = p.id;
+      // Only include id for existing rows with valid UUIDs
+      if (p.id && typeof p.id === 'string' && p.id.length > 10) row.id = p.id;
       return row;
     });
     const { error } = await supabase.from('role_permissions').upsert(updates as any, { onConflict: 'role,module_key,plant' });
     setSaving(false);
     if (error) {
+      console.error('Permission save error:', error);
       toast({ title: 'Error saving', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Permissions saved successfully!' });
