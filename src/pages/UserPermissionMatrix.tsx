@@ -81,15 +81,15 @@ export default function UserPermissionMatrix() {
       setSaving(false);
       return;
     }
-    const updates = validPerms.map(p => {
-      const row: Record<string, any> = {
-        role: p.role, module_key: p.module_key, module_label: p.module_label || p.module_key,
-        can_view: !!p.can_view, can_edit: !!p.can_edit, plant: p.plant,
-      };
-      // Only include id for existing rows with valid UUIDs
-      if (p.id && typeof p.id === 'string' && p.id.length > 10) row.id = p.id;
-      return row;
-    });
+    // NEVER include id — let onConflict handle matching by natural key
+    const updates = validPerms.map(({ role, module_key, module_label, can_view, can_edit, plant }) => ({
+      role,
+      module_key,
+      module_label: module_label || module_key,
+      can_view: !!can_view,
+      can_edit: !!can_edit,
+      plant,
+    }));
     const { error } = await supabase.from('role_permissions').upsert(updates as any, { onConflict: 'role,module_key,plant' });
     setSaving(false);
     if (error) {
