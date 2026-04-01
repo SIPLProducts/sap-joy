@@ -432,6 +432,22 @@ export default function KPIDashboard() {
     setDateTo(undefined);
   };
 
+  // Show no access message
+  if (noAccess) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <CardTitle className="text-lg text-muted-foreground">No Access</CardTitle>
+            <CardDescription>
+              You don't have permission to view this page. Please contact your administrator to get access to the required modules.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
   // Show loading state - must be after all hooks
   if (isLoading) {
     return (
