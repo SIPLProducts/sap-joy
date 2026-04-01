@@ -5,6 +5,7 @@ import { useMRB } from '@/contexts/MRBContext';
 import { useInwardMRB } from '@/contexts/InwardMRBContext';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRoleMatrix } from '@/hooks/useRoleMatrix';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -73,13 +74,14 @@ export default function KPIDashboard() {
   const { mrbRecords, emailLogs, isLoading: mrbLoading, refreshData: refreshMRB } = useMRB();
   const { inwardMRBRecords, inspectionLotRecords, isLoading: inwardLoading, refreshData: refreshInward } = useInwardMRB();
   const { currentRole, roleDisplayName } = useRole();
-  const { profile } = useAuth();
+  const { profile, userRole } = useAuth();
+  const { hasAccess, loading: permissionsLoading } = useRoleMatrix();
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
   // Derive plants from real MRB data
   const plants = useMemo(() => [...new Set(mrbRecords.map(r => r.plant))], [mrbRecords]);
   
-  // Filters State - must be declared before any conditional returns
+  // Filters State
   const [selectedPlant, setSelectedPlant] = useState<string>('all');
   const [selectedSource, setSelectedSource] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
@@ -91,6 +93,8 @@ export default function KPIDashboard() {
     const interval = setInterval(() => setLastRefresh(new Date()), 30000);
     return () => clearInterval(interval);
   }, []);
+
+  const noAccess = !permissionsLoading && !hasAccess('dashboard_kpi');
 
   const isLoading = mrbLoading || inwardLoading;
 
@@ -427,6 +431,22 @@ export default function KPIDashboard() {
     setDateFrom(undefined);
     setDateTo(undefined);
   };
+
+  // Show no access message
+  if (noAccess) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <CardTitle className="text-lg text-muted-foreground">No Access</CardTitle>
+            <CardDescription>
+              You don't have permission to view this page. Please contact your administrator to get access to the required modules.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   // Show loading state - must be after all hooks
   if (isLoading) {
