@@ -178,6 +178,14 @@ export default function UserManagement() {
 
   const handleSaveEdit = async () => {
     if (!selectedUser) return;
+
+    // Validate role is a valid enum value before saving
+    const validRoles: AppRole[] = ['admin', 'quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'mrb_committee'];
+    if (!selectedRole || !validRoles.includes(selectedRole as AppRole)) {
+      toast({ title: 'Validation Error', description: 'Please select a valid role before saving.', variant: 'destructive' });
+      return;
+    }
+
     setSaving(true);
     try {
       // Update profile (department)
