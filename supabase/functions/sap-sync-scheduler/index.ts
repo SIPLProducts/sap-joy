@@ -452,10 +452,26 @@ async function mapAndInsertData(
   for (const [tableName, fields] of tableFieldMap.entries()) {
     const aliases = aliasMapByTable[tableName] || {}
     const allowed = allowedColumnsByTable[tableName]
-    if (!allowed) continue
+    if (!allowed) {
+      console.log(`[scheduler] Table "${tableName}" not in allowedColumns whitelist, skipping`)
+      continue
+    }
 
-    const rows = limitedRecords.map((record) => {
+    // Log first raw SAP record for debugging
+    if (limitedRecords.length > 0) {
+      console.log(`[scheduler] Sample SAP record keys:`, Object.keys(limitedRecords[0]))
+      console.log(`[scheduler] Sample SAP record:`, JSON.stringify(limitedRecords[0]).substring(0, 500))
+    }
+    console.log(`[scheduler] Mapping ${limitedRecords.length} records to "${tableName}" using ${fields.length} field mappings`)
+
+    let droppedCount = 0
+    const droppedReasons: Record<string, number> = {}
+
+    const rows = limitedRecords.map((record, idx) => {
       const row: Record<string, any> = {}
+      const debugMapped: string[] = []
+      const debugSkipped: string[] = []
+
       fields.forEach((field: any) => {
         const sapKey = field.sap_field_name || field.field_name
         let value = record[sapKey]
@@ -463,11 +479,18 @@ async function mapAndInsertData(
           const matchingKey = Object.keys(record).find((key) => key.toLowerCase() === String(sapKey).toLowerCase())
           if (matchingKey) value = record[matchingKey]
         }
-        if (value === undefined || value === null || value === '') return
+        if (value === undefined || value === null || value === '') {
+          debugSkipped.push(`${sapKey}=empty`)
+          return
+        }
 
         const normalizedColumn = aliases[String(field.map_to_column).trim().toLowerCase()] || String(field.map_to_column).trim()
-        if (!allowed.has(normalizedColumn)) return
+        if (!allowed.has(normalizedColumn)) {
+          debugSkipped.push(`${sapKey}->${normalizedColumn}=NOT_ALLOWED`)
+          return
+        }
         row[normalizedColumn] = value
+        debugMapped.push(`${sapKey}->${normalizedColumn}`)
       })
 
       if (tableName === 'shop_floor_stock') {
@@ -484,10 +507,38 @@ async function mapAndInsertData(
       }
 
       const missing = (requiredByTable[tableName] || []).filter((column) => row[column] === undefined || row[column] === null || row[column] === '')
-      return missing.length ? null : row
+      
+      if (missing.length > 0) {
+        droppedCount++
+        const reason = `missing: ${missing.join(',')}`
+        droppedReasons[reason] = (droppedReasons[reason] || 0) + 1
+        // Log first 3 dropped records in detail
+        if (droppedCount <= 3) {
+          console.log(`[scheduler] Record #${idx} DROPPED - ${reason}`)
+          console.log(`[scheduler]   Mapped: ${debugMapped.join(', ')}`)
+          console.log(`[scheduler]   Skipped: ${debugSkipped.join(', ')}`)
+          console.log(`[scheduler]   Row built:`, JSON.stringify(row))
+        }
+        return null
+      }
+
+      // Log first successfully mapped record
+      if (idx === 0 || (droppedCount > 0 && rows.length === 0)) {
+        console.log(`[scheduler] Record #${idx} OK - mapped: ${debugMapped.join(', ')}`)
+      }
+
+      return row
     }).filter(Boolean)
 
+    console.log(`[scheduler] ${tableName}: ${rows.length} valid rows, ${droppedCount} dropped`)
+    if (Object.keys(droppedReasons).length > 0) {
+      console.log(`[scheduler] Drop reasons:`, JSON.stringify(droppedReasons))
+    }
+
     if (!rows.length) continue
+
+    // Log first row being upserted
+    console.log(`[scheduler] First row to upsert:`, JSON.stringify(rows[0]))
 
     const upsertOptions = tableName === 'shop_floor_stock'
       ? { onConflict: 'stock_key' }
@@ -497,10 +548,12 @@ async function mapAndInsertData(
 
     const { data, error } = await supabase.from(tableName).upsert(rows, upsertOptions).select()
     if (error) {
+      console.log(`[scheduler] Upsert error for ${tableName}:`, error.message, error.details, error.hint)
       result.errors.push(`Error inserting into ${tableName}: ${error.message}`)
       continue
     }
 
+    console.log(`[scheduler] Upsert success: ${data?.length || 0} rows returned`)
     result.inserted += data?.length || 0
   }
 
