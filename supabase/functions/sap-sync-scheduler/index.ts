@@ -43,24 +43,23 @@ Deno.serve(async (req) => {
       if (requestedConfigIds && !requestedConfigIds.includes(config.id)) continue
       if (!ignoreSchedule && !shouldRunNow(config, now)) continue
 
-      const { data: responseFields } = await supabase
+      const { data: dbResponseFields } = await supabase
         .from('sap_api_response_fields')
         .select('*')
         .eq('config_id', config.id)
         .order('sort_order')
 
-      let activeMappings = (responseFields || []).filter((field: any) => field.map_to_table && field.map_to_column)
+      let activeResponseFields = (dbResponseFields || []).filter((field: any) => field.map_to_table && field.map_to_column)
       
       // If no DB-configured response fields, auto-generate from built-in mappings
-      if (activeMappings.length === 0) {
+      if (activeResponseFields.length === 0) {
         const autoFields = generateBuiltInResponseFields(config)
         if (autoFields.length === 0) {
           results.push({ config_id: config.id, config_name: config.config_name, skipped: true, reason: 'No mapped response fields and no built-in mapping for this endpoint' })
           continue
         }
-        activeMappings = autoFields
-        // Use auto-generated fields as responseFields for mapAndInsertData
-        responseFields = autoFields
+        activeResponseFields = autoFields
+        console.log(`[scheduler] Using ${autoFields.length} built-in field mappings for ${config.config_name}`)
       }
 
       const { data: requestFields } = await supabase
@@ -112,7 +111,7 @@ Deno.serve(async (req) => {
           continue
         }
 
-        const syncResult = await mapAndInsertData(supabase, sapResponse.data || [], responseFields || [], syncRecord.id, config.max_records)
+        const syncResult = await mapAndInsertData(supabase, sapResponse.data || [], activeResponseFields, syncRecord.id, config.max_records)
         const hasErrors = syncResult.errors.length > 0
         const finalStatus = syncResult.inserted === 0 && hasErrors ? 'failed' : hasErrors ? 'partial' : 'success'
 
