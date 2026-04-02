@@ -49,10 +49,18 @@ Deno.serve(async (req) => {
         .eq('config_id', config.id)
         .order('sort_order')
 
-      const activeMappings = (responseFields || []).filter((field: any) => field.map_to_table && field.map_to_column)
+      let activeMappings = (responseFields || []).filter((field: any) => field.map_to_table && field.map_to_column)
+      
+      // If no DB-configured response fields, auto-generate from built-in mappings
       if (activeMappings.length === 0) {
-        results.push({ config_id: config.id, config_name: config.config_name, skipped: true, reason: 'No mapped response fields' })
-        continue
+        const autoFields = generateBuiltInResponseFields(config)
+        if (autoFields.length === 0) {
+          results.push({ config_id: config.id, config_name: config.config_name, skipped: true, reason: 'No mapped response fields and no built-in mapping for this endpoint' })
+          continue
+        }
+        activeMappings = autoFields
+        // Use auto-generated fields as responseFields for mapAndInsertData
+        responseFields = autoFields
       }
 
       const { data: requestFields } = await supabase
@@ -151,6 +159,76 @@ Deno.serve(async (req) => {
     })
   }
 })
+
+/**
+ * Auto-generate response field mappings based on endpoint path/config name
+ * when no sap_api_response_fields rows exist in the DB.
+ * This mirrors the hardcoded alias logic used by the client-side manual sync.
+ */
+function generateBuiltInResponseFields(config: any): any[] {
+  const endpoint = String(config.endpoint_path || config.api_endpoint || '').toLowerCase()
+  const name = String(config.config_name || '').toLowerCase()
+
+  // Detect target table from endpoint or config name
+  let targetTable: string | null = null
+  if (endpoint.includes('zmrb') || endpoint.includes('inward') || name.includes('inward') || name.includes('zmrb')) {
+    targetTable = 'inward_inspection_lots'
+  } else if (endpoint.includes('mb52') || endpoint.includes('stock') || name.includes('stock') || name.includes('mb52')) {
+    targetTable = 'shop_floor_stock'
+  }
+
+  if (!targetTable) return []
+
+  const builtInMappings: Record<string, Array<{ sap: string; col: string; type: string }>> = {
+    inward_inspection_lots: [
+      { sap: 'PRUEFLOS', col: 'inspection_lot', type: 'string' },
+      { sap: 'WERK', col: 'plant', type: 'string' },
+      { sap: 'ENSTEHDAT', col: 'inspection_date', type: 'string' },
+      { sap: 'MATNR', col: 'material_code', type: 'string' },
+      { sap: 'SELLIFNR', col: 'vendor_code', type: 'string' },
+      { sap: 'MBLNR', col: 'grn_number', type: 'string' },
+      { sap: 'CHARG', col: 'batch', type: 'string' },
+      { sap: 'EBELN', col: 'po_number', type: 'string' },
+      { sap: 'EBELP', col: 'po_item_number', type: 'string' },
+      { sap: 'BUDAT_MKPF', col: 'posting_date', type: 'string' },
+      { sap: 'SGTXT', col: 'block_reason', type: 'string' },
+      { sap: 'MENGENEINH', col: 'uom', type: 'string' },
+      { sap: 'LMENGE04', col: 'blocked_quantity', type: 'number' },
+      { sap: 'MAKTX', col: 'material_description', type: 'string' },
+      { sap: 'NAME1', col: 'vendor_name', type: 'string' },
+      { sap: 'LGORT', col: 'storage_location', type: 'string' },
+      { sap: 'LIFNR', col: 'vendor_code', type: 'string' },
+      { sap: 'MEINS', col: 'uom', type: 'string' },
+      { sap: 'MENGE', col: 'blocked_quantity', type: 'number' },
+    ],
+    shop_floor_stock: [
+      { sap: 'WERKS', col: 'plant', type: 'string' },
+      { sap: 'LGORT', col: 'storage_location', type: 'string' },
+      { sap: 'LGOBE', col: 'storage_location_desc', type: 'string' },
+      { sap: 'MATNR', col: 'material_code', type: 'string' },
+      { sap: 'MAKTX', col: 'material_description', type: 'string' },
+      { sap: 'CHARG', col: 'batch', type: 'string' },
+      { sap: 'LABST', col: 'available_quantity', type: 'number' },
+      { sap: 'SPEME', col: 'blocked_quantity', type: 'number' },
+      { sap: 'INSME', col: 'quality_inspection_qty', type: 'number' },
+      { sap: 'TRAME', col: 'transfer_qty', type: 'number' },
+      { sap: 'WLABS', col: 'unrestricted_value', type: 'number' },
+      { sap: 'WSPEM', col: 'blocked_value', type: 'number' },
+      { sap: 'WINSM', col: 'quality_inspection_value', type: 'number' },
+      { sap: 'WTRAM', col: 'transfer_value', type: 'number' },
+    ],
+  }
+
+  const mappings = builtInMappings[targetTable] || []
+  return mappings.map((m, i) => ({
+    field_name: m.sap,
+    sap_field_name: m.sap,
+    field_type: m.type,
+    map_to_table: targetTable,
+    map_to_column: m.col,
+    sort_order: i,
+  }))
+}
 
 function shouldRunNow(config: any, now: Date): boolean {
   if (!config.scheduler_enabled || !config.is_active) return false
