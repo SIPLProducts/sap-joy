@@ -12,7 +12,9 @@ type SyncResult = {
   errors: string[]
 }
 
-Deno.serve(async (req) => {
+const port = Number(Deno.env.get('PORT') || '3100')
+
+Deno.serve({ port }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
