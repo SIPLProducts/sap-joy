@@ -49,10 +49,18 @@ Deno.serve(async (req) => {
         .eq('config_id', config.id)
         .order('sort_order')
 
-      const activeMappings = (responseFields || []).filter((field: any) => field.map_to_table && field.map_to_column)
+      let activeMappings = (responseFields || []).filter((field: any) => field.map_to_table && field.map_to_column)
+      
+      // If no DB-configured response fields, auto-generate from built-in mappings
       if (activeMappings.length === 0) {
-        results.push({ config_id: config.id, config_name: config.config_name, skipped: true, reason: 'No mapped response fields' })
-        continue
+        const autoFields = generateBuiltInResponseFields(config)
+        if (autoFields.length === 0) {
+          results.push({ config_id: config.id, config_name: config.config_name, skipped: true, reason: 'No mapped response fields and no built-in mapping for this endpoint' })
+          continue
+        }
+        activeMappings = autoFields
+        // Use auto-generated fields as responseFields for mapAndInsertData
+        responseFields = autoFields
       }
 
       const { data: requestFields } = await supabase
