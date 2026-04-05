@@ -1057,138 +1057,163 @@ Quality Department`;
           </div>
           <div className="p-6">
             <div className="space-y-4">
-              {/* Smart Routing Suggestion Banner */}
-              {recommendedDepartments.length > 0 && (
-                <div className="flex items-center justify-between p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900">
-                      <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                        Smart Routing Applied
-                      </p>
-                      <p className="text-xs text-amber-600 dark:text-amber-400">
-                        {formData.qualityDecision && formData.defectCategory ? (
-                          <>Based on "{inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label}" + "{inwardDefectCategories.find(c => c.value === formData.defectCategory)?.label}" defect</>
-                        ) : formData.qualityDecision ? (
-                          <>Based on "{inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label}" decision</>
-                        ) : formData.defectCategory ? (
-                          <>Based on "{inwardDefectCategories.find(c => c.value === formData.defectCategory)?.label}" defect category</>
-                        ) : null}
-                        {' → '}
-                        <span className="font-medium">
-                          {recommendedDepartments.map(d => 
-                            nextReviewDepartments.find(dept => dept.value === d)?.label
-                          ).join(', ')}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                  {formData.nextReviewDepartments.length === 0 && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={handleApplyRecommendations}
-                      className="border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900"
-                    >
-                      <Lightbulb className="h-4 w-4 mr-1 text-amber-600" />
-                      Apply
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <Label className="text-foreground">
-                  Next Review Department(s) <span className="text-destructive">*</span>
-                </Label>
-                {formData.nextReviewDepartments.length > 0 && (
-                  <span className="text-xs text-green-600 flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3" />
-                    {formData.nextReviewDepartments.length} selected
-                  </span>
-                )}
-                {touchedFields.has('nextReviewDepartments') && formData.nextReviewDepartments.length === 0 && (
-                  <span className="text-xs text-destructive flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    Select at least one department
-                  </span>
-                )}
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {nextReviewDepartments.map((dept) => {
-                  const isSelected = formData.nextReviewDepartments.includes(dept.value);
-                  const isRecommended = isDepartmentRecommended(dept.value);
-                  
-                  return (
-                    <label
-                      key={dept.value}
-                      className={`relative flex flex-col p-4 rounded-lg border transition-all ${
-                        routingLocked ? 'cursor-default' : 'cursor-pointer'
-                      } ${
-                        isSelected
-                          ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                          : isRecommended
-                          ? 'border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/20'
-                          : 'border-border hover:bg-muted/50'
-                      } ${routingLocked && !isSelected ? 'opacity-40' : ''}`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          disabled={routingLocked}
-                          onChange={(e) => {
-                            if (routingLocked) return;
-                            handleFieldBlur('nextReviewDepartments');
-                            if (e.target.checked) {
-                              setFormData({
-                                ...formData,
-                                nextReviewDepartments: [...formData.nextReviewDepartments, dept.value],
-                              });
-                            } else {
-                              setFormData({
-                                ...formData,
-                                nextReviewDepartments: formData.nextReviewDepartments.filter(
-                                  (d) => d !== dept.value
-                                ),
-                              });
-                            }
-                          }}
-                          className="h-4 w-4 text-primary mt-0.5"
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className={`font-medium text-sm ${
-                              isSelected ? 'text-primary' : 'text-foreground'
-                            }`}>
-                              {dept.label}
+              {routingLocked && predefinedRouting && predefinedRouting.length > 0 ? (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-foreground">MRB will follow this predefined sequence:</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {predefinedRouting.map((dept, idx) => {
+                      const deptInfo = nextReviewDepartments.find(d => d.value === dept);
+                      return (
+                        <div key={dept} className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5">
+                            <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                              {idx + 1}
                             </span>
-                            {isRecommended && !isSelected && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                                <Sparkles className="h-3 w-3" />
-                                Recommended
-                              </span>
-                            )}
+                            <span className="text-sm font-medium text-foreground">
+                              {deptInfo?.label || dept}
+                            </span>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1">{dept.description}</p>
+                          {idx < predefinedRouting.length - 1 && (
+                            <span className="text-muted-foreground text-lg">→</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Smart Routing Suggestion Banner */}
+                  {recommendedDepartments.length > 0 && (
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900">
+                          <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                            Smart Routing Applied
+                          </p>
+                          <p className="text-xs text-amber-600 dark:text-amber-400">
+                            {formData.qualityDecision && formData.defectCategory ? (
+                              <>Based on "{inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label}" + "{inwardDefectCategories.find(c => c.value === formData.defectCategory)?.label}" defect</>
+                            ) : formData.qualityDecision ? (
+                              <>Based on "{inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label}" decision</>
+                            ) : formData.defectCategory ? (
+                              <>Based on "{inwardDefectCategories.find(c => c.value === formData.defectCategory)?.label}" defect category</>
+                            ) : null}
+                            {' → '}
+                            <span className="font-medium">
+                              {recommendedDepartments.map(d => 
+                                nextReviewDepartments.find(dept => dept.value === d)?.label
+                              ).join(', ')}
+                            </span>
+                          </p>
                         </div>
                       </div>
-                      {isSelected && (
-                        <div className="absolute top-3 right-3 flex items-center gap-1.5">
-                          <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                            {formData.nextReviewDepartments.indexOf(dept.value) + 1}
-                          </span>
-                          <CheckCircle2 className="h-4 w-4 text-primary" />
-                        </div>
+                      {formData.nextReviewDepartments.length === 0 && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={handleApplyRecommendations}
+                          className="border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900"
+                        >
+                          <Lightbulb className="h-4 w-4 mr-1 text-amber-600" />
+                          Apply
+                        </Button>
                       )}
-                    </label>
-                  );
-                })}
-              </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between">
+                    <Label className="text-foreground">
+                      Next Review Department(s) <span className="text-destructive">*</span>
+                    </Label>
+                    {formData.nextReviewDepartments.length > 0 && (
+                      <span className="text-xs text-green-600 flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" />
+                        {formData.nextReviewDepartments.length} selected
+                      </span>
+                    )}
+                    {touchedFields.has('nextReviewDepartments') && formData.nextReviewDepartments.length === 0 && (
+                      <span className="text-xs text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        Select at least one department
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {nextReviewDepartments.map((dept) => {
+                      const isSelected = formData.nextReviewDepartments.includes(dept.value);
+                      const isRecommended = isDepartmentRecommended(dept.value);
+                      
+                      return (
+                        <label
+                          key={dept.value}
+                          className={`relative flex flex-col p-4 rounded-lg border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                              : isRecommended
+                              ? 'border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/20'
+                              : 'border-border hover:bg-muted/50'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                handleFieldBlur('nextReviewDepartments');
+                                if (e.target.checked) {
+                                  setFormData({
+                                    ...formData,
+                                    nextReviewDepartments: [...formData.nextReviewDepartments, dept.value],
+                                  });
+                                } else {
+                                  setFormData({
+                                    ...formData,
+                                    nextReviewDepartments: formData.nextReviewDepartments.filter(
+                                      (d) => d !== dept.value
+                                    ),
+                                  });
+                                }
+                              }}
+                              className="h-4 w-4 text-primary mt-0.5"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`font-medium text-sm ${
+                                  isSelected ? 'text-primary' : 'text-foreground'
+                                }`}>
+                                  {dept.label}
+                                </span>
+                                {isRecommended && !isSelected && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                                    <Sparkles className="h-3 w-3" />
+                                    Recommended
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">{dept.description}</p>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                              <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                                {formData.nextReviewDepartments.indexOf(dept.value) + 1}
+                              </span>
+                              <CheckCircle2 className="h-4 w-4 text-primary" />
+                            </div>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           </div>
+        </div>
         </div>
       </div>
 
