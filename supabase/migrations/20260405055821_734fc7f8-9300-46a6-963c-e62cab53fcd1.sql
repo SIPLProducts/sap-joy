@@ -1,0 +1,1 @@
+ALTER TABLE public.mrb_records ADD COLUMN IF NOT EXISTS workflow_routing jsonb DEFAULT '[]'::jsonb;

@@ -453,6 +453,7 @@ export type Database = {
           vendor_name: string | null
           vendor_replacement_required: boolean | null
           vendor_responsibility: string | null
+          workflow_routing: Json | null
         }
         Insert: {
           accepted_quantity?: number | null
@@ -537,6 +538,7 @@ export type Database = {
           vendor_name?: string | null
           vendor_replacement_required?: boolean | null
           vendor_responsibility?: string | null
+          workflow_routing?: Json | null
         }
         Update: {
           accepted_quantity?: number | null
@@ -621,6 +623,7 @@ export type Database = {
           vendor_name?: string | null
           vendor_replacement_required?: boolean | null
           vendor_responsibility?: string | null
+          workflow_routing?: Json | null
         }
         Relationships: [
           {
