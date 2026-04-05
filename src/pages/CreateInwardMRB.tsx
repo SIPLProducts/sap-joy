@@ -450,25 +450,13 @@ export default function CreateInwardMRB() {
         'other': 'other',
       };
 
-      // Determine pending_with and status based on next review department
-      const pendingWithMap: Record<string, Database['public']['Enums']['app_role']> = {
-        'engineering': 'engineering',
-        'purchase': 'purchase',
-        'plant_head': 'executive',
-        'quality_head': 'quality_head',
-      };
-
-      // Map department to status
-      const statusMap: Record<string, Database['public']['Enums']['mrb_status']> = {
-        'engineering': 'engineering_review',
-        'purchase': 'purchase_review',
-        'plant_head': 'final_approval',
-        'quality_head': 'quality_review',
-      };
-
+      // Determine pending_with and status based on first department in routing sequence
       const firstDept = formData.nextReviewDepartments[0];
-      const pendingWith = pendingWithMap[firstDept] || 'quality';
-      const mrbStatus = statusMap[firstDept] || 'quality_review';
+      const pendingWith = DEPT_TO_ROLE[firstDept] || 'quality';
+      const mrbStatus = DEPT_TO_STATUS[firstDept] || 'quality_review';
+
+      // Store the full routing sequence so transitions follow this order
+      const workflowRouting = formData.nextReviewDepartments;
 
       const newMRB = await createMRB({
         mrb_number: mrbNumber,
@@ -498,7 +486,7 @@ export default function CreateInwardMRB() {
         quality_remarks: formData.qualityInspectionComments,
         quality_approved_by: user?.id,
         quality_approved_at: new Date().toISOString(),
-      });
+      } as any, workflowRouting);
 
       if (newMRB) {
         // Update the inspection lot status to 'mrb_created'
