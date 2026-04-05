@@ -182,6 +182,10 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
       return await directUpdateQty(url, headers, config, body);
     }
 
+    if (action === 'fetch_live') {
+      return await directFetchLive(url, headers, config, body);
+    }
+
     return { data: { success: false, error: 'Invalid action' }, error: null };
   } catch (err: any) {
     return { data: null, error: { message: err?.message || 'Direct call failed' } };
