@@ -255,6 +255,7 @@ export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
       sync_frequency: syncFrequency,
       cron_expression: cronExpression || null,
       scheduler_enabled: schedulerEnabled,
+      scheduler_plants: schedulerPlants.length > 0 ? schedulerPlants : [],
       retry_count: parseInt(retryCount) || 3,
       retry_delay_ms: parseInt(retryDelayMs) || 5000,
       max_records: parseInt(maxRecords) || 1000,
