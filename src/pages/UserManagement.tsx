@@ -541,7 +541,7 @@ export default function UserManagement() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Plant</TableHead>
+                  <TableHead>Plants</TableHead>
                   <TableHead>Department</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -552,7 +552,14 @@ export default function UserManagement() {
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.full_name}</TableCell>
                     <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.plant || '-'}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {user.plants.length > 0 
+                          ? user.plants.map(p => <Badge key={p} variant="outline" className="font-mono text-xs">{p}</Badge>)
+                          : <span className="text-muted-foreground">-</span>
+                        }
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {user.department ? <Badge variant="outline">{user.department}</Badge> : <span className="text-muted-foreground">-</span>}
                     </TableCell>
