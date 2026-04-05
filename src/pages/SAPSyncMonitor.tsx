@@ -33,6 +33,7 @@ interface SyncRecord {
   started_at: string;
   completed_at: string | null;
   synced_by: string | null;
+  plant: string | null;
 }
 
 interface DataPreview {
