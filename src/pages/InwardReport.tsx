@@ -53,6 +53,7 @@ export default function InwardReport() {
   const navigate = useNavigate();
   const { inspectionLotRecords, filters, setFilters, getFilteredRecords, refreshData, isLoading, uploadInspectionLots, createBatchMRBs, updateTransactionQuantity } = useInwardMRB();
   const { userRole } = useAuth();
+  const { extraFields } = useExtraDynamicFields('inward_inspection_lots');
 
   // Role-based permissions
   const canCreateMRB = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
