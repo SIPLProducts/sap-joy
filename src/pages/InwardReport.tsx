@@ -994,6 +994,13 @@ export default function InwardReport() {
                                 <TableCell className="font-mono text-sm">
                                   {record.grnNumber || '-'}
                                 </TableCell>
+                                {extraFields.map((df) => (
+                                  <TableCell key={df.id} className="text-sm">
+                                    {record._raw && df.map_to_column
+                                      ? String(record._raw[df.map_to_column] ?? '-')
+                                      : '-'}
+                                  </TableCell>
+                                ))}
                               </TableRow>
                               );
                             })
