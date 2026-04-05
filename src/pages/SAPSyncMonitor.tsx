@@ -380,6 +380,7 @@ export default function SAPSyncMonitor() {
                     <TableRow>
                       <TableHead>STATUS</TableHead>
                       <TableHead>API CONFIG</TableHead>
+                      <TableHead>PLANT</TableHead>
                       <TableHead>TYPE</TableHead>
                       <TableHead>FETCHED</TableHead>
                       <TableHead>INSERTED</TableHead>
@@ -399,6 +400,13 @@ export default function SAPSyncMonitor() {
                         <TableRow key={sync.id}>
                           <TableCell>{getStatusBadge(sync.status)}</TableCell>
                           <TableCell className="font-medium">{configName}</TableCell>
+                          <TableCell>
+                            {sync.plant ? (
+                              <Badge variant="outline" className="font-mono text-xs">{sync.plant}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">All</span>
+                            )}
+                          </TableCell>
                           <TableCell className="capitalize">{sync.sync_type || 'manual'}</TableCell>
                           <TableCell>{sync.records_fetched ?? '-'}</TableCell>
                           <TableCell>{sync.records_inserted ?? '-'}</TableCell>
