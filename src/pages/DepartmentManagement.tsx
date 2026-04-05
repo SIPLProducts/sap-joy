@@ -44,7 +44,7 @@ export default function DepartmentManagement() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
-  const [form, setForm] = useState({ name: '', description: '', is_active: true });
+  const [form, setForm] = useState({ name: '', description: '', is_active: true, role_key: '' });
 
   const isAdmin = userRole === 'admin';
 
