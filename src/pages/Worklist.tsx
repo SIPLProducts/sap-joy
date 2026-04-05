@@ -1085,7 +1085,7 @@ export default function Worklist() {
                               <CheckCircle2 className="h-4 w-4 text-green-600" />
                               SAP Synced
                             </div>
-                          ) : mrb.status === 'approved' && mrb.sapStockUpdateStatus !== 'synced' ? (
+                          ) : mrb.status === 'approved' && mrb.sapStockUpdateStatus !== 'synced' && canUnblockSAP ? (
                             <Button 
                               variant="default" 
                               size="sm" 
