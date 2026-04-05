@@ -418,7 +418,7 @@ export default function UserManagement() {
       setNewUserFullName('');
       setNewUserRole('');
       setNewUserDepartment('');
-      setNewUserPlant('1300');
+      setNewUserPlants(['1300']);
       setIsCreateDialogOpen(false);
       fetchUsers();
       
