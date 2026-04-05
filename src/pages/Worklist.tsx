@@ -32,8 +32,11 @@ import { getStatusDisplayName, getStatusColor, getSLAColor, getEscalationColor, 
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeSapSync } from '@/lib/sapSyncClient';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Database } from '@/integrations/supabase/types';
 import * as XLSX from 'xlsx';
+
+const MASTER_ADMIN_EMAIL = 'masteradmin@sharviinfotech.com';
 
 type MRBStatus = Database['public']['Enums']['mrb_status'];
 type MRBSource = Database['public']['Enums']['mrb_source'];
@@ -105,6 +108,7 @@ export default function Worklist() {
   const navigate = useNavigate();
   const { mrbRecords, isLoading, updateMRB } = useMRBDatabase();
   const { toast } = useToast();
+  const { userRole, user, profile } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<SourceType>('all');
@@ -115,6 +119,10 @@ export default function Worklist() {
   const [syncHistory, setSyncHistory] = useState<SAPSyncHistoryEntry[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // RBAC: Block-to-Unrestricted access control (#1.3)
+  const isMasterAdmin = profile?.email === MASTER_ADMIN_EMAIL || user?.email === MASTER_ADMIN_EMAIL;
+  const canUnblockSAP = isMasterAdmin || userRole === 'quality_head' || userRole === 'admin';
 
   // Fetch sync history
   const fetchSyncHistory = async () => {
@@ -1077,7 +1085,7 @@ export default function Worklist() {
                               <CheckCircle2 className="h-4 w-4 text-green-600" />
                               SAP Synced
                             </div>
-                          ) : mrb.status === 'approved' && mrb.sapStockUpdateStatus !== 'synced' ? (
+                          ) : mrb.status === 'approved' && mrb.sapStockUpdateStatus !== 'synced' && canUnblockSAP ? (
                             <Button 
                               variant="default" 
                               size="sm" 

@@ -1,4 +1,4 @@
-import { ClipboardList, Mail, Wrench, FileSpreadsheet, BarChart3, LogOut, Package, Building2, Users, Settings, PieChart, Printer, UserCog, TrendingUp, HelpCircle, FileText, Shield, Layers } from 'lucide-react';
+import { ClipboardList, Mail, Wrench, FileSpreadsheet, BarChart3, LogOut, Package, Building2, Users, Settings, PieChart, Printer, UserCog, TrendingUp, HelpCircle, FileText, Shield, Layers, GitBranch, AlertTriangle } from 'lucide-react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button';
 const menuItems = [
   { title: 'KPI Dashboard', url: '/', icon: BarChart3, matrixKey: 'dashboard_kpi' },
   { title: 'MRB Worklist', url: '/worklist', icon: ClipboardList, matrixKey: 'mrb_worklist' },
+  { title: 'Pending Actions', url: '/pending-actions', icon: AlertTriangle, matrixKey: 'mrb_worklist' },
   { title: 'Material Booking', url: '/shop-floor/stock-selection', icon: Package, matrixKey: 'material_booking' },
   { title: 'MRB - Inward Materials', url: '/inward/report', icon: FileSpreadsheet, matrixKey: 'inward_materials' },
   { title: 'MRB Print', url: '/mrb-print', icon: Printer, matrixKey: 'mrb_print' },
@@ -44,6 +45,7 @@ const adminItems = [
   { title: 'Role Access Matrix', url: '/admin/matrix', icon: Shield, roles: ['admin'], masterOnly: false },
   { title: 'Plant Management', url: '/admin/plants', icon: Building2, roles: ['admin'], masterOnly: false },
   { title: 'Department Management', url: '/admin/departments', icon: Layers, roles: ['admin'], masterOnly: false },
+  { title: 'Workflow Routing', url: '/admin/workflow', icon: GitBranch, roles: ['admin'], masterOnly: false },
   { title: 'SAP API Settings', url: '/admin/sap-api', icon: Settings, roles: ['admin'], masterOnly: true },
   { title: 'SAP Sync Monitor', url: '/admin/sap-sync', icon: TrendingUp, roles: ['admin'], masterOnly: true },
 ];

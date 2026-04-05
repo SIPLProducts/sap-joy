@@ -54,6 +54,7 @@ export default function ShopFloorMaterialBlocking() {
   const [blockQuantity, setBlockQuantity] = useState<number>(0);
   const [productionOrder, setProductionOrder] = useState('');
   const [poNumber, setPONumber] = useState('');
+  const [postingDate, setPostingDate] = useState(new Date().toISOString().split('T')[0]);
   const [blockReason, setBlockReason] = useState('');
   const [defectDescription, setDefectDescription] = useState('');
   const [nextReviewDepartments, setNextReviewDepartments] = useState<AppRole[]>([]);
@@ -74,13 +75,17 @@ export default function ShopFloorMaterialBlocking() {
     }
   }, [stockItem, navigate]);
 
-  // Check if user is shop floor
+  // Check if user has blocking privileges (#11 - Master Admin must have full blocking privileges)
+  const { userRole, profile: authProfile, user: authUser } = useAuth();
+  const isMasterAdmin = authProfile?.email === 'masteradmin@sharviinfotech.com' || authUser?.email === 'masteradmin@sharviinfotech.com';
+  const canBlock = currentRole === 'shop_floor' || userRole === 'admin' || isMasterAdmin;
+  
   useEffect(() => {
-    if (currentRole !== 'shop_floor') {
-      toast.error('Only Shop Floor users can initiate material blocking.');
+    if (!canBlock) {
+      toast.error('You do not have permission for material blocking.');
       navigate('/');
     }
-  }, [currentRole, navigate]);
+  }, [canBlock, navigate]);
 
   if (!stockItem) return null;
 

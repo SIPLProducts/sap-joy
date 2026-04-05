@@ -39,6 +39,8 @@ import SAPApiSettings from "@/pages/SAPApiSettings";
 import SAPSyncMonitor from "@/pages/SAPSyncMonitor";
 import PlantManagement from "@/pages/PlantManagement";
 import DepartmentManagement from "@/pages/DepartmentManagement";
+import WorkflowRoutingConfig from "@/pages/WorkflowRoutingConfig";
+import PendingActions from "@/pages/PendingActions";
 import RoleMatrix from "@/pages/RoleMatrix";
 import NotFound from "@/pages/NotFound";
 
@@ -64,6 +66,7 @@ const App = () => (
                         <Routes>
                           <Route index element={<KPIDashboard />} />
                           <Route path="worklist" element={<Worklist />} />
+                          <Route path="pending-actions" element={<PendingActions />} />
                           <Route path="inward/worklist" element={<Worklist />} />
                           <Route path="mrb/:id" element={<MRBDetail />} />
                           <Route path="create/quality" element={<CreateMRBQuality />} />
@@ -85,6 +88,7 @@ const App = () => (
                           <Route path="admin/users" element={<UserManagement />} />
                           <Route path="admin/plants" element={<PlantManagement />} />
                           <Route path="admin/departments" element={<DepartmentManagement />} />
+                          <Route path="admin/workflow" element={<WorkflowRoutingConfig />} />
                           <Route path="admin/matrix" element={<RoleMatrix />} />
                           <Route path="profile" element={<UserProfile />} />
                           <Route path="help" element={<HelpSupport />} />
