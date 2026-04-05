@@ -31,6 +31,7 @@ interface Department {
   name: string;
   description: string | null;
   is_active: boolean;
+  role_key: string | null;
   created_at: string;
 }
 
