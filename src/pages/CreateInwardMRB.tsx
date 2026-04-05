@@ -1124,13 +1124,15 @@ Quality Department`;
                   return (
                     <label
                       key={dept.value}
-                      className={`relative flex flex-col p-4 rounded-lg border cursor-pointer transition-all ${
+                      className={`relative flex flex-col p-4 rounded-lg border transition-all ${
+                        routingLocked ? 'cursor-default' : 'cursor-pointer'
+                      } ${
                         isSelected
                           ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
                           : isRecommended
                           ? 'border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/20'
                           : 'border-border hover:bg-muted/50'
-                      }`}
+                      } ${routingLocked && !isSelected ? 'opacity-40' : ''}`}
                     >
                       <div className="flex items-start gap-3">
                         <input
