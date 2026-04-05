@@ -147,35 +147,66 @@ export function useMRBDatabase() {
     additionalUpdates?: MRBUpdate
   ): Promise<boolean> => {
     try {
-      // First get the current MRB to know the current stage for history
+      // First get the current MRB to know the current stage and workflow_routing
       const { data: currentMRB } = await supabase
         .from('mrb_records')
-        .select('status')
+        .select('status, pending_with, workflow_routing')
         .eq('id', id)
         .single();
 
       const currentStage = currentMRB?.status || 'quality_review';
+      const workflowRouting = (currentMRB as any)?.workflow_routing as string[] | null;
+
+      // If the action is 'approved' (not reject) and there's a workflow_routing,
+      // use the routing sequence to determine the next status instead of the caller's newStatus
+      let effectiveStatus = newStatus;
+      let effectivePendingWith: AppRole | null = null;
+
+      if (
+        action === 'approved' &&
+        workflowRouting &&
+        workflowRouting.length > 0 &&
+        newStatus !== 'rejected' &&
+        newStatus !== 'approved' &&
+        newStatus !== 'closed'
+      ) {
+        const currentRole = currentMRB?.pending_with || userRole || 'quality';
+        const nextStep = getNextWorkflowStep(workflowRouting, currentRole);
+
+        if (nextStep) {
+          if (nextStep.isLast && nextStep.nextStatus === 'approved') {
+            effectiveStatus = 'approved';
+            effectivePendingWith = null;
+          } else {
+            effectiveStatus = nextStep.nextStatus;
+            effectivePendingWith = nextStep.nextRole;
+          }
+        }
+      }
 
       const updates: MRBUpdate = {
-        status: newStatus,
+        status: effectiveStatus,
         updated_at: new Date().toISOString(),
         ...additionalUpdates,
       };
 
-      // Set pending_with based on new status
-      const statusToPendingWith: Record<MRBStatus, AppRole | null> = {
-        draft: null,
-        quality_review: 'quality',
-        purchase_review: 'purchase',
-        engineering_review: 'engineering',
-        final_approval: 'executive',
-        approved: null,
-        rejected: null,
-        closed: null,
-      };
-      
-      if (statusToPendingWith[newStatus] !== undefined) {
-        updates.pending_with = statusToPendingWith[newStatus];
+      // Set pending_with — prefer the routing-derived value, fallback to status-based
+      if (effectivePendingWith !== null) {
+        updates.pending_with = effectivePendingWith;
+      } else {
+        const statusToPendingWith: Record<MRBStatus, AppRole | null> = {
+          draft: null,
+          quality_review: 'quality',
+          purchase_review: 'purchase',
+          engineering_review: 'engineering',
+          final_approval: 'executive',
+          approved: null,
+          rejected: null,
+          closed: null,
+        };
+        if (statusToPendingWith[effectiveStatus] !== undefined) {
+          updates.pending_with = statusToPendingWith[effectiveStatus];
+        }
       }
 
       // Set approval timestamps based on the CURRENT role (who is taking action)
@@ -191,9 +222,19 @@ export function useMRBDatabase() {
       } else if (userRole === 'executive' || userRole === 'admin') {
         updates.final_approved_at = new Date().toISOString();
         updates.final_approved_by = user?.id;
-        if (newStatus === 'approved' || newStatus === 'rejected') {
-          updates.final_decision = newStatus === 'approved' ? 'approved' : 'rejected';
+        if (effectiveStatus === 'approved' || effectiveStatus === 'rejected') {
+          updates.final_decision = effectiveStatus === 'approved' ? 'approved' : 'rejected';
         }
+      }
+
+      // If approved, set closure fields
+      if (effectiveStatus === 'approved') {
+        updates.closure_status = 'completed';
+        updates.closed_at = new Date().toISOString();
+        updates.closed_by = user?.id;
+        updates.final_approved_at = updates.final_approved_at || new Date().toISOString();
+        updates.final_approved_by = updates.final_approved_by || user?.id;
+        updates.final_decision = 'approved';
       }
 
       const { error } = await supabase
