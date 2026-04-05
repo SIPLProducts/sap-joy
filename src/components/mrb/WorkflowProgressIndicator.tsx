@@ -1,39 +1,93 @@
+import { useState, useEffect } from 'react';
 import { CheckCircle2, Circle, Clock, XCircle, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 
 type MRBStatus = Database['public']['Enums']['mrb_status'];
-type WorkflowMRBStatus = 'quality_review' | 'purchase_review' | 'engineering_review' | 'final_approval' | 'approved' | 'rejected' | 'closed';
+type AppRole = Database['public']['Enums']['app_role'];
 
 interface WorkflowStep {
   id: string;
   label: string;
   shortLabel: string;
-  statuses: WorkflowMRBStatus[];
+  department: AppRole;
+  statuses: MRBStatus[];
 }
 
-const workflowSteps: WorkflowStep[] = [
-  { id: 'quality', label: 'Quality Review', shortLabel: 'Quality', statuses: ['quality_review'] },
-  { id: 'department', label: 'Department Review', shortLabel: 'Dept Review', statuses: ['purchase_review', 'engineering_review'] },
-  { id: 'final', label: 'Final Approval', shortLabel: 'Final', statuses: ['final_approval'] },
-  { id: 'completed', label: 'Completed', shortLabel: 'Done', statuses: ['approved', 'rejected', 'closed'] },
-];
+// Map department role to MRB status
+const departmentToStatus: Record<string, MRBStatus> = {
+  quality: 'quality_review',
+  quality_head: 'quality_review',
+  purchase: 'purchase_review',
+  purchase_head: 'purchase_review',
+  engineering: 'engineering_review',
+  engineering_head: 'engineering_review',
+  executive: 'final_approval',
+  mrb_committee: 'final_approval',
+};
 
 interface WorkflowProgressIndicatorProps {
   currentStatus: MRBStatus;
   pendingWith?: string | null;
+  plant?: string;
   className?: string;
 }
 
 export function WorkflowProgressIndicator({ 
   currentStatus, 
   pendingWith,
+  plant = '1300',
   className 
 }: WorkflowProgressIndicatorProps) {
+  const [dynamicSteps, setDynamicSteps] = useState<WorkflowStep[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const fetchWorkflow = async () => {
+      const { data } = await supabase
+        .from('plant_workflow_config')
+        .select('*')
+        .eq('plant', plant)
+        .eq('is_active', true)
+        .order('workflow_step', { ascending: true });
+
+      if (data && data.length > 0) {
+        const steps: WorkflowStep[] = data.map(d => ({
+          id: d.department,
+          label: d.step_label,
+          shortLabel: d.step_label.split(' ')[0],
+          department: d.department as AppRole,
+          statuses: [departmentToStatus[d.department] || 'quality_review'],
+        }));
+        // Add completed step
+        steps.push({
+          id: 'completed',
+          label: 'Completed',
+          shortLabel: 'Done',
+          department: 'executive' as AppRole,
+          statuses: ['approved', 'rejected', 'closed'],
+        });
+        setDynamicSteps(steps);
+      } else {
+        // Default fallback
+        setDynamicSteps([
+          { id: 'quality', label: 'Quality Review', shortLabel: 'Quality', department: 'quality', statuses: ['quality_review'] },
+          { id: 'department', label: 'Department Review', shortLabel: 'Dept Review', department: 'purchase', statuses: ['purchase_review', 'engineering_review'] },
+          { id: 'final', label: 'Final Approval', shortLabel: 'Final', department: 'executive', statuses: ['final_approval'] },
+          { id: 'completed', label: 'Completed', shortLabel: 'Done', department: 'executive' as AppRole, statuses: ['approved', 'rejected', 'closed'] },
+        ]);
+      }
+      setLoaded(true);
+    };
+    fetchWorkflow();
+  }, [plant]);
+
+  const workflowSteps = dynamicSteps;
+
   const getCurrentStepIndex = () => {
-    // Handle draft status by treating it as quality_review (first step)
     const statusToCheck = currentStatus === 'draft' ? 'quality_review' : currentStatus;
-    return workflowSteps.findIndex(step => step.statuses.includes(statusToCheck as WorkflowMRBStatus));
+    return workflowSteps.findIndex(step => step.statuses.includes(statusToCheck as MRBStatus));
   };
 
   const currentStepIndex = getCurrentStepIndex();
@@ -48,26 +102,22 @@ export function WorkflowProgressIndicator({
 
   const getStatusDetails = () => {
     switch (currentStatus) {
-      case 'quality_review':
-        return { text: 'Awaiting Quality Review', color: 'text-blue-600' };
-      case 'purchase_review':
-        return { text: 'Awaiting Purchase Review', color: 'text-purple-600' };
-      case 'engineering_review':
-        return { text: 'Awaiting Engineering Review', color: 'text-orange-600' };
-      case 'final_approval':
-        return { text: 'Awaiting Final Approval', color: 'text-amber-600' };
-      case 'approved':
-        return { text: 'Approved & Completed', color: 'text-green-600' };
-      case 'rejected':
-        return { text: 'Rejected', color: 'text-red-600' };
-      case 'closed':
-        return { text: 'Closed', color: 'text-muted-foreground' };
-      default:
-        return { text: 'Unknown Status', color: 'text-muted-foreground' };
+      case 'quality_review': return { text: 'Awaiting Quality Review', color: 'text-blue-600' };
+      case 'purchase_review': return { text: 'Awaiting Purchase Review', color: 'text-purple-600' };
+      case 'engineering_review': return { text: 'Awaiting Engineering Review', color: 'text-orange-600' };
+      case 'final_approval': return { text: 'Awaiting Final Approval', color: 'text-amber-600' };
+      case 'approved': return { text: 'Approved & Completed', color: 'text-green-600' };
+      case 'rejected': return { text: 'Rejected', color: 'text-red-600' };
+      case 'closed': return { text: 'Closed', color: 'text-muted-foreground' };
+      default: return { text: 'Unknown Status', color: 'text-muted-foreground' };
     }
   };
 
   const statusDetails = getStatusDetails();
+
+  if (!loaded || workflowSteps.length === 0) {
+    return <div className="p-4 text-sm text-muted-foreground">Loading workflow...</div>;
+  }
 
   return (
     <div className={cn("bg-background rounded-lg border border-border p-4", className)}>
@@ -96,10 +146,7 @@ export function WorkflowProgressIndicator({
 
       {/* Progress Steps */}
       <div className="relative">
-        {/* Progress Line (Background) */}
         <div className="absolute top-5 left-0 right-0 h-0.5 bg-border" />
-        
-        {/* Progress Line (Filled) */}
         <div 
           className={cn(
             "absolute top-5 left-0 h-0.5 transition-all duration-500",
@@ -110,7 +157,6 @@ export function WorkflowProgressIndicator({
           }}
         />
 
-        {/* Steps */}
         <div className="relative flex justify-between">
           {workflowSteps.map((step, index) => {
             const stepStatus = getStepStatus(index);
@@ -123,7 +169,6 @@ export function WorkflowProgressIndicator({
                 className="flex flex-col items-center"
                 style={{ width: `${100 / workflowSteps.length}%` }}
               >
-                {/* Step Circle */}
                 <div 
                   className={cn(
                     "relative z-10 flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-300",
@@ -146,7 +191,6 @@ export function WorkflowProgressIndicator({
                   )}
                 </div>
 
-                {/* Step Label */}
                 <div className="mt-2 text-center">
                   <p className={cn(
                     "text-xs font-medium transition-colors",
@@ -158,12 +202,6 @@ export function WorkflowProgressIndicator({
                     <span className="hidden sm:inline">{step.label}</span>
                     <span className="sm:hidden">{step.shortLabel}</span>
                   </p>
-                  {isActive && step.statuses.length > 1 && (
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {currentStatus === 'purchase_review' ? 'Purchase' : 
-                       currentStatus === 'engineering_review' ? 'Engineering' : ''}
-                    </p>
-                  )}
                 </div>
               </div>
             );
@@ -171,16 +209,15 @@ export function WorkflowProgressIndicator({
         </div>
       </div>
 
-      {/* Workflow Path Description */}
+      {/* Dynamic Workflow Path */}
       <div className="mt-4 pt-3 border-t border-border">
-        <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
-          <span>Quality</span>
-          <ArrowRight className="h-3 w-3" />
-          <span>Purchase/Engineering</span>
-          <ArrowRight className="h-3 w-3" />
-          <span>Final</span>
-          <ArrowRight className="h-3 w-3" />
-          <span className="text-green-600">✓</span>
+        <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground flex-wrap">
+          {workflowSteps.map((step, i, arr) => (
+            <span key={step.id} className="flex items-center gap-1">
+              <span>{step.shortLabel}</span>
+              {i < arr.length - 1 && <ArrowRight className="h-3 w-3" />}
+            </span>
+          ))}
         </div>
       </div>
     </div>
