@@ -122,8 +122,23 @@ export function SAPApiFieldsDialog({ config, isOpen, onClose }: Props) {
         } else if (f.field_name.trim()) {
           await supabase.from('sap_api_response_fields').insert(data as any);
         }
+
+        // Auto-create column in the target table if map_to_table and map_to_column are set
+        if (f.map_to_table && f.map_to_column && f.map_to_column.trim()) {
+          const colType = mapFieldTypeToDbType(f.field_type);
+          try {
+            await supabase.rpc('add_dynamic_column', {
+              _table_name: f.map_to_table,
+              _column_name: f.map_to_column.trim().toLowerCase(),
+              _column_type: colType,
+            });
+          } catch (colErr: any) {
+            // Column may already exist — that's fine
+            console.log(`Column ${f.map_to_column} on ${f.map_to_table}: ${colErr.message || 'already exists'}`);
+          }
+        }
       }
-      toast({ title: 'Saved', description: 'Field mappings updated successfully' });
+      toast({ title: 'Saved', description: 'Field mappings updated and target columns ensured' });
       await loadFields();
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
