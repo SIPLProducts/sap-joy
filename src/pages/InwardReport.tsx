@@ -836,7 +836,11 @@ export default function InwardReport() {
                             <TableHead className="font-semibold whitespace-nowrap">PO Number</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">PO Item Number</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">GRN Number</TableHead>
-                          </TableRow>
+                            {extraFields.map((df) => (
+                              <TableHead key={df.id} className="font-semibold whitespace-nowrap">
+                                {df.description || df.field_name}
+                              </TableHead>
+                            ))}
                         </TableHeader>
                         <TableBody>
                           {paginatedResults.length === 0 ? (
