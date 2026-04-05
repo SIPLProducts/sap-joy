@@ -173,6 +173,31 @@ export default function CreateInwardMRB() {
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
 
+  // Predefined workflow routing from plant_workflow_config
+  const [predefinedRouting, setPredefinedRouting] = useState<string[] | null>(null);
+  const [routingLocked, setRoutingLocked] = useState(false);
+
+  // Fetch predefined workflow for this plant
+  useEffect(() => {
+    const loadPlantWorkflow = async () => {
+      const steps = await fetchPlantWorkflow(inspectionLot.plant);
+      if (steps.length > 0) {
+        const deptSequence = steps.map((s) => s.department);
+        setPredefinedRouting(deptSequence);
+        setRoutingLocked(true);
+        // Auto-populate departments from predefined routing
+        setFormData((prev) => ({
+          ...prev,
+          nextReviewDepartments: deptSequence,
+        }));
+      } else {
+        setPredefinedRouting(null);
+        setRoutingLocked(false);
+      }
+    };
+    loadPlantWorkflow();
+  }, [inspectionLot.plant]);
+
   // Smart routing suggestions based on quality decision
   // Smart routing based on quality decision
   const getDecisionBasedDepartments = useCallback((decision: string): string[] => {
