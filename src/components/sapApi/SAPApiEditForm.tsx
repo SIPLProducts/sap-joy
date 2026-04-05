@@ -35,6 +35,7 @@ interface SAPConfig {
   sync_frequency: string | null;
   cron_expression?: string | null;
   scheduler_enabled?: boolean | null;
+  scheduler_plants?: string[] | null;
   retry_count?: number | null;
   retry_delay_ms?: number | null;
   max_records?: number | null;
