@@ -104,6 +104,19 @@ export default function CreateInwardMRB() {
   const { toast } = useToast();
   const { createMRB, getNextMRBNumber } = useMRBDatabase();
   const { user, profile, userRole } = useAuth();
+  const { departments: allDepartments } = useDepartments(true);
+  
+  // Build dynamic department options from configured departments (only those with role_key)
+  const nextReviewDepartments = useMemo(() => 
+    allDepartments
+      .filter(d => d.role_key && d.is_active)
+      .map(d => ({
+        value: d.role_key!,
+        label: d.name,
+        description: d.description || '',
+      })),
+    [allDepartments]
+  );
   
   const inspectionLot = location.state?.inspectionLot as InspectionLotRecord | undefined;
 
