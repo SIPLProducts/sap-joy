@@ -700,6 +700,23 @@ export default function UserManagement() {
               </Select>
             </div>
             <div className="space-y-2">
+              <Label>Assigned Plants</Label>
+              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
+                {allPlants.map(p => (
+                  <label key={p.code} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={selectedPlants.includes(p.code)}
+                      onCheckedChange={(checked) => {
+                        setSelectedPlants(prev => checked ? [...prev, p.code] : prev.filter(c => c !== p.code));
+                      }}
+                    />
+                    <span className="font-mono">{p.code}</span>
+                    {p.name && <span className="text-muted-foreground text-xs truncate">- {p.name}</span>}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
               <Label className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> Reset Password <span className="text-xs text-muted-foreground">(8-10 chars)</span></Label>
               <Input type="password" placeholder="Leave blank to keep current" value={resetPassword} onChange={(e) => setResetPassword(e.target.value.slice(0, 10))} maxLength={10} />
               <PasswordPolicyIndicator password={resetPassword} />
