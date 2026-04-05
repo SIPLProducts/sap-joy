@@ -25,6 +25,7 @@ interface UserWithRole {
   full_name: string;
   email: string;
   plant: string | null;
+  plants: string[];
   department: string | null;
   role: AppRole | null;
   created_at: string;
