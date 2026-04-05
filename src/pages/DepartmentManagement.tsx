@@ -6,11 +6,25 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Layers, Plus, Edit, Trash2, RefreshCw, Shield } from 'lucide-react';
+
+const ROLE_KEY_OPTIONS = [
+  { value: '', label: 'None (not used in workflow)' },
+  { value: 'quality', label: 'Quality' },
+  { value: 'quality_head', label: 'Quality Head' },
+  { value: 'purchase', label: 'Purchase' },
+  { value: 'purchase_head', label: 'Purchase Head' },
+  { value: 'engineering', label: 'Engineering' },
+  { value: 'engineering_head', label: 'Engineering Head' },
+  { value: 'executive', label: 'Executive / Plant Head' },
+  { value: 'mrb_committee', label: 'MRB Committee' },
+  { value: 'shop_floor', label: 'Shop Floor' },
+];
 
 interface Department {
   id: string;
