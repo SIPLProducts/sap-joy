@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+###############################################################################
+# HBL MRB – Start all services via PM2
+###############################################################################
+set -euo pipefail
+
+APP_DIR="/opt/MRB"
+BACKEND_DIR="$APP_DIR/sap-proxy/mrb-backend"
+LOG_DIR="/var/log/mrb"
+ENV_FILE="$APP_DIR/.env"
+
+if [ -f "$ENV_FILE" ]; then
+  set -a; source "$ENV_FILE"; set +a
+fi
+
+echo "============================================"
+echo "  HBL MRB – Starting Services"
+echo "============================================"
+
+###############################################################################
+# 1. SAP Proxy Middleware (port 3002)
+###############################################################################
+if [ -f "$BACKEND_DIR/server.js" ] || [ -f "$BACKEND_DIR/index.js" ]; then
+  ENTRY=$([ -f "$BACKEND_DIR/server.js" ] && echo "server.js" || echo "index.js")
+  echo "[1/2] Starting SAP Proxy Middleware..."
+  pm2 describe mrb-app >/dev/null 2>&1 && pm2 delete mrb-app
+  pm2 start "$BACKEND_DIR/$ENTRY" \
+    --name mrb-app \
+    --cwd "$BACKEND_DIR" \
+    --log "$LOG_DIR/middleware.log" \
+    --time \
+    --env production \
+    --max-restarts 10 \
+    --restart-delay 5000
+  echo "  ✓ mrb-app started on port ${SAP_PROXY_PORT:-3002}"
+else
+  echo "[1/2] ⚠ No middleware entry point found — skipping"
+fi
+
+###############################################################################
+# 2. Standalone Scheduler (port 3100)
+###############################################################################
+SCHED_FILE="$BACKEND_DIR/scheduler.js"
+if [ -f "$SCHED_FILE" ]; then
+  echo "[2/2] Starting Standalone Scheduler..."
+  pm2 describe mrb-scheduler >/dev/null 2>&1 && pm2 delete mrb-scheduler
+  pm2 start "$SCHED_FILE" \
+    --name mrb-scheduler \
+    --cwd "$BACKEND_DIR" \
+    --log "$LOG_DIR/scheduler.log" \
+    --time \
+    --env production \
+    --max-restarts 10 \
+    --restart-delay 10000 \
+    --cron-restart "0 */6 * * *"
+  echo "  ✓ mrb-scheduler started on port ${SCHEDULER_PORT:-3100}"
+else
+  echo "[2/2] ⚠ No scheduler.js found — skipping"
+fi
+
+###############################################################################
+# Save PM2 list for auto-restart on reboot
+###############################################################################
+pm2 save
+echo ""
+echo "  ✓ PM2 process list saved"
+
+###############################################################################
+# Status
+###############################################################################
+echo ""
+pm2 list
+echo ""
+echo "============================================"
+echo "  All services started"
+echo "============================================"
+echo ""
+echo "Logs:"
+echo "  Middleware:  pm2 logs mrb-app"
+echo "  Scheduler:   pm2 logs mrb-scheduler"
+echo "  Nginx:       /var/log/nginx/access.log"
+echo ""
