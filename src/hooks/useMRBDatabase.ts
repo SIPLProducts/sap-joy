@@ -98,12 +98,18 @@ export function useMRBDatabase() {
     }
   }, []);
 
-  // Create new MRB
-  const createMRB = useCallback(async (mrb: MRBInsert): Promise<MRBRecord | null> => {
+  // Create new MRB with optional workflow routing
+  const createMRB = useCallback(async (mrb: MRBInsert, workflowRouting?: string[]): Promise<MRBRecord | null> => {
     try {
+      // Attach workflow_routing to the insert payload
+      const insertData = {
+        ...mrb,
+        ...(workflowRouting && workflowRouting.length > 0 ? { workflow_routing: workflowRouting } : {}),
+      };
+
       const { data, error } = await supabase
         .from('mrb_records')
-        .insert(mrb)
+        .insert(insertData as any)
         .select()
         .single();
 
@@ -116,7 +122,7 @@ export function useMRBDatabase() {
         action: 'created',
         performed_by: user?.id || '',
         performed_by_role: userRole || 'shop_floor',
-        remarks: `MRB created from ${mrb.source}`,
+        remarks: `MRB created from ${mrb.source}${workflowRouting ? ` — Routing: ${workflowRouting.join(' → ')}` : ''}`,
       });
 
       await fetchMRBRecords();
