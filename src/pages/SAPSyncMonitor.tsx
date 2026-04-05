@@ -85,12 +85,11 @@ export default function SAPSyncMonitor() {
     const previews: DataPreview[] = [];
 
     // Fetch main data tables
-    const [sfResult, ilResult] = await Promise.all([
-      fetchAllRows('shop_floor_stock'),
+    const [ilResult] = await Promise.all([
       fetchAllRows('inward_inspection_lots'),
     ]);
 
-    previews.push({ table: 'MB52 — Shop Floor Stock', count: sfResult.count, recentRecords: sfResult.data });
+    previews.push({ table: 'MB52 — Shop Floor Stock', count: 0, recentRecords: [] });
     previews.push({ table: 'ZMRB01 — Inward Inspection Lots', count: ilResult.count, recentRecords: ilResult.data });
 
     // Fetch sync history for 343 and 344 APIs
