@@ -468,7 +468,13 @@ export default function SAPSyncMonitor() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {preview.recentRecords.length === 0 ? (
+                  {preview.table.includes('MB52') ? (
+                    <div className="text-center py-4 text-muted-foreground text-sm">
+                      <Badge variant="outline" className="mb-2 bg-blue-50 text-blue-700 border-blue-200">Live Fetch</Badge>
+                      <p>MB52 stock data is fetched directly from SAP on demand — no data is stored locally.</p>
+                      <p className="text-xs mt-1">Go to <strong>Material Blocking</strong> to search and view live stock data.</p>
+                    </div>
+                  ) : preview.recentRecords.length === 0 ? (
                     <div className="text-center py-4 text-muted-foreground text-sm">
                       No records visible. If a sync reported inserted rows, check that your plant/filter settings match the synced data.
                     </div>
