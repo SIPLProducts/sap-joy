@@ -43,6 +43,7 @@ const adminItems = [
   { title: 'User & Role Management', url: '/admin/users', icon: UserCog, roles: ['admin'], masterOnly: false },
   { title: 'Role Access Matrix', url: '/admin/matrix', icon: Shield, roles: ['admin'], masterOnly: false },
   { title: 'Plant Management', url: '/admin/plants', icon: Building2, roles: ['admin'], masterOnly: false },
+  { title: 'Department Management', url: '/admin/departments', icon: Layers, roles: ['admin'], masterOnly: false },
   { title: 'SAP API Settings', url: '/admin/sap-api', icon: Settings, roles: ['admin'], masterOnly: true },
   { title: 'SAP Sync Monitor', url: '/admin/sap-sync', icon: TrendingUp, roles: ['admin'], masterOnly: true },
 ];

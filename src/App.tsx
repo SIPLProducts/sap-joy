@@ -84,6 +84,7 @@ const App = () => (
                           <Route path="mrb-print" element={<MRBPrint />} />
                           <Route path="admin/users" element={<UserManagement />} />
                           <Route path="admin/plants" element={<PlantManagement />} />
+                          <Route path="admin/departments" element={<DepartmentManagement />} />
                           <Route path="admin/matrix" element={<RoleMatrix />} />
                           <Route path="profile" element={<UserProfile />} />
                           <Route path="help" element={<HelpSupport />} />
