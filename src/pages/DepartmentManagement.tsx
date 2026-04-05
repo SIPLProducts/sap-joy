@@ -208,6 +208,13 @@ export default function DepartmentManagement() {
                   departments.map((dept) => (
                     <TableRow key={dept.id}>
                       <TableCell className="font-medium">{dept.name}</TableCell>
+                      <TableCell>
+                        {dept.role_key ? (
+                          <Badge variant="outline" className="font-mono text-xs">{dept.role_key}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-muted-foreground text-sm">{dept.description || '—'}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
