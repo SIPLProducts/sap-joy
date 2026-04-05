@@ -12,6 +12,7 @@ type SyncResult = {
   errors: string[]
 }
 
+const LOCK_KEY = 'sap_scheduler_global'
 const port = Number(Deno.env.get('PORT') || '3100')
 
 Deno.serve({ port }, async (req) => {
@@ -19,24 +20,36 @@ Deno.serve({ port }, async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+  if (!supabaseUrl || !serviceKey) {
+    return jsonResp({ success: false, error: `Missing env: ${!supabaseUrl ? 'SUPABASE_URL' : 'SUPABASE_SERVICE_ROLE_KEY'}` }, 500)
+  }
+
+  const supabase = createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    
-    if (!supabaseUrl || !serviceKey) {
-      return new Response(JSON.stringify({ success: false, error: `Missing env: ${!supabaseUrl ? 'SUPABASE_URL' : 'SUPABASE_SERVICE_ROLE_KEY'}` }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+    // ── 1. Acquire global lock to prevent duplicate runs ──
+    const { data: lockAcquired } = await supabase.rpc('acquire_scheduler_lock', {
+      _lock_key: LOCK_KEY,
+      _locked_by: 'edge-function',
+    })
+
+    if (!lockAcquired) {
+      console.log('[scheduler] Lock not acquired — another run is in progress')
+      return jsonResp({ success: false, error: 'Scheduler already running. Duplicate run prevented.' })
     }
 
-    const supabase = createClient(supabaseUrl, serviceKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
+    console.log('[scheduler] Lock acquired, starting run')
 
     const body = await req.json().catch(() => ({}))
     const ignoreSchedule = body?.ignoreSchedule === true
     const requestedConfigIds = Array.isArray(body?.config_ids) ? body.config_ids : null
 
+    // ── 2. Fetch active scheduler-enabled configs ──
     const { data: configs, error: configError } = await supabase
       .from('sap_api_config')
       .select('*')
@@ -44,25 +57,31 @@ Deno.serve({ port }, async (req) => {
       .eq('scheduler_enabled', true)
 
     if (configError) {
+      await releaseLock(supabase)
       throw configError
     }
 
     const now = new Date()
     const results: Array<Record<string, unknown>> = []
 
+    // ── 3. Fetch all plants for multi-plant support ──
+    const { data: plants } = await supabase.from('plants').select('code')
+    const plantCodes = (plants || []).map((p: any) => p.code)
+    if (plantCodes.length === 0) plantCodes.push('1300') // Fallback default
+
     for (const config of configs || []) {
       if (requestedConfigIds && !requestedConfigIds.includes(config.id)) continue
       if (!ignoreSchedule && !shouldRunNow(config, now)) continue
 
+      // Fetch response field mappings
       const { data: dbResponseFields } = await supabase
         .from('sap_api_response_fields')
         .select('*')
         .eq('config_id', config.id)
         .order('sort_order')
 
-      let activeResponseFields = (dbResponseFields || []).filter((field: any) => field.map_to_table && field.map_to_column)
-      
-      // If no DB-configured response fields, auto-generate from built-in mappings
+      let activeResponseFields = (dbResponseFields || []).filter((f: any) => f.map_to_table && f.map_to_column)
+
       if (activeResponseFields.length === 0) {
         const autoFields = generateBuiltInResponseFields(config)
         if (autoFields.length === 0) {
@@ -73,113 +92,219 @@ Deno.serve({ port }, async (req) => {
         console.log(`[scheduler] Using ${autoFields.length} built-in field mappings for ${config.config_name}`)
       }
 
+      // Fetch request field mappings
       const { data: requestFields } = await supabase
         .from('sap_api_request_fields')
         .select('*')
         .eq('config_id', config.id)
         .order('sort_order')
 
+      // Validate required fields
       const invalidRequired = (requestFields || []).filter(
-        (field: any) => field.is_required && (!field.default_value || String(field.default_value).trim() === ''),
+        (f: any) => f.is_required && (!f.default_value || String(f.default_value).trim() === ''),
       )
       if (invalidRequired.length > 0) {
         results.push({
           config_id: config.id,
           config_name: config.config_name,
           skipped: true,
-          reason: `Missing required defaults: ${invalidRequired.map((field: any) => field.sap_field_name || field.field_name).join(', ')}`,
+          reason: `Missing required defaults: ${invalidRequired.map((f: any) => f.sap_field_name || f.field_name).join(', ')}`,
         })
         continue
       }
 
-      const { data: syncRecord, error: syncError } = await supabase
-        .from('sap_stock_sync_history')
-        .insert({
-          config_id: config.id,
-          sync_type: 'scheduled',
-          status: 'in_progress',
-          synced_by: 'scheduler',
-        })
-        .select()
-        .single()
+      // ── 4. Multi-plant iteration: process each plant independently ──
+      // Determine if config uses WERKS field for plant filtering
+      const hasPlantField = (requestFields || []).some(
+        (f: any) => ['WERKS', 'WERK', 'werks', 'werk'].includes(f.sap_field_name || f.field_name)
+      )
 
-      if (syncError || !syncRecord) {
-        results.push({ config_id: config.id, config_name: config.config_name, success: false, error: syncError?.message || 'Failed to create sync record' })
-        continue
-      }
+      const plantsToProcess = hasPlantField ? plantCodes : ['ALL']
 
-      try {
-        const sapResponse = await callSAPApi(config, requestFields || [])
+      for (const plantCode of plantsToProcess) {
+        const plantLabel = plantCode === 'ALL' ? 'All Plants' : plantCode
 
-        if (!sapResponse.success) {
-          await supabase.from('sap_stock_sync_history').update({
-            status: 'failed',
-            error_message: sapResponse.error,
-            completed_at: new Date().toISOString(),
-          }).eq('id', syncRecord.id)
+        // Create per-plant sync history record
+        const { data: syncRecord, error: syncError } = await supabase
+          .from('sap_stock_sync_history')
+          .insert({
+            config_id: config.id,
+            sync_type: 'scheduled',
+            status: 'in_progress',
+            synced_by: 'scheduler',
+            plant: plantCode === 'ALL' ? null : plantCode,
+          })
+          .select()
+          .single()
 
-          results.push({ config_id: config.id, config_name: config.config_name, success: false, error: sapResponse.error })
-          continue
+        if (syncError || !syncRecord) {
+          results.push({ config_id: config.id, config_name: config.config_name, plant: plantLabel, success: false, error: syncError?.message || 'Failed to create sync record' })
+          continue // Failure in one plant should not stop others
         }
 
-        const syncResult = await mapAndInsertData(supabase, sapResponse.data || [], activeResponseFields, syncRecord.id, config.max_records)
-        const hasErrors = syncResult.errors.length > 0
-        const finalStatus = syncResult.inserted === 0 && hasErrors ? 'failed' : hasErrors ? 'partial' : 'success'
+        try {
+          // Build plant-specific request overrides
+          const plantOverrides: Record<string, any> = {}
+          if (plantCode !== 'ALL') {
+            plantOverrides['WERKS'] = plantCode
+            plantOverrides['WERK'] = plantCode
+          }
 
-        await supabase.from('sap_stock_sync_history').update({
-          status: finalStatus,
-          records_fetched: syncResult.fetched,
-          records_inserted: syncResult.inserted,
-          records_updated: syncResult.updated,
-          completed_at: new Date().toISOString(),
-          error_message: hasErrors ? syncResult.errors.join('; ') : null,
-        }).eq('id', syncRecord.id)
+          const sapResponse = await callSAPApi(config, requestFields || [], plantOverrides)
 
-        await supabase.from('sap_api_config').update({
-          last_sync_at: new Date().toISOString(),
-        }).eq('id', config.id)
+          if (!sapResponse.success) {
+            await updateSyncRecord(supabase, syncRecord.id, 'failed', sapResponse.error)
+            results.push({ config_id: config.id, config_name: config.config_name, plant: plantLabel, success: false, error: sapResponse.error })
+            continue // Failure in one plant should not stop others
+          }
 
-        results.push({
-          config_id: config.id,
-          config_name: config.config_name,
-          success: true,
-          records_fetched: syncResult.fetched,
-          records_inserted: syncResult.inserted,
-          records_updated: syncResult.updated,
-          errors: syncResult.errors,
-        })
-      } catch (error: any) {
-        await supabase.from('sap_stock_sync_history').update({
-          status: 'failed',
-          error_message: error.message || 'Unknown scheduler error',
-          completed_at: new Date().toISOString(),
-        }).eq('id', syncRecord.id)
+          // ── 5. Dynamic column creation before insert ──
+          await ensureDynamicColumns(supabase, activeResponseFields, sapResponse.data || [])
 
-        results.push({ config_id: config.id, config_name: config.config_name, success: false, error: error.message || 'Unknown scheduler error' })
+          // ── 6. Map and insert using unified logic matching manual sync ──
+          const syncResult = await mapAndInsertData(
+            supabase,
+            sapResponse.data || [],
+            activeResponseFields,
+            syncRecord.id,
+            config.max_records,
+          )
+
+          const hasErrors = syncResult.errors.length > 0
+          const finalStatus = syncResult.inserted === 0 && hasErrors ? 'failed' : hasErrors ? 'partial' : 'success'
+
+          await supabase.from('sap_stock_sync_history').update({
+            status: finalStatus,
+            records_fetched: syncResult.fetched,
+            records_inserted: syncResult.inserted,
+            records_updated: syncResult.updated,
+            completed_at: new Date().toISOString(),
+            error_message: hasErrors ? syncResult.errors.join('; ').substring(0, 2000) : null,
+          }).eq('id', syncRecord.id)
+
+          results.push({
+            config_id: config.id,
+            config_name: config.config_name,
+            plant: plantLabel,
+            success: true,
+            records_fetched: syncResult.fetched,
+            records_inserted: syncResult.inserted,
+            records_updated: syncResult.updated,
+            errors: syncResult.errors.length > 0 ? syncResult.errors.slice(0, 5) : undefined,
+          })
+        } catch (error: any) {
+          await updateSyncRecord(supabase, syncRecord.id, 'failed', error.message || 'Unknown scheduler error')
+          results.push({ config_id: config.id, config_name: config.config_name, plant: plantLabel, success: false, error: error.message || 'Unknown scheduler error' })
+          // Continue to next plant
+        }
       }
+
+      // Update last_sync_at on the config
+      await supabase.from('sap_api_config').update({
+        last_sync_at: new Date().toISOString(),
+      }).eq('id', config.id)
     }
 
-    return new Response(JSON.stringify({ success: true, processed: results.length, results }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    // ── Release lock ──
+    await releaseLock(supabase)
+
+    return jsonResp({ success: true, processed: results.length, results })
   } catch (error: any) {
-    return new Response(JSON.stringify({ success: false, error: error.message || 'Scheduler failed' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    // Always try to release lock on error
+    try { await releaseLock(supabase) } catch {}
+    return jsonResp({ success: false, error: error.message || 'Scheduler failed' }, 500)
   }
 })
 
+// ═══════════════ Helper Functions ═══════════════
+
+function jsonResp(data: any, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
+async function releaseLock(supabase: any) {
+  await supabase.rpc('release_scheduler_lock', { _lock_key: LOCK_KEY })
+  console.log('[scheduler] Lock released')
+}
+
+async function updateSyncRecord(supabase: any, id: string, status: string, errorMessage?: string) {
+  await supabase.from('sap_stock_sync_history').update({
+    status,
+    error_message: errorMessage?.substring(0, 2000) || null,
+    completed_at: new Date().toISOString(),
+  }).eq('id', id)
+}
+
+// ═══════════════ Dynamic Column Creation ═══════════════
+
 /**
- * Auto-generate response field mappings based on endpoint path/config name
- * when no sap_api_response_fields rows exist in the DB.
- * This mirrors the hardcoded alias logic used by the client-side manual sync.
+ * Requirement #7: Auto-create columns if not exists.
+ * Checks response fields against target tables and creates missing columns dynamically.
  */
+async function ensureDynamicColumns(supabase: any, responseFields: any[], sampleData: any[]) {
+  if (!sampleData.length) return
+
+  const tableColumns = new Map<string, Set<string>>()
+
+  for (const field of responseFields) {
+    if (!field.map_to_table || !field.map_to_column) continue
+    const table = field.map_to_table
+    const column = field.map_to_column
+
+    if (!tableColumns.has(table)) {
+      // Fetch existing columns for this table
+      const { data: cols } = await supabase.rpc('get_table_columns', { _table_name: table }).catch(() => ({ data: null }))
+      tableColumns.set(table, new Set((cols || []).map((c: any) => c.column_name)))
+    }
+
+    const existing = tableColumns.get(table)!
+    if (!existing.has(column)) {
+      // Determine column type from config
+      const pgType = mapFieldTypeToPg(field.field_type)
+      console.log(`[scheduler] Dynamic column creation: ALTER TABLE ${table} ADD COLUMN ${column} ${pgType}`)
+
+      try {
+        // Use RPC to add column (requires a helper function in DB)
+        await supabase.rpc('add_dynamic_column', {
+          _table_name: table,
+          _column_name: column,
+          _column_type: pgType,
+        })
+        existing.add(column)
+        console.log(`[scheduler] Column ${column} added to ${table}`)
+      } catch (e: any) {
+        // Column might already exist or name conflict — log but don't fail
+        console.log(`[scheduler] Could not add column ${column} to ${table}: ${e.message}`)
+      }
+    }
+  }
+}
+
+function mapFieldTypeToPg(fieldType: string): string {
+  switch ((fieldType || 'string').toLowerCase()) {
+    case 'number':
+    case 'decimal':
+    case 'float': return 'numeric'
+    case 'integer':
+    case 'int': return 'integer'
+    case 'boolean':
+    case 'bool': return 'boolean'
+    case 'date': return 'date'
+    case 'datetime':
+    case 'timestamp': return 'timestamptz'
+    default: return 'text'
+  }
+}
+
+// ═══════════════ Built-in Response Field Mappings ═══════════════
+
 function generateBuiltInResponseFields(config: any): any[] {
   const endpoint = String(config.endpoint_path || config.api_endpoint || '').toLowerCase()
   const name = String(config.config_name || '').toLowerCase()
 
-  // Detect target table from endpoint or config name
   let targetTable: string | null = null
   if (endpoint.includes('zmrb') || endpoint.includes('inward') || name.includes('inward') || name.includes('zmrb')) {
     targetTable = 'inward_inspection_lots'
@@ -240,9 +365,10 @@ function generateBuiltInResponseFields(config: any): any[] {
   }))
 }
 
+// ═══════════════ Schedule Logic ═══════════════
+
 function shouldRunNow(config: any, now: Date): boolean {
   if (!config.scheduler_enabled || !config.is_active) return false
-
   const frequency = String(config.sync_frequency || 'manual')
   if (frequency === 'manual') return false
 
@@ -293,6 +419,8 @@ function matchesSupportedCron(cronExpression: string | null, now: Date, lastRun:
   return now.getTime() - lastRun.getTime() >= 60 * 1000
 }
 
+// ═══════════════ SAP API Calling (matches manual sync logic) ═══════════════
+
 function buildUrl(config: any): string {
   let url: string
   if ((config.connection_mode === 'vpn_tunnel' || config.connection_mode === 'proxy') && config.proxy_tunnel_url) {
@@ -316,8 +444,17 @@ function buildAuthHeaders(config: any): Record<string, string> {
   }
 
   if (config.proxy_secret) headers['x-proxy-secret'] = config.proxy_secret
+  if (config.sap_client) headers['sap-client'] = String(config.sap_client)
+
   if (config.auth_type === 'basic' && config.username) {
-    headers['Authorization'] = `Basic ${btoa(`${config.username}:${config.encrypted_password || ''}`)}`
+    const user = String(config.username || '').replace(/\r?\n/g, '').trim()
+    const pass = String(config.encrypted_password || '').replace(/\r?\n/g, '').trim()
+    headers['Authorization'] = `Basic ${btoa(`${user}:${pass}`)}`
+    // Forward credentials like manual sync does
+    headers['username'] = user
+    headers['password'] = pass
+    headers['x-sap-username'] = user
+    headers['x-sap-password'] = pass
   } else if (config.auth_type === 'api_key' && config.api_key) {
     headers['X-API-Key'] = config.api_key
   }
@@ -331,7 +468,11 @@ function buildAuthHeaders(config: any): Record<string, string> {
   return headers
 }
 
-async function callSAPApi(config: any, requestFields: any[]): Promise<{ success: boolean; data?: any[]; error?: string }> {
+async function callSAPApi(
+  config: any,
+  requestFields: any[],
+  plantOverrides: Record<string, any> = {},
+): Promise<{ success: boolean; data?: any[]; error?: string }> {
   const url = buildUrl(config)
   const headers = buildAuthHeaders(config)
   const method = String(config.http_method || 'GET').toUpperCase()
@@ -342,10 +483,35 @@ async function callSAPApi(config: any, requestFields: any[]): Promise<{ success:
     requestBody = {}
     requestFields.forEach((field: any) => {
       const key = field.sap_field_name || field.field_name
+
+      // Apply plant override if this is a plant field
+      if (plantOverrides[key] !== undefined) {
+        requestBody![key] = plantOverrides[key]
+        return
+      }
+
       if (field.is_required || (field.default_value && String(field.default_value).trim() !== '')) {
-        requestBody![key] = field.default_value ?? ''
+        let val = field.default_value ?? ''
+        // Match manual sync: preserve string format, pad ART field
+        if (key === 'ART' || key === 'INSPECTION_TYPE') {
+          val = String(val).trim().padStart(2, '0')
+        }
+        requestBody![key] = val
       }
     })
+
+    // Inject max records like manual sync
+    if (config.max_records) {
+      if (requestBody.MAX_ROWS === undefined) requestBody.MAX_ROWS = config.max_records
+      if (requestBody.MAX_HITS === undefined) requestBody.MAX_HITS = config.max_records
+    }
+
+    // Filter out empty optional fields (MATNR, CHARG) like manual sync
+    for (const optionalKey of ['MATNR', 'CHARG']) {
+      if (requestBody[optionalKey] !== undefined && String(requestBody[optionalKey]).trim() === '') {
+        delete requestBody[optionalKey]
+      }
+    }
   }
 
   let finalUrl = url
@@ -353,7 +519,7 @@ async function callSAPApi(config: any, requestFields: any[]): Promise<{ success:
     const params = new URLSearchParams()
     requestFields.forEach((field: any) => {
       const key = field.sap_field_name || field.field_name
-      const value = field.default_value
+      const value = plantOverrides[key] ?? field.default_value
       if (value !== undefined && value !== null && value !== '') {
         params.set(key, String(value))
       }
@@ -361,6 +527,9 @@ async function callSAPApi(config: any, requestFields: any[]): Promise<{ success:
     const qs = params.toString()
     if (qs) finalUrl = `${url}${url.includes('?') ? '&' : '?'}${qs}`
   }
+
+  console.log(`[scheduler] Calling SAP: ${method} ${finalUrl}`)
+  if (requestBody) console.log(`[scheduler] Payload keys: ${Object.keys(requestBody).join(', ')}`)
 
   try {
     const controller = new AbortController()
@@ -375,7 +544,9 @@ async function callSAPApi(config: any, requestFields: any[]): Promise<{ success:
 
     const bodyText = await response.text()
     if (!response.ok) {
-      return { success: false, error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}` }
+      // User-friendly error messages (Requirement #13)
+      const friendlyMsg = extractFriendlyError(response.status, bodyText)
+      return { success: false, error: friendlyMsg }
     }
 
     const jsonData = JSON.parse(bodyText)
@@ -385,9 +556,34 @@ async function callSAPApi(config: any, requestFields: any[]): Promise<{ success:
     if (error.name === 'AbortError') {
       return { success: false, error: `SAP API timed out after ${timeout}ms` }
     }
-    return { success: false, error: error.message || 'SAP call failed' }
+    return { success: false, error: `Connection failed: ${error.message}` }
   }
 }
+
+/**
+ * Requirement #13: Show user-friendly messages, not technical errors
+ */
+function extractFriendlyError(status: number, bodyText: string): string {
+  const lower = bodyText.toLowerCase()
+  if (lower.includes('anmeldung fehlgeschlagen') || lower.includes('logon error')) {
+    return 'SAP login failed — please verify username, password, and SAP client in API Settings.'
+  }
+  if (status === 401 || status === 403) {
+    return 'SAP authentication failed — check credentials in API Settings.'
+  }
+  if (status === 404) {
+    return 'SAP endpoint not found — verify the endpoint path in API Settings.'
+  }
+  if (status === 500) {
+    return 'SAP server error — the SAP system returned an internal error. Try again later.'
+  }
+  if (status === 503) {
+    return 'SAP system unavailable — the server may be under maintenance.'
+  }
+  return `SAP API returned HTTP ${status}. Please check API Settings configuration.`
+}
+
+// ═══════════════ Data Mapping (unified with manual sync) ═══════════════
 
 async function mapAndInsertData(
   supabase: any,
@@ -405,6 +601,7 @@ async function mapAndInsertData(
     return result
   }
 
+  // Whitelist matching manual sync exactly
   const allowedColumnsByTable: Record<string, Set<string>> = {
     shop_floor_stock: new Set([
       'plant', 'material_code', 'material_description', 'batch', 'storage_location',
@@ -416,14 +613,18 @@ async function mapAndInsertData(
     inward_inspection_lots: new Set([
       'inspection_lot', 'material_code', 'material_description', 'plant', 'storage_location',
       'batch', 'uom', 'blocked_quantity', 'transaction_quantity', 'status', 'block_reason',
-      'vendor_code', 'vendor_name', 'po_number', 'grn_number', 'uploaded_by', 'upload_batch_id',
+      'vendor_code', 'vendor_name', 'po_number', 'po_item_number', 'grn_number', 'uploaded_by', 'upload_batch_id',
       'inspection_date', 'posting_date',
     ]),
+    materials: new Set(['material_number', 'description', 'uom', 'category']),
+    vendors: new Set(['code', 'name', 'contact_email', 'contact_phone', 'address', 'is_active']),
   }
 
+  // Alias maps matching manual sync exactly
   const aliasMapByTable: Record<string, Record<string, string>> = {
     shop_floor_stock: {
-      matnr: 'material_code', maktx: 'material_description', labst: 'available_quantity',
+      material: 'material_code', matnr: 'material_code', material_desc: 'material_description',
+      maktx: 'material_description', unrestricted_qty: 'available_quantity', labst: 'available_quantity',
       charg: 'batch', lgobe: 'storage_location_desc', speme: 'blocked_quantity',
       insme: 'quality_inspection_qty', trame: 'transfer_qty', wlabs: 'unrestricted_value',
       wspem: 'blocked_value', winsm: 'quality_inspection_value', wtram: 'transfer_value',
@@ -431,15 +632,30 @@ async function mapAndInsertData(
       werks: 'plant', werk: 'plant', lgort: 'storage_location',
     },
     inward_inspection_lots: {
-      matnr: 'material_code', maktx: 'material_description', werks: 'plant', werk: 'plant', charg: 'batch',
-      lgort: 'storage_location', prueflos: 'inspection_lot', lifnr: 'vendor_code', name1: 'vendor_name',
-      ebeln: 'po_number', meins: 'uom', menge: 'blocked_quantity', qals_prueflos: 'inspection_lot',
+      matnr: 'material_code', material: 'material_code', maktx: 'material_description',
+      material_desc: 'material_description', werks: 'plant', werk: 'plant', charg: 'batch',
+      lgort: 'storage_location', prueflos: 'inspection_lot', lifnr: 'vendor_code',
+      name1: 'vendor_name', ebeln: 'po_number', ebelp: 'po_item_number', mblnr: 'grn_number',
+      meins: 'uom', menge: 'blocked_quantity',
+      inspection_lot: 'inspection_lot', storage_location: 'storage_location',
+      vendor_code: 'vendor_code', vendor_name: 'vendor_name', po_item_number: 'po_item_number',
+      grn_number: 'grn_number',
+      qals_prueflos: 'inspection_lot', inspection_date: 'inspection_date', posting_date: 'posting_date',
+    },
+    materials: {
+      material: 'material_number', matnr: 'material_number',
+      material_desc: 'description', maktx: 'description',
+    },
+    vendors: {
+      vendor_code: 'code', lifnr: 'code', vendor_name: 'name', name1: 'name',
     },
   }
 
   const requiredByTable: Record<string, string[]> = {
     shop_floor_stock: ['plant', 'material_code', 'available_quantity'],
     inward_inspection_lots: ['inspection_lot', 'material_code', 'plant'],
+    materials: ['material_number', 'description'],
+    vendors: ['code', 'name'],
   }
 
   const tableFieldMap = new Map<string, any[]>()
@@ -457,105 +673,111 @@ async function mapAndInsertData(
       continue
     }
 
-    // Log first raw SAP record for debugging
     if (limitedRecords.length > 0) {
       console.log(`[scheduler] Sample SAP record keys:`, Object.keys(limitedRecords[0]))
-      console.log(`[scheduler] Sample SAP record:`, JSON.stringify(limitedRecords[0]).substring(0, 500))
     }
     console.log(`[scheduler] Mapping ${limitedRecords.length} records to "${tableName}" using ${fields.length} field mappings`)
 
     let droppedCount = 0
-    const droppedReasons: Record<string, number> = {}
 
-    const rows = limitedRecords.map((record, idx) => {
+    const rows = limitedRecords.map((record) => {
       const row: Record<string, any> = {}
-      const debugMapped: string[] = []
-      const debugSkipped: string[] = []
 
       fields.forEach((field: any) => {
         const sapKey = field.sap_field_name || field.field_name
+
+        // Case-insensitive key matching (matches manual sync)
         let value = record[sapKey]
         if (value === undefined) {
           const matchingKey = Object.keys(record).find((key) => key.toLowerCase() === String(sapKey).toLowerCase())
           if (matchingKey) value = record[matchingKey]
         }
-        if (value === undefined || value === null || value === '') {
-          debugSkipped.push(`${sapKey}=empty`)
-          return
+
+        // Also try json_path like manual sync
+        if ((value === undefined || value === null) && field.json_path) {
+          value = getNestedValue(record, field.json_path)
         }
+
+        if (value === undefined || value === null || value === '') return
 
         const normalizedColumn = aliases[String(field.map_to_column).trim().toLowerCase()] || String(field.map_to_column).trim()
-        if (!allowed.has(normalizedColumn)) {
-          debugSkipped.push(`${sapKey}->${normalizedColumn}=NOT_ALLOWED`)
-          return
-        }
+        if (!allowed.has(normalizedColumn)) return
         row[normalizedColumn] = value
-        debugMapped.push(`${sapKey}->${normalizedColumn}`)
       })
 
+      // Table-specific defaults matching manual sync
       if (tableName === 'shop_floor_stock') {
         row.source = 'sap_api'
         row.sap_sync_id = syncId
         row.status = ['available', 'blocked', 'reserved'].includes(String(row.status || '').toLowerCase())
           ? String(row.status).toLowerCase()
           : 'available'
-        if (row.available_quantity !== undefined) row.available_quantity = Number(row.available_quantity) || 0
+        if (row.available_quantity !== undefined) {
+          const qty = Number(row.available_quantity)
+          row.available_quantity = Number.isFinite(qty) ? qty : 0
+        }
       }
 
       if (tableName === 'inward_inspection_lots') {
         row.status = row.status || 'pending'
       }
 
-      const missing = (requiredByTable[tableName] || []).filter((column) => row[column] === undefined || row[column] === null || row[column] === '')
-      
+      const missing = (requiredByTable[tableName] || []).filter(
+        (column) => row[column] === undefined || row[column] === null || row[column] === '',
+      )
+
       if (missing.length > 0) {
         droppedCount++
-        const reason = `missing: ${missing.join(',')}`
-        droppedReasons[reason] = (droppedReasons[reason] || 0) + 1
-        // Log first 3 dropped records in detail
         if (droppedCount <= 3) {
-          console.log(`[scheduler] Record #${idx} DROPPED - ${reason}`)
-          console.log(`[scheduler]   Mapped: ${debugMapped.join(', ')}`)
-          console.log(`[scheduler]   Skipped: ${debugSkipped.join(', ')}`)
-          console.log(`[scheduler]   Row built:`, JSON.stringify(row))
+          console.log(`[scheduler] Record DROPPED - missing: ${missing.join(',')}`)
         }
         return null
-      }
-
-      // Log first successfully mapped record
-      if (idx === 0 || (droppedCount > 0 && rows.length === 0)) {
-        console.log(`[scheduler] Record #${idx} OK - mapped: ${debugMapped.join(', ')}`)
       }
 
       return row
     }).filter(Boolean)
 
     console.log(`[scheduler] ${tableName}: ${rows.length} valid rows, ${droppedCount} dropped`)
-    if (Object.keys(droppedReasons).length > 0) {
-      console.log(`[scheduler] Drop reasons:`, JSON.stringify(droppedReasons))
-    }
 
     if (!rows.length) continue
 
-    // Log first row being upserted
-    console.log(`[scheduler] First row to upsert:`, JSON.stringify(rows[0]))
-
+    // Batch upsert matching manual sync
+    const batchSize = 500
     const upsertOptions = tableName === 'shop_floor_stock'
       ? { onConflict: 'stock_key' }
       : tableName === 'inward_inspection_lots'
       ? { onConflict: 'inspection_lot' }
       : undefined
 
-    const { data, error } = await supabase.from(tableName).upsert(rows, upsertOptions).select()
-    if (error) {
-      console.log(`[scheduler] Upsert error for ${tableName}:`, error.message, error.details, error.hint)
-      result.errors.push(`Error inserting into ${tableName}: ${error.message}`)
-      continue
+    for (let i = 0; i < rows.length; i += batchSize) {
+      const batch = rows.slice(i, i + batchSize)
+      const { data, error } = await supabase.from(tableName).upsert(batch, upsertOptions).select()
+      if (error) {
+        console.log(`[scheduler] Upsert error for ${tableName}:`, error.message)
+        result.errors.push(`Error inserting into ${tableName}: ${error.message}`)
+        break
+      }
+      result.inserted += data?.length || 0
     }
-
-    console.log(`[scheduler] Upsert success: ${data?.length || 0} rows returned`)
-    result.inserted += data?.length || 0
   }
 
   return result
+}
+
+function getNestedValue(obj: any, path: string): any {
+  const normalizedPath = path
+    .replace(/^\$\[\*\]\./, '')
+    .replace(/^\$\./, '')
+    .replace(/^\$/, '')
+
+  if (!normalizedPath) return obj
+
+  return normalizedPath.split('.').reduce((current: any, key: string) => {
+    if (current === null || current === undefined) return undefined
+    const arrayMatch = key.match(/^(\w+)\[(\d+)\]$/)
+    if (arrayMatch) {
+      return current[arrayMatch[1]]?.[parseInt(arrayMatch[2])]
+    }
+    return current[key]
+  }, obj)
 }
