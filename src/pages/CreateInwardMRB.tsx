@@ -19,11 +19,11 @@ import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { 
-  nextReviewDepartments, 
   inwardQualityDecisions, 
   inwardDefectCategories,
   inwardAttachmentCategories 
 } from '@/data/inwardReportData';
+import { useDepartments } from '@/hooks/useDepartments';
 import type { Database } from '@/integrations/supabase/types';
 import { fetchPlantWorkflow, DEPT_TO_ROLE, DEPT_TO_STATUS, ROLE_TO_DEPT } from '@/lib/workflowRouting';
 
