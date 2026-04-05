@@ -1066,6 +1066,7 @@ export type Database = {
           config_id: string | null
           error_message: string | null
           id: string
+          plant: string | null
           records_fetched: number | null
           records_inserted: number | null
           records_updated: number | null
@@ -1079,6 +1080,7 @@ export type Database = {
           config_id?: string | null
           error_message?: string | null
           id?: string
+          plant?: string | null
           records_fetched?: number | null
           records_inserted?: number | null
           records_updated?: number | null
@@ -1092,6 +1094,7 @@ export type Database = {
           config_id?: string | null
           error_message?: string | null
           id?: string
+          plant?: string | null
           records_fetched?: number | null
           records_inserted?: number | null
           records_updated?: number | null
@@ -1159,6 +1162,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      scheduler_lock: {
+        Row: {
+          expires_at: string
+          id: string
+          lock_key: string
+          locked_at: string
+          locked_by: string | null
+        }
+        Insert: {
+          expires_at?: string
+          id?: string
+          lock_key: string
+          locked_at?: string
+          locked_by?: string | null
+        }
+        Update: {
+          expires_at?: string
+          id?: string
+          lock_key?: string
+          locked_at?: string
+          locked_by?: string | null
+        }
+        Relationships: []
       }
       shop_floor_stock: {
         Row: {
@@ -1378,6 +1405,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      acquire_scheduler_lock: {
+        Args: { _lock_key: string; _locked_by?: string }
+        Returns: boolean
+      }
+      add_dynamic_column: {
+        Args: {
+          _column_name: string
+          _column_type?: string
+          _table_name: string
+        }
+        Returns: undefined
+      }
       admin_update_user_password: {
         Args: { new_password: string; target_user_id: string }
         Returns: undefined
@@ -1386,6 +1425,13 @@ export type Database = {
       check_password_reuse: {
         Args: { _new_password_hash: string; _user_id: string }
         Returns: boolean
+      }
+      get_table_columns: {
+        Args: { _table_name: string }
+        Returns: {
+          column_name: string
+          data_type: string
+        }[]
       }
       get_user_plant: { Args: { _user_id: string }; Returns: string }
       get_user_role: {
@@ -1402,6 +1448,10 @@ export type Database = {
       record_failed_login: { Args: { _user_id: string }; Returns: Json }
       record_password_change: {
         Args: { _password_hash: string; _user_id: string }
+        Returns: undefined
+      }
+      release_scheduler_lock: {
+        Args: { _lock_key: string }
         Returns: undefined
       }
       reset_failed_login: { Args: { _user_id: string }; Returns: undefined }
