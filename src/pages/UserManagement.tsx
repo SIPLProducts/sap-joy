@@ -132,16 +132,21 @@ export default function UserManagement() {
 
       if (rolesError) throw rolesError;
 
+      // Fetch user_plants assignments
+      const { data: userPlantsData } = await supabase.from('user_plants').select('user_id, plant_code');
+
       const usersWithRoles: UserWithRole[] = (profiles || [])
         .filter(p => !HIDDEN_EMAILS.includes(p.email))
         .map(profile => {
           const userRoleData = roles?.find(r => r.user_id === profile.user_id);
+          const assignedPlants = (userPlantsData || []).filter(up => up.user_id === profile.user_id).map(up => up.plant_code);
           return {
             id: profile.id,
             user_id: profile.user_id,
             full_name: profile.full_name,
             email: profile.email,
             plant: profile.plant,
+            plants: assignedPlants.length > 0 ? assignedPlants : (profile.plant ? [profile.plant] : []),
             department: profile.department,
             role: userRoleData?.role as AppRole || null,
             created_at: profile.created_at,
