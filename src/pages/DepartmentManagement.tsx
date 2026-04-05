@@ -271,6 +271,20 @@ export default function DepartmentManagement() {
                 placeholder="e.g. Quality inspection and control team"
               />
             </div>
+            <div className="space-y-2">
+              <Label>Workflow Role Key</Label>
+              <Select value={form.role_key} onValueChange={v => setForm({ ...form, role_key: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role key (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLE_KEY_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value || '__none'} value={opt.value || '__none'}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Maps this department to a workflow role for MRB routing</p>
+            </div>
             <div className="flex items-center gap-3">
               <Switch checked={form.is_active} onCheckedChange={v => setForm({ ...form, is_active: v })} />
               <Label>Active</Label>
