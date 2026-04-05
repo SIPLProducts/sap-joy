@@ -1040,11 +1040,18 @@ Quality Department`;
         {/* Section 4: Next Review Department */}
         <div className="bg-background rounded-lg border border-border shadow-sm">
           <div className="px-6 py-4 border-b border-border bg-muted/30">
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
               Workflow Routing
+              {routingLocked && (
+                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                  <Lock className="h-3 w-3 mr-1" /> Predefined
+                </Badge>
+              )}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Select department(s) for next review
+              {routingLocked
+                ? 'Routing is predefined for this plant and will follow the configured sequence automatically'
+                : 'Select department(s) for review — MRB will follow this exact sequence'}
             </p>
           </div>
           <div className="p-6">
