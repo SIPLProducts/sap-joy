@@ -378,11 +378,17 @@ export default function UserManagement() {
       // Update profile and assign role using the active admin session
       const { error: profileUpdateError } = await supabase.from('profiles').update({
         department: newUserDepartment,
-        plant: newUserPlant || '1300',
+        plant: newUserPlants[0] || '1300',
         full_name: newUserFullName.trim(),
       }).eq('user_id', newUserId);
 
       if (profileUpdateError) throw profileUpdateError;
+
+      // Assign multiple plants
+      if (newUserPlants.length > 0) {
+        const plantRows = newUserPlants.map(pc => ({ user_id: newUserId, plant_code: pc }));
+        await supabase.from('user_plants').upsert(plantRows, { onConflict: 'user_id,plant_code' });
+      }
 
       const { error: roleInsertError } = await supabase.from('user_roles').upsert({
         user_id: newUserId,
