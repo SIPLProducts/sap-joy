@@ -29,6 +29,8 @@ export interface InspectionLotRecord {
   grnNumber: string;
   status: 'pending' | 'mrb_created' | 'cleared';
   source: 'upload' | 'api' | 'mrb';
+  /** Raw DB row — carries any dynamic columns added via SAP field config */
+  _raw?: Record<string, unknown>;
 }
 
 interface InwardReportFilters {
@@ -176,7 +178,8 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
             postingDate: lot.posting_date || lot.created_at,
             grnNumber: lot.grn_number || '',
             status: effectiveStatus,
-            source: lot.upload_batch_id ? 'upload' : 'api'
+            source: lot.upload_batch_id ? 'upload' : 'api',
+            _raw: lot as unknown as Record<string, unknown>,
           });
         });
       }

@@ -46,13 +46,14 @@ import { downloadCSVTemplate, validateParsedData, ParseResult } from '@/lib/csvT
 import * as XLSX from 'xlsx';
 import { Checkbox } from '@/components/ui/checkbox';
 import { UploadPreviewModal } from '@/components/inward/UploadPreviewModal';
-
+import { useExtraDynamicFields } from '@/hooks/useDynamicFields';
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 export default function InwardReport() {
   const navigate = useNavigate();
   const { inspectionLotRecords, filters, setFilters, getFilteredRecords, refreshData, isLoading, uploadInspectionLots, createBatchMRBs, updateTransactionQuantity } = useInwardMRB();
   const { userRole } = useAuth();
+  const { extraFields } = useExtraDynamicFields('inward_inspection_lots');
 
   // Role-based permissions
   const canCreateMRB = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
@@ -835,12 +836,17 @@ export default function InwardReport() {
                             <TableHead className="font-semibold whitespace-nowrap">PO Number</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">PO Item Number</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">GRN Number</TableHead>
+                            {extraFields.map((df) => (
+                              <TableHead key={df.id} className="font-semibold whitespace-nowrap">
+                                {df.description || df.field_name}
+                              </TableHead>
+                            ))}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {paginatedResults.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={20} className="text-center py-12 text-muted-foreground">
+                              <TableCell colSpan={20 + extraFields.length} className="text-center py-12 text-muted-foreground">
                                 No records found matching the selection criteria
                               </TableCell>
                             </TableRow>
@@ -988,6 +994,13 @@ export default function InwardReport() {
                                 <TableCell className="font-mono text-sm">
                                   {record.grnNumber || '-'}
                                 </TableCell>
+                                {extraFields.map((df) => (
+                                  <TableCell key={df.id} className="text-sm">
+                                    {record._raw && df.map_to_column
+                                      ? String(record._raw[df.map_to_column] ?? '-')
+                                      : '-'}
+                                  </TableCell>
+                                ))}
                               </TableRow>
                               );
                             })
