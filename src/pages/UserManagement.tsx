@@ -75,6 +75,8 @@ const getFilteredRoles = (department: string) => {
 export default function UserManagement() {
   const { userRole } = useAuth();
   const { toast } = useToast();
+  const { departments: dbDepartments } = useDepartments();
+  const allPlants = usePlants();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -86,6 +88,7 @@ export default function UserManagement() {
   // Edit logic state
   const [selectedRole, setSelectedRole] = useState<AppRole | ''>('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
+  const [selectedPlants, setSelectedPlants] = useState<string[]>([]);
   const [resetPassword, setResetPassword] = useState('');
   const [passwordHistory, setPasswordHistory] = useState<{ changed_at: string }[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -96,9 +99,12 @@ export default function UserManagement() {
   const [newUserFullName, setNewUserFullName] = useState('');
   const [newUserRole, setNewUserRole] = useState<AppRole | ''>('');
   const [newUserDepartment, setNewUserDepartment] = useState('');
-  const [newUserPlant, setNewUserPlant] = useState('1300');
+  const [newUserPlants, setNewUserPlants] = useState<string[]>(['1300']);
 
   const isAdmin = userRole === 'admin';
+
+  // Use DB departments, fallback to hardcoded
+  const departmentNames = dbDepartments.length > 0 ? dbDepartments.map(d => d.name) : FALLBACK_DEPARTMENTS;
 
   const createDialogRoles = useMemo(() => {
     if (!newUserDepartment) return ROLES;
