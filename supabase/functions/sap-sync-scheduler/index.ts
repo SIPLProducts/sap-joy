@@ -119,7 +119,12 @@ Deno.serve({ port }, async (req) => {
         (f: any) => ['WERKS', 'WERK', 'werks', 'werk'].includes(f.sap_field_name || f.field_name)
       )
 
-      const plantsToProcess = hasPlantField ? plantCodes : ['ALL']
+      // Use config-specific scheduler_plants if set, otherwise all plants
+      const configPlants: string[] = Array.isArray(config.scheduler_plants) && config.scheduler_plants.length > 0
+        ? config.scheduler_plants
+        : allPlantCodes
+
+      const plantsToProcess = hasPlantField ? configPlants : ['ALL']
 
       for (const plantCode of plantsToProcess) {
         const plantLabel = plantCode === 'ALL' ? 'All Plants' : plantCode
