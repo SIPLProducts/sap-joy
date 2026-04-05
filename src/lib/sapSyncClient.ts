@@ -765,6 +765,124 @@ async function directUpdateQty(
 }
 
 /**
+ * Fetch MB52 stock data live from SAP without saving to Supabase.
+ * Returns the mapped records directly for display.
+ */
+async function directFetchLive(
+  url: string,
+  headers: Record<string, string>,
+  config: any,
+  body: Record<string, any>,
+): Promise<{ data: any; error: any }> {
+  const method = (config.http_method || 'POST').toUpperCase();
+  const debugLabel = `[SAP Live Fetch] ${config.config_name || 'MB52'}`;
+
+  try {
+    const { data: requestFields } = await supabase
+      .from('sap_api_request_fields')
+      .select('*')
+      .eq('config_id', body.config_id)
+      .order('sort_order');
+
+    let requestBody: any = undefined;
+    if (['POST', 'PUT', 'PATCH'].includes(method)) {
+      requestBody = {};
+      if (requestFields?.length) {
+        requestFields.forEach((field: any) => {
+          const key = field.sap_field_name || field.field_name;
+          if (field.is_required || (field.default_value && String(field.default_value).trim() !== '')) {
+            requestBody[key] = String(field.default_value ?? '').trim();
+          }
+        });
+      }
+      if (config.max_records) {
+        if (requestBody.MAX_ROWS === undefined) requestBody.MAX_ROWS = config.max_records;
+        if (requestBody.MAX_HITS === undefined) requestBody.MAX_HITS = config.max_records;
+      }
+    }
+
+    const fetchOpts: RequestInit = { method, headers };
+    if (requestBody && Object.keys(requestBody).length > 0) {
+      fetchOpts.body = JSON.stringify(requestBody);
+    }
+
+    console.log(`${debugLabel} Fetching live data from SAP... URL: ${url}`);
+    const response = await fetch(url, fetchOpts);
+    const bodyText = await response.text();
+
+    if (!response.ok) {
+      return { data: { success: false, error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}` }, error: null };
+    }
+
+    let jsonData: any;
+    try { jsonData = JSON.parse(bodyText); } catch {
+      return { data: { success: false, error: 'Response is not valid JSON' }, error: null };
+    }
+
+    const records = jsonData?.d?.results || jsonData?.value || jsonData?.data || (Array.isArray(jsonData) ? jsonData : [jsonData]);
+    console.log(`${debugLabel} Fetched ${records?.length || 0} records from SAP`);
+
+    const { data: responseFields } = await supabase
+      .from('sap_api_response_fields')
+      .select('*')
+      .eq('config_id', body.config_id)
+      .order('sort_order');
+
+    if (!responseFields?.length || !records?.length) {
+      return { data: { success: true, records: [], total: 0, message: !records?.length ? 'No records from SAP' : 'No field mappings configured' }, error: null };
+    }
+
+    const aliasMap: Record<string, string> = {
+      matnr: 'material_code', maktx: 'material_description', labst: 'available_quantity',
+      charg: 'batch', lgobe: 'storage_location_desc', speme: 'blocked_quantity',
+      insme: 'quality_inspection_qty', trame: 'transfer_qty', wlabs: 'unrestricted_value',
+      wspem: 'blocked_value', winsm: 'quality_inspection_value', wtram: 'transfer_value',
+      werks: 'plant', werk: 'plant', lgort: 'storage_location', meins: 'uom',
+    };
+
+    const mappedRecords = records.map((record: any, idx: number) => {
+      const row: Record<string, any> = { id: `sap-live-${idx}`, source: 'sap_live', status: 'available', created_at: new Date().toISOString() };
+
+      responseFields.forEach((field: any) => {
+        const sapKey = field.sap_field_name || field.field_name;
+        let value = record[sapKey];
+        if (value === undefined) {
+          const lowerKey = sapKey.toLowerCase();
+          const matchingKey = Object.keys(record).find(k => k.toLowerCase() === lowerKey);
+          if (matchingKey) value = record[matchingKey];
+        }
+        if (value === undefined) {
+          const upKey = String(sapKey).toUpperCase();
+          if (upKey === 'WERKS' && record['WERK'] !== undefined) value = record['WERK'];
+          if (upKey === 'WERK' && record['WERKS'] !== undefined) value = record['WERKS'];
+        }
+        if (value === undefined || value === null || value === '') return;
+
+        const requestedColumn = String(field.map_to_column || '').trim();
+        const normalizedColumn = aliasMap[requestedColumn.toLowerCase()] || requestedColumn;
+        row[normalizedColumn] = value;
+      });
+
+      if (row.available_quantity !== undefined) {
+        const qty = Number(row.available_quantity);
+        row.available_quantity = Number.isFinite(qty) ? qty : 0;
+      } else {
+        row.available_quantity = 0;
+      }
+
+      return row;
+    }).filter((r: any) => r.plant && r.material_code);
+
+    console.log(`${debugLabel} Mapped ${mappedRecords.length} valid records for display`);
+
+    return { data: { success: true, records: mappedRecords, total: mappedRecords.length }, error: null };
+  } catch (err: any) {
+    console.error(`${debugLabel} Exception:`, err);
+    return { data: { success: false, error: err.message }, error: null };
+  }
+}
+
+/**
  * Normalize SAP date formats to YYYY-MM-DD for Postgres date columns.
  * Handles: YYYYMMDD, /Date(ms)/, YYYY-MM-DD (passthrough)
  */
