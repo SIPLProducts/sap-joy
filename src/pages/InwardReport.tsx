@@ -841,6 +841,7 @@ export default function InwardReport() {
                                 {df.description || df.field_name}
                               </TableHead>
                             ))}
+                          </TableRow>
                         </TableHeader>
                         <TableBody>
                           {paginatedResults.length === 0 ? (
