@@ -85,12 +85,11 @@ export default function SAPSyncMonitor() {
     const previews: DataPreview[] = [];
 
     // Fetch main data tables
-    const [sfResult, ilResult] = await Promise.all([
-      fetchAllRows('shop_floor_stock'),
+    const [ilResult] = await Promise.all([
       fetchAllRows('inward_inspection_lots'),
     ]);
 
-    previews.push({ table: 'MB52 — Shop Floor Stock', count: sfResult.count, recentRecords: sfResult.data });
+    previews.push({ table: 'MB52 — Shop Floor Stock', count: 0, recentRecords: [] });
     previews.push({ table: 'ZMRB01 — Inward Inspection Lots', count: ilResult.count, recentRecords: ilResult.data });
 
     // Fetch sync history for 343 and 344 APIs
@@ -125,6 +124,12 @@ export default function SAPSyncMonitor() {
     const name = (config.config_name || '').toLowerCase();
     const endpoint = (config.api_endpoint || '').toLowerCase();
     return name.includes('343') || name.includes('344') || endpoint.includes('/343') || endpoint.includes('/344');
+  };
+
+  const isMB52Config = (config: SAPConfig) => {
+    const name = (config.config_name || '').toLowerCase();
+    const endpoint = (config.api_endpoint || '').toLowerCase();
+    return name.includes('mb52') || endpoint.includes('/mb52') || endpoint.includes('mb52');
   };
 
   useEffect(() => {
@@ -318,6 +323,10 @@ export default function SAPSyncMonitor() {
                               <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 px-3 py-1.5 text-xs">
                                 Action API — triggered from MRB Worklist
                               </Badge>
+                            ) : isMB52Config(config) ? (
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 px-3 py-1.5 text-xs">
+                                Live Fetch — data not stored locally
+                              </Badge>
                             ) : (
                               <Button
                                 size="sm"
@@ -459,7 +468,13 @@ export default function SAPSyncMonitor() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {preview.recentRecords.length === 0 ? (
+                  {preview.table.includes('MB52') ? (
+                    <div className="text-center py-4 text-muted-foreground text-sm">
+                      <Badge variant="outline" className="mb-2 bg-blue-50 text-blue-700 border-blue-200">Live Fetch</Badge>
+                      <p>MB52 stock data is fetched directly from SAP on demand — no data is stored locally.</p>
+                      <p className="text-xs mt-1">Go to <strong>Material Blocking</strong> to search and view live stock data.</p>
+                    </div>
+                  ) : preview.recentRecords.length === 0 ? (
                     <div className="text-center py-4 text-muted-foreground text-sm">
                       No records visible. If a sync reported inserted rows, check that your plant/filter settings match the synced data.
                     </div>

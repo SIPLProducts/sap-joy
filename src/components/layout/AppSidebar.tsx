@@ -24,7 +24,7 @@ const menuItems = [
   { title: 'KPI Dashboard', url: '/', icon: BarChart3, matrixKey: 'dashboard_kpi' },
   { title: 'MRB Worklist', url: '/worklist', icon: ClipboardList, matrixKey: 'mrb_worklist' },
   { title: 'Pending Actions', url: '/pending-actions', icon: AlertTriangle, matrixKey: 'mrb_worklist' },
-  { title: 'Material Booking', url: '/shop-floor/stock-selection', icon: Package, matrixKey: 'material_booking' },
+  { title: 'Material Blocking', url: '/shop-floor/stock-selection', icon: Package, matrixKey: 'material_booking' },
   { title: 'MRB - Inward Materials', url: '/inward/report', icon: FileSpreadsheet, matrixKey: 'inward_materials' },
   { title: 'MRB Print', url: '/mrb-print', icon: Printer, matrixKey: 'mrb_print' },
   { title: 'Email Log', url: '/emails', icon: Mail, matrixKey: 'email_log' },

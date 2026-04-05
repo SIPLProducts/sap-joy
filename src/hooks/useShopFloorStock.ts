@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ParsedShopFloorStock } from '@/lib/shopFloorStockTemplates';
+import { invokeSapSync } from '@/lib/sapSyncClient';
 
 export interface ShopFloorStockRecord {
   id: string;
@@ -51,43 +52,50 @@ export function useShopFloorStock() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Fetch ALL stock records from database (no 1000-row limit)
+  // Fetch stock records live from SAP MB52 API (no Supabase storage)
   const fetchStockRecords = useCallback(async () => {
     setIsLoading(true);
     try {
-      // First get total count
-      const { count, error: countError } = await supabase
-        .from('shop_floor_stock')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'available');
+      // Find the MB52 config
+      const { data: configs } = await supabase
+        .from('sap_api_config')
+        .select('id, config_name, api_endpoint, is_active')
+        .eq('is_active', true);
 
-      if (countError) throw countError;
+      const mb52Config = (configs || []).find((c: any) => {
+        const name = (c.config_name || '').toLowerCase();
+        const endpoint = (c.api_endpoint || '').toLowerCase();
+        return name.includes('mb52') || endpoint.includes('mb52');
+      });
 
-      const totalCount = count || 0;
-      const allRows: any[] = [];
-      const batchSize = 1000;
-
-      for (let offset = 0; offset < totalCount; offset += batchSize) {
-        console.log(`Fetching stock records offset ${offset}...`);
-        const { data, error } = await supabase
-          .from('shop_floor_stock')
-          .select('*')
-          .eq('status', 'available')
-          .order('created_at', { ascending: false })
-          .range(offset, offset + batchSize - 1);
-
-        if (error) throw error;
-        if (data) allRows.push(...data);
+      if (!mb52Config) {
+        console.warn('[ShopFloorStock] No active MB52 SAP config found. Showing empty data.');
+        setStockRecords([]);
+        return;
       }
 
-      setStockRecords(allRows);
+      const res = await invokeSapSync({ action: 'fetch_live', config_id: mb52Config.id });
+      
+      if (res.data?.success && res.data?.records) {
+        console.log(`[ShopFloorStock] Loaded ${res.data.records.length} records live from SAP`);
+        setStockRecords(res.data.records);
+      } else {
+        console.warn('[ShopFloorStock] SAP live fetch failed:', res.data?.error || res.error?.message);
+        toast({
+          title: 'SAP Fetch Failed',
+          description: res.data?.error || res.error?.message || 'Could not fetch stock data from SAP',
+          variant: 'destructive',
+        });
+        setStockRecords([]);
+      }
     } catch (error) {
-      console.error('Error fetching stock records:', error);
+      console.error('Error fetching live stock from SAP:', error);
       toast({
         title: 'Error',
-        description: 'Failed to fetch stock records',
+        description: 'Failed to fetch stock records from SAP',
         variant: 'destructive',
       });
+      setStockRecords([]);
     } finally {
       setIsLoading(false);
     }

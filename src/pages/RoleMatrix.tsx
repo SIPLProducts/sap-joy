@@ -17,7 +17,7 @@ const SCREENS = [
   { key: 'engineering_dashboard', label: 'Engineering Dashboard', group: 'Dashboards' },
   { key: 'executive_summary', label: 'Executive Summary', group: 'Dashboards' },
   { key: 'mrb_worklist', label: 'MRB Worklist', group: 'Operations' },
-  { key: 'material_booking', label: 'Material Booking', group: 'Operations' },
+  { key: 'material_booking', label: 'Material Blocking', group: 'Operations' },
   { key: 'inward_materials', label: 'MRB - Inward Materials', group: 'Operations' },
   { key: 'mrb_print', label: 'MRB Print', group: 'Tools' },
   { key: 'email_log', label: 'Email Log', group: 'Tools' },
