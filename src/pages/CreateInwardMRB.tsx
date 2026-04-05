@@ -24,6 +24,7 @@ import {
   inwardAttachmentCategories 
 } from '@/data/inwardReportData';
 import type { Database } from '@/integrations/supabase/types';
+import { fetchPlantWorkflow, DEPT_TO_ROLE, DEPT_TO_STATUS, ROLE_TO_DEPT } from '@/lib/workflowRouting';
 
 type QualityDecision = Database['public']['Enums']['quality_decision'];
 type DefectCategory = Database['public']['Enums']['defect_category'];
