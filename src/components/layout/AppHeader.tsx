@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPlants } from '@/hooks/useUserPlants';
 import { usePlants } from '@/hooks/usePlantConfig';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Building2 } from 'lucide-react';
 
 export function AppHeader() {
   const { profile, updatePlant, isLoading, userRole } = useAuth();
-  const plants = usePlants();
+  const { userPlants } = useUserPlants();
+  const allPlants = usePlants();
 
-  // If we are still loading or no profile, show minimal header
   if (isLoading || !profile) {
     return (
       <header className="sticky top-0 z-50 flex h-12 items-center justify-between border-b bg-background px-4">
@@ -18,8 +18,14 @@ export function AppHeader() {
     );
   }
 
-  // Only show plant switcher for admin/executive roles
-  const showPlantSwitcher = userRole === 'admin' || userRole === 'executive';
+  // Show plant switcher if user has multiple plants OR is admin/executive
+  const isAdminOrExec = userRole === 'admin' || userRole === 'executive';
+  const showPlantSwitcher = isAdminOrExec || userPlants.length > 1;
+
+  // For admin/executive, show all plants. For others, show only assigned plants.
+  const availablePlants = isAdminOrExec
+    ? allPlants
+    : allPlants.filter(p => userPlants.includes(p.code));
 
   return (
     <header className="sticky top-0 z-50 flex h-12 items-center justify-between border-b bg-background px-4 shadow-sm">
@@ -30,7 +36,7 @@ export function AppHeader() {
         </h2>
       </div>
       
-      {showPlantSwitcher && plants.length > 0 && (
+      {showPlantSwitcher && availablePlants.length > 0 && (
         <div className="flex items-center gap-3">
           <div className="flex items-center text-xs text-muted-foreground bg-muted/50 px-2 py-1.5 rounded-md border border-border/50">
             <Building2 className="w-3.5 h-3.5 mr-2 text-primary" />
@@ -43,7 +49,7 @@ export function AppHeader() {
                 <SelectValue placeholder="Plant" />
               </SelectTrigger>
               <SelectContent align="end" className="text-sm">
-                {plants.map(p => (
+                {availablePlants.map(p => (
                   <SelectItem key={p.code} value={p.code} className="cursor-pointer">
                     <span className="font-bold">{p.code}</span>
                     {p.name && <span className="ml-2 text-muted-foreground text-xs block sm:inline">{p.name}</span>}

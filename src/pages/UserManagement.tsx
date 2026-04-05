@@ -3,6 +3,8 @@ import { useAuth, AppRole } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { createClient } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
+import { useDepartments } from '@/hooks/useDepartments';
+import { usePlants } from '@/hooks/usePlantConfig';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -11,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Search, UserCog, Shield, Building2, Edit, Trash2, Plus, RefreshCw, UserPlus, KeyRound } from 'lucide-react';
 import { PasswordPolicyIndicator } from '@/components/auth/PasswordPolicyIndicator';
 import { validatePassword, hashPasswordForHistory } from '@/lib/passwordPolicy';
@@ -22,6 +25,7 @@ interface UserWithRole {
   full_name: string;
   email: string;
   plant: string | null;
+  plants: string[];
   department: string | null;
   role: AppRole | null;
   created_at: string;
@@ -40,7 +44,8 @@ const ROLES: { value: AppRole; label: string; description: string }[] = [
   { value: 'mrb_committee', label: 'MRB Committee', description: 'MRB committee member' },
 ];
 
-const DEPARTMENTS = ['IT', 'Management', 'Quality', 'Purchase', 'Engineering', 'Shop Floor', 'MRB Committee'];
+// Legacy fallback - used only if departments fail to load
+const FALLBACK_DEPARTMENTS = ['IT', 'Management', 'Quality', 'Purchase', 'Engineering', 'Shop Floor', 'MRB Committee'];
 
 const DEPARTMENT_ROLE_MAP: Record<string, AppRole[]> = {
   'IT': ['admin', 'executive', 'quality_head', 'quality', 'purchase_head', 'purchase', 'engineering_head', 'engineering', 'shop_floor', 'mrb_committee'],
@@ -70,6 +75,8 @@ const getFilteredRoles = (department: string) => {
 export default function UserManagement() {
   const { userRole } = useAuth();
   const { toast } = useToast();
+  const { departments: dbDepartments } = useDepartments();
+  const allPlants = usePlants();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,6 +88,7 @@ export default function UserManagement() {
   // Edit logic state
   const [selectedRole, setSelectedRole] = useState<AppRole | ''>('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
+  const [selectedPlants, setSelectedPlants] = useState<string[]>([]);
   const [resetPassword, setResetPassword] = useState('');
   const [passwordHistory, setPasswordHistory] = useState<{ changed_at: string }[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -91,9 +99,12 @@ export default function UserManagement() {
   const [newUserFullName, setNewUserFullName] = useState('');
   const [newUserRole, setNewUserRole] = useState<AppRole | ''>('');
   const [newUserDepartment, setNewUserDepartment] = useState('');
-  const [newUserPlant, setNewUserPlant] = useState('1300');
+  const [newUserPlants, setNewUserPlants] = useState<string[]>(['1300']);
 
   const isAdmin = userRole === 'admin';
+
+  // Use DB departments, fallback to hardcoded
+  const departmentNames = dbDepartments.length > 0 ? dbDepartments.map(d => d.name) : FALLBACK_DEPARTMENTS;
 
   const createDialogRoles = useMemo(() => {
     if (!newUserDepartment) return ROLES;
@@ -121,16 +132,21 @@ export default function UserManagement() {
 
       if (rolesError) throw rolesError;
 
+      // Fetch user_plants assignments
+      const { data: userPlantsData } = await supabase.from('user_plants').select('user_id, plant_code');
+
       const usersWithRoles: UserWithRole[] = (profiles || [])
         .filter(p => !HIDDEN_EMAILS.includes(p.email))
         .map(profile => {
           const userRoleData = roles?.find(r => r.user_id === profile.user_id);
+          const assignedPlants = (userPlantsData || []).filter(up => up.user_id === profile.user_id).map(up => up.plant_code);
           return {
             id: profile.id,
             user_id: profile.user_id,
             full_name: profile.full_name,
             email: profile.email,
             plant: profile.plant,
+            plants: assignedPlants.length > 0 ? assignedPlants : (profile.plant ? [profile.plant] : []),
             department: profile.department,
             role: userRoleData?.role as AppRole || null,
             created_at: profile.created_at,
@@ -170,6 +186,7 @@ export default function UserManagement() {
     setSelectedUser(user);
     setSelectedRole((user.role || '') as '' | AppRole);
     setSelectedDepartment(user.department || '');
+    setSelectedPlants(user.plants || []);
     setResetPassword('');
     setPasswordHistory([]);
     setIsEditDialogOpen(true);
@@ -188,9 +205,19 @@ export default function UserManagement() {
 
     setSaving(true);
     try {
-      // Update profile (department)
+      // Update profile (department + primary plant)
       if (selectedDepartment) {
-        await supabase.from('profiles').update({ department: selectedDepartment }).eq('user_id', selectedUser.user_id);
+        await supabase.from('profiles').update({ 
+          department: selectedDepartment,
+          plant: selectedPlants[0] || selectedUser.plant 
+        }).eq('user_id', selectedUser.user_id);
+      }
+
+      // Update multi-plant assignments
+      await supabase.from('user_plants').delete().eq('user_id', selectedUser.user_id);
+      if (selectedPlants.length > 0) {
+        const plantRows = selectedPlants.map(pc => ({ user_id: selectedUser.user_id, plant_code: pc }));
+        await supabase.from('user_plants').upsert(plantRows, { onConflict: 'user_id,plant_code' });
       }
 
       // Update role mapping
@@ -361,11 +388,17 @@ export default function UserManagement() {
       // Update profile and assign role using the active admin session
       const { error: profileUpdateError } = await supabase.from('profiles').update({
         department: newUserDepartment,
-        plant: newUserPlant || '1300',
+        plant: newUserPlants[0] || '1300',
         full_name: newUserFullName.trim(),
       }).eq('user_id', newUserId);
 
       if (profileUpdateError) throw profileUpdateError;
+
+      // Assign multiple plants
+      if (newUserPlants.length > 0) {
+        const plantRows = newUserPlants.map(pc => ({ user_id: newUserId, plant_code: pc }));
+        await supabase.from('user_plants').upsert(plantRows, { onConflict: 'user_id,plant_code' });
+      }
 
       const { error: roleInsertError } = await supabase.from('user_roles').upsert({
         user_id: newUserId,
@@ -395,7 +428,7 @@ export default function UserManagement() {
       setNewUserFullName('');
       setNewUserRole('');
       setNewUserDepartment('');
-      setNewUserPlant('1300');
+      setNewUserPlants(['1300']);
       setIsCreateDialogOpen(false);
       fetchUsers();
       
@@ -508,7 +541,7 @@ export default function UserManagement() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Plant</TableHead>
+                  <TableHead>Plants</TableHead>
                   <TableHead>Department</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -519,7 +552,14 @@ export default function UserManagement() {
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.full_name}</TableCell>
                     <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.plant || '-'}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {user.plants.length > 0 
+                          ? user.plants.map(p => <Badge key={p} variant="outline" className="font-mono text-xs">{p}</Badge>)
+                          : <span className="text-muted-foreground">-</span>
+                        }
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {user.department ? <Badge variant="outline">{user.department}</Badge> : <span className="text-muted-foreground">-</span>}
                     </TableCell>
@@ -579,7 +619,7 @@ export default function UserManagement() {
               <Select value={newUserDepartment} onValueChange={setNewUserDepartment}>
                 <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
                 <SelectContent>
-                  {DEPARTMENTS.map((dept) => (<SelectItem key={dept} value={dept}>{dept}</SelectItem>))}
+                  {departmentNames.map((dept) => (<SelectItem key={dept} value={dept}>{dept}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
@@ -593,8 +633,21 @@ export default function UserManagement() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Plant</Label>
-              <Input placeholder="e.g., 1300" value={newUserPlant} onChange={(e) => setNewUserPlant(e.target.value)} />
+              <Label>Assign Plants *</Label>
+              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
+                {allPlants.map(p => (
+                  <label key={p.code} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={newUserPlants.includes(p.code)}
+                      onCheckedChange={(checked) => {
+                        setNewUserPlants(prev => checked ? [...prev, p.code] : prev.filter(c => c !== p.code));
+                      }}
+                    />
+                    <span className="font-mono">{p.code}</span>
+                    {p.name && <span className="text-muted-foreground text-xs truncate">- {p.name}</span>}
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -626,7 +679,7 @@ export default function UserManagement() {
               <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
                 <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
                 <SelectContent>
-                  {DEPARTMENTS.map((dept) => (<SelectItem key={dept} value={dept}>{dept}</SelectItem>))}
+                  {departmentNames.map((dept) => (<SelectItem key={dept} value={dept}>{dept}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
@@ -645,6 +698,23 @@ export default function UserManagement() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Assigned Plants</Label>
+              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
+                {allPlants.map(p => (
+                  <label key={p.code} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={selectedPlants.includes(p.code)}
+                      onCheckedChange={(checked) => {
+                        setSelectedPlants(prev => checked ? [...prev, p.code] : prev.filter(c => c !== p.code));
+                      }}
+                    />
+                    <span className="font-mono">{p.code}</span>
+                    {p.name && <span className="text-muted-foreground text-xs truncate">- {p.name}</span>}
+                  </label>
+                ))}
+              </div>
             </div>
             <div className="space-y-2">
               <Label className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> Reset Password <span className="text-xs text-muted-foreground">(8-10 chars)</span></Label>
