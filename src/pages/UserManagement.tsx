@@ -616,8 +616,21 @@ export default function UserManagement() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Plant</Label>
-              <Input placeholder="e.g., 1300" value={newUserPlant} onChange={(e) => setNewUserPlant(e.target.value)} />
+              <Label>Assign Plants *</Label>
+              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
+                {allPlants.map(p => (
+                  <label key={p.code} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={newUserPlants.includes(p.code)}
+                      onCheckedChange={(checked) => {
+                        setNewUserPlants(prev => checked ? [...prev, p.code] : prev.filter(c => c !== p.code));
+                      }}
+                    />
+                    <span className="font-mono">{p.code}</span>
+                    {p.name && <span className="text-muted-foreground text-xs truncate">- {p.name}</span>}
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>
