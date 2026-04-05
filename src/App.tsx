@@ -66,6 +66,7 @@ const App = () => (
                         <Routes>
                           <Route index element={<KPIDashboard />} />
                           <Route path="worklist" element={<Worklist />} />
+                          <Route path="pending-actions" element={<PendingActions />} />
                           <Route path="inward/worklist" element={<Worklist />} />
                           <Route path="mrb/:id" element={<MRBDetail />} />
                           <Route path="create/quality" element={<CreateMRBQuality />} />
