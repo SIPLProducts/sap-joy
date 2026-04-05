@@ -54,6 +54,7 @@ export default function ShopFloorMaterialBlocking() {
   const [blockQuantity, setBlockQuantity] = useState<number>(0);
   const [productionOrder, setProductionOrder] = useState('');
   const [poNumber, setPONumber] = useState('');
+  const [postingDate, setPostingDate] = useState(new Date().toISOString().split('T')[0]);
   const [blockReason, setBlockReason] = useState('');
   const [defectDescription, setDefectDescription] = useState('');
   const [nextReviewDepartments, setNextReviewDepartments] = useState<AppRole[]>([]);
