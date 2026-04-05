@@ -38,6 +38,7 @@ import IMSRedirect from "@/pages/IMSRedirect";
 import SAPApiSettings from "@/pages/SAPApiSettings";
 import SAPSyncMonitor from "@/pages/SAPSyncMonitor";
 import PlantManagement from "@/pages/PlantManagement";
+import DepartmentManagement from "@/pages/DepartmentManagement";
 import RoleMatrix from "@/pages/RoleMatrix";
 import NotFound from "@/pages/NotFound";
 
