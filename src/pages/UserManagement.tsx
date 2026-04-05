@@ -205,9 +205,19 @@ export default function UserManagement() {
 
     setSaving(true);
     try {
-      // Update profile (department)
+      // Update profile (department + primary plant)
       if (selectedDepartment) {
-        await supabase.from('profiles').update({ department: selectedDepartment }).eq('user_id', selectedUser.user_id);
+        await supabase.from('profiles').update({ 
+          department: selectedDepartment,
+          plant: selectedPlants[0] || selectedUser.plant 
+        }).eq('user_id', selectedUser.user_id);
+      }
+
+      // Update multi-plant assignments
+      await supabase.from('user_plants').delete().eq('user_id', selectedUser.user_id);
+      if (selectedPlants.length > 0) {
+        const plantRows = selectedPlants.map(pc => ({ user_id: selectedUser.user_id, plant_code: pc }));
+        await supabase.from('user_plants').upsert(plantRows, { onConflict: 'user_id,plant_code' });
       }
 
       // Update role mapping
