@@ -33,6 +33,22 @@ interface Props {
 }
 
 const fieldTypes = ['string', 'integer', 'number', 'boolean', 'date', 'datetime', 'array', 'object'];
+
+/** Maps SAP field type to Postgres column type for add_dynamic_column RPC */
+function mapFieldTypeToDbType(fieldType: string): string {
+  const map: Record<string, string> = {
+    string: 'text',
+    integer: 'integer',
+    number: 'numeric',
+    boolean: 'boolean',
+    date: 'date',
+    datetime: 'timestamptz',
+    array: 'jsonb',
+    object: 'jsonb',
+  };
+  return map[fieldType] || 'text';
+}
+
 const sapTables = [
   { value: 'shop_floor_stock', label: 'Shop Floor Stock' },
   { value: 'inward_inspection_lots', label: 'Inward Inspection Lots' },
