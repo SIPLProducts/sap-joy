@@ -1138,7 +1138,9 @@ Quality Department`;
                         <input
                           type="checkbox"
                           checked={isSelected}
+                          disabled={routingLocked}
                           onChange={(e) => {
+                            if (routingLocked) return;
                             handleFieldBlur('nextReviewDepartments');
                             if (e.target.checked) {
                               setFormData({
