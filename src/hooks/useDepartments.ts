@@ -6,6 +6,7 @@ export interface Department {
   name: string;
   description: string | null;
   is_active: boolean;
+  role_key: string | null;
 }
 
 export function useDepartments(activeOnly = true) {

@@ -19,11 +19,11 @@ import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { 
-  nextReviewDepartments, 
   inwardQualityDecisions, 
   inwardDefectCategories,
   inwardAttachmentCategories 
 } from '@/data/inwardReportData';
+import { useDepartments } from '@/hooks/useDepartments';
 import type { Database } from '@/integrations/supabase/types';
 import { fetchPlantWorkflow, DEPT_TO_ROLE, DEPT_TO_STATUS, ROLE_TO_DEPT } from '@/lib/workflowRouting';
 
@@ -104,6 +104,19 @@ export default function CreateInwardMRB() {
   const { toast } = useToast();
   const { createMRB, getNextMRBNumber } = useMRBDatabase();
   const { user, profile, userRole } = useAuth();
+  const { departments: allDepartments } = useDepartments(true);
+  
+  // Build dynamic department options from configured departments (only those with role_key)
+  const nextReviewDepartments = useMemo(() => 
+    allDepartments
+      .filter(d => d.role_key && d.is_active)
+      .map(d => ({
+        value: d.role_key!,
+        label: d.name,
+        description: d.description || '',
+      })),
+    [allDepartments]
+  );
   
   const inspectionLot = location.state?.inspectionLot as InspectionLotRecord | undefined;
 

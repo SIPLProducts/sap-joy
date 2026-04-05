@@ -6,17 +6,32 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Layers, Plus, Edit, Trash2, RefreshCw, Shield } from 'lucide-react';
 
+const ROLE_KEY_OPTIONS = [
+  { value: '', label: 'None (not used in workflow)' },
+  { value: 'quality', label: 'Quality' },
+  { value: 'quality_head', label: 'Quality Head' },
+  { value: 'purchase', label: 'Purchase' },
+  { value: 'purchase_head', label: 'Purchase Head' },
+  { value: 'engineering', label: 'Engineering' },
+  { value: 'engineering_head', label: 'Engineering Head' },
+  { value: 'executive', label: 'Executive / Plant Head' },
+  { value: 'mrb_committee', label: 'MRB Committee' },
+  { value: 'shop_floor', label: 'Shop Floor' },
+];
+
 interface Department {
   id: string;
   name: string;
   description: string | null;
   is_active: boolean;
+  role_key: string | null;
   created_at: string;
 }
 
@@ -29,7 +44,7 @@ export default function DepartmentManagement() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
-  const [form, setForm] = useState({ name: '', description: '', is_active: true });
+  const [form, setForm] = useState({ name: '', description: '', is_active: true, role_key: '' });
 
   const isAdmin = userRole === 'admin';
 
@@ -55,13 +70,13 @@ export default function DepartmentManagement() {
   }, [isAdmin]);
 
   const handleOpenCreate = () => {
-    setForm({ name: '', description: '', is_active: true });
+    setForm({ name: '', description: '', is_active: true, role_key: '' });
     setEditingDept(null);
     setIsOpen(true);
   };
 
   const handleOpenEdit = (dept: Department) => {
-    setForm({ name: dept.name, description: dept.description || '', is_active: dept.is_active });
+    setForm({ name: dept.name, description: dept.description || '', is_active: dept.is_active, role_key: dept.role_key || '' });
     setEditingDept(dept);
     setIsOpen(true);
   };
@@ -74,17 +89,24 @@ export default function DepartmentManagement() {
 
     setSaving(true);
     try {
+      const payload = {
+        name: form.name.trim(),
+        description: form.description.trim() || null,
+        is_active: form.is_active,
+        role_key: form.role_key && form.role_key !== '__none' ? form.role_key : null,
+      };
+
       if (editingDept) {
         const { error } = await supabase
           .from('departments')
-          .update({ name: form.name.trim(), description: form.description.trim() || null, is_active: form.is_active })
+          .update(payload)
           .eq('id', editingDept.id);
         if (error) throw error;
         toast({ title: 'Success', description: `Department "${form.name}" updated` });
       } else {
         const { error } = await supabase
           .from('departments')
-          .insert({ name: form.name.trim(), description: form.description.trim() || null, is_active: form.is_active });
+          .insert(payload);
         if (error) throw error;
         toast({ title: 'Success', description: `Department "${form.name}" created` });
       }
@@ -168,6 +190,7 @@ export default function DepartmentManagement() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Department Name</TableHead>
+                  <TableHead>Role Key</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
@@ -177,7 +200,7 @@ export default function DepartmentManagement() {
               <TableBody>
                 {departments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                       No departments configured. Click "Add Department" to create one.
                     </TableCell>
                   </TableRow>
@@ -185,6 +208,13 @@ export default function DepartmentManagement() {
                   departments.map((dept) => (
                     <TableRow key={dept.id}>
                       <TableCell className="font-medium">{dept.name}</TableCell>
+                      <TableCell>
+                        {dept.role_key ? (
+                          <Badge variant="outline" className="font-mono text-xs">{dept.role_key}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-muted-foreground text-sm">{dept.description || '—'}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -240,6 +270,20 @@ export default function DepartmentManagement() {
                 onChange={e => setForm({ ...form, description: e.target.value })}
                 placeholder="e.g. Quality inspection and control team"
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Workflow Role Key</Label>
+              <Select value={form.role_key} onValueChange={v => setForm({ ...form, role_key: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role key (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLE_KEY_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value || '__none'} value={opt.value || '__none'}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Maps this department to a workflow role for MRB routing</p>
             </div>
             <div className="flex items-center gap-3">
               <Switch checked={form.is_active} onCheckedChange={v => setForm({ ...form, is_active: v })} />
