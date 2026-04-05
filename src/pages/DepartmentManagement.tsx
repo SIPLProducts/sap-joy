@@ -93,7 +93,7 @@ export default function DepartmentManagement() {
         name: form.name.trim(),
         description: form.description.trim() || null,
         is_active: form.is_active,
-        role_key: form.role_key || null,
+        role_key: form.role_key && form.role_key !== '__none' ? form.role_key : null,
       };
 
       if (editingDept) {
