@@ -190,6 +190,7 @@ export default function DepartmentManagement() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Department Name</TableHead>
+                  <TableHead>Role Key</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
