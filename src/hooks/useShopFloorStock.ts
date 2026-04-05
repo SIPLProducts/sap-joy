@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ParsedShopFloorStock } from '@/lib/shopFloorStockTemplates';
+import { invokeSapSync } from '@/lib/sapSyncClient';
 
 export interface ShopFloorStockRecord {
   id: string;
