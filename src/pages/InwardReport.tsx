@@ -46,7 +46,7 @@ import { downloadCSVTemplate, validateParsedData, ParseResult } from '@/lib/csvT
 import * as XLSX from 'xlsx';
 import { Checkbox } from '@/components/ui/checkbox';
 import { UploadPreviewModal } from '@/components/inward/UploadPreviewModal';
-
+import { useExtraDynamicFields } from '@/hooks/useDynamicFields';
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 export default function InwardReport() {
