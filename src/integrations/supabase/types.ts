@@ -1409,6 +1409,14 @@ export type Database = {
         Args: { _lock_key: string; _locked_by?: string }
         Returns: boolean
       }
+      add_dynamic_column: {
+        Args: {
+          _column_name: string
+          _column_type?: string
+          _table_name: string
+        }
+        Returns: undefined
+      }
       admin_update_user_password: {
         Args: { new_password: string; target_user_id: string }
         Returns: undefined
@@ -1417,6 +1425,13 @@ export type Database = {
       check_password_reuse: {
         Args: { _new_password_hash: string; _user_id: string }
         Returns: boolean
+      }
+      get_table_columns: {
+        Args: { _table_name: string }
+        Returns: {
+          column_name: string
+          data_type: string
+        }[]
       }
       get_user_plant: { Args: { _user_id: string }; Returns: string }
       get_user_role: {
