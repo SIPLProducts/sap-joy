@@ -29,6 +29,8 @@ export interface InspectionLotRecord {
   grnNumber: string;
   status: 'pending' | 'mrb_created' | 'cleared';
   source: 'upload' | 'api' | 'mrb';
+  /** Raw DB row — carries any dynamic columns added via SAP field config */
+  _raw?: Record<string, unknown>;
 }
 
 interface InwardReportFilters {
