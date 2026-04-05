@@ -1213,8 +1213,6 @@ Quality Department`;
               )}
             </div>
           </div>
-        </div>
-        </div>
       </div>
 
       {/* Sticky Footer with Submit Button */}
