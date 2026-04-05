@@ -127,6 +127,12 @@ export default function SAPSyncMonitor() {
     return name.includes('343') || name.includes('344') || endpoint.includes('/343') || endpoint.includes('/344');
   };
 
+  const isMB52Config = (config: SAPConfig) => {
+    const name = (config.config_name || '').toLowerCase();
+    const endpoint = (config.api_endpoint || '').toLowerCase();
+    return name.includes('mb52') || endpoint.includes('/mb52') || endpoint.includes('mb52');
+  };
+
   useEffect(() => {
     const loadAll = async () => {
       setLoading(true);
