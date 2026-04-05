@@ -1176,7 +1176,12 @@ Quality Department`;
                         </div>
                       </div>
                       {isSelected && (
-                        <CheckCircle2 className="absolute top-3 right-3 h-4 w-4 text-primary" />
+                        <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                          <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                            {formData.nextReviewDepartments.indexOf(dept.value) + 1}
+                          </span>
+                          <CheckCircle2 className="h-4 w-4 text-primary" />
+                        </div>
                       )}
                     </label>
                   );
