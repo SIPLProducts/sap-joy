@@ -39,6 +39,8 @@ import SAPApiSettings from "@/pages/SAPApiSettings";
 import SAPSyncMonitor from "@/pages/SAPSyncMonitor";
 import PlantManagement from "@/pages/PlantManagement";
 import DepartmentManagement from "@/pages/DepartmentManagement";
+import WorkflowRoutingConfig from "@/pages/WorkflowRoutingConfig";
+import PendingActions from "@/pages/PendingActions";
 import RoleMatrix from "@/pages/RoleMatrix";
 import NotFound from "@/pages/NotFound";
 
