@@ -719,6 +719,7 @@ export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
                 )}
               </div>
 
+              <div className="p-4 bg-muted/50 rounded-lg space-y-2">
                 <h4 className="font-medium text-sm">Sync Schedule Preview</h4>
                 <p className="text-sm text-muted-foreground">
                   {!schedulerEnabled
@@ -732,6 +733,11 @@ export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
                 {schedulerEnabled && syncFrequency !== 'manual' && (
                   <p className="text-xs text-muted-foreground">
                     Retries: {retryCount} attempts with {retryDelayMs}ms delay between each
+                  </p>
+                )}
+                {schedulerPlants.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Plants: {schedulerPlants.join(', ')}
                   </p>
                 )}
               </div>
