@@ -70,13 +70,13 @@ export default function DepartmentManagement() {
   }, [isAdmin]);
 
   const handleOpenCreate = () => {
-    setForm({ name: '', description: '', is_active: true });
+    setForm({ name: '', description: '', is_active: true, role_key: '' });
     setEditingDept(null);
     setIsOpen(true);
   };
 
   const handleOpenEdit = (dept: Department) => {
-    setForm({ name: dept.name, description: dept.description || '', is_active: dept.is_active });
+    setForm({ name: dept.name, description: dept.description || '', is_active: dept.is_active, role_key: dept.role_key || '' });
     setEditingDept(dept);
     setIsOpen(true);
   };
