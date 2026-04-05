@@ -89,17 +89,24 @@ export default function DepartmentManagement() {
 
     setSaving(true);
     try {
+      const payload = {
+        name: form.name.trim(),
+        description: form.description.trim() || null,
+        is_active: form.is_active,
+        role_key: form.role_key || null,
+      };
+
       if (editingDept) {
         const { error } = await supabase
           .from('departments')
-          .update({ name: form.name.trim(), description: form.description.trim() || null, is_active: form.is_active })
+          .update(payload)
           .eq('id', editingDept.id);
         if (error) throw error;
         toast({ title: 'Success', description: `Department "${form.name}" updated` });
       } else {
         const { error } = await supabase
           .from('departments')
-          .insert({ name: form.name.trim(), description: form.description.trim() || null, is_active: form.is_active });
+          .insert(payload);
         if (error) throw error;
         toast({ title: 'Success', description: `Department "${form.name}" created` });
       }
