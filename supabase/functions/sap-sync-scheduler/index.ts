@@ -119,10 +119,15 @@ Deno.serve({ port }, async (req) => {
         (f: any) => ['WERKS', 'WERK', 'werks', 'werk'].includes(f.sap_field_name || f.field_name)
       )
 
-      // Use config-specific scheduler_plants if set, otherwise all plants
+      // Only sync plants explicitly selected in scheduler_plants
       const configPlants: string[] = Array.isArray(config.scheduler_plants) && config.scheduler_plants.length > 0
         ? config.scheduler_plants
-        : allPlantCodes
+        : []
+
+      if (hasPlantField && configPlants.length === 0) {
+        results.push({ config_id: config.id, config_name: config.config_name, skipped: true, reason: 'No plants selected for scheduler sync' })
+        continue
+      }
 
       const plantsToProcess = hasPlantField ? configPlants : ['ALL']
 

@@ -687,7 +687,7 @@ export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
               <div className="space-y-3">
                 <Label className="text-base font-medium">Sync Plants</Label>
                 <p className="text-sm text-muted-foreground">
-                  Select which plants to sync. If none selected, all plants will be synced.
+                  Select which plants to sync. Only selected plants will be synced — if none are selected, no data will be synced.
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-3 border rounded-lg max-h-48 overflow-y-auto">
                   {allPlants.map((plant) => (
