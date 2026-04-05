@@ -662,7 +662,7 @@ export default function UserManagement() {
               <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
                 <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
                 <SelectContent>
-                  {DEPARTMENTS.map((dept) => (<SelectItem key={dept} value={dept}>{dept}</SelectItem>))}
+                  {departmentNames.map((dept) => (<SelectItem key={dept} value={dept}>{dept}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
