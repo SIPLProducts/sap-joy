@@ -889,6 +889,7 @@ export type Database = {
           retry_delay_ms: number | null
           sap_client: string | null
           scheduler_enabled: boolean | null
+          scheduler_plants: Json | null
           sync_frequency: string | null
           timeout_ms: number | null
           token_url: string | null
@@ -922,6 +923,7 @@ export type Database = {
           retry_delay_ms?: number | null
           sap_client?: string | null
           scheduler_enabled?: boolean | null
+          scheduler_plants?: Json | null
           sync_frequency?: string | null
           timeout_ms?: number | null
           token_url?: string | null
@@ -955,6 +957,7 @@ export type Database = {
           retry_delay_ms?: number | null
           sap_client?: string | null
           scheduler_enabled?: boolean | null
+          scheduler_plants?: Json | null
           sync_frequency?: string | null
           timeout_ms?: number | null
           token_url?: string | null

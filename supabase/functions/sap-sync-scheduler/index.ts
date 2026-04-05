@@ -64,10 +64,10 @@ Deno.serve({ port }, async (req) => {
     const now = new Date()
     const results: Array<Record<string, unknown>> = []
 
-    // ── 3. Fetch all plants for multi-plant support ──
+    // ── 3. Fetch all plants for fallback ──
     const { data: plants } = await supabase.from('plants').select('code')
-    const plantCodes = (plants || []).map((p: any) => p.code)
-    if (plantCodes.length === 0) plantCodes.push('1300') // Fallback default
+    const allPlantCodes = (plants || []).map((p: any) => p.code)
+    if (allPlantCodes.length === 0) allPlantCodes.push('1300') // Fallback default
 
     for (const config of configs || []) {
       if (requestedConfigIds && !requestedConfigIds.includes(config.id)) continue
@@ -119,7 +119,12 @@ Deno.serve({ port }, async (req) => {
         (f: any) => ['WERKS', 'WERK', 'werks', 'werk'].includes(f.sap_field_name || f.field_name)
       )
 
-      const plantsToProcess = hasPlantField ? plantCodes : ['ALL']
+      // Use config-specific scheduler_plants if set, otherwise all plants
+      const configPlants: string[] = Array.isArray(config.scheduler_plants) && config.scheduler_plants.length > 0
+        ? config.scheduler_plants
+        : allPlantCodes
+
+      const plantsToProcess = hasPlantField ? configPlants : ['ALL']
 
       for (const plantCode of plantsToProcess) {
         const plantLabel = plantCode === 'ALL' ? 'All Plants' : plantCode

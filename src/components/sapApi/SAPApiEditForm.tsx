@@ -35,6 +35,7 @@ interface SAPConfig {
   sync_frequency: string | null;
   cron_expression?: string | null;
   scheduler_enabled?: boolean | null;
+  scheduler_plants?: string[] | null;
   retry_count?: number | null;
   retry_delay_ms?: number | null;
   max_records?: number | null;
@@ -95,8 +96,19 @@ export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
   const [syncFrequency, setSyncFrequency] = useState(config?.sync_frequency || 'manual');
   const [cronExpression, setCronExpression] = useState(config?.cron_expression || '');
   const [schedulerEnabled, setSchedulerEnabled] = useState(config?.scheduler_enabled || false);
+  const [schedulerPlants, setSchedulerPlants] = useState<string[]>(
+    Array.isArray(config?.scheduler_plants) ? config.scheduler_plants : []
+  );
+  const [allPlants, setAllPlants] = useState<{ code: string; name: string }[]>([]);
   const [retryCount, setRetryCount] = useState(String(config?.retry_count || 3));
   const [retryDelayMs, setRetryDelayMs] = useState(String(config?.retry_delay_ms || 5000));
+
+  // Load plants for scheduler selection
+  useEffect(() => {
+    supabase.from('plants').select('code, name').order('code').then(({ data }) => {
+      if (data) setAllPlants(data);
+    });
+  }, []);
 
   // Settings state
   const [maxRecords, setMaxRecords] = useState(String(config?.max_records || 1000));
@@ -243,6 +255,7 @@ export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
       sync_frequency: syncFrequency,
       cron_expression: cronExpression || null,
       scheduler_enabled: schedulerEnabled,
+      scheduler_plants: schedulerPlants.length > 0 ? schedulerPlants : [],
       retry_count: parseInt(retryCount) || 3,
       retry_delay_ms: parseInt(retryDelayMs) || 5000,
       max_records: parseInt(maxRecords) || 1000,
@@ -670,6 +683,42 @@ export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
                 </div>
               </div>
 
+              {/* Plant Selection for Scheduler */}
+              <div className="space-y-3">
+                <Label className="text-base font-medium">Sync Plants</Label>
+                <p className="text-sm text-muted-foreground">
+                  Select which plants to sync. If none selected, all plants will be synced.
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-3 border rounded-lg max-h-48 overflow-y-auto">
+                  {allPlants.map((plant) => (
+                    <div key={plant.code} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`plant-${plant.code}`}
+                        checked={schedulerPlants.includes(plant.code)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSchedulerPlants([...schedulerPlants, plant.code]);
+                          } else {
+                            setSchedulerPlants(schedulerPlants.filter(p => p !== plant.code));
+                          }
+                        }}
+                      />
+                      <label htmlFor={`plant-${plant.code}`} className="text-sm cursor-pointer">
+                        {plant.code} — {plant.name}
+                      </label>
+                    </div>
+                  ))}
+                  {allPlants.length === 0 && (
+                    <p className="text-sm text-muted-foreground col-span-full">No plants configured</p>
+                  )}
+                </div>
+                {schedulerPlants.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Selected: {schedulerPlants.join(', ')}
+                  </p>
+                )}
+              </div>
+
               <div className="p-4 bg-muted/50 rounded-lg space-y-2">
                 <h4 className="font-medium text-sm">Sync Schedule Preview</h4>
                 <p className="text-sm text-muted-foreground">
@@ -684,6 +733,11 @@ export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
                 {schedulerEnabled && syncFrequency !== 'manual' && (
                   <p className="text-xs text-muted-foreground">
                     Retries: {retryCount} attempts with {retryDelayMs}ms delay between each
+                  </p>
+                )}
+                {schedulerPlants.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Plants: {schedulerPlants.join(', ')}
                   </p>
                 )}
               </div>

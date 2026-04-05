@@ -1,0 +1,1 @@
+ALTER TABLE public.sap_api_config ADD COLUMN IF NOT EXISTS scheduler_plants jsonb DEFAULT '[]'::jsonb;
