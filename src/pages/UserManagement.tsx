@@ -186,6 +186,7 @@ export default function UserManagement() {
     setSelectedUser(user);
     setSelectedRole((user.role || '') as '' | AppRole);
     setSelectedDepartment(user.department || '');
+    setSelectedPlants(user.plants || []);
     setResetPassword('');
     setPasswordHistory([]);
     setIsEditDialogOpen(true);
