@@ -846,7 +846,7 @@ export default function InwardReport() {
                         <TableBody>
                           {paginatedResults.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={20} className="text-center py-12 text-muted-foreground">
+                              <TableCell colSpan={20 + extraFields.length} className="text-center py-12 text-muted-foreground">
                                 No records found matching the selection criteria
                               </TableCell>
                             </TableRow>
