@@ -32,8 +32,11 @@ import { getStatusDisplayName, getStatusColor, getSLAColor, getEscalationColor, 
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeSapSync } from '@/lib/sapSyncClient';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Database } from '@/integrations/supabase/types';
 import * as XLSX from 'xlsx';
+
+const MASTER_ADMIN_EMAIL = 'masteradmin@sharviinfotech.com';
 
 type MRBStatus = Database['public']['Enums']['mrb_status'];
 type MRBSource = Database['public']['Enums']['mrb_source'];
