@@ -108,6 +108,7 @@ export default function Worklist() {
   const navigate = useNavigate();
   const { mrbRecords, isLoading, updateMRB } = useMRBDatabase();
   const { toast } = useToast();
+  const { userRole, user, profile } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<SourceType>('all');
@@ -118,6 +119,10 @@ export default function Worklist() {
   const [syncHistory, setSyncHistory] = useState<SAPSyncHistoryEntry[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // RBAC: Block-to-Unrestricted access control (#1.3)
+  const isMasterAdmin = profile?.email === MASTER_ADMIN_EMAIL || user?.email === MASTER_ADMIN_EMAIL;
+  const canUnblockSAP = isMasterAdmin || userRole === 'quality_head' || userRole === 'admin';
 
   // Fetch sync history
   const fetchSyncHistory = async () => {
