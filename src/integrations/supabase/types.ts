@@ -68,6 +68,33 @@ export type Database = {
         }
         Relationships: []
       }
+      departments: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_logs: {
         Row: {
           body: string | null
@@ -750,6 +777,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           department: string | null
+          department_id: string | null
           email: string
           employee_id: string | null
           full_name: string
@@ -763,6 +791,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           department?: string | null
+          department_id?: string | null
           email: string
           employee_id?: string | null
           full_name: string
@@ -776,6 +805,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           department?: string | null
+          department_id?: string | null
           email?: string
           employee_id?: string | null
           full_name?: string
@@ -785,7 +815,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       role_permissions: {
         Row: {
@@ -1218,6 +1256,27 @@ export type Database = {
           updated_at?: string
           upload_batch_id?: string | null
           uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      user_plants: {
+        Row: {
+          created_at: string
+          id: string
+          plant_code: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          plant_code: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          plant_code?: string
+          user_id?: string
         }
         Relationships: []
       }
