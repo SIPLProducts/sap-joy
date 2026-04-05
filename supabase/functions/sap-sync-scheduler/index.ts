@@ -64,10 +64,10 @@ Deno.serve({ port }, async (req) => {
     const now = new Date()
     const results: Array<Record<string, unknown>> = []
 
-    // ── 3. Fetch all plants for multi-plant support ──
+    // ── 3. Fetch all plants for fallback ──
     const { data: plants } = await supabase.from('plants').select('code')
-    const plantCodes = (plants || []).map((p: any) => p.code)
-    if (plantCodes.length === 0) plantCodes.push('1300') // Fallback default
+    const allPlantCodes = (plants || []).map((p: any) => p.code)
+    if (allPlantCodes.length === 0) allPlantCodes.push('1300') // Fallback default
 
     for (const config of configs || []) {
       if (requestedConfigIds && !requestedConfigIds.includes(config.id)) continue
