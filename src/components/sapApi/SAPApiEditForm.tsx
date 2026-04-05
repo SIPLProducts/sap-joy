@@ -683,7 +683,42 @@ export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
                 </div>
               </div>
 
-              <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+              {/* Plant Selection for Scheduler */}
+              <div className="space-y-3">
+                <Label className="text-base font-medium">Sync Plants</Label>
+                <p className="text-sm text-muted-foreground">
+                  Select which plants to sync. If none selected, all plants will be synced.
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-3 border rounded-lg max-h-48 overflow-y-auto">
+                  {allPlants.map((plant) => (
+                    <div key={plant.code} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`plant-${plant.code}`}
+                        checked={schedulerPlants.includes(plant.code)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSchedulerPlants([...schedulerPlants, plant.code]);
+                          } else {
+                            setSchedulerPlants(schedulerPlants.filter(p => p !== plant.code));
+                          }
+                        }}
+                      />
+                      <label htmlFor={`plant-${plant.code}`} className="text-sm cursor-pointer">
+                        {plant.code} — {plant.name}
+                      </label>
+                    </div>
+                  ))}
+                  {allPlants.length === 0 && (
+                    <p className="text-sm text-muted-foreground col-span-full">No plants configured</p>
+                  )}
+                </div>
+                {schedulerPlants.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Selected: {schedulerPlants.join(', ')}
+                  </p>
+                )}
+              </div>
+
                 <h4 className="font-medium text-sm">Sync Schedule Preview</h4>
                 <p className="text-sm text-muted-foreground">
                   {!schedulerEnabled
