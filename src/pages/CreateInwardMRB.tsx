@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Send, X, Upload, FileText, Trash2, CheckCircle2, AlertCircle, Clock, Sparkles, Lightbulb } from 'lucide-react';
+import { ArrowLeft, Save, Send, X, Upload, FileText, Trash2, CheckCircle2, AlertCircle, Clock, Sparkles, Lightbulb, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,6 +25,7 @@ import {
   inwardAttachmentCategories 
 } from '@/data/inwardReportData';
 import type { Database } from '@/integrations/supabase/types';
+import { fetchPlantWorkflow, DEPT_TO_ROLE, DEPT_TO_STATUS, ROLE_TO_DEPT } from '@/lib/workflowRouting';
 
 type QualityDecision = Database['public']['Enums']['quality_decision'];
 type DefectCategory = Database['public']['Enums']['defect_category'];
@@ -171,6 +173,31 @@ export default function CreateInwardMRB() {
   const [lastSaved, setLastSaved] = useState<Date | null>(savedDraft ? new Date() : null);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
+
+  // Predefined workflow routing from plant_workflow_config
+  const [predefinedRouting, setPredefinedRouting] = useState<string[] | null>(null);
+  const [routingLocked, setRoutingLocked] = useState(false);
+
+  // Fetch predefined workflow for this plant
+  useEffect(() => {
+    const loadPlantWorkflow = async () => {
+      const steps = await fetchPlantWorkflow(inspectionLot.plant);
+      if (steps.length > 0) {
+        const deptSequence = steps.map((s) => s.department);
+        setPredefinedRouting(deptSequence);
+        setRoutingLocked(true);
+        // Auto-populate departments from predefined routing
+        setFormData((prev) => ({
+          ...prev,
+          nextReviewDepartments: deptSequence,
+        }));
+      } else {
+        setPredefinedRouting(null);
+        setRoutingLocked(false);
+      }
+    };
+    loadPlantWorkflow();
+  }, [inspectionLot.plant]);
 
   // Smart routing suggestions based on quality decision
   // Smart routing based on quality decision
@@ -424,25 +451,13 @@ export default function CreateInwardMRB() {
         'other': 'other',
       };
 
-      // Determine pending_with and status based on next review department
-      const pendingWithMap: Record<string, Database['public']['Enums']['app_role']> = {
-        'engineering': 'engineering',
-        'purchase': 'purchase',
-        'plant_head': 'executive',
-        'quality_head': 'quality_head',
-      };
-
-      // Map department to status
-      const statusMap: Record<string, Database['public']['Enums']['mrb_status']> = {
-        'engineering': 'engineering_review',
-        'purchase': 'purchase_review',
-        'plant_head': 'final_approval',
-        'quality_head': 'quality_review',
-      };
-
+      // Determine pending_with and status based on first department in routing sequence
       const firstDept = formData.nextReviewDepartments[0];
-      const pendingWith = pendingWithMap[firstDept] || 'quality';
-      const mrbStatus = statusMap[firstDept] || 'quality_review';
+      const pendingWith = DEPT_TO_ROLE[firstDept] || 'quality';
+      const mrbStatus = DEPT_TO_STATUS[firstDept] || 'quality_review';
+
+      // Store the full routing sequence so transitions follow this order
+      const workflowRouting = formData.nextReviewDepartments;
 
       const newMRB = await createMRB({
         mrb_number: mrbNumber,
@@ -472,7 +487,7 @@ export default function CreateInwardMRB() {
         quality_remarks: formData.qualityInspectionComments,
         quality_approved_by: user?.id,
         quality_approved_at: new Date().toISOString(),
-      });
+      } as any, workflowRouting);
 
       if (newMRB) {
         // Update the inspection lot status to 'mrb_created'
@@ -1026,11 +1041,18 @@ Quality Department`;
         {/* Section 4: Next Review Department */}
         <div className="bg-background rounded-lg border border-border shadow-sm">
           <div className="px-6 py-4 border-b border-border bg-muted/30">
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
               Workflow Routing
+              {routingLocked && (
+                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                  <Lock className="h-3 w-3 mr-1" /> Predefined
+                </Badge>
+              )}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Select department(s) for next review
+              {routingLocked
+                ? 'Routing is predefined for this plant and will follow the configured sequence automatically'
+                : 'Select department(s) for review — MRB will follow this exact sequence'}
             </p>
           </div>
           <div className="p-6">
@@ -1102,19 +1124,23 @@ Quality Department`;
                   return (
                     <label
                       key={dept.value}
-                      className={`relative flex flex-col p-4 rounded-lg border cursor-pointer transition-all ${
+                      className={`relative flex flex-col p-4 rounded-lg border transition-all ${
+                        routingLocked ? 'cursor-default' : 'cursor-pointer'
+                      } ${
                         isSelected
                           ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
                           : isRecommended
                           ? 'border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/20'
                           : 'border-border hover:bg-muted/50'
-                      }`}
+                      } ${routingLocked && !isSelected ? 'opacity-40' : ''}`}
                     >
                       <div className="flex items-start gap-3">
                         <input
                           type="checkbox"
                           checked={isSelected}
+                          disabled={routingLocked}
                           onChange={(e) => {
+                            if (routingLocked) return;
                             handleFieldBlur('nextReviewDepartments');
                             if (e.target.checked) {
                               setFormData({
@@ -1150,7 +1176,12 @@ Quality Department`;
                         </div>
                       </div>
                       {isSelected && (
-                        <CheckCircle2 className="absolute top-3 right-3 h-4 w-4 text-primary" />
+                        <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                          <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                            {formData.nextReviewDepartments.indexOf(dept.value) + 1}
+                          </span>
+                          <CheckCircle2 className="h-4 w-4 text-primary" />
+                        </div>
                       )}
                     </label>
                   );
