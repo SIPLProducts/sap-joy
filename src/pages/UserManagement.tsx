@@ -44,7 +44,8 @@ const ROLES: { value: AppRole; label: string; description: string }[] = [
   { value: 'mrb_committee', label: 'MRB Committee', description: 'MRB committee member' },
 ];
 
-const DEPARTMENTS = ['IT', 'Management', 'Quality', 'Purchase', 'Engineering', 'Shop Floor', 'MRB Committee'];
+// Legacy fallback - used only if departments fail to load
+const FALLBACK_DEPARTMENTS = ['IT', 'Management', 'Quality', 'Purchase', 'Engineering', 'Shop Floor', 'MRB Committee'];
 
 const DEPARTMENT_ROLE_MAP: Record<string, AppRole[]> = {
   'IT': ['admin', 'executive', 'quality_head', 'quality', 'purchase_head', 'purchase', 'engineering_head', 'engineering', 'shop_floor', 'mrb_committee'],
