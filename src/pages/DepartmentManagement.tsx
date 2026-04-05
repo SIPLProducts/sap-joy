@@ -200,7 +200,7 @@ export default function DepartmentManagement() {
               <TableBody>
                 {departments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                       No departments configured. Click "Add Department" to create one.
                     </TableCell>
                   </TableRow>
