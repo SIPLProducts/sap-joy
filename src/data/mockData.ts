@@ -1,9 +1,14 @@
 import { MRBStatus, UserRole, SLAStatus, EscalationLevel } from '@/types/mrb';
-import { getRoleDisplayName as getRoleDisplayNameFromContext } from '@/contexts/RoleContext';
 
-// Re-export dynamic role display name from RoleContext
+/**
+ * Dynamic role display name - formats role_key into readable name.
+ * For full dynamic resolution from departments table, use useDepartmentMap hook.
+ */
 export const getRoleDisplayName = (role: string): string => {
-  return getRoleDisplayNameFromContext(role as any);
+  if (!role) return 'N/A';
+  return role
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
 };
 
 // Helper function to get status display name
