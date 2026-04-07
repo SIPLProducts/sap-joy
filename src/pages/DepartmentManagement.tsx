@@ -294,6 +294,13 @@ export default function DepartmentManagement() {
               <p className="text-xs text-muted-foreground">Maps this role to the system's workflow engine for MRB routing</p>
             </div>
             <div className="flex items-center gap-3">
+              <Switch checked={form.is_workflow_enabled} onCheckedChange={v => setForm({ ...form, is_workflow_enabled: v })} />
+              <div>
+                <Label>Enable for Workflow Routing</Label>
+                <p className="text-xs text-muted-foreground">When enabled, this role will appear in Workflow Config and MRB creation routing</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
               <Switch checked={form.is_active} onCheckedChange={v => setForm({ ...form, is_active: v })} />
               <Label>Active</Label>
             </div>
