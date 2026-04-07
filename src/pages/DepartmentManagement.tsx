@@ -32,6 +32,7 @@ interface Department {
   description: string | null;
   is_active: boolean;
   role_key: string | null;
+  is_workflow_enabled: boolean;
   created_at: string;
 }
 
@@ -44,7 +45,7 @@ export default function DepartmentManagement() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
-  const [form, setForm] = useState({ name: '', description: '', is_active: true, role_key: '' });
+  const [form, setForm] = useState({ name: '', description: '', is_active: true, role_key: '', is_workflow_enabled: false });
 
   const isAdmin = userRole === 'admin';
 
