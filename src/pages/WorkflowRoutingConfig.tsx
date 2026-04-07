@@ -128,7 +128,7 @@ export default function WorkflowRoutingConfig() {
         const rows = activeSteps.map((s, i) => ({
           plant: selectedPlant,
           workflow_step: i + 1,
-          department: s.role_key,
+          department: s.role_key as any,
           step_label: s.name,
           is_required: true,
           is_active: true,
