@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText, ShoppingCart, Settings, CheckCircle, Database, History, Loader2 } from 'lucide-react';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
