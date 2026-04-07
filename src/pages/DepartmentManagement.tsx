@@ -50,7 +50,7 @@ export default function DepartmentManagement() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
-  const [form, setForm] = useState({ name: '', description: '', is_active: true, role_key: '', is_workflow_enabled: false });
+  const [form, setForm] = useState({ name: '', description: '', is_active: true, role_key: '', is_workflow_enabled: false, workflow_status: '' });
 
   const isAdmin = userRole === 'admin';
 
@@ -76,13 +76,13 @@ export default function DepartmentManagement() {
   }, [isAdmin]);
 
   const handleOpenCreate = () => {
-    setForm({ name: '', description: '', is_active: true, role_key: '', is_workflow_enabled: false });
+    setForm({ name: '', description: '', is_active: true, role_key: '', is_workflow_enabled: false, workflow_status: '' });
     setEditingDept(null);
     setIsOpen(true);
   };
 
   const handleOpenEdit = (dept: Department) => {
-    setForm({ name: dept.name, description: dept.description || '', is_active: dept.is_active, role_key: dept.role_key || '', is_workflow_enabled: dept.is_workflow_enabled });
+    setForm({ name: dept.name, description: dept.description || '', is_active: dept.is_active, role_key: dept.role_key || '', is_workflow_enabled: dept.is_workflow_enabled, workflow_status: dept.workflow_status || '' });
     setEditingDept(dept);
     setIsOpen(true);
   };
@@ -101,6 +101,7 @@ export default function DepartmentManagement() {
         is_active: form.is_active,
         role_key: form.role_key && form.role_key !== '__none' ? form.role_key : null,
         is_workflow_enabled: form.is_workflow_enabled,
+        workflow_status: form.workflow_status && form.workflow_status !== '__none' ? form.workflow_status : null,
       };
 
       if (editingDept) {
