@@ -12,18 +12,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Layers, Plus, Edit, Trash2, RefreshCw, Shield } from 'lucide-react';
+import { Constants } from '@/integrations/supabase/types';
 
+// Build role key options dynamically from the database enum
+const APP_ROLE_ENUM_VALUES = Constants.public.Enums.app_role;
 const ROLE_KEY_OPTIONS = [
-  { value: '', label: 'None (not used in workflow)' },
-  { value: 'quality', label: 'Quality' },
-  { value: 'quality_head', label: 'Quality Head' },
-  { value: 'purchase', label: 'Purchase' },
-  { value: 'purchase_head', label: 'Purchase Head' },
-  { value: 'engineering', label: 'Engineering' },
-  { value: 'engineering_head', label: 'Engineering Head' },
-  { value: 'executive', label: 'Executive / Plant Head' },
-  { value: 'mrb_committee', label: 'MRB Committee' },
-  { value: 'shop_floor', label: 'Shop Floor' },
+  { value: '', label: 'None (not mapped to system role)' },
+  ...APP_ROLE_ENUM_VALUES.map(role => ({ value: role, label: role })),
+];
+
+// MRB status options for workflow_status mapping
+const MRB_STATUS_OPTIONS = [
+  { value: '', label: 'None' },
+  { value: 'quality_review', label: 'Quality Review' },
+  { value: 'purchase_review', label: 'Purchase Review' },
+  { value: 'engineering_review', label: 'Engineering Review' },
+  { value: 'final_approval', label: 'Final Approval' },
 ];
 
 interface Department {
@@ -33,6 +37,7 @@ interface Department {
   is_active: boolean;
   role_key: string | null;
   is_workflow_enabled: boolean;
+  workflow_status: string | null;
   created_at: string;
 }
 
