@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 ###############################################################################
-# HBL MRB – Fresh Linux Production Installation (Self-Hosted Supabase)
-# Run as root or with sudo: sudo bash deploy/install.sh
+# HBL MRB – Full Production Installation (Self-Hosted Supabase)
+# This is the MASTER installer — runs all setup scripts in order.
+# Run as root: sudo bash deploy/install.sh
 # Updated: 2026-04-07
 ###############################################################################
 set -euo pipefail
@@ -13,19 +14,25 @@ BACKEND_DIR="$APP_DIR/sap-proxy/mrb-backend"
 LOG_DIR="/var/log/mrb"
 ENV_FILE="$APP_DIR/.env"
 
-echo "============================================"
-echo "  HBL MRB – Fresh Production Installation"
-echo "  (Self-Hosted Supabase Mode)"
-echo "============================================"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+echo "╔══════════════════════════════════════════════╗"
+echo "║  HBL MRB – Full Production Installation      ║"
+echo "║  Self-Hosted Supabase + Frontend + Middleware ║"
+echo "╚══════════════════════════════════════════════╝"
+echo ""
 
 ###############################################################################
-# 1. System Preparation
+# PHASE 1: System Preparation
 ###############################################################################
-echo "[1/9] System preparation..."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  PHASE 1: System Preparation"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 apt-get update -y
 apt-get install -y curl wget git build-essential nginx ufw unzip jq \
-  ca-certificates gnupg lsb-release postgresql-client
+  ca-certificates gnupg lsb-release postgresql-client openssl rsync
 
 # Install Node.js 20 LTS
 if ! command -v node &>/dev/null; then
@@ -37,18 +44,15 @@ echo "  Node: $(node -v) | npm: $(npm -v)"
 # Install PM2 globally
 npm install -g pm2
 
-# Install Deno (for edge function testing)
-if ! command -v deno &>/dev/null; then
-  curl -fsSL https://deno.land/install.sh | sh
-  ln -sf /root/.deno/bin/deno /usr/local/bin/deno 2>/dev/null || true
-fi
-
 echo "  ✓ System packages installed"
 
 ###############################################################################
-# 2. Create user and directory structure
+# PHASE 2: Create user and directory structure
 ###############################################################################
-echo "[2/9] Creating directories and user..."
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  PHASE 2: Directory Structure"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 id "$APP_USER" &>/dev/null || useradd -r -m -s /bin/bash "$APP_USER"
 
@@ -56,62 +60,65 @@ mkdir -p "$FRONTEND_DIR" "$BACKEND_DIR" "$LOG_DIR"
 mkdir -p "$APP_DIR/backups"
 mkdir -p "$APP_DIR/scripts"
 
-###############################################################################
-# 3. Copy application files
-###############################################################################
-echo "[3/9] Copying application files..."
+echo "  ✓ Directories created"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+###############################################################################
+# PHASE 3: Copy application files
+###############################################################################
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  PHASE 3: Copy Application Files"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Copy frontend source
 rsync -a --exclude='node_modules' --exclude='.git' --exclude='deploy' \
   "$PROJECT_ROOT/" "$FRONTEND_DIR/"
 
-# Copy deploy scripts to scripts dir for convenience
-cp "$SCRIPT_DIR"/*.sh "$APP_DIR/scripts/" 2>/dev/null || true
+# Copy all deploy scripts to scripts dir
+cp "$SCRIPT_DIR"/*.sh "$APP_DIR/scripts/"
+chmod +x "$APP_DIR/scripts/"*.sh
 
 # Copy middleware if present
 if [ -d "$PROJECT_ROOT/middleware" ]; then
   rsync -a --exclude='node_modules' "$PROJECT_ROOT/middleware/" "$BACKEND_DIR/"
+  echo "  ✓ Middleware files copied"
+fi
+
+echo "  ✓ Application files copied"
+echo "  ✓ Deploy scripts → $APP_DIR/scripts/"
+
+###############################################################################
+# PHASE 4: Install & Start Self-Hosted Supabase
+###############################################################################
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  PHASE 4: Self-Hosted Supabase"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+bash "$APP_DIR/scripts/setup-supabase.sh"
+
+# Reload env after Supabase setup (it generates the .env)
+if [ -f "$ENV_FILE" ]; then
+  set -a; source "$ENV_FILE"; set +a
 fi
 
 ###############################################################################
-# 4. Environment configuration
+# PHASE 5: Apply Database Migrations
 ###############################################################################
-echo "[4/9] Setting up environment..."
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  PHASE 5: Database Migrations"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-if [ ! -f "$ENV_FILE" ]; then
-  cat > "$ENV_FILE" <<'ENVEOF'
-# ── Supabase / PostgreSQL (Self-Hosted) ───────────────────────────
-# Point to your self-hosted Supabase Kong gateway
-VITE_SUPABASE_URL=http://10.10.4.178:8000
-VITE_SUPABASE_PUBLISHABLE_KEY=<YOUR_ANON_KEY>
-VITE_SUPABASE_PROJECT_ID=<YOUR_PROJECT_ID>
-SUPABASE_SERVICE_ROLE_KEY=<YOUR_SERVICE_ROLE_KEY>
-SUPABASE_DB_URL=postgresql://postgres:<DB_PASSWORD>@10.10.4.178:5432/postgres
-
-# ── SAP Middleware ────────────────────────────────────────────────
-SAP_PROXY_PORT=3002
-SAP_PROXY_SECRET=7d9f2e1b4a5c8e3d6f1g0h2j4k6l8m0n
-
-# ── Scheduler ─────────────────────────────────────────────────────
-SCHEDULER_PORT=3100
-SCHEDULER_POLL_INTERVAL=60000
-
-# ── Frontend Serving ──────────────────────────────────────────────
-FRONTEND_PORT=3000
-ENVEOF
-  echo "  ⚠ Created $ENV_FILE — EDIT IT with your actual values before proceeding!"
-  echo "  Run: nano $ENV_FILE"
-else
-  echo "  ✓ $ENV_FILE already exists — skipping"
-fi
+bash "$APP_DIR/scripts/setup-db.sh"
 
 ###############################################################################
-# 5. Build frontend
+# PHASE 6: Build Frontend
 ###############################################################################
-echo "[5/9] Building frontend..."
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  PHASE 6: Build Frontend"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 cd "$FRONTEND_DIR"
 cp "$ENV_FILE" .env 2>/dev/null || true
@@ -121,22 +128,28 @@ npm run build
 echo "  ✓ Frontend built → $FRONTEND_DIR/dist"
 
 ###############################################################################
-# 6. Install middleware dependencies
+# PHASE 7: Install Middleware Dependencies
 ###############################################################################
-echo "[6/9] Installing middleware dependencies..."
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  PHASE 7: Middleware Dependencies"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 if [ -f "$BACKEND_DIR/package.json" ]; then
   cd "$BACKEND_DIR"
   npm ci --production
   echo "  ✓ Middleware dependencies installed"
 else
-  echo "  ⚠ No middleware package.json found at $BACKEND_DIR — skipping"
+  echo "  ⚠ No middleware package.json — skipping"
 fi
 
 ###############################################################################
-# 7. Configure Nginx
+# PHASE 8: Configure Nginx
 ###############################################################################
-echo "[7/9] Configuring Nginx..."
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  PHASE 8: Nginx Configuration"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 cat > /etc/nginx/sites-available/mrb <<'NGINX'
 server {
@@ -145,12 +158,12 @@ server {
     root /opt/MRB/frontend/dist;
     index index.html;
 
-    # SPA fallback — ensures React Router deep links work on refresh
+    # SPA fallback
     location / {
         try_files $uri $uri/ /index.html;
     }
 
-    # Proxy SAP middleware requests
+    # Proxy SAP middleware
     location /sap/api/ {
         proxy_pass http://127.0.0.1:3002;
         proxy_set_header Host $host;
@@ -160,13 +173,13 @@ server {
         proxy_connect_timeout 10s;
     }
 
-    # Gzip compression
+    # Gzip
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript;
     gzip_min_length 256;
     gzip_vary on;
 
-    # Cache static assets (JS, CSS, images, fonts)
+    # Cache static assets
     location ~* \.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot)$ {
         expires 30d;
         add_header Cache-Control "public, immutable";
@@ -185,48 +198,100 @@ nginx -t && systemctl restart nginx
 echo "  ✓ Nginx configured on port 3000"
 
 ###############################################################################
-# 8. Configure firewall
+# PHASE 9: Deploy Edge Functions
 ###############################################################################
-echo "[8/9] Configuring firewall..."
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  PHASE 9: Edge Functions"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-ufw allow 22/tcp   >/dev/null 2>&1 || true
-ufw allow 3000/tcp >/dev/null 2>&1 || true
-ufw --force enable  >/dev/null 2>&1 || true
-echo "  ✓ Firewall configured (SSH + Frontend)"
+bash "$APP_DIR/scripts/deploy-edge-functions.sh"
 
 ###############################################################################
-# 9. Set permissions
+# PHASE 10: Start Services
 ###############################################################################
-echo "[9/9] Setting permissions..."
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  PHASE 10: Start Services"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
+# Change ownership before starting as iml
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 chown -R "$APP_USER:$APP_USER" "$LOG_DIR"
 chmod 600 "$ENV_FILE"
 
+sudo -u "$APP_USER" bash "$APP_DIR/scripts/start.sh"
+
+###############################################################################
+# PHASE 11: Setup Auto-Start & Scheduler
+###############################################################################
 echo ""
-echo "============================================"
-echo "  Installation Complete!"
-echo "============================================"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  PHASE 11: Scheduler & Boot Setup"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+bash "$APP_DIR/scripts/setup-scheduler.sh"
+
+###############################################################################
+# PHASE 12: Firewall
+###############################################################################
 echo ""
-echo "Next steps:"
-echo "  1. Edit $ENV_FILE with your actual credentials:"
-echo "       sudo nano $ENV_FILE"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  PHASE 12: Firewall"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+ufw allow 22/tcp   >/dev/null 2>&1 || true   # SSH
+ufw allow 3000/tcp >/dev/null 2>&1 || true   # Frontend
+ufw allow 3001/tcp >/dev/null 2>&1 || true   # Supabase Studio (optional)
+ufw --force enable  >/dev/null 2>&1 || true
+echo "  ✓ Firewall configured"
+
+###############################################################################
+# PHASE 13: Health Check
+###############################################################################
 echo ""
-echo "  2. Setup database (applies all migrations):"
-echo "       sudo bash $APP_DIR/scripts/setup-db.sh"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  PHASE 13: Health Check"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+bash "$APP_DIR/scripts/health-check.sh"
+
+###############################################################################
+# Summary
+###############################################################################
+SERVER_IP=$(hostname -I | awk '{print $1}')
+
 echo ""
-echo "  3. Start services (middleware + scheduler):"
-echo "       sudo -u $APP_USER bash $APP_DIR/scripts/start.sh"
+echo "╔══════════════════════════════════════════════╗"
+echo "║  Installation Complete!                       ║"
+echo "╚══════════════════════════════════════════════╝"
 echo ""
-echo "  4. Setup scheduler auto-start on boot:"
-echo "       sudo bash $APP_DIR/scripts/setup-scheduler.sh"
+echo "  Application:       http://$SERVER_IP:3000"
+echo "  Supabase Studio:   http://$SERVER_IP:3001"
+echo "  Supabase API:      http://$SERVER_IP:8000"
+echo "  SAP Middleware:     http://$SERVER_IP:3002"
 echo ""
-echo "  5. Verify installation:"
-echo "       sudo bash $APP_DIR/scripts/health-check.sh"
+echo "  Credentials:       $ENV_FILE"
+echo "  Supabase config:   /opt/supabase/docker/.env"
 echo ""
-echo "  6. Create admin user (see deployment guide):"
-echo "       Access http://<SERVER_IP>:3000"
+echo "  ─── Next Steps ─────────────────────────────"
+echo "  1. Create admin user:"
+echo "     Access http://$SERVER_IP:3000 and sign up, then:"
+echo "     psql \"\$SUPABASE_DB_URL\" -c \\"
+echo "       \"INSERT INTO user_roles (user_id, role) VALUES ('<uuid>', 'admin');\""
+echo "     psql \"\$SUPABASE_DB_URL\" -c \\"
+echo "       \"INSERT INTO user_plants (user_id, plant_code) VALUES ('<uuid>', '1300');\""
 echo ""
-echo "IMPORTANT: Ensure self-hosted Supabase (Docker) is running"
-echo "           before starting services!"
+echo "  2. Configure roles (after logging in as admin):"
+echo "     → Role Management page"
+echo "     → Workflow Config page"
+echo ""
+echo "  ─── Management Commands ────────────────────"
+echo "  Start:     sudo -u iml bash $APP_DIR/scripts/start.sh"
+echo "  Stop:      sudo -u iml bash $APP_DIR/scripts/stop.sh"
+echo "  Restart:   sudo -u iml bash $APP_DIR/scripts/restart.sh"
+echo "  Update:    sudo -u iml bash $APP_DIR/scripts/update.sh"
+echo "  Health:    sudo bash $APP_DIR/scripts/health-check.sh"
+echo "  DB Setup:  sudo bash $APP_DIR/scripts/setup-db.sh"
+echo "  Logs:      pm2 logs mrb-app"
 echo ""
