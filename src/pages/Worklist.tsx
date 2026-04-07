@@ -625,6 +625,8 @@ export default function Worklist() {
       try {
         // Build request body from MRB data for SAP 343 unblock
         const requestBody = await buildUnblockRequestBody(mrb);
+        // Add BUDAT for batch sync using current date
+        (requestBody as any).BUDAT = formatPostingDateForSAP(new Date().toISOString().split('T')[0]);
 
         const response = await invokeSapSync({
           action: 'unblock',
@@ -1121,7 +1123,7 @@ export default function Worklist() {
                             <Button 
                               variant="default" 
                               size="sm" 
-                              onClick={() => handleSAPSync(mrb.id, mrb.mrbNumber)}
+                              onClick={() => handleRequestSAPSync(mrb.id, mrb.mrbNumber)}
                               disabled={syncingIds.has(mrb.id)}
                               className="bg-green-600 hover:bg-green-700 whitespace-nowrap"
                             >
