@@ -189,6 +189,7 @@ export default function CreateInwardMRB() {
 
   // Predefined workflow routing from plant_workflow_config
   const [predefinedRouting, setPredefinedRouting] = useState<string[] | null>(null);
+  const [predefinedLabels, setPredefinedLabels] = useState<Record<string, string>>({});
   const [routingLocked, setRoutingLocked] = useState(false);
   const [workflowType, setWorkflowType] = useState<'predefined' | 'manual'>('predefined');
 
