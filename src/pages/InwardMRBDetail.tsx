@@ -25,6 +25,7 @@ import { getStatusDisplayName, getStatusColor, getRoleDisplayName } from '@/data
 import { nextReviewDepartments } from '@/data/inwardReportData';
 import { WorkflowProgressIndicator } from '@/components/mrb/WorkflowProgressIndicator';
 import type { Database } from '@/integrations/supabase/types';
+import { supabase } from '@/integrations/supabase/client';
 
 type MRBRecord = Database['public']['Tables']['mrb_records']['Row'];
 type ApprovalHistory = Database['public']['Tables']['mrb_approval_history']['Row'];
@@ -42,6 +43,7 @@ export default function InwardMRBDetail() {
   const [approvalHistory, setApprovalHistory] = useState<ApprovalHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [poItemNumber, setPOItemNumber] = useState<string | null>(null);
   
   const [reviewData, setReviewData] = useState({
     reviewComments: '',
@@ -64,6 +66,18 @@ export default function InwardMRBDetail() {
       
       if (mrbData) {
         setMRB(mrbData);
+        // Fetch PO item number from inward_inspection_lots
+        if (mrbData.inspection_lot) {
+          const { data: lotData } = await supabase
+            .from('inward_inspection_lots')
+            .select('po_item_number')
+            .eq('inspection_lot', mrbData.inspection_lot)
+            .limit(1)
+            .maybeSingle();
+          if (lotData?.po_item_number) {
+            setPOItemNumber(lotData.po_item_number);
+          }
+        }
       }
       
       setApprovalHistory(historyData);
@@ -329,6 +343,10 @@ export default function InwardMRBDetail() {
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">PO Number</Label>
                 <p className="font-medium font-mono">{mrb.po_number || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">PO Line Item</Label>
+                <p className="font-medium font-mono">{poItemNumber || '-'}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">GRN Number</Label>
