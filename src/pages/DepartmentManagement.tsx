@@ -226,6 +226,13 @@ export default function DepartmentManagement() {
                         )}
                       </TableCell>
                       <TableCell>
+                        {dept.workflow_status ? (
+                          <Badge variant="outline" className="text-xs">{dept.workflow_status}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <Badge variant={dept.is_workflow_enabled ? 'default' : 'outline'} className="text-xs">
                           {dept.is_workflow_enabled ? 'Enabled' : 'Disabled'}
                         </Badge>
