@@ -200,7 +200,7 @@ export default function CreateInwardMRB() {
       if (steps.length > 0) {
         const deptSequence = steps.map((s) => s.department);
         const labels: Record<string, string> = {};
-        steps.forEach((s) => { labels[s.department] = s.step_label; });
+        steps.forEach((s) => { labels[s.department] = s.label; });
         setPredefinedRouting(deptSequence);
         setPredefinedLabels(labels);
         setWorkflowType('predefined');
