@@ -305,7 +305,21 @@ export default function DepartmentManagement() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">Maps this role to the system's workflow engine for MRB routing</p>
+              <p className="text-xs text-muted-foreground">Maps this role to the system's authentication & RLS engine</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Workflow Status Mapping</Label>
+              <Select value={form.workflow_status} onValueChange={v => setForm({ ...form, workflow_status: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select MRB status for this role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MRB_STATUS_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value || '__none'} value={opt.value || '__none'}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Which MRB status is set when this role is the active workflow step</p>
             </div>
             <div className="flex items-center gap-3">
               <Switch checked={form.is_workflow_enabled} onCheckedChange={v => setForm({ ...form, is_workflow_enabled: v })} />
