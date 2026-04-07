@@ -199,7 +199,10 @@ export default function CreateInwardMRB() {
       const steps = await fetchPlantWorkflow(inspectionLot.plant);
       if (steps.length > 0) {
         const deptSequence = steps.map((s) => s.department);
+        const labels: Record<string, string> = {};
+        steps.forEach((s) => { labels[s.department] = s.step_label; });
         setPredefinedRouting(deptSequence);
+        setPredefinedLabels(labels);
         setWorkflowType('predefined');
         setRoutingLocked(true);
         // Auto-populate departments from predefined routing
