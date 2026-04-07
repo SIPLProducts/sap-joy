@@ -480,7 +480,7 @@ export default function Worklist() {
     await handleSAPSync(pendingSAPSyncId, pendingSAPSyncNumber, postingDate);
   };
 
-  const handleSAPSync = async (mrbId: string, mrbNumber: string) => {
+  const handleSAPSync = async (mrbId: string, mrbNumber: string, sapPostingDate?: string) => {
     setSyncingIds(prev => new Set(prev).add(mrbId));
     
     try {
@@ -490,6 +490,10 @@ export default function Worklist() {
 
       // Build request body from MRB data
       const requestBody = await buildUnblockRequestBody(mrb);
+      // Add BUDAT (posting date) in YYMMDD format
+      if (sapPostingDate) {
+        (requestBody as any).BUDAT = formatPostingDateForSAP(sapPostingDate);
+      }
       console.log('SAP 343 Unblock Request:', requestBody);
 
       // Call SAP 343 and then verify with live MB52 stock fetch
