@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Send, X, Upload, FileText, Trash2, CheckCircle2, AlertCircle, Clock, Sparkles, Lightbulb, Lock } from 'lucide-react';
+import { ArrowLeft, Save, Send, X, Upload, FileText, Trash2, CheckCircle2, AlertCircle, Clock, Sparkles, Lightbulb, Lock, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -190,6 +190,7 @@ export default function CreateInwardMRB() {
   // Predefined workflow routing from plant_workflow_config
   const [predefinedRouting, setPredefinedRouting] = useState<string[] | null>(null);
   const [routingLocked, setRoutingLocked] = useState(false);
+  const [workflowType, setWorkflowType] = useState<'predefined' | 'manual'>('predefined');
 
   // Fetch predefined workflow for this plant
   useEffect(() => {
@@ -198,6 +199,7 @@ export default function CreateInwardMRB() {
       if (steps.length > 0) {
         const deptSequence = steps.map((s) => s.department);
         setPredefinedRouting(deptSequence);
+        setWorkflowType('predefined');
         setRoutingLocked(true);
         // Auto-populate departments from predefined routing
         setFormData((prev) => ({
@@ -206,11 +208,33 @@ export default function CreateInwardMRB() {
         }));
       } else {
         setPredefinedRouting(null);
+        setWorkflowType('manual');
         setRoutingLocked(false);
       }
     };
     loadPlantWorkflow();
   }, [inspectionLot.plant]);
+
+  // Handle workflow type change
+  const handleWorkflowTypeChange = (type: 'predefined' | 'manual') => {
+    setWorkflowType(type);
+    if (type === 'predefined' && predefinedRouting) {
+      setRoutingLocked(true);
+      setFormData(prev => ({ ...prev, nextReviewDepartments: predefinedRouting }));
+    } else {
+      setRoutingLocked(false);
+      setFormData(prev => ({ ...prev, nextReviewDepartments: [] }));
+    }
+  };
+
+  // Manual routing reorder
+  const moveRouteStep = (index: number, direction: 'up' | 'down') => {
+    const newDepts = [...formData.nextReviewDepartments];
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= newDepts.length) return;
+    [newDepts[index], newDepts[swapIndex]] = [newDepts[swapIndex], newDepts[index]];
+    setFormData(prev => ({ ...prev, nextReviewDepartments: newDepts }));
+  };
 
   // Smart routing suggestions based on quality decision
   // Smart routing based on quality decision
