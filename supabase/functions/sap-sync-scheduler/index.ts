@@ -178,6 +178,7 @@ Deno.serve({ port }, async (req) => {
             activeResponseFields,
             syncRecord.id,
             config.max_records,
+            plantCode,
           )
 
           const hasErrors = syncResult.errors.length > 0
