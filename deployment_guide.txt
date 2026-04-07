@@ -1,12 +1,12 @@
 ================================================================================
   HBL MRB APPLICATION – LINUX PRODUCTION DEPLOYMENT GUIDE
-  Complete Fresh Installation & Operations Manual
+  Complete Fresh Installation & Operations Manual (Self-Hosted Supabase)
 ================================================================================
 
   Application:  HBL MRB (Material Review Board)
   Server:       Linux (Ubuntu 22.04+ / Debian 12+)
   Author:       Sharvi Infotech
-  Last Updated: 2026-04-05
+  Last Updated: 2026-04-07
 
 ================================================================================
 TABLE OF CONTENTS
@@ -22,11 +22,12 @@ TABLE OF CONTENTS
   8. Process Management (PM2)
   9. Scheduler Configuration
   10. SAP API Integration
-  11. RBAC & Role Matrix
+  11. RBAC & Dynamic Role/Workflow Management
   12. Updating the Application
   13. Monitoring & Health Checks
   14. Troubleshooting
   15. Security Checklist
+  16. Recent Changes (2026-04-07)
 
 ================================================================================
 1. OVERVIEW & ARCHITECTURE
@@ -47,7 +48,8 @@ The HBL MRB system consists of these components:
 │  Standalone Scheduler  (Node.js, port 3100)                         │
 │  └──> Polls sap_api_config for due syncs                           │
 │  └──> Uses scheduler_lock to prevent duplicates                    │
-│  └──> Supports multi-plant execution                               │
+│  └──> Supports multi-plant sequential execution                    │
+│  └──> Full refresh strategy for MB52 stock data                    │
 ├─────────────────────────────────────────────────────────────────────┤
 │  Supabase (Self-Hosted Docker)                                      │
 │  └──> PostgreSQL (port 5432)                                       │
@@ -60,9 +62,9 @@ Key Feature Summary:
   - SAP API integration (MB52, 343, 344, ZMRB01) with dynamic field mapping
   - Manual sync + automated scheduler with configurable frequency
   - Multi-plant support with plant switcher
-  - Role-based access control (10 roles) via role_permissions table
-  - Predefined workflow routing per plant
-  - MRB approval sequences with department-level routing
+  - Dynamic role-based access control via database-driven departments table
+  - Dynamic workflow routing per plant (configured via UI)
+  - MRB approval sequences with role-level routing
   - Pending actions with 7-day SLA logic
   - Material blocking/unblocking via SAP 343/344 APIs
   - MB52 live fetch (no local storage)
@@ -86,7 +88,8 @@ Key Feature Summary:
     - PM2 (process manager)
     - Nginx
     - PostgreSQL client (psql)
-    - Deno (optional, for scheduler edge function testing)
+    - Docker & Docker Compose (for self-hosted Supabase)
+    - Deno (optional, for edge function testing)
 
   Ports Used:
     - 3000  → Nginx (frontend)
@@ -103,15 +106,38 @@ Key Feature Summary:
 /opt/MRB/
 ├── .env                          # Master environment file (chmod 600)
 ├── backups/                      # Automatic backups during updates
-│   └── 20260405_120000/
+│   └── 20260407_120000/
 │       └── dist/
 ├── frontend/                     # React application source
 │   ├── dist/                     # Built static files (served by Nginx)
 │   ├── src/
+│   │   ├── contexts/
+│   │   │   ├── AuthContext.tsx
+│   │   │   ├── RoleContext.tsx       # Dynamic role resolution
+│   │   │   ├── InwardMRBContext.tsx
+│   │   │   └── MRBContext.tsx
+│   │   ├── hooks/
+│   │   │   ├── useDepartmentMap.ts   # NEW: Dynamic dept↔role↔status mapping
+│   │   │   ├── useDepartments.ts
+│   │   │   ├── useMRBDatabase.ts
+│   │   │   └── ...
+│   │   ├── lib/
+│   │   │   ├── workflowRouting.ts    # Dynamic workflow routing logic
+│   │   │   └── ...
+│   │   └── pages/
+│   │       ├── DepartmentManagement.tsx  # Role Management UI
+│   │       ├── WorkflowRoutingConfig.tsx # Workflow Config UI
+│   │       ├── Worklist.tsx              # Dynamic role filter
+│   │       └── ...
 │   ├── supabase/
 │   │   ├── config.toml
 │   │   ├── functions/            # Edge functions
-│   │   └── migrations/           # SQL migration files
+│   │   │   ├── create-user/
+│   │   │   ├── sap-sync/
+│   │   │   ├── sap-sync-scheduler/
+│   │   │   ├── seed-demo-users/
+│   │   │   └── send-mrb-email/
+│   │   └── migrations/           # SQL migration files (applied in order)
 │   ├── deploy/                   # Deployment scripts
 │   │   ├── install.sh
 │   │   ├── setup-db.sh
@@ -128,7 +154,7 @@ Key Feature Summary:
 │       ├── server.js             # Middleware entry point
 │       ├── scheduler.js          # Standalone scheduler
 │       └── package.json
-└── scripts/                      # Symlinks to deploy scripts (created by install.sh)
+└── scripts/                      # Copies of deploy scripts
 
 /var/log/mrb/
 ├── middleware.log                # SAP proxy logs (PM2)
@@ -144,7 +170,7 @@ Key Feature Summary:
 
 Prerequisites:
   - Root or sudo access
-  - Self-hosted Supabase already running (or external Supabase project)
+  - Self-hosted Supabase already running (Docker)
   - SAP middleware source files available
 
 Step 1: Transfer files to server
@@ -162,12 +188,13 @@ Step 2: Run the installer
   sudo bash deploy/install.sh
 
   This will:
-  ✓ Install Node.js 20, PM2, Nginx, Deno
+  ✓ Install Node.js 20, PM2, Nginx, psql client
   ✓ Create /opt/MRB directory structure
-  ✓ Copy application files
+  ✓ Copy application files + deploy scripts
   ✓ Generate template .env file
   ✓ Build the frontend
-  ✓ Configure Nginx on port 3000
+  ✓ Configure Nginx on port 3000 with security headers
+  ✓ Configure firewall (SSH + port 3000)
   ✓ Set correct file permissions
 
 Step 3: Configure environment
@@ -178,26 +205,29 @@ Step 3: Configure environment
 
 Step 4: Setup database
 ──────────────────────
-  sudo bash /opt/MRB/frontend/deploy/setup-db.sh
+  sudo bash /opt/MRB/scripts/setup-db.sh
 
   This will:
   ✓ Enable required PostgreSQL extensions
   ✓ Apply all migration files in order
   ✓ Verify all 27 tables exist
-  ✓ Verify all 13+ database functions exist
+  ✓ Verify all 15 database functions exist
+  ✓ Verify departments.workflow_status and role_key columns
+  ✓ Report active roles and workflow configs
 
 Step 5: Start services
 ──────────────────────
-  sudo -u iml bash /opt/MRB/frontend/deploy/start.sh
+  sudo -u iml bash /opt/MRB/scripts/start.sh
 
   This will:
+  ✓ Check Supabase API connectivity
   ✓ Start SAP middleware on port 3002
   ✓ Start standalone scheduler on port 3100
   ✓ Save PM2 process list for reboot persistence
 
 Step 6: Setup scheduler auto-start
 ───────────────────────────────────
-  sudo bash /opt/MRB/frontend/deploy/setup-scheduler.sh
+  sudo bash /opt/MRB/scripts/setup-scheduler.sh
 
   This will:
   ✓ Configure PM2 to auto-start on boot
@@ -206,14 +236,19 @@ Step 6: Setup scheduler auto-start
 
 Step 7: Verify installation
 ───────────────────────────
-  sudo bash /opt/MRB/frontend/deploy/health-check.sh
+  sudo bash /opt/MRB/scripts/health-check.sh
 
   Expected output: All checks should show ✓
+  New checks include:
+  - Supabase API (port 8000) connectivity
+  - Workflow-enabled roles count
+  - Plant workflow configuration count
+  - Docker/Supabase container status
 
 Step 8: Create admin user
 ─────────────────────────
   Access the application at http://<SERVER_IP>:3000
-  The first user must be created via Supabase dashboard or SQL:
+  The first user must be created via GoTrue API or SQL:
 
   -- In psql:
   -- 1. Create user in auth.users (via GoTrue API or Supabase dashboard)
@@ -225,6 +260,24 @@ Step 8: Create admin user
   INSERT INTO public.user_plants (user_id, plant_code) 
   VALUES ('<user-uuid>', '1300');
 
+Step 9: Configure Roles & Workflow (NEW)
+────────────────────────────────────────
+  After logging in as admin:
+  
+  1. Go to "Role Management" page:
+     - Add roles (e.g., Quality, Purchase, Engineering)
+     - Role keys are auto-generated from role names
+     - Enable "Workflow" toggle for roles that participate in MRB routing
+     - Set workflow_status for each role (e.g., quality_review, purchase_review)
+
+  2. Go to "Workflow Config" page:
+     - Select a plant
+     - Workflow-enabled roles auto-populate
+     - Drag to reorder the approval sequence
+     - Save the workflow routing
+
+  These configurations drive the entire MRB approval flow dynamically.
+
 ================================================================================
 5. ENVIRONMENT VARIABLES
 ================================================================================
@@ -234,7 +287,7 @@ File: /opt/MRB/.env (permissions: 600, owner: iml)
 ┌──────────────────────────────────┬──────────────────────────────────────────┐
 │ Variable                         │ Description                              │
 ├──────────────────────────────────┼──────────────────────────────────────────┤
-│ VITE_SUPABASE_URL                │ Supabase API URL                         │
+│ VITE_SUPABASE_URL                │ Supabase API URL (self-hosted)           │
 │                                  │ e.g. http://10.10.4.178:8000             │
 ├──────────────────────────────────┼──────────────────────────────────────────┤
 │ VITE_SUPABASE_PUBLISHABLE_KEY    │ Supabase anon key (safe for frontend)    │
@@ -261,6 +314,7 @@ IMPORTANT:
   - Never commit .env to version control
   - SUPABASE_SERVICE_ROLE_KEY must NEVER appear in frontend code
   - SAP_PROXY_SECRET must match the value in sap_api_config.proxy_secret
+  - VITE_SUPABASE_URL must point to your self-hosted Kong gateway (port 8000)
 
 ================================================================================
 6. DATABASE SETUP & MIGRATIONS
@@ -269,7 +323,7 @@ IMPORTANT:
 Applying migrations safely:
 ──────────────────────────
   # Automatic (recommended):
-  sudo bash /opt/MRB/frontend/deploy/setup-db.sh
+  sudo bash /opt/MRB/scripts/setup-db.sh
 
   # Manual (one file at a time):
   psql "$SUPABASE_DB_URL" -f supabase/migrations/YYYYMMDDHHMMSS_name.sql --single-transaction
@@ -278,17 +332,39 @@ Applying migrations safely:
   If any statement fails, the entire migration rolls back.
 
 Key tables and their purposes:
-  - profiles           → User profiles (auto-created on signup)
-  - user_roles         → RBAC role assignments (separate from profiles!)
-  - user_plants        → Multi-plant user assignments
-  - role_permissions    → Dense permission matrix (module_key, can_view, can_edit, plant)
-  - plant_workflow_config → Predefined workflow routing per plant
-  - sap_api_config      → SAP endpoint configurations with credentials
-  - scheduler_lock      → Prevents duplicate scheduler runs
+  - profiles              → User profiles (auto-created on signup via trigger)
+  - user_roles            → RBAC role assignments (separate from profiles!)
+  - user_plants           → Multi-plant user assignments
+  - user_security         → Login security (lockout, password expiry)
+  - password_history      → Prevents reuse of last 4 passwords
+  - departments           → Dynamic role definitions with:
+                             • role_key (auto-generated, maps to app_role enum)
+                             • is_workflow_enabled (participates in MRB routing)
+                             • workflow_status (maps to mrb_status enum)
+  - role_permissions      → Dense permission matrix (module_key, can_view, can_edit, plant)
+  - plant_workflow_config → Approval sequence per plant (dynamic, UI-managed)
+  - sap_api_config        → SAP endpoint configurations with credentials
+  - scheduler_lock        → Prevents duplicate scheduler runs
+  - mrb_records           → Core MRB data with workflow_routing JSON
+  - shop_floor_stock      → Stock data (full-refresh on scheduler sync)
+  - inward_inspection_lots → Inspection lot data from SAP
 
-Production fix for role_permissions:
-  If you encounter error 23502 on the screen_key column:
-  ALTER TABLE public.role_permissions ALTER COLUMN screen_key DROP NOT NULL;
+Key database functions:
+  - has_role()                 → Check if user has a specific role
+  - get_user_role()            → Get user's primary role
+  - get_user_plant()           → Get user's primary plant
+  - check_login_security()     → Check lockout and password expiry
+  - record_failed_login()      → Increment failed attempts, auto-lock
+  - reset_failed_login()       → Clear lockout state
+  - record_password_change()   → Save to history, update last change date
+  - check_password_reuse()     → Validate against last 4 passwords
+  - admin_update_user_password()→ Admin password reset (8-10 chars)
+  - acquire_scheduler_lock()   → Concurrency control for scheduler
+  - release_scheduler_lock()   → Release scheduler lock
+  - add_dynamic_column()       → Add columns from SAP field mappings
+  - get_table_columns()        → Inspect table schema
+  - handle_new_user()          → Trigger: auto-create profile on signup
+  - update_updated_at_column() → Trigger: auto-update timestamps
 
 ================================================================================
 7. BUILDING & STARTING THE APPLICATION
@@ -304,15 +380,15 @@ Build frontend:
 
 Start all services:
 ──────────────────
-  sudo -u iml bash /opt/MRB/frontend/deploy/start.sh
+  sudo -u iml bash /opt/MRB/scripts/start.sh
 
 Stop all services:
 ─────────────────
-  sudo -u iml bash /opt/MRB/frontend/deploy/stop.sh
+  sudo -u iml bash /opt/MRB/scripts/stop.sh
 
 Restart (zero-downtime):
 ───────────────────────
-  sudo -u iml bash /opt/MRB/frontend/deploy/restart.sh
+  sudo -u iml bash /opt/MRB/scripts/restart.sh
 
 ================================================================================
 8. PROCESS MANAGEMENT (PM2)
@@ -356,7 +432,9 @@ Mode 1: Standalone Scheduler (recommended for self-hosted)
     • sync_frequency ≠ 'manual'
     • Time since last_sync_at ≥ frequency interval
   - Uses scheduler_lock table to prevent duplicate runs
-  - Supports multi-plant: only syncs plants in scheduler_plants array
+  - Supports multi-plant: iterates sequentially through scheduler_plants
+  - Full refresh strategy: deletes existing records before batch insert
+    (prevents reporting duplicates as 'updated')
 
 Mode 2: pg_cron + Edge Function (for cloud deployments)
 ───────────────────────────────────────────────────────
@@ -374,11 +452,6 @@ Verifying scheduler is working:
   # Check last sync times:
   psql "$SUPABASE_DB_URL" -c "SELECT config_name, sync_frequency, last_sync_at FROM sap_api_config WHERE scheduler_enabled = true;"
 
-Preventing duplicate execution:
-  The scheduler_lock table with a unique lock_key constraint ensures
-  only one scheduler instance runs at a time. Stale locks (>10 min)
-  are automatically cleaned by the cron job.
-
 ================================================================================
 10. SAP API INTEGRATION
 ================================================================================
@@ -394,17 +467,13 @@ Four SAP endpoints are configured in sap_api_config:
 │ ZMRB01  │ /sap/api/zmrb01            │ POST   │ Inward lots      │
 └─────────┴────────────────────────────┴────────┴──────────────────┘
 
-MB52 special behavior:
-  - Data is fetched LIVE (not stored in Supabase)
-  - No "Trigger Sync" button on SAP Sync Monitor
-  - Shows "Live Fetch" badge
-  - Used by Material Blocking page for real-time stock data
-
-343/344 special behavior:
-  - Marked as "Action API" in Sync Monitor
-  - No scheduling (manual trigger only)
-  - 343: Moves blocked stock to unrestricted
-  - 344: Moves unrestricted stock to blocked
+Self-hosted connectivity:
+  - proxy_tunnel_url in sap_api_config must be set to LAN IP of middleware
+    e.g., http://10.10.4.178:3002
+  - For Docker-to-host: http://host.docker.internal:3002
+    (requires extra_hosts in docker-compose.yml)
+  - Browser makes direct fetch to middleware (no Edge Function proxy)
+  - Middleware enforces 30s timeout, handles non-JSON SAP responses
 
 Dynamic field mapping:
   - Request fields: sap_api_request_fields table
@@ -412,18 +481,48 @@ Dynamic field mapping:
   - Supports map_to_table and map_to_column for auto-insertion
   - add_dynamic_column RPC creates columns if they don't exist
 
-Authentication:
-  - Credentials stored in sap_api_config (username, encrypted_password)
-  - Multi-strategy fallback: Basic Auth → header aliases → query params
-  - SAP client passed as sap-client header and URL parameter
-
-Testing connectivity:
-  - Use "Test Route" button in SAP Sync Monitor
-  - Checks: middleware reachable → SAP auth valid → response parseable
-
 ================================================================================
-11. RBAC & ROLE MATRIX
+11. RBAC & DYNAMIC ROLE/WORKFLOW MANAGEMENT (UPDATED 2026-04-07)
 ================================================================================
+
+Architecture Change:
+  Previously, roles and workflow steps were hardcoded in the frontend.
+  Now, everything is DYNAMIC and driven from the database.
+
+How it works:
+
+  1. DEPARTMENTS TABLE (= Role Definitions)
+     ──────────────────────────────────────
+     The `departments` table acts as the role registry:
+     
+     ┌────────────────────┬──────────────────────────────────────────┐
+     │ Column             │ Purpose                                  │
+     ├────────────────────┼──────────────────────────────────────────┤
+     │ name               │ Display name (e.g., "Quality")           │
+     │ role_key           │ Maps to app_role enum (auto-generated)   │
+     │ is_active          │ Whether role is active                   │
+     │ is_workflow_enabled│ Participates in MRB approval routing     │
+     │ workflow_status    │ Maps to mrb_status (e.g., quality_review)│
+     │ description        │ Optional role description                │
+     └────────────────────┴──────────────────────────────────────────┘
+
+  2. DYNAMIC DEPARTMENT MAP HOOK
+     ──────────────────────────────
+     The `useDepartmentMap` hook (src/hooks/useDepartmentMap.ts) provides:
+     - deptToRole: Maps department name → app_role enum value
+     - roleToDept: Maps app_role → display name
+     - deptToStatus: Maps department name → mrb_status
+
+  3. WORKFLOW ROUTING CONFIG
+     ────────────────────────
+     The `plant_workflow_config` table defines approval sequences per plant.
+     The "Workflow Config" page auto-populates with workflow-enabled roles
+     and allows drag-to-reorder.
+
+  4. WORKLIST ROLE FILTER
+     ─────────────────────
+     The Worklist page's "Pending With" filter is now a dynamic "Role"
+     dropdown populated from workflow-enabled departments.
 
 10 application roles (app_role enum):
   quality, quality_head, purchase, purchase_head,
@@ -442,28 +541,30 @@ Screen access keys:
   quality_dashboard, purchase_dashboard, engineering_dashboard,
   executive_summary
 
-Workflow routing:
-  - plant_workflow_config defines approval sequence per plant
-  - When predefined: displayed as read-only sequence on MRB creation
-  - When no config: manual department selection available
+Post-deployment setup:
+  1. Log in as admin
+  2. Go to "Role Management" → add/edit roles with workflow toggle
+  3. Go to "Workflow Config" → arrange approval sequence per plant
+  4. Go to "User Management" → assign roles and plants to users
+  5. Go to "User Permission Matrix" → set module access per role
 
 ================================================================================
 12. UPDATING THE APPLICATION
 ================================================================================
 
-  # Automated update (backup + build + restart):
-  sudo -u iml bash /opt/MRB/frontend/deploy/update.sh
+  # Automated update (backup + migrations + build + restart):
+  sudo -u iml bash /opt/MRB/scripts/update.sh
+
+  This now includes automatic migration application before rebuild.
 
   # Manual update:
   1. cd /opt/MRB/frontend
   2. git pull origin main
   3. cp /opt/MRB/.env .env
-  4. npm ci --production=false
-  5. npm run build
-  6. sudo systemctl reload nginx
-
-  # Apply new migrations (if any):
-  sudo bash /opt/MRB/frontend/deploy/setup-db.sh
+  4. sudo bash /opt/MRB/scripts/setup-db.sh   # Apply new migrations
+  5. npm ci --production=false
+  6. npm run build
+  7. sudo systemctl reload nginx
 
   # Rollback:
   cp -r /opt/MRB/backups/<timestamp>/dist /opt/MRB/frontend/dist
@@ -473,8 +574,21 @@ Workflow routing:
 13. MONITORING & HEALTH CHECKS
 ================================================================================
 
-  # Full health check:
-  sudo bash /opt/MRB/frontend/deploy/health-check.sh
+  # Full health check (now includes 11 checks):
+  sudo bash /opt/MRB/scripts/health-check.sh
+
+  Checks performed:
+  ✓ Nginx running
+  ✓ Frontend responding (port 3000)
+  ✓ SAP Middleware online (port 3002)
+  ✓ Scheduler running
+  ✓ Database connected
+  ✓ Supabase API Gateway (port 8000)
+  ✓ Disk usage
+  ✓ Stale scheduler locks
+  ✓ Workflow-enabled roles configured
+  ✓ Plant workflow configs
+  ✓ Docker/Supabase containers
 
   # Quick checks:
   curl -sf http://localhost:3000         # Frontend
@@ -485,11 +599,7 @@ Workflow routing:
   # Database checks:
   psql "$SUPABASE_DB_URL" -c "SELECT COUNT(*) FROM mrb_records;"
   psql "$SUPABASE_DB_URL" -c "SELECT * FROM scheduler_lock;"
-  psql "$SUPABASE_DB_URL" -c "SELECT config_name, last_sync_at, sync_frequency FROM sap_api_config;"
-
-  # Nginx logs:
-  tail -f /var/log/nginx/access.log
-  tail -f /var/log/nginx/error.log
+  psql "$SUPABASE_DB_URL" -c "SELECT name, role_key, is_workflow_enabled, workflow_status FROM departments WHERE is_active=true;"
 
 ================================================================================
 14. TROUBLESHOOTING
@@ -517,8 +627,18 @@ PROBLEM: Login fails / "Account locked"
   → Check: SELECT * FROM user_security WHERE user_id='<uuid>';
   → Fix: UPDATE user_security SET failed_login_attempts=0, locked_until=NULL WHERE user_id='<uuid>';
 
-PROBLEM: "23502 null value in column screen_key"
-  → Fix: ALTER TABLE role_permissions ALTER COLUMN screen_key DROP NOT NULL;
+PROBLEM: Workflow steps not showing in Workflow Config
+  → Check: departments table has roles with is_workflow_enabled=true
+  → Check: departments.role_key matches valid app_role enum values
+  → Fix: Go to Role Management → enable Workflow toggle for needed roles
+
+PROBLEM: Worklist "Role" dropdown empty
+  → Same fix as above: ensure departments have is_workflow_enabled=true
+
+PROBLEM: MRB stuck at wrong approval stage
+  → Check: plant_workflow_config for the plant
+  → Check: mrb_records.pending_with matches expected role
+  → Check: workflow_routing JSON on the MRB record
 
 PROBLEM: PM2 processes not starting after reboot
   → Fix: pm2 startup systemd -u iml --hp /home/iml
@@ -527,17 +647,20 @@ PROBLEM: PM2 processes not starting after reboot
 PROBLEM: SAP 401 authentication error
   → Check credentials in sap_api_config (username, encrypted_password)
   → Verify sap_client value matches SAP system
-  → Try: Update credentials via SAP API Settings UI
 
-PROBLEM: Duplicate scheduler executions
-  → Check: SELECT * FROM scheduler_lock;
-  → Ensure only ONE scheduler is running: pm2 list
-  → If using both pg_cron and standalone, disable one
+PROBLEM: Mixed Content errors (HTTPS → HTTP)
+  → The frontend MUST be served from HTTP (same protocol as self-hosted Supabase)
+  → Access via http://10.10.4.178:3000, NOT https://
+  → Browser blocks HTTPS pages from calling HTTP APIs
 
-PROBLEM: Missing sidebar menu items
-  → Check: role_permissions for the user's role and plant
-  → Verify: can_view=true for the module_key
-  → Admin role sees everything regardless
+PROBLEM: Supabase API not reachable
+  → Verify Docker containers are running: docker ps | grep supabase
+  → Check Kong gateway: curl http://localhost:8000/rest/v1/
+  → Restart: cd /opt/supabase/docker && docker compose restart
+
+PROBLEM: Edge Functions fail with "host.docker.internal" error
+  → Add to docker-compose.yml functions service:
+    extra_hosts: ["host.docker.internal:host-gateway"]
 
 ================================================================================
 15. SECURITY CHECKLIST
@@ -559,6 +682,57 @@ PROBLEM: Missing sidebar menu items
   [ ] Account lockout: 30 minutes after max failed attempts
   [ ] No hardcoded credentials in source code
   [ ] SAP credentials stored in database, not in files
+  [ ] Nginx security headers configured (X-Content-Type-Options, X-Frame-Options)
+
+================================================================================
+16. RECENT CHANGES (2026-04-07)
+================================================================================
+
+Database Changes:
+  - Added `workflow_status` column to `departments` table
+    (maps roles to MRB status values like quality_review, purchase_review)
+
+New Files:
+  - src/hooks/useDepartmentMap.ts
+    Dynamic mapping hook: deptToRole, roleToDept, deptToStatus
+
+Refactored Files:
+  - src/pages/DepartmentManagement.tsx
+    → Renamed to "Role Management" in UI
+    → Auto-generates role_key from name
+    → Workflow enable/disable toggle
+    → Description field added
+
+  - src/pages/WorkflowRoutingConfig.tsx
+    → Auto-populates from workflow-enabled departments
+    → Drag-to-reorder workflow steps
+    → No manual step creation/deletion needed
+
+  - src/pages/Worklist.tsx
+    → "Pending With" filter renamed to "Role"
+    → Dynamic dropdown from workflow-enabled departments
+
+  - src/lib/workflowRouting.ts
+    → Uses dynamic department mappings instead of hardcoded constants
+
+  - src/hooks/useMRBDatabase.ts
+    → Dynamic role resolution for MRB routing
+
+  - src/data/mockData.ts
+    → Decoupled getRoleDisplayName (fixes circular dependency)
+
+  - src/contexts/RoleContext.tsx
+    → Uses cached dynamic display names
+
+Deployment Scripts Updated:
+  - deploy/install.sh        → Added firewall setup, security headers, psql client
+  - deploy/setup-db.sh       → Verifies departments columns, counts active roles
+  - deploy/health-check.sh   → 11 checks including Supabase API, roles, workflow, Docker
+  - deploy/start.sh          → Pre-check Supabase connectivity
+  - deploy/stop.sh           → Added Supabase stop hint
+  - deploy/update.sh         → Auto-applies migrations before rebuild
+  - deploy/restart.sh        → Minor updates
+  - deploy/setup-scheduler.sh → No functional changes
 
 ================================================================================
   END OF DEPLOYMENT GUIDE
