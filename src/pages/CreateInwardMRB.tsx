@@ -552,7 +552,7 @@ export default function CreateInwardMRB() {
           const { data: roleUsers } = await supabase
             .from('user_roles')
             .select('user_id')
-            .eq('role', pendingWith);
+            .eq('role', pendingWith as any);
 
           let recipientEmails: string[] = [];
           if (roleUsers && roleUsers.length > 0) {
