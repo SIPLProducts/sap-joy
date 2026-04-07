@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 ###############################################################################
-# HBL MRB – Fresh Linux Production Installation
+# HBL MRB – Fresh Linux Production Installation (Self-Hosted Supabase)
 # Run as root or with sudo: sudo bash deploy/install.sh
+# Updated: 2026-04-07
 ###############################################################################
 set -euo pipefail
 
@@ -14,16 +15,17 @@ ENV_FILE="$APP_DIR/.env"
 
 echo "============================================"
 echo "  HBL MRB – Fresh Production Installation"
+echo "  (Self-Hosted Supabase Mode)"
 echo "============================================"
 
 ###############################################################################
 # 1. System Preparation
 ###############################################################################
-echo "[1/8] System preparation..."
+echo "[1/9] System preparation..."
 
 apt-get update -y
 apt-get install -y curl wget git build-essential nginx ufw unzip jq \
-  ca-certificates gnupg lsb-release
+  ca-certificates gnupg lsb-release postgresql-client
 
 # Install Node.js 20 LTS
 if ! command -v node &>/dev/null; then
@@ -35,16 +37,18 @@ echo "  Node: $(node -v) | npm: $(npm -v)"
 # Install PM2 globally
 npm install -g pm2
 
-# Install Deno (for standalone scheduler)
+# Install Deno (for edge function testing)
 if ! command -v deno &>/dev/null; then
   curl -fsSL https://deno.land/install.sh | sh
   ln -sf /root/.deno/bin/deno /usr/local/bin/deno 2>/dev/null || true
 fi
 
+echo "  ✓ System packages installed"
+
 ###############################################################################
 # 2. Create user and directory structure
 ###############################################################################
-echo "[2/8] Creating directories and user..."
+echo "[2/9] Creating directories and user..."
 
 id "$APP_USER" &>/dev/null || useradd -r -m -s /bin/bash "$APP_USER"
 
@@ -55,7 +59,7 @@ mkdir -p "$APP_DIR/scripts"
 ###############################################################################
 # 3. Copy application files
 ###############################################################################
-echo "[3/8] Copying application files..."
+echo "[3/9] Copying application files..."
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
@@ -63,6 +67,9 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # Copy frontend source
 rsync -a --exclude='node_modules' --exclude='.git' --exclude='deploy' \
   "$PROJECT_ROOT/" "$FRONTEND_DIR/"
+
+# Copy deploy scripts to scripts dir for convenience
+cp "$SCRIPT_DIR"/*.sh "$APP_DIR/scripts/" 2>/dev/null || true
 
 # Copy middleware if present
 if [ -d "$PROJECT_ROOT/middleware" ]; then
@@ -72,11 +79,12 @@ fi
 ###############################################################################
 # 4. Environment configuration
 ###############################################################################
-echo "[4/8] Setting up environment..."
+echo "[4/9] Setting up environment..."
 
 if [ ! -f "$ENV_FILE" ]; then
   cat > "$ENV_FILE" <<'ENVEOF'
-# ── Supabase / PostgreSQL ─────────────────────────────────────────
+# ── Supabase / PostgreSQL (Self-Hosted) ───────────────────────────
+# Point to your self-hosted Supabase Kong gateway
 VITE_SUPABASE_URL=http://10.10.4.178:8000
 VITE_SUPABASE_PUBLISHABLE_KEY=<YOUR_ANON_KEY>
 VITE_SUPABASE_PROJECT_ID=<YOUR_PROJECT_ID>
@@ -103,7 +111,7 @@ fi
 ###############################################################################
 # 5. Build frontend
 ###############################################################################
-echo "[5/8] Building frontend..."
+echo "[5/9] Building frontend..."
 
 cd "$FRONTEND_DIR"
 cp "$ENV_FILE" .env 2>/dev/null || true
@@ -115,7 +123,7 @@ echo "  ✓ Frontend built → $FRONTEND_DIR/dist"
 ###############################################################################
 # 6. Install middleware dependencies
 ###############################################################################
-echo "[6/8] Installing middleware dependencies..."
+echo "[6/9] Installing middleware dependencies..."
 
 if [ -f "$BACKEND_DIR/package.json" ]; then
   cd "$BACKEND_DIR"
@@ -128,7 +136,7 @@ fi
 ###############################################################################
 # 7. Configure Nginx
 ###############################################################################
-echo "[7/8] Configuring Nginx..."
+echo "[7/9] Configuring Nginx..."
 
 cat > /etc/nginx/sites-available/mrb <<'NGINX'
 server {
@@ -137,29 +145,37 @@ server {
     root /opt/MRB/frontend/dist;
     index index.html;
 
-    # SPA fallback
+    # SPA fallback — ensures React Router deep links work on refresh
     location / {
         try_files $uri $uri/ /index.html;
     }
 
-    # Proxy SAP middleware
+    # Proxy SAP middleware requests
     location /sap/api/ {
         proxy_pass http://127.0.0.1:3002;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_read_timeout 60s;
+        proxy_connect_timeout 10s;
     }
 
-    # Gzip
+    # Gzip compression
     gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript;
     gzip_min_length 256;
+    gzip_vary on;
 
-    # Cache static assets
-    location ~* \.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?)$ {
+    # Cache static assets (JS, CSS, images, fonts)
+    location ~* \.(js|css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot)$ {
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
+
+    # Security headers
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 }
 NGINX
 
@@ -169,9 +185,19 @@ nginx -t && systemctl restart nginx
 echo "  ✓ Nginx configured on port 3000"
 
 ###############################################################################
-# 8. Set permissions
+# 8. Configure firewall
 ###############################################################################
-echo "[8/8] Setting permissions..."
+echo "[8/9] Configuring firewall..."
+
+ufw allow 22/tcp   >/dev/null 2>&1 || true
+ufw allow 3000/tcp >/dev/null 2>&1 || true
+ufw --force enable  >/dev/null 2>&1 || true
+echo "  ✓ Firewall configured (SSH + Frontend)"
+
+###############################################################################
+# 9. Set permissions
+###############################################################################
+echo "[9/9] Setting permissions..."
 
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 chown -R "$APP_USER:$APP_USER" "$LOG_DIR"
@@ -183,8 +209,24 @@ echo "  Installation Complete!"
 echo "============================================"
 echo ""
 echo "Next steps:"
-echo "  1. Edit $ENV_FILE with your actual credentials"
-echo "  2. Run: sudo bash $APP_DIR/scripts/setup-db.sh"
-echo "  3. Run: sudo -u $APP_USER bash $APP_DIR/scripts/start.sh"
-echo "  4. Run: sudo bash $APP_DIR/scripts/setup-scheduler.sh"
+echo "  1. Edit $ENV_FILE with your actual credentials:"
+echo "       sudo nano $ENV_FILE"
+echo ""
+echo "  2. Setup database (applies all migrations):"
+echo "       sudo bash $APP_DIR/scripts/setup-db.sh"
+echo ""
+echo "  3. Start services (middleware + scheduler):"
+echo "       sudo -u $APP_USER bash $APP_DIR/scripts/start.sh"
+echo ""
+echo "  4. Setup scheduler auto-start on boot:"
+echo "       sudo bash $APP_DIR/scripts/setup-scheduler.sh"
+echo ""
+echo "  5. Verify installation:"
+echo "       sudo bash $APP_DIR/scripts/health-check.sh"
+echo ""
+echo "  6. Create admin user (see deployment guide):"
+echo "       Access http://<SERVER_IP>:3000"
+echo ""
+echo "IMPORTANT: Ensure self-hosted Supabase (Docker) is running"
+echo "           before starting services!"
 echo ""

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ###############################################################################
-# HBL MRB – Health Check
+# HBL MRB – Health Check (Updated: 2026-04-07)
 ###############################################################################
 set -euo pipefail
 
@@ -17,6 +17,7 @@ echo "============================================"
 echo ""
 
 ERRORS=0
+WARNINGS=0
 
 # 1. Nginx
 echo -n "  Nginx:              "
@@ -35,7 +36,7 @@ else
 fi
 
 # 3. SAP Middleware (port 3002)
-echo -n "  Middleware (3002):   "
+echo -n "  Middleware (3002):  "
 if pm2 describe mrb-app 2>/dev/null | grep -q "online"; then
   echo "✓ online"
 else
@@ -47,7 +48,7 @@ echo -n "  Scheduler:          "
 if pm2 describe mrb-scheduler 2>/dev/null | grep -q "online"; then
   echo "✓ online"
 else
-  echo "– not running (may use pg_cron instead)"
+  echo "– not running (may use pg_cron instead)"; WARNINGS=$((WARNINGS+1))
 fi
 
 # 5. Database
@@ -60,19 +61,28 @@ if [ -n "$DB_URL" ]; then
     echo "✗ connection failed"; ERRORS=$((ERRORS+1))
   fi
 else
-  echo "– SUPABASE_DB_URL not set"
+  echo "– SUPABASE_DB_URL not set"; WARNINGS=$((WARNINGS+1))
 fi
 
-# 6. Disk usage
+# 6. Self-hosted Supabase API Gateway
+echo -n "  Supabase API (8000):"
+SUPA_URL="${VITE_SUPABASE_URL:-http://localhost:8000}"
+if curl -sf "$SUPA_URL/rest/v1/" -H "apikey: ${VITE_SUPABASE_PUBLISHABLE_KEY:-none}" >/dev/null 2>&1; then
+  echo " ✓ responding"
+else
+  echo " ✗ NOT responding"; ERRORS=$((ERRORS+1))
+fi
+
+# 7. Disk usage
 echo -n "  Disk usage:         "
 DISK_PCT=$(df / | awk 'NR==2 {print $5}' | tr -d '%')
 if [ "$DISK_PCT" -lt 85 ]; then
   echo "✓ ${DISK_PCT}% used"
 else
-  echo "⚠ ${DISK_PCT}% used (getting full)"; ERRORS=$((ERRORS+1))
+  echo "⚠ ${DISK_PCT}% used (getting full)"; WARNINGS=$((WARNINGS+1))
 fi
 
-# 7. Stale scheduler locks
+# 8. Stale scheduler locks
 echo -n "  Scheduler locks:    "
 if [ -n "$DB_URL" ]; then
   STALE=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM public.scheduler_lock WHERE expires_at < now();" 2>/dev/null || echo "?")
@@ -81,16 +91,63 @@ if [ -n "$DB_URL" ]; then
   elif [ "$STALE" = "?" ]; then
     echo "– could not check"
   else
-    echo "⚠ $STALE stale lock(s) — run: psql -c \"DELETE FROM scheduler_lock WHERE expires_at < now();\""
+    echo "⚠ $STALE stale lock(s)"; WARNINGS=$((WARNINGS+1))
+    echo "    Fix: psql \"\$SUPABASE_DB_URL\" -c \"DELETE FROM scheduler_lock WHERE expires_at < now();\""
   fi
 else
   echo "– skipped"
 fi
 
-echo ""
-if [ "$ERRORS" -eq 0 ]; then
-  echo "  ✓ All checks passed"
+# 9. Departments/Roles configuration
+echo -n "  Roles configured:   "
+if [ -n "$DB_URL" ]; then
+  ROLE_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM public.departments WHERE is_active = true AND is_workflow_enabled = true;" 2>/dev/null || echo "?")
+  if [ "$ROLE_COUNT" != "?" ] && [ "$ROLE_COUNT" -gt 0 ]; then
+    echo "✓ $ROLE_COUNT workflow-enabled roles"
+  elif [ "$ROLE_COUNT" = "0" ]; then
+    echo "⚠ No workflow-enabled roles — configure in Role Management"; WARNINGS=$((WARNINGS+1))
+  else
+    echo "– could not check"
+  fi
 else
-  echo "  ⚠ $ERRORS issue(s) detected"
+  echo "– skipped"
+fi
+
+# 10. Workflow config
+echo -n "  Workflow config:    "
+if [ -n "$DB_URL" ]; then
+  WF_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(DISTINCT plant) FROM public.plant_workflow_config WHERE is_active = true;" 2>/dev/null || echo "?")
+  if [ "$WF_COUNT" != "?" ] && [ "$WF_COUNT" -gt 0 ]; then
+    echo "✓ $WF_COUNT plant(s) configured"
+  elif [ "$WF_COUNT" = "0" ]; then
+    echo "⚠ No plant workflow configs — set up in Workflow Config page"; WARNINGS=$((WARNINGS+1))
+  else
+    echo "– could not check"
+  fi
+else
+  echo "– skipped"
+fi
+
+# 11. Docker (self-hosted Supabase)
+echo -n "  Docker:             "
+if command -v docker &>/dev/null; then
+  RUNNING=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -c "supabase" || echo "0")
+  if [ "$RUNNING" -gt 0 ]; then
+    echo "✓ $RUNNING Supabase container(s) running"
+  else
+    echo "⚠ No Supabase containers found"; WARNINGS=$((WARNINGS+1))
+  fi
+else
+  echo "– Docker not installed (may use external Supabase)"
+fi
+
+echo ""
+echo "────────────────────────────────"
+if [ "$ERRORS" -eq 0 ] && [ "$WARNINGS" -eq 0 ]; then
+  echo "  ✓ All checks passed"
+elif [ "$ERRORS" -eq 0 ]; then
+  echo "  ⚠ $WARNINGS warning(s), no critical errors"
+else
+  echo "  ✗ $ERRORS error(s), $WARNINGS warning(s)"
 fi
 echo ""
