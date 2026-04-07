@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ###############################################################################
-# HBL MRB – Restart all services (zero-downtime)
+# HBL MRB – Restart all services (zero-downtime) (Updated: 2026-04-07)
 ###############################################################################
 set -euo pipefail
 

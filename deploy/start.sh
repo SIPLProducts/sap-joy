@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ###############################################################################
-# HBL MRB – Start all services via PM2
+# HBL MRB – Start all services via PM2 (Updated: 2026-04-07)
 ###############################################################################
 set -euo pipefail
 
@@ -16,6 +16,22 @@ fi
 echo "============================================"
 echo "  HBL MRB – Starting Services"
 echo "============================================"
+
+# Ensure log directory exists
+mkdir -p "$LOG_DIR"
+
+###############################################################################
+# 0. Pre-check: Verify self-hosted Supabase is reachable
+###############################################################################
+SUPA_URL="${VITE_SUPABASE_URL:-http://localhost:8000}"
+echo "[0/2] Checking Supabase connectivity..."
+if curl -sf "$SUPA_URL/rest/v1/" -H "apikey: ${VITE_SUPABASE_PUBLISHABLE_KEY:-none}" >/dev/null 2>&1; then
+  echo "  ✓ Supabase API reachable at $SUPA_URL"
+else
+  echo "  ⚠ Supabase API not reachable at $SUPA_URL"
+  echo "    Make sure self-hosted Supabase (Docker) is running!"
+  echo "    Continuing anyway..."
+fi
 
 ###############################################################################
 # 1. SAP Proxy Middleware (port 3002)

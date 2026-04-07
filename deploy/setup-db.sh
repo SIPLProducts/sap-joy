@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 ###############################################################################
 # HBL MRB – Database Setup & Migration (Self-Hosted Supabase / PostgreSQL)
+# Updated: 2026-04-07
 ###############################################################################
 set -euo pipefail
 
@@ -19,12 +20,13 @@ fi
 
 echo "============================================"
 echo "  HBL MRB – Database Setup"
+echo "  Updated: 2026-04-07"
 echo "============================================"
 
 ###############################################################################
 # 1. Enable required extensions
 ###############################################################################
-echo "[1/4] Enabling extensions..."
+echo "[1/5] Enabling extensions..."
 
 psql "$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
 psql "$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
@@ -36,7 +38,7 @@ echo "  ✓ Extensions enabled"
 ###############################################################################
 # 2. Apply migrations in order
 ###############################################################################
-echo "[2/4] Applying migrations..."
+echo "[2/5] Applying migrations..."
 
 MIGRATION_DIR="$APP_DIR/frontend/supabase/migrations"
 
@@ -45,7 +47,6 @@ if [ -d "$MIGRATION_DIR" ]; then
   for sql_file in $(ls "$MIGRATION_DIR"/*.sql 2>/dev/null | sort); do
     echo "  Applying: $(basename "$sql_file")"
     psql "$DB_URL" -f "$sql_file" --single-transaction 2>&1 | while read -r line; do
-      # Suppress notices, show errors
       case "$line" in
         NOTICE*) ;;
         *) echo "    $line" ;;
@@ -61,7 +62,7 @@ fi
 ###############################################################################
 # 3. Verify tables exist
 ###############################################################################
-echo "[3/4] Verifying core tables..."
+echo "[3/5] Verifying core tables..."
 
 REQUIRED_TABLES=(
   "profiles"
@@ -111,7 +112,7 @@ fi
 ###############################################################################
 # 4. Verify critical functions
 ###############################################################################
-echo "[4/4] Verifying database functions..."
+echo "[4/5] Verifying database functions..."
 
 REQUIRED_FUNCS=(
   "has_role"
@@ -127,6 +128,8 @@ REQUIRED_FUNCS=(
   "release_scheduler_lock"
   "add_dynamic_column"
   "get_table_columns"
+  "handle_new_user"
+  "update_updated_at_column"
 )
 
 FUNC_MISSING=0
@@ -144,7 +147,40 @@ else
   echo "  ⚠ $FUNC_MISSING function(s) missing"
 fi
 
+###############################################################################
+# 5. Verify departments/workflow configuration
+###############################################################################
+echo "[5/5] Verifying departments & workflow config..."
+
+# Check departments table has workflow columns
+HAS_WORKFLOW_STATUS=$(psql "$DB_URL" -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='departments' AND column_name='workflow_status');")
+if [ "$HAS_WORKFLOW_STATUS" = "t" ]; then
+  echo "  ✓ departments.workflow_status column exists"
+else
+  echo "  ⚠ departments.workflow_status column missing — apply latest migration"
+fi
+
+HAS_ROLE_KEY=$(psql "$DB_URL" -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='departments' AND column_name='role_key');")
+if [ "$HAS_ROLE_KEY" = "t" ]; then
+  echo "  ✓ departments.role_key column exists"
+else
+  echo "  ⚠ departments.role_key column missing — apply latest migration"
+fi
+
+# Count active departments
+DEPT_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM public.departments WHERE is_active = true;" 2>/dev/null || echo "0")
+echo "  ℹ Active departments/roles: $DEPT_COUNT"
+
+# Count workflow configs
+WF_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM public.plant_workflow_config WHERE is_active = true;" 2>/dev/null || echo "0")
+echo "  ℹ Active workflow steps: $WF_COUNT"
+
 echo ""
 echo "============================================"
 echo "  Database setup complete"
 echo "============================================"
+echo ""
+echo "If tables or functions are missing, ensure all"
+echo "migration files are present in:"
+echo "  $MIGRATION_DIR"
+echo ""

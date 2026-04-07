@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 ###############################################################################
 # HBL MRB – Setup PM2 auto-start on boot + scheduler lock cleanup cron
+# Updated: 2026-04-07
 ###############################################################################
 set -euo pipefail
 
