@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 ###############################################################################
-# HBL MRB – Health Check (Updated: 2026-04-07)
+# HBL MRB – Health Check (reviewed & fixed)
+# Updated: 2026-04-07
 ###############################################################################
 set -euo pipefail
 
@@ -20,23 +21,23 @@ ERRORS=0
 WARNINGS=0
 
 # 1. Nginx
-echo -n "  Nginx:              "
-if systemctl is-active --quiet nginx; then
+printf "  %-22s" "Nginx:"
+if systemctl is-active --quiet nginx 2>/dev/null; then
   echo "✓ running"
 else
   echo "✗ NOT running"; ERRORS=$((ERRORS+1))
 fi
 
 # 2. Frontend (port 3000)
-echo -n "  Frontend (3000):    "
-if curl -sf http://localhost:3000 >/dev/null 2>&1; then
+printf "  %-22s" "Frontend (3000):"
+if curl -sf --max-time 5 http://localhost:3000 >/dev/null 2>&1; then
   echo "✓ responding"
 else
   echo "✗ NOT responding"; ERRORS=$((ERRORS+1))
 fi
 
 # 3. SAP Middleware (port 3002)
-echo -n "  Middleware (3002):  "
+printf "  %-22s" "Middleware (3002):"
 if pm2 describe mrb-app 2>/dev/null | grep -q "online"; then
   echo "✓ online"
 else
@@ -44,15 +45,15 @@ else
 fi
 
 # 4. Scheduler
-echo -n "  Scheduler:          "
+printf "  %-22s" "Scheduler:"
 if pm2 describe mrb-scheduler 2>/dev/null | grep -q "online"; then
   echo "✓ online"
 else
-  echo "– not running (may use pg_cron instead)"; WARNINGS=$((WARNINGS+1))
+  echo "– not running (may use pg_cron)"; WARNINGS=$((WARNINGS+1))
 fi
 
 # 5. Database
-echo -n "  Database:           "
+printf "  %-22s" "Database:"
 DB_URL="${SUPABASE_DB_URL:-}"
 if [ -n "$DB_URL" ]; then
   if psql "$DB_URL" -c "SELECT 1;" >/dev/null 2>&1; then
@@ -65,16 +66,19 @@ else
 fi
 
 # 6. Self-hosted Supabase API Gateway
-echo -n "  Supabase API (8000):"
+printf "  %-22s" "Supabase API (8000):"
 SUPA_URL="${VITE_SUPABASE_URL:-http://localhost:8000}"
-if curl -sf "$SUPA_URL/rest/v1/" -H "apikey: ${VITE_SUPABASE_PUBLISHABLE_KEY:-none}" >/dev/null 2>&1; then
-  echo " ✓ responding"
+ANON_KEY="${VITE_SUPABASE_PUBLISHABLE_KEY:-}"
+SUPA_HEADERS=""
+[ -n "$ANON_KEY" ] && SUPA_HEADERS="-H apikey:$ANON_KEY"
+if curl -sf --max-time 5 "$SUPA_URL/rest/v1/" $SUPA_HEADERS >/dev/null 2>&1; then
+  echo "✓ responding"
 else
-  echo " ✗ NOT responding"; ERRORS=$((ERRORS+1))
+  echo "✗ NOT responding"; ERRORS=$((ERRORS+1))
 fi
 
 # 7. Disk usage
-echo -n "  Disk usage:         "
+printf "  %-22s" "Disk usage:"
 DISK_PCT=$(df / | awk 'NR==2 {print $5}' | tr -d '%')
 if [ "$DISK_PCT" -lt 85 ]; then
   echo "✓ ${DISK_PCT}% used"
@@ -83,29 +87,31 @@ else
 fi
 
 # 8. Stale scheduler locks
-echo -n "  Scheduler locks:    "
+printf "  %-22s" "Scheduler locks:"
 if [ -n "$DB_URL" ]; then
   STALE=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM public.scheduler_lock WHERE expires_at < now();" 2>/dev/null || echo "?")
+  STALE=$(echo "$STALE" | tr -d ' ')
   if [ "$STALE" = "0" ]; then
     echo "✓ no stale locks"
   elif [ "$STALE" = "?" ]; then
     echo "– could not check"
   else
     echo "⚠ $STALE stale lock(s)"; WARNINGS=$((WARNINGS+1))
-    echo "    Fix: psql \"\$SUPABASE_DB_URL\" -c \"DELETE FROM scheduler_lock WHERE expires_at < now();\""
+    echo "                        Fix: psql \"\$SUPABASE_DB_URL\" -c \"DELETE FROM scheduler_lock WHERE expires_at < now();\""
   fi
 else
   echo "– skipped"
 fi
 
 # 9. Departments/Roles configuration
-echo -n "  Roles configured:   "
+printf "  %-22s" "Roles configured:"
 if [ -n "$DB_URL" ]; then
   ROLE_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM public.departments WHERE is_active = true AND is_workflow_enabled = true;" 2>/dev/null || echo "?")
-  if [ "$ROLE_COUNT" != "?" ] && [ "$ROLE_COUNT" -gt 0 ]; then
+  ROLE_COUNT=$(echo "$ROLE_COUNT" | tr -d ' ')
+  if [ "$ROLE_COUNT" != "?" ] && [ "$ROLE_COUNT" -gt 0 ] 2>/dev/null; then
     echo "✓ $ROLE_COUNT workflow-enabled roles"
   elif [ "$ROLE_COUNT" = "0" ]; then
-    echo "⚠ No workflow-enabled roles — configure in Role Management"; WARNINGS=$((WARNINGS+1))
+    echo "⚠ No workflow-enabled roles configured"; WARNINGS=$((WARNINGS+1))
   else
     echo "– could not check"
   fi
@@ -114,13 +120,14 @@ else
 fi
 
 # 10. Workflow config
-echo -n "  Workflow config:    "
+printf "  %-22s" "Workflow config:"
 if [ -n "$DB_URL" ]; then
   WF_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(DISTINCT plant) FROM public.plant_workflow_config WHERE is_active = true;" 2>/dev/null || echo "?")
-  if [ "$WF_COUNT" != "?" ] && [ "$WF_COUNT" -gt 0 ]; then
+  WF_COUNT=$(echo "$WF_COUNT" | tr -d ' ')
+  if [ "$WF_COUNT" != "?" ] && [ "$WF_COUNT" -gt 0 ] 2>/dev/null; then
     echo "✓ $WF_COUNT plant(s) configured"
   elif [ "$WF_COUNT" = "0" ]; then
-    echo "⚠ No plant workflow configs — set up in Workflow Config page"; WARNINGS=$((WARNINGS+1))
+    echo "⚠ No plant workflow configs"; WARNINGS=$((WARNINGS+1))
   else
     echo "– could not check"
   fi
@@ -129,16 +136,16 @@ else
 fi
 
 # 11. Docker (self-hosted Supabase)
-echo -n "  Docker:             "
+printf "  %-22s" "Docker:"
 if command -v docker &>/dev/null; then
-  RUNNING=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -c "supabase" || echo "0")
+  RUNNING=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -ci "supabase" || echo "0")
   if [ "$RUNNING" -gt 0 ]; then
     echo "✓ $RUNNING Supabase container(s) running"
   else
     echo "⚠ No Supabase containers found"; WARNINGS=$((WARNINGS+1))
   fi
 else
-  echo "– Docker not installed (may use external Supabase)"
+  echo "– Docker not installed"
 fi
 
 echo ""

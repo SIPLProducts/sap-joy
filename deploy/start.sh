@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 ###############################################################################
-# HBL MRB – Start all services via PM2 (Updated: 2026-04-07)
+# HBL MRB – Start all services via PM2
+# Updated: 2026-04-07 (reviewed & fixed)
 ###############################################################################
 set -euo pipefail
 
@@ -23,23 +24,36 @@ mkdir -p "$LOG_DIR"
 ###############################################################################
 # 0. Pre-check: Verify self-hosted Supabase is reachable
 ###############################################################################
-SUPA_URL="${VITE_SUPABASE_URL:-http://localhost:8000}"
+SUPA_URL="${VITE_SUPABASE_URL:-}"
 echo "[0/2] Checking Supabase connectivity..."
-if curl -sf "$SUPA_URL/rest/v1/" -H "apikey: ${VITE_SUPABASE_PUBLISHABLE_KEY:-none}" >/dev/null 2>&1; then
-  echo "  ✓ Supabase API reachable at $SUPA_URL"
+
+if [ -n "$SUPA_URL" ]; then
+  ANON_KEY="${VITE_SUPABASE_PUBLISHABLE_KEY:-}"
+  HEADERS=""
+  if [ -n "$ANON_KEY" ]; then
+    HEADERS="-H apikey:$ANON_KEY"
+  fi
+  
+  if curl -sf --max-time 5 "$SUPA_URL/rest/v1/" $HEADERS >/dev/null 2>&1; then
+    echo "  ✓ Supabase API reachable at $SUPA_URL"
+  else
+    echo "  ⚠ Supabase API not reachable at $SUPA_URL"
+    echo "    Make sure self-hosted Supabase (Docker) is running!"
+    echo "    Continuing anyway..."
+  fi
 else
-  echo "  ⚠ Supabase API not reachable at $SUPA_URL"
-  echo "    Make sure self-hosted Supabase (Docker) is running!"
-  echo "    Continuing anyway..."
+  echo "  ⚠ VITE_SUPABASE_URL not set — skipping check"
 fi
 
 ###############################################################################
 # 1. SAP Proxy Middleware (port 3002)
 ###############################################################################
 if [ -f "$BACKEND_DIR/server.js" ] || [ -f "$BACKEND_DIR/index.js" ]; then
-  ENTRY=$([ -f "$BACKEND_DIR/server.js" ] && echo "server.js" || echo "index.js")
+  ENTRY="index.js"
+  [ -f "$BACKEND_DIR/server.js" ] && ENTRY="server.js"
+  
   echo "[1/2] Starting SAP Proxy Middleware..."
-  pm2 describe mrb-app >/dev/null 2>&1 && pm2 delete mrb-app
+  pm2 describe mrb-app >/dev/null 2>&1 && pm2 delete mrb-app 2>/dev/null
   pm2 start "$BACKEND_DIR/$ENTRY" \
     --name mrb-app \
     --cwd "$BACKEND_DIR" \
@@ -50,7 +64,7 @@ if [ -f "$BACKEND_DIR/server.js" ] || [ -f "$BACKEND_DIR/index.js" ]; then
     --restart-delay 5000
   echo "  ✓ mrb-app started on port ${SAP_PROXY_PORT:-3002}"
 else
-  echo "[1/2] ⚠ No middleware entry point found — skipping"
+  echo "[1/2] ⚠ No middleware entry point found at $BACKEND_DIR — skipping"
 fi
 
 ###############################################################################
@@ -59,7 +73,7 @@ fi
 SCHED_FILE="$BACKEND_DIR/scheduler.js"
 if [ -f "$SCHED_FILE" ]; then
   echo "[2/2] Starting Standalone Scheduler..."
-  pm2 describe mrb-scheduler >/dev/null 2>&1 && pm2 delete mrb-scheduler
+  pm2 describe mrb-scheduler >/dev/null 2>&1 && pm2 delete mrb-scheduler 2>/dev/null
   pm2 start "$SCHED_FILE" \
     --name mrb-scheduler \
     --cwd "$BACKEND_DIR" \
@@ -71,13 +85,13 @@ if [ -f "$SCHED_FILE" ]; then
     --cron-restart "0 */6 * * *"
   echo "  ✓ mrb-scheduler started on port ${SCHEDULER_PORT:-3100}"
 else
-  echo "[2/2] ⚠ No scheduler.js found — skipping"
+  echo "[2/2] ⚠ No scheduler.js found at $BACKEND_DIR — skipping"
 fi
 
 ###############################################################################
 # Save PM2 list for auto-restart on reboot
 ###############################################################################
-pm2 save
+pm2 save 2>/dev/null || true
 echo ""
 echo "  ✓ PM2 process list saved"
 
@@ -85,7 +99,7 @@ echo "  ✓ PM2 process list saved"
 # Status
 ###############################################################################
 echo ""
-pm2 list
+pm2 list 2>/dev/null || true
 echo ""
 echo "============================================"
 echo "  All services started"
