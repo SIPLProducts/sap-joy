@@ -1029,6 +1029,14 @@ async function mapAndInsertClientSide(
           const qty = Number(row.available_quantity);
           row.available_quantity = Number.isFinite(qty) ? qty : undefined;
         }
+        // Generate composite stock_key for deduplication
+        const keyParts = [
+          String(row.plant || ''),
+          String(row.material_code || ''),
+          String(row.batch || ''),
+          String(row.storage_location || ''),
+        ];
+        row.stock_key = keyParts.join('_');
       }
 
       if (tableName === 'inward_inspection_lots') {

@@ -178,6 +178,7 @@ Deno.serve({ port }, async (req) => {
             activeResponseFields,
             syncRecord.id,
             config.max_records,
+            plantCode,
           )
 
           const hasErrors = syncResult.errors.length > 0
@@ -601,6 +602,7 @@ async function mapAndInsertData(
   responseFields: any[],
   syncId: string,
   maxRecords?: number | null,
+  plantCode?: string,
 ): Promise<SyncResult> {
   const limitedRecords = typeof maxRecords === 'number' && maxRecords > 0 ? records.slice(0, maxRecords) : records
   const result: SyncResult = { fetched: limitedRecords.length, inserted: 0, updated: 0, errors: [] }
@@ -619,6 +621,7 @@ async function mapAndInsertData(
       'transfer_qty', 'unrestricted_value', 'blocked_value', 'quality_inspection_value',
       'transfer_value', 'row_number_custom', 'shelf_number', 'rack_number', 'bin_number',
       'uom', 'production_order', 'reservation_number', 'sap_sync_id', 'source', 'status',
+      'stock_key',
     ]),
     inward_inspection_lots: new Set([
       'inspection_lot', 'material_code', 'material_description', 'plant', 'storage_location',
@@ -726,6 +729,14 @@ async function mapAndInsertData(
           const qty = Number(row.available_quantity)
           row.available_quantity = Number.isFinite(qty) ? qty : 0
         }
+        // Generate composite stock_key for deduplication
+        const keyParts = [
+          String(row.plant || ''),
+          String(row.material_code || ''),
+          String(row.batch || ''),
+          String(row.storage_location || ''),
+        ]
+        row.stock_key = keyParts.join('_')
       }
 
       if (tableName === 'inward_inspection_lots') {
@@ -751,38 +762,91 @@ async function mapAndInsertData(
 
     if (!rows.length) continue
 
-    // Batch upsert matching manual sync
     const batchSize = 500
-    const upsertOptions = tableName === 'shop_floor_stock'
-      ? { onConflict: 'stock_key', ignoreDuplicates: false }
-      : tableName === 'inward_inspection_lots'
-      ? { onConflict: 'inspection_lot', ignoreDuplicates: false }
-      : undefined
 
-    for (let i = 0; i < rows.length; i += batchSize) {
-      const batch = rows.slice(i, i + batchSize)
-
-      // Count existing records BEFORE upsert to distinguish inserts vs updates
-      let existingCount = 0
-      if (upsertOptions) {
-        const conflictCol = tableName === 'shop_floor_stock' ? 'stock_key' : 'inspection_lot'
-        const keys = batch.map((r: any) => r[conflictCol]).filter(Boolean)
-        if (keys.length > 0) {
-          const { count } = await supabase.from(tableName).select('id', { count: 'exact', head: true }).in(conflictCol, keys)
-          existingCount = count || 0
+    // ── Strategy per table ──
+    if (tableName === 'shop_floor_stock') {
+      // FULL REFRESH: Delete existing SAP-synced records for this plant, then insert fresh
+      const deletePlant = plantCode && plantCode !== 'ALL' ? plantCode : null
+      if (deletePlant) {
+        const { error: delErr } = await supabase
+          .from('shop_floor_stock')
+          .delete()
+          .eq('source', 'sap_api')
+          .eq('plant', deletePlant)
+        if (delErr) {
+          console.log(`[scheduler] Delete error for shop_floor_stock plant=${deletePlant}:`, delErr.message)
+          result.errors.push(`Error clearing old stock data: ${delErr.message}`)
+        } else {
+          console.log(`[scheduler] Cleared existing SAP stock records for plant ${deletePlant}`)
+        }
+      } else {
+        // No specific plant — clear all SAP-synced stock
+        const { error: delErr } = await supabase
+          .from('shop_floor_stock')
+          .delete()
+          .eq('source', 'sap_api')
+        if (delErr) {
+          console.log(`[scheduler] Delete error for shop_floor_stock (all):`, delErr.message)
+          result.errors.push(`Error clearing old stock data: ${delErr.message}`)
+        } else {
+          console.log(`[scheduler] Cleared all existing SAP stock records`)
         }
       }
 
-      const { data, error } = await supabase.from(tableName).upsert(batch, upsertOptions).select()
-      if (error) {
-        console.log(`[scheduler] Upsert error for ${tableName}:`, error.message)
-        result.errors.push(`Error inserting into ${tableName}: ${error.message}`)
-        break
+      // Insert all as new rows
+      for (let i = 0; i < rows.length; i += batchSize) {
+        const batch = rows.slice(i, i + batchSize)
+        const { data, error } = await supabase.from(tableName).insert(batch).select()
+        if (error) {
+          console.log(`[scheduler] Insert error for ${tableName}:`, error.message)
+          result.errors.push(`Error inserting into ${tableName}: ${error.message}`)
+          break
+        }
+        result.inserted += data?.length || 0
       }
-      const totalUpserted = data?.length || 0
-      const newInserts = Math.max(0, totalUpserted - existingCount)
-      result.inserted += newInserts
-      result.updated += totalUpserted - newInserts
+    } else if (tableName === 'inward_inspection_lots') {
+      // UPSERT: Existing inspection lots get updated, new ones get inserted
+      for (let i = 0; i < rows.length; i += batchSize) {
+        const batch = rows.slice(i, i + batchSize)
+
+        // Get existing inspection_lot keys to accurately count inserts vs updates
+        const lotKeys = batch.map((r: any) => r.inspection_lot).filter(Boolean)
+        let existingCount = 0
+        if (lotKeys.length > 0) {
+          const { count } = await supabase
+            .from(tableName)
+            .select('id', { count: 'exact', head: true })
+            .in('inspection_lot', lotKeys)
+          existingCount = count || 0
+        }
+
+        const { data, error } = await supabase
+          .from(tableName)
+          .upsert(batch, { onConflict: 'inspection_lot', ignoreDuplicates: false })
+          .select()
+        if (error) {
+          console.log(`[scheduler] Upsert error for ${tableName}:`, error.message)
+          result.errors.push(`Error upserting into ${tableName}: ${error.message}`)
+          break
+        }
+        const totalProcessed = data?.length || 0
+        const newInserts = Math.max(0, totalProcessed - existingCount)
+        result.inserted += newInserts
+        result.updated += totalProcessed - newInserts
+      }
+    } else {
+      // Generic insert for other tables (materials, vendors)
+      for (let i = 0; i < rows.length; i += batchSize) {
+        const batch = rows.slice(i, i + batchSize)
+        const { data, error } = await supabase.from(tableName).insert(batch).select()
+        if (error) {
+          console.log(`[scheduler] Insert error for ${tableName}:`, error.message)
+          result.errors.push(`Error inserting into ${tableName}: ${error.message}`)
+          break
+        }
+        result.inserted += data?.length || 0
+      }
     }
   }
 
