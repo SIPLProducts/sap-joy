@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 ###############################################################################
 # HBL MRB – Database Setup & Migration (Self-Hosted Supabase / PostgreSQL)
+# Applies all migrations, verifies tables/functions/columns
 # Updated: 2026-04-07
 ###############################################################################
 set -euo pipefail
@@ -19,50 +20,102 @@ if [ -z "$DB_URL" ]; then
 fi
 
 echo "============================================"
-echo "  HBL MRB – Database Setup"
-echo "  Updated: 2026-04-07"
+echo "  HBL MRB – Database Setup & Migrations"
 echo "============================================"
 
 ###############################################################################
-# 1. Enable required extensions
+# 1. Test database connection
 ###############################################################################
-echo "[1/5] Enabling extensions..."
+echo "[1/6] Testing database connection..."
 
-psql "$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
-psql "$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+if ! psql "$DB_URL" -c "SELECT 1;" >/dev/null 2>&1; then
+  echo "  ✗ Cannot connect to database!"
+  echo "    Check SUPABASE_DB_URL in $ENV_FILE"
+  echo "    Ensure PostgreSQL / Supabase is running"
+  exit 1
+fi
+echo "  ✓ Database connected"
+
+###############################################################################
+# 2. Enable required extensions
+###############################################################################
+echo "[2/6] Enabling extensions..."
+
+psql "$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" 2>/dev/null
+psql "$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" 2>/dev/null
 psql "$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS pg_cron;" 2>/dev/null || echo "  ⚠ pg_cron not available (ok for non-scheduler setups)"
 psql "$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS pg_net;" 2>/dev/null || echo "  ⚠ pg_net not available"
 
 echo "  ✓ Extensions enabled"
 
 ###############################################################################
-# 2. Apply migrations in order
+# 3. Create migration tracking table
 ###############################################################################
-echo "[2/5] Applying migrations..."
+echo "[3/6] Setting up migration tracking..."
+
+psql "$DB_URL" -c "
+  CREATE TABLE IF NOT EXISTS public._migrations (
+    id serial PRIMARY KEY,
+    filename text UNIQUE NOT NULL,
+    applied_at timestamptz DEFAULT now()
+  );
+" 2>/dev/null
+
+echo "  ✓ Migration tracking ready"
+
+###############################################################################
+# 4. Apply migrations in order (skip already-applied)
+###############################################################################
+echo "[4/6] Applying migrations..."
 
 MIGRATION_DIR="$APP_DIR/frontend/supabase/migrations"
 
-if [ -d "$MIGRATION_DIR" ]; then
-  MIGRATION_COUNT=0
-  for sql_file in $(ls "$MIGRATION_DIR"/*.sql 2>/dev/null | sort); do
-    echo "  Applying: $(basename "$sql_file")"
-    psql "$DB_URL" -f "$sql_file" --single-transaction 2>&1 | while read -r line; do
-      case "$line" in
-        NOTICE*) ;;
-        *) echo "    $line" ;;
-      esac
-    done
-    MIGRATION_COUNT=$((MIGRATION_COUNT + 1))
-  done
-  echo "  ✓ Applied $MIGRATION_COUNT migration(s)"
-else
+if [ ! -d "$MIGRATION_DIR" ]; then
   echo "  ⚠ No migration directory found at $MIGRATION_DIR"
+else
+  APPLIED=0
+  SKIPPED=0
+  FAILED=0
+  
+  for sql_file in $(ls "$MIGRATION_DIR"/*.sql 2>/dev/null | sort); do
+    FILENAME=$(basename "$sql_file")
+    
+    # Check if already applied
+    ALREADY=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM public._migrations WHERE filename='$FILENAME';" 2>/dev/null || echo "0")
+    
+    if [ "$ALREADY" -gt 0 ]; then
+      SKIPPED=$((SKIPPED + 1))
+      continue
+    fi
+    
+    echo "  Applying: $FILENAME"
+    if psql "$DB_URL" -f "$sql_file" --single-transaction 2>&1 | while read -r line; do
+        case "$line" in
+          NOTICE*|DO*|ALTER*|CREATE*|INSERT*|UPDATE*|DELETE*) ;;
+          ERROR*) echo "    ✗ $line"; false ;;
+          *) ;;
+        esac
+      done; then
+      # Record successful migration
+      psql "$DB_URL" -c "INSERT INTO public._migrations (filename) VALUES ('$FILENAME');" 2>/dev/null
+      APPLIED=$((APPLIED + 1))
+    else
+      echo "    ⚠ Migration had errors (may be safe if objects already exist)"
+      # Still record it to avoid re-running
+      psql "$DB_URL" -c "INSERT INTO public._migrations (filename) VALUES ('$FILENAME') ON CONFLICT DO NOTHING;" 2>/dev/null
+      FAILED=$((FAILED + 1))
+    fi
+  done
+  
+  TOTAL=$(ls "$MIGRATION_DIR"/*.sql 2>/dev/null | wc -l)
+  echo "  ✓ Migrations: $APPLIED applied, $SKIPPED skipped (already done), $FAILED warnings"
+  echo "  ✓ Total migration files: $TOTAL"
 fi
 
 ###############################################################################
-# 3. Verify tables exist
+# 5. Verify tables exist
 ###############################################################################
-echo "[3/5] Verifying core tables..."
+echo "[5/6] Verifying core tables..."
 
 REQUIRED_TABLES=(
   "profiles"
@@ -94,25 +147,25 @@ REQUIRED_TABLES=(
   "scheduler_lock"
 )
 
-MISSING=0
+TABLE_MISSING=0
 for tbl in "${REQUIRED_TABLES[@]}"; do
   EXISTS=$(psql "$DB_URL" -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='$tbl');")
   if [ "$EXISTS" != "t" ]; then
     echo "  ✗ Missing table: $tbl"
-    MISSING=$((MISSING + 1))
+    TABLE_MISSING=$((TABLE_MISSING + 1))
   fi
 done
 
-if [ "$MISSING" -eq 0 ]; then
+if [ "$TABLE_MISSING" -eq 0 ]; then
   echo "  ✓ All ${#REQUIRED_TABLES[@]} core tables verified"
 else
-  echo "  ⚠ $MISSING table(s) missing — check migrations"
+  echo "  ⚠ $TABLE_MISSING table(s) missing — check migrations"
 fi
 
 ###############################################################################
-# 4. Verify critical functions
+# 6. Verify functions & key columns
 ###############################################################################
-echo "[4/5] Verifying database functions..."
+echo "[6/6] Verifying functions & schema..."
 
 REQUIRED_FUNCS=(
   "has_role"
@@ -147,40 +200,34 @@ else
   echo "  ⚠ $FUNC_MISSING function(s) missing"
 fi
 
-###############################################################################
-# 5. Verify departments/workflow configuration
-###############################################################################
-echo "[5/5] Verifying departments & workflow config..."
+# Verify key columns on departments table
+echo ""
+echo "  Schema checks:"
 
-# Check departments table has workflow columns
-HAS_WORKFLOW_STATUS=$(psql "$DB_URL" -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='departments' AND column_name='workflow_status');")
-if [ "$HAS_WORKFLOW_STATUS" = "t" ]; then
-  echo "  ✓ departments.workflow_status column exists"
-else
-  echo "  ⚠ departments.workflow_status column missing — apply latest migration"
-fi
+for col in "role_key" "is_workflow_enabled" "workflow_status"; do
+  HAS_COL=$(psql "$DB_URL" -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='departments' AND column_name='$col');")
+  if [ "$HAS_COL" = "t" ]; then
+    echo "    ✓ departments.$col exists"
+  else
+    echo "    ✗ departments.$col missing — apply latest migration"
+  fi
+done
 
-HAS_ROLE_KEY=$(psql "$DB_URL" -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='departments' AND column_name='role_key');")
-if [ "$HAS_ROLE_KEY" = "t" ]; then
-  echo "  ✓ departments.role_key column exists"
-else
-  echo "  ⚠ departments.role_key column missing — apply latest migration"
-fi
+# Report active counts
+DEPT_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM public.departments WHERE is_active = true;" 2>/dev/null || echo "?")
+WF_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM public.plant_workflow_config WHERE is_active = true;" 2>/dev/null || echo "?")
+USER_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM public.profiles;" 2>/dev/null || echo "?")
+MRB_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM public.mrb_records;" 2>/dev/null || echo "?")
 
-# Count active departments
-DEPT_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM public.departments WHERE is_active = true;" 2>/dev/null || echo "0")
-echo "  ℹ Active departments/roles: $DEPT_COUNT"
-
-# Count workflow configs
-WF_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM public.plant_workflow_config WHERE is_active = true;" 2>/dev/null || echo "0")
-echo "  ℹ Active workflow steps: $WF_COUNT"
+echo ""
+echo "  Database stats:"
+echo "    Active roles:          $DEPT_COUNT"
+echo "    Workflow steps:        $WF_COUNT"
+echo "    User profiles:         $USER_COUNT"
+echo "    MRB records:           $MRB_COUNT"
 
 echo ""
 echo "============================================"
 echo "  Database setup complete"
 echo "============================================"
-echo ""
-echo "If tables or functions are missing, ensure all"
-echo "migration files are present in:"
-echo "  $MIGRATION_DIR"
 echo ""

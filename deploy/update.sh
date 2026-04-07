@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ###############################################################################
-# HBL MRB – Update deployment (rebuild frontend + apply migrations + restart)
+# HBL MRB – Update deployment (pull + migrate + rebuild + restart)
 # Updated: 2026-04-07
 ###############################################################################
 set -euo pipefail
@@ -17,7 +17,7 @@ echo "============================================"
 ###############################################################################
 # 1. Backup current build
 ###############################################################################
-echo "[1/5] Backing up current build..."
+echo "[1/6] Backing up current build..."
 mkdir -p "$BACKUP_DIR"
 if [ -d "$FRONTEND_DIR/dist" ]; then
   cp -r "$FRONTEND_DIR/dist" "$BACKUP_DIR/dist"
@@ -27,7 +27,7 @@ fi
 ###############################################################################
 # 2. Pull latest code (if git repo)
 ###############################################################################
-echo "[2/5] Updating source..."
+echo "[2/6] Updating source..."
 cd "$FRONTEND_DIR"
 if [ -d ".git" ]; then
   git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || echo "  ⚠ Git pull failed — using existing code"
@@ -36,31 +36,37 @@ else
 fi
 
 ###############################################################################
-# 3. Apply database migrations (if any new ones)
+# 3. Update deploy scripts
 ###############################################################################
-echo "[3/5] Applying database migrations..."
-if [ -f "$APP_DIR/scripts/setup-db.sh" ]; then
-  bash "$APP_DIR/scripts/setup-db.sh"
-elif [ -f "$FRONTEND_DIR/deploy/setup-db.sh" ]; then
-  bash "$FRONTEND_DIR/deploy/setup-db.sh"
-else
-  echo "  ⚠ setup-db.sh not found — skipping migrations"
+echo "[3/6] Updating deploy scripts..."
+if [ -d "$FRONTEND_DIR/deploy" ]; then
+  cp "$FRONTEND_DIR/deploy/"*.sh "$APP_DIR/scripts/" 2>/dev/null || true
+  chmod +x "$APP_DIR/scripts/"*.sh
+  echo "  ✓ Deploy scripts updated"
 fi
 
 ###############################################################################
-# 4. Rebuild frontend
+# 4. Apply database migrations
 ###############################################################################
-echo "[4/5] Rebuilding frontend..."
+echo "[4/6] Applying database migrations..."
+bash "$APP_DIR/scripts/setup-db.sh"
+
+###############################################################################
+# 5. Rebuild frontend
+###############################################################################
+echo "[5/6] Rebuilding frontend..."
 cp "$ENV_FILE" "$FRONTEND_DIR/.env" 2>/dev/null || true
+cd "$FRONTEND_DIR"
 npm ci --production=false
 npm run build
 echo "  ✓ Frontend rebuilt"
 
 ###############################################################################
-# 5. Restart services
+# 6. Deploy edge functions & restart
 ###############################################################################
-echo "[5/5] Restarting services..."
-bash "$(dirname "$0")/restart.sh"
+echo "[6/6] Deploying edge functions & restarting..."
+bash "$APP_DIR/scripts/deploy-edge-functions.sh" 2>/dev/null || echo "  ⚠ Edge function deploy skipped"
+bash "$APP_DIR/scripts/restart.sh"
 
 echo ""
 echo "============================================"
