@@ -218,6 +218,11 @@ export default function DepartmentManagement() {
                           <span className="text-muted-foreground text-xs">—</span>
                         )}
                       </TableCell>
+                      <TableCell>
+                        <Badge variant={dept.is_workflow_enabled ? 'default' : 'outline'} className="text-xs">
+                          {dept.is_workflow_enabled ? 'Enabled' : 'Disabled'}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-muted-foreground text-sm">{dept.description || '—'}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
