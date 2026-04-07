@@ -897,17 +897,13 @@ export default function Worklist() {
               </Select>
               <Select value={pendingWithFilter} onValueChange={setPendingWithFilter}>
                 <SelectTrigger className="w-full sm:w-[160px]">
-                  <SelectValue placeholder="Pending With" />
+                  <SelectValue placeholder="Role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Departments</SelectItem>
-                  <SelectItem value="quality">Quality</SelectItem>
-                  <SelectItem value="quality_head">Quality Head</SelectItem>
-                  <SelectItem value="purchase">Purchase</SelectItem>
-                  <SelectItem value="purchase_head">Purchase Head</SelectItem>
-                  <SelectItem value="engineering">Engineering</SelectItem>
-                  <SelectItem value="engineering_head">Engineering Head</SelectItem>
-                  <SelectItem value="executive">Executive</SelectItem>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  {workflowRoles.map(role => (
+                    <SelectItem key={role.role_key} value={role.role_key}>{role.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
