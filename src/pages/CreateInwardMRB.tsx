@@ -1161,7 +1161,7 @@ Quality Department`;
                             {idx + 1}
                           </span>
                           <span className="text-sm font-medium text-foreground">
-                            {deptInfo?.label || dept}
+                            {predefinedLabels[dept] || deptInfo?.label || dept}
                           </span>
                         </div>
                         {idx < predefinedRouting.length - 1 && (
