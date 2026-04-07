@@ -8,6 +8,7 @@ export interface Department {
   is_active: boolean;
   role_key: string | null;
   is_workflow_enabled: boolean;
+  workflow_status: string | null;
 }
 
 export function useDepartments(activeOnly = true) {
