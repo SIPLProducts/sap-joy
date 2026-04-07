@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useDepartments } from '@/hooks/useDepartments';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,18 +18,18 @@ interface Permission {
   plant: string;
 }
 
-const ALL_ROLES = [
-  { key: 'admin', label: 'Admin', bg: 'bg-destructive/10', text: 'text-destructive', dot: 'bg-destructive' },
-  { key: 'quality_head', label: 'Quality Head', bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
-  { key: 'quality', label: 'QC Inspector', bg: 'bg-emerald-50', text: 'text-emerald-600', dot: 'bg-emerald-400' },
-  { key: 'purchase_head', label: 'Purchase Head', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
-  { key: 'purchase', label: 'Purchase Team', bg: 'bg-blue-50', text: 'text-blue-600', dot: 'bg-blue-400' },
-  { key: 'engineering_head', label: 'Engg Head', bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
-  { key: 'engineering', label: 'Engineering', bg: 'bg-amber-50', text: 'text-amber-600', dot: 'bg-amber-400' },
-  { key: 'shop_floor', label: 'Shop Floor', bg: 'bg-purple-50', text: 'text-purple-700', dot: 'bg-purple-500' },
-  { key: 'executive', label: 'Executive', bg: 'bg-pink-50', text: 'text-pink-700', dot: 'bg-pink-500' },
-  { key: 'mrb_committee', label: 'MRB Committee', bg: 'bg-indigo-50', text: 'text-indigo-700', dot: 'bg-indigo-500' },
-];
+const ROLE_COLOR_MAP: Record<string, { bg: string; text: string; dot: string }> = {
+  admin: { bg: 'bg-destructive/10', text: 'text-destructive', dot: 'bg-destructive' },
+  quality_head: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+  quality: { bg: 'bg-emerald-50', text: 'text-emerald-600', dot: 'bg-emerald-400' },
+  purchase_head: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
+  purchase: { bg: 'bg-blue-50', text: 'text-blue-600', dot: 'bg-blue-400' },
+  engineering_head: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
+  engineering: { bg: 'bg-amber-50', text: 'text-amber-600', dot: 'bg-amber-400' },
+  shop_floor: { bg: 'bg-purple-50', text: 'text-purple-700', dot: 'bg-purple-500' },
+  executive: { bg: 'bg-pink-50', text: 'text-pink-700', dot: 'bg-pink-500' },
+  mrb_committee: { bg: 'bg-indigo-50', text: 'text-indigo-700', dot: 'bg-indigo-500' },
+};
 
 export default function UserPermissionMatrix() {
   const [permissions, setPermissions] = useState<Permission[]>([]);
