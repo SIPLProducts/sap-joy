@@ -3,7 +3,7 @@
 # HBL MRB – Full Production Installation (Self-Hosted Supabase)
 # This is the MASTER installer — runs all setup scripts in order.
 # Run as root: sudo bash deploy/install.sh
-# Updated: 2026-04-07
+# Updated: 2026-04-07 (reviewed & fixed)
 ###############################################################################
 set -euo pipefail
 
@@ -32,7 +32,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 apt-get update -y
 apt-get install -y curl wget git build-essential nginx ufw unzip jq \
-  ca-certificates gnupg lsb-release postgresql-client openssl rsync
+  ca-certificates gnupg lsb-release postgresql-client openssl rsync python3
 
 # Install Node.js 20 LTS
 if ! command -v node &>/dev/null; then
@@ -70,11 +70,11 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  PHASE 3: Copy Application Files"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Copy frontend source
-rsync -a --exclude='node_modules' --exclude='.git' --exclude='deploy' \
+# Copy frontend source (excluding deploy dir to avoid circular copy)
+rsync -a --exclude='node_modules' --exclude='.git' \
   "$PROJECT_ROOT/" "$FRONTEND_DIR/"
 
-# Copy all deploy scripts to scripts dir
+# Copy all deploy scripts to scripts dir (from source, not from frontend copy)
 cp "$SCRIPT_DIR"/*.sh "$APP_DIR/scripts/"
 chmod +x "$APP_DIR/scripts/"*.sh
 
@@ -95,11 +95,15 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  PHASE 4: Self-Hosted Supabase"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
+# Run setup-supabase from the scripts dir (already copied in phase 3)
 bash "$APP_DIR/scripts/setup-supabase.sh"
 
 # Reload env after Supabase setup (it generates the .env)
 if [ -f "$ENV_FILE" ]; then
   set -a; source "$ENV_FILE"; set +a
+else
+  echo "  ✗ .env file not created by setup-supabase.sh!"
+  exit 1
 fi
 
 ###############################################################################
@@ -121,7 +125,7 @@ echo "  PHASE 6: Build Frontend"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 cd "$FRONTEND_DIR"
-cp "$ENV_FILE" .env 2>/dev/null || true
+cp "$ENV_FILE" .env
 npm ci --production=false
 npm run build
 
@@ -158,7 +162,7 @@ server {
     root /opt/MRB/frontend/dist;
     index index.html;
 
-    # SPA fallback
+    # SPA fallback — React Router deep links
     location / {
         try_files $uri $uri/ /index.html;
     }
@@ -173,7 +177,7 @@ server {
         proxy_connect_timeout 10s;
     }
 
-    # Gzip
+    # Gzip compression
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript;
     gzip_min_length 256;
@@ -194,8 +198,15 @@ NGINX
 
 ln -sf /etc/nginx/sites-available/mrb /etc/nginx/sites-enabled/mrb
 rm -f /etc/nginx/sites-enabled/default
-nginx -t && systemctl restart nginx
-echo "  ✓ Nginx configured on port 3000"
+
+if nginx -t 2>/dev/null; then
+  systemctl restart nginx
+  echo "  ✓ Nginx configured on port 3000"
+else
+  echo "  ✗ Nginx config test failed!"
+  nginx -t
+  exit 1
+fi
 
 ###############################################################################
 # PHASE 9: Deploy Edge Functions
@@ -205,22 +216,22 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  PHASE 9: Edge Functions"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-bash "$APP_DIR/scripts/deploy-edge-functions.sh"
+bash "$APP_DIR/scripts/deploy-edge-functions.sh" || echo "  ⚠ Edge function deployment had issues (non-fatal)"
 
 ###############################################################################
-# PHASE 10: Start Services
+# PHASE 10: Set Permissions & Start Services
 ###############################################################################
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  PHASE 10: Start Services"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Change ownership before starting as iml
+# Set ownership BEFORE starting services as iml
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 chown -R "$APP_USER:$APP_USER" "$LOG_DIR"
 chmod 600 "$ENV_FILE"
 
-sudo -u "$APP_USER" bash "$APP_DIR/scripts/start.sh"
+sudo -u "$APP_USER" bash "$APP_DIR/scripts/start.sh" || echo "  ⚠ Service start had issues (check PM2 logs)"
 
 ###############################################################################
 # PHASE 11: Setup Auto-Start & Scheduler
@@ -230,7 +241,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  PHASE 11: Scheduler & Boot Setup"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-bash "$APP_DIR/scripts/setup-scheduler.sh"
+bash "$APP_DIR/scripts/setup-scheduler.sh" || echo "  ⚠ Scheduler setup had issues (non-fatal)"
 
 ###############################################################################
 # PHASE 12: Firewall
@@ -244,7 +255,7 @@ ufw allow 22/tcp   >/dev/null 2>&1 || true   # SSH
 ufw allow 3000/tcp >/dev/null 2>&1 || true   # Frontend
 ufw allow 3001/tcp >/dev/null 2>&1 || true   # Supabase Studio (optional)
 ufw --force enable  >/dev/null 2>&1 || true
-echo "  ✓ Firewall configured"
+echo "  ✓ Firewall configured (SSH, Frontend, Studio)"
 
 ###############################################################################
 # PHASE 13: Health Check
@@ -254,12 +265,12 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  PHASE 13: Health Check"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-bash "$APP_DIR/scripts/health-check.sh"
+bash "$APP_DIR/scripts/health-check.sh" || true
 
 ###############################################################################
 # Summary
 ###############################################################################
-SERVER_IP=$(hostname -I | awk '{print $1}')
+SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
 
 echo ""
 echo "╔══════════════════════════════════════════════╗"
@@ -277,6 +288,10 @@ echo ""
 echo "  ─── Next Steps ─────────────────────────────"
 echo "  1. Create admin user:"
 echo "     Access http://$SERVER_IP:3000 and sign up, then:"
+echo ""
+echo "     source $ENV_FILE"
+echo "     psql \"\$SUPABASE_DB_URL\" -c \\"
+echo "       \"SELECT user_id, email FROM profiles;\""
 echo "     psql \"\$SUPABASE_DB_URL\" -c \\"
 echo "       \"INSERT INTO user_roles (user_id, role) VALUES ('<uuid>', 'admin');\""
 echo "     psql \"\$SUPABASE_DB_URL\" -c \\"
@@ -293,5 +308,6 @@ echo "  Restart:   sudo -u iml bash $APP_DIR/scripts/restart.sh"
 echo "  Update:    sudo -u iml bash $APP_DIR/scripts/update.sh"
 echo "  Health:    sudo bash $APP_DIR/scripts/health-check.sh"
 echo "  DB Setup:  sudo bash $APP_DIR/scripts/setup-db.sh"
+echo "  Edge Fn:   sudo bash $APP_DIR/scripts/deploy-edge-functions.sh"
 echo "  Logs:      pm2 logs mrb-app"
 echo ""

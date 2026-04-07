@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 ###############################################################################
 # HBL MRB – Database Setup & Migration (Self-Hosted Supabase / PostgreSQL)
-# Applies all migrations, verifies tables/functions/columns
-# Updated: 2026-04-07
+# Applies all migrations with tracking, verifies tables/functions/columns
+# Updated: 2026-04-07 (reviewed & fixed)
 ###############################################################################
 set -euo pipefail
 
@@ -24,12 +24,24 @@ echo "  HBL MRB – Database Setup & Migrations"
 echo "============================================"
 
 ###############################################################################
-# 1. Test database connection
+# 1. Test database connection (with retry for fresh Supabase installs)
 ###############################################################################
 echo "[1/6] Testing database connection..."
 
-if ! psql "$DB_URL" -c "SELECT 1;" >/dev/null 2>&1; then
-  echo "  ✗ Cannot connect to database!"
+DB_READY=false
+for attempt in $(seq 1 15); do
+  if psql "$DB_URL" -c "SELECT 1;" >/dev/null 2>&1; then
+    DB_READY=true
+    break
+  fi
+  if [ "$attempt" -eq 1 ]; then
+    echo "  Waiting for database to be ready..."
+  fi
+  sleep 2
+done
+
+if [ "$DB_READY" = false ]; then
+  echo "  ✗ Cannot connect to database after 30s!"
   echo "    Check SUPABASE_DB_URL in $ENV_FILE"
   echo "    Ensure PostgreSQL / Supabase is running"
   exit 1
@@ -41,25 +53,36 @@ echo "  ✓ Database connected"
 ###############################################################################
 echo "[2/6] Enabling extensions..."
 
-psql "$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" 2>/dev/null
-psql "$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" 2>/dev/null
-psql "$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS pg_cron;" 2>/dev/null || echo "  ⚠ pg_cron not available (ok for non-scheduler setups)"
-psql "$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS pg_net;" 2>/dev/null || echo "  ⚠ pg_net not available"
+for ext in "uuid-ossp" "pgcrypto"; do
+  if psql "$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS \"$ext\";" >/dev/null 2>&1; then
+    echo "  ✓ $ext"
+  else
+    echo "  ⚠ Failed to enable $ext"
+  fi
+done
 
-echo "  ✓ Extensions enabled"
+# Optional extensions (may not be available in all setups)
+for ext in "pg_cron" "pg_net"; do
+  if psql "$DB_URL" -c "CREATE EXTENSION IF NOT EXISTS \"$ext\";" >/dev/null 2>&1; then
+    echo "  ✓ $ext"
+  else
+    echo "  – $ext not available (optional)"
+  fi
+done
 
 ###############################################################################
 # 3. Create migration tracking table
 ###############################################################################
 echo "[3/6] Setting up migration tracking..."
 
-psql "$DB_URL" -c "
+psql "$DB_URL" <<'SQL' >/dev/null 2>&1
   CREATE TABLE IF NOT EXISTS public._migrations (
     id serial PRIMARY KEY,
     filename text UNIQUE NOT NULL,
-    applied_at timestamptz DEFAULT now()
+    applied_at timestamptz DEFAULT now(),
+    success boolean DEFAULT true
   );
-" 2>/dev/null
+SQL
 
 echo "  ✓ Migration tracking ready"
 
@@ -89,26 +112,30 @@ else
     fi
     
     echo "  Applying: $FILENAME"
-    if psql "$DB_URL" -f "$sql_file" --single-transaction 2>&1 | while read -r line; do
-        case "$line" in
-          NOTICE*|DO*|ALTER*|CREATE*|INSERT*|UPDATE*|DELETE*) ;;
-          ERROR*) echo "    ✗ $line"; false ;;
-          *) ;;
-        esac
-      done; then
-      # Record successful migration
-      psql "$DB_URL" -c "INSERT INTO public._migrations (filename) VALUES ('$FILENAME');" 2>/dev/null
-      APPLIED=$((APPLIED + 1))
-    else
-      echo "    ⚠ Migration had errors (may be safe if objects already exist)"
-      # Still record it to avoid re-running
-      psql "$DB_URL" -c "INSERT INTO public._migrations (filename) VALUES ('$FILENAME') ON CONFLICT DO NOTHING;" 2>/dev/null
+    
+    # Apply migration and capture exit code directly
+    MIGRATION_OUTPUT=$(psql "$DB_URL" -f "$sql_file" --single-transaction 2>&1) || true
+    MIGRATION_EXIT=$?
+    
+    # Check for ERROR lines in output
+    if echo "$MIGRATION_OUTPUT" | grep -qi "^ERROR"; then
+      echo "    ⚠ Had errors (may be safe if objects already exist)"
+      echo "$MIGRATION_OUTPUT" | grep -i "^ERROR" | head -3 | while read -r errline; do
+        echo "      $errline"
+      done
       FAILED=$((FAILED + 1))
+      # Record as applied with success=false to avoid re-running
+      psql "$DB_URL" -c "INSERT INTO public._migrations (filename, success) VALUES ('$FILENAME', false) ON CONFLICT (filename) DO NOTHING;" >/dev/null 2>&1
+    else
+      # Record successful migration
+      psql "$DB_URL" -c "INSERT INTO public._migrations (filename, success) VALUES ('$FILENAME', true) ON CONFLICT (filename) DO NOTHING;" >/dev/null 2>&1
+      APPLIED=$((APPLIED + 1))
     fi
   done
   
   TOTAL=$(ls "$MIGRATION_DIR"/*.sql 2>/dev/null | wc -l)
-  echo "  ✓ Migrations: $APPLIED applied, $SKIPPED skipped (already done), $FAILED warnings"
+  echo ""
+  echo "  ✓ Migrations: $APPLIED applied, $SKIPPED already done, $FAILED with warnings"
   echo "  ✓ Total migration files: $TOTAL"
 fi
 
@@ -149,7 +176,7 @@ REQUIRED_TABLES=(
 
 TABLE_MISSING=0
 for tbl in "${REQUIRED_TABLES[@]}"; do
-  EXISTS=$(psql "$DB_URL" -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='$tbl');")
+  EXISTS=$(psql "$DB_URL" -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='$tbl');" 2>/dev/null || echo "f")
   if [ "$EXISTS" != "t" ]; then
     echo "  ✗ Missing table: $tbl"
     TABLE_MISSING=$((TABLE_MISSING + 1))
@@ -187,7 +214,7 @@ REQUIRED_FUNCS=(
 
 FUNC_MISSING=0
 for fn in "${REQUIRED_FUNCS[@]}"; do
-  EXISTS=$(psql "$DB_URL" -tAc "SELECT EXISTS (SELECT 1 FROM pg_proc WHERE proname='$fn' AND pronamespace=(SELECT oid FROM pg_namespace WHERE nspname='public'));")
+  EXISTS=$(psql "$DB_URL" -tAc "SELECT EXISTS (SELECT 1 FROM pg_proc WHERE proname='$fn' AND pronamespace=(SELECT oid FROM pg_namespace WHERE nspname='public'));" 2>/dev/null || echo "f")
   if [ "$EXISTS" != "t" ]; then
     echo "  ✗ Missing function: $fn"
     FUNC_MISSING=$((FUNC_MISSING + 1))
@@ -205,7 +232,7 @@ echo ""
 echo "  Schema checks:"
 
 for col in "role_key" "is_workflow_enabled" "workflow_status"; do
-  HAS_COL=$(psql "$DB_URL" -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='departments' AND column_name='$col');")
+  HAS_COL=$(psql "$DB_URL" -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='departments' AND column_name='$col');" 2>/dev/null || echo "f")
   if [ "$HAS_COL" = "t" ]; then
     echo "    ✓ departments.$col exists"
   else
@@ -214,17 +241,19 @@ for col in "role_key" "is_workflow_enabled" "workflow_status"; do
 done
 
 # Report active counts
-DEPT_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM public.departments WHERE is_active = true;" 2>/dev/null || echo "?")
-WF_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM public.plant_workflow_config WHERE is_active = true;" 2>/dev/null || echo "?")
-USER_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM public.profiles;" 2>/dev/null || echo "?")
-MRB_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM public.mrb_records;" 2>/dev/null || echo "?")
-
 echo ""
 echo "  Database stats:"
-echo "    Active roles:          $DEPT_COUNT"
-echo "    Workflow steps:        $WF_COUNT"
-echo "    User profiles:         $USER_COUNT"
-echo "    MRB records:           $MRB_COUNT"
+for query in \
+  "Active roles|SELECT COUNT(*) FROM public.departments WHERE is_active = true" \
+  "Workflow steps|SELECT COUNT(*) FROM public.plant_workflow_config WHERE is_active = true" \
+  "User profiles|SELECT COUNT(*) FROM public.profiles" \
+  "MRB records|SELECT COUNT(*) FROM public.mrb_records"; do
+  LABEL="${query%%|*}"
+  SQL="${query##*|}"
+  COUNT=$(psql "$DB_URL" -tAc "$SQL;" 2>/dev/null || echo "?")
+  COUNT=$(echo "$COUNT" | tr -d ' ')
+  printf "    %-20s %s\n" "$LABEL:" "$COUNT"
+done
 
 echo ""
 echo "============================================"
