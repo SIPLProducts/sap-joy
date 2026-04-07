@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
+import { useDepartments } from '@/hooks/useDepartments';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -17,26 +18,32 @@ const SCREENS = [
   { key: 'engineering_dashboard', label: 'Engineering Dashboard', group: 'Dashboards' },
   { key: 'executive_summary', label: 'Executive Summary', group: 'Dashboards' },
   { key: 'mrb_worklist', label: 'MRB Worklist', group: 'Operations' },
+  { key: 'pending_actions', label: 'Pending Actions', group: 'Operations' },
   { key: 'material_booking', label: 'Material Blocking', group: 'Operations' },
   { key: 'inward_materials', label: 'MRB - Inward Materials', group: 'Operations' },
   { key: 'mrb_print', label: 'MRB Print', group: 'Tools' },
   { key: 'email_log', label: 'Email Log', group: 'Tools' },
   { key: 'help_support', label: 'Help & Support', group: 'Tools' },
+  { key: 'user_management', label: 'User Management', group: 'Administration' },
+  { key: 'role_management', label: 'Role Management', group: 'Administration' },
+  { key: 'role_access', label: 'Role Access', group: 'Administration' },
+  { key: 'plant_management', label: 'Plant Management', group: 'Administration' },
+  { key: 'workflow_config', label: 'Workflow Config', group: 'Administration' },
 ];
 
-const ROLES: { value: AppRole; label: string; color: string }[] = [
-  { value: 'quality_head', label: 'Quality Head', color: 'bg-emerald-500/10 text-emerald-700 border-emerald-200' },
-  { value: 'quality', label: 'Quality', color: 'bg-emerald-500/10 text-emerald-600 border-emerald-200' },
-  { value: 'purchase_head', label: 'Purchase Head', color: 'bg-blue-500/10 text-blue-700 border-blue-200' },
-  { value: 'purchase', label: 'Purchase', color: 'bg-blue-500/10 text-blue-600 border-blue-200' },
-  { value: 'engineering_head', label: 'Engg Head', color: 'bg-amber-500/10 text-amber-700 border-amber-200' },
-  { value: 'engineering', label: 'Engineering', color: 'bg-amber-500/10 text-amber-600 border-amber-200' },
-  { value: 'shop_floor', label: 'Shop Floor', color: 'bg-purple-500/10 text-purple-600 border-purple-200' },
-  { value: 'executive', label: 'Executive', color: 'bg-rose-500/10 text-rose-600 border-rose-200' },
-  { value: 'mrb_committee', label: 'MRB Committee', color: 'bg-indigo-500/10 text-indigo-600 border-indigo-200' },
-];
+const ROLE_COLORS: Record<string, string> = {
+  quality_head: 'bg-emerald-500/10 text-emerald-700 border-emerald-200',
+  quality: 'bg-emerald-500/10 text-emerald-600 border-emerald-200',
+  purchase_head: 'bg-blue-500/10 text-blue-700 border-blue-200',
+  purchase: 'bg-blue-500/10 text-blue-600 border-blue-200',
+  engineering_head: 'bg-amber-500/10 text-amber-700 border-amber-200',
+  engineering: 'bg-amber-500/10 text-amber-600 border-amber-200',
+  shop_floor: 'bg-purple-500/10 text-purple-600 border-purple-200',
+  executive: 'bg-rose-500/10 text-rose-600 border-rose-200',
+  mrb_committee: 'bg-indigo-500/10 text-indigo-600 border-indigo-200',
+};
 
-const GROUPS = ['Dashboards', 'Operations', 'Tools'];
+const GROUPS = ['Dashboards', 'Operations', 'Tools', 'Administration'];
 
 interface PermRow {
   id?: string;
@@ -50,14 +57,35 @@ interface PermRow {
 
 export default function RoleMatrix() {
   const { userRole } = useAuth();
+  const { departments } = useDepartments();
   const isAdmin = userRole === 'admin';
   const [permissions, setPermissions] = useState<PermRow[]>([]);
   const [plants, setPlants] = useState<{ code: string; name: string }[]>([]);
   const [selectedPlant, setSelectedPlant] = useState('1300');
-  const [selectedRole, setSelectedRole] = useState<AppRole>(ROLES[0].value);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Build ROLES dynamically from Role Management (departments table)
+  const ROLES = useMemo(() => 
+    departments
+      .filter(d => d.role_key && d.is_active)
+      .map(d => ({
+        value: d.role_key as AppRole,
+        label: d.name,
+        color: ROLE_COLORS[d.role_key!] || 'bg-muted text-muted-foreground border-border',
+      })),
+    [departments]
+  );
+
+  const [selectedRole, setSelectedRole] = useState<AppRole | ''>('');
+
+  // Auto-select first role when ROLES load
+  useEffect(() => {
+    if (ROLES.length > 0 && !selectedRole) {
+      setSelectedRole(ROLES[0].value);
+    }
+  }, [ROLES, selectedRole]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -68,7 +96,6 @@ export default function RoleMatrix() {
 
     if (plantRes.data) setPlants(plantRes.data);
 
-    // Build dense permission grid from DB data
     const dbPerms = (permRes.data || []) as PermRow[];
     const dense: PermRow[] = [];
 
@@ -95,7 +122,7 @@ export default function RoleMatrix() {
     setHasChanges(false);
   };
 
-  useEffect(() => { fetchData(); }, [selectedPlant]);
+  useEffect(() => { if (ROLES.length > 0) fetchData(); }, [selectedPlant, ROLES.length]);
 
   const togglePermission = (role: string, moduleKey: string) => {
     setHasChanges(true);
@@ -127,7 +154,6 @@ export default function RoleMatrix() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Filter out any rows with missing required fields
       const validPerms = permissions.filter(p => 
         p.role && p.role.trim().length > 0 && 
         p.module_key && p.module_key.trim().length > 0 && 
@@ -140,7 +166,6 @@ export default function RoleMatrix() {
         return;
       }
 
-      // NEVER include id — let onConflict handle matching by natural key
       const toUpsert = validPerms.map(({ role, module_key, module_label, can_view, can_edit, plant }) => ({
         role,
         module_key,
@@ -181,7 +206,7 @@ export default function RoleMatrix() {
     );
   }
 
-  const selectedRoleData = ROLES.find(r => r.value === selectedRole)!;
+  const selectedRoleData = ROLES.find(r => r.value === selectedRole);
 
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-5 max-w-6xl">
@@ -193,7 +218,7 @@ export default function RoleMatrix() {
             Role Access Matrix
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Control which screens each role can access
+            Control which screens each role can access. Roles are loaded from Role Management.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -218,7 +243,6 @@ export default function RoleMatrix() {
         </div>
       </div>
 
-      {/* Unsaved changes banner */}
       {hasChanges && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-sm">
           <Info className="h-4 w-4 flex-shrink-0" />
@@ -227,150 +251,162 @@ export default function RoleMatrix() {
       )}
 
       {/* Role Selector Tabs */}
-      <div className="flex flex-wrap gap-2">
-        {ROLES.map((role) => {
-          const count = getAccessCount(role.value);
-          const isActive = selectedRole === role.value;
-          return (
-            <button
-              key={role.value}
-              onClick={() => setSelectedRole(role.value)}
-              className={`
-                relative px-3 py-2 rounded-lg border text-sm font-medium transition-all
-                ${isActive 
-                  ? `${role.color} border-current shadow-sm ring-1 ring-current/20` 
-                  : 'bg-background border-border text-muted-foreground hover:bg-muted/50'
-                }
-              `}
-            >
-              <span>{role.label}</span>
-              <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0 h-4 min-w-[18px]">
-                {count}
-              </Badge>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Permission Card for Selected Role */}
-      <Card className="overflow-hidden">
-        <div className={`px-4 py-3 border-b flex items-center justify-between ${selectedRoleData.color}`}>
-          <div>
-            <h2 className="font-semibold text-base">{selectedRoleData.label}</h2>
-            <p className="text-xs opacity-75">
-              {getAccessCount(selectedRole)} of {SCREENS.length} screens enabled
-            </p>
+      {ROLES.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            <p>No roles configured. Go to Role Management and create roles with system role keys first.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2">
+            {ROLES.map((role) => {
+              const count = getAccessCount(role.value);
+              const isActive = selectedRole === role.value;
+              return (
+                <button
+                  key={role.value}
+                  onClick={() => setSelectedRole(role.value)}
+                  className={`
+                    relative px-3 py-2 rounded-lg border text-sm font-medium transition-all
+                    ${isActive 
+                      ? `${role.color} border-current shadow-sm ring-1 ring-current/20` 
+                      : 'bg-background border-border text-muted-foreground hover:bg-muted/50'
+                    }
+                  `}
+                >
+                  <span>{role.label}</span>
+                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0 h-4 min-w-[18px]">
+                    {count}
+                  </Badge>
+                </button>
+              );
+            })}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={() => toggleAllForRole(selectedRole, getAccessCount(selectedRole) < SCREENS.length)}
-          >
-            {getAccessCount(selectedRole) === SCREENS.length ? 'Deselect All' : 'Select All'}
-          </Button>
-        </div>
 
-        <CardContent className="p-0">
-          {GROUPS.map((group) => {
-            const groupScreens = SCREENS.filter(s => s.group === group);
-            return (
-              <div key={group}>
-                <div className="px-4 py-2 bg-muted/30 border-b">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {group}
-                  </span>
+          {/* Permission Card for Selected Role */}
+          {selectedRoleData && (
+            <Card className="overflow-hidden">
+              <div className={`px-4 py-3 border-b flex items-center justify-between ${selectedRoleData.color}`}>
+                <div>
+                  <h2 className="font-semibold text-base">{selectedRoleData.label}</h2>
+                  <p className="text-xs opacity-75">
+                    {getAccessCount(selectedRole)} of {SCREENS.length} screens enabled
+                  </p>
                 </div>
-                {groupScreens.map((screen, idx) => {
-                  const checked = isChecked(selectedRole, screen.key);
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => toggleAllForRole(selectedRole, getAccessCount(selectedRole) < SCREENS.length)}
+                >
+                  {getAccessCount(selectedRole) === SCREENS.length ? 'Deselect All' : 'Select All'}
+                </Button>
+              </div>
+
+              <CardContent className="p-0">
+                {GROUPS.map((group) => {
+                  const groupScreens = SCREENS.filter(s => s.group === group);
                   return (
-                    <div
-                      key={screen.key}
-                      className={`
-                        flex items-center justify-between px-4 py-3 
-                        hover:bg-muted/20 transition-colors cursor-pointer
-                        ${idx < groupScreens.length - 1 ? 'border-b border-border/50' : ''}
-                      `}
-                      onClick={() => togglePermission(selectedRole, screen.key)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`
-                          w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
-                          ${checked 
-                            ? 'bg-primary/10 text-primary' 
-                            : 'bg-muted text-muted-foreground'
-                          }
-                        `}>
-                          {checked ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-                        </div>
-                        <span className={`text-sm font-medium ${checked ? 'text-foreground' : 'text-muted-foreground'}`}>
-                          {screen.label}
+                    <div key={group}>
+                      <div className="px-4 py-2 bg-muted/30 border-b">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          {group}
                         </span>
                       </div>
-                      <Switch
-                        checked={checked}
-                        onCheckedChange={() => togglePermission(selectedRole, screen.key)}
-                      />
+                      {groupScreens.map((screen, idx) => {
+                        const checked = isChecked(selectedRole, screen.key);
+                        return (
+                          <div
+                            key={screen.key}
+                            className={`
+                              flex items-center justify-between px-4 py-3 
+                              hover:bg-muted/20 transition-colors cursor-pointer
+                              ${idx < groupScreens.length - 1 ? 'border-b border-border/50' : ''}
+                            `}
+                            onClick={() => togglePermission(selectedRole, screen.key)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`
+                                w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
+                                ${checked 
+                                  ? 'bg-primary/10 text-primary' 
+                                  : 'bg-muted text-muted-foreground'
+                                }
+                              `}>
+                                {checked ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                              </div>
+                              <span className={`text-sm font-medium ${checked ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                {screen.label}
+                              </span>
+                            </div>
+                            <Switch
+                              checked={checked}
+                              onCheckedChange={() => togglePermission(selectedRole, screen.key)}
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
+              </CardContent>
+            </Card>
+          )}
 
-      {/* Summary Grid */}
-      <Card>
-        <CardContent className="p-4">
-          <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
-            Quick Overview — All Roles
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2 pr-3 font-medium text-muted-foreground min-w-[150px]">Screen</th>
-                  {ROLES.map(r => (
-                    <th key={r.value} className="text-center py-2 px-1 font-medium text-muted-foreground min-w-[70px]">
-                      <span className="truncate block">{r.label}</span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {SCREENS.map(screen => (
-                  <tr key={screen.key} className="border-b border-border/30 hover:bg-muted/20">
-                    <td className="py-2 pr-3 font-medium text-foreground">{screen.label}</td>
-                    {ROLES.map(role => {
-                      const checked = isChecked(role.value, screen.key);
-                      return (
-                        <td key={role.value} className="text-center py-2 px-1">
-                          <button
-                            onClick={() => {
-                              togglePermission(role.value, screen.key);
-                              setSelectedRole(role.value);
-                            }}
-                            className={`
-                              w-6 h-6 rounded-full inline-flex items-center justify-center transition-all
-                              ${checked 
-                                ? 'bg-primary text-primary-foreground shadow-sm' 
-                                : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                              }
-                            `}
-                          >
-                            {checked ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                          </button>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+          {/* Summary Grid */}
+          <Card>
+            <CardContent className="p-4">
+              <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
+                Quick Overview — All Roles
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 pr-3 font-medium text-muted-foreground min-w-[150px]">Screen</th>
+                      {ROLES.map(r => (
+                        <th key={r.value} className="text-center py-2 px-1 font-medium text-muted-foreground min-w-[70px]">
+                          <span className="truncate block">{r.label}</span>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {SCREENS.map(screen => (
+                      <tr key={screen.key} className="border-b border-border/30 hover:bg-muted/20">
+                        <td className="py-2 pr-3 font-medium text-foreground">{screen.label}</td>
+                        {ROLES.map(role => {
+                          const checked = isChecked(role.value, screen.key);
+                          return (
+                            <td key={role.value} className="text-center py-2 px-1">
+                              <button
+                                onClick={() => {
+                                  togglePermission(role.value, screen.key);
+                                  setSelectedRole(role.value);
+                                }}
+                                className={`
+                                  w-6 h-6 rounded-full inline-flex items-center justify-center transition-all
+                                  ${checked 
+                                    ? 'bg-primary text-primary-foreground shadow-sm' 
+                                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                                  }
+                                `}
+                              >
+                                {checked ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                              </button>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       <p className="text-xs text-muted-foreground italic">
         * Admin role has full access to all screens by default and is not shown in this matrix.
