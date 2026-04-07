@@ -24,8 +24,9 @@ import {
   inwardAttachmentCategories 
 } from '@/data/inwardReportData';
 import { useDepartments } from '@/hooks/useDepartments';
+import { useDepartmentMap } from '@/hooks/useDepartmentMap';
 import type { Database } from '@/integrations/supabase/types';
-import { fetchPlantWorkflow, DEPT_TO_ROLE, DEPT_TO_STATUS, ROLE_TO_DEPT } from '@/lib/workflowRouting';
+import { fetchPlantWorkflow } from '@/lib/workflowRouting';
 
 type QualityDecision = Database['public']['Enums']['quality_decision'];
 type DefectCategory = Database['public']['Enums']['defect_category'];
@@ -494,8 +495,8 @@ export default function CreateInwardMRB() {
 
       // Determine pending_with and status based on first department in routing sequence
       const firstDept = formData.nextReviewDepartments[0];
-      const pendingWith = DEPT_TO_ROLE[firstDept] || 'quality';
-      const mrbStatus = DEPT_TO_STATUS[firstDept] || 'quality_review';
+      const pendingWith = deptToRole[firstDept] || firstDept || 'quality';
+      const mrbStatus = deptToStatus[firstDept] || 'quality_review';
 
       // Store the full routing sequence so transitions follow this order
       const workflowRouting = formData.nextReviewDepartments;
