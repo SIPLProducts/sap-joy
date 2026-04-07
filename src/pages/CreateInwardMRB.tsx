@@ -189,6 +189,7 @@ export default function CreateInwardMRB() {
 
   // Predefined workflow routing from plant_workflow_config
   const [predefinedRouting, setPredefinedRouting] = useState<string[] | null>(null);
+  const [predefinedLabels, setPredefinedLabels] = useState<Record<string, string>>({});
   const [routingLocked, setRoutingLocked] = useState(false);
   const [workflowType, setWorkflowType] = useState<'predefined' | 'manual'>('predefined');
 
@@ -198,7 +199,10 @@ export default function CreateInwardMRB() {
       const steps = await fetchPlantWorkflow(inspectionLot.plant);
       if (steps.length > 0) {
         const deptSequence = steps.map((s) => s.department);
+        const labels: Record<string, string> = {};
+        steps.forEach((s) => { labels[s.department] = s.label; });
         setPredefinedRouting(deptSequence);
+        setPredefinedLabels(labels);
         setWorkflowType('predefined');
         setRoutingLocked(true);
         // Auto-populate departments from predefined routing
@@ -1157,7 +1161,7 @@ Quality Department`;
                             {idx + 1}
                           </span>
                           <span className="text-sm font-medium text-foreground">
-                            {deptInfo?.label || dept}
+                            {predefinedLabels[dept] || deptInfo?.label || dept}
                           </span>
                         </div>
                         {idx < predefinedRouting.length - 1 && (
