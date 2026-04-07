@@ -78,6 +78,7 @@ export type Database = {
           name: string
           role_key: string | null
           updated_at: string
+          workflow_status: string | null
         }
         Insert: {
           created_at?: string
@@ -88,6 +89,7 @@ export type Database = {
           name: string
           role_key?: string | null
           updated_at?: string
+          workflow_status?: string | null
         }
         Update: {
           created_at?: string
@@ -98,6 +100,7 @@ export type Database = {
           name?: string
           role_key?: string | null
           updated_at?: string
+          workflow_status?: string | null
         }
         Relationships: []
       }

@@ -12,18 +12,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Layers, Plus, Edit, Trash2, RefreshCw, Shield } from 'lucide-react';
+import { Constants } from '@/integrations/supabase/types';
 
+// Build role key options dynamically from the database enum
+const APP_ROLE_ENUM_VALUES = Constants.public.Enums.app_role;
 const ROLE_KEY_OPTIONS = [
-  { value: '', label: 'None (not used in workflow)' },
-  { value: 'quality', label: 'Quality' },
-  { value: 'quality_head', label: 'Quality Head' },
-  { value: 'purchase', label: 'Purchase' },
-  { value: 'purchase_head', label: 'Purchase Head' },
-  { value: 'engineering', label: 'Engineering' },
-  { value: 'engineering_head', label: 'Engineering Head' },
-  { value: 'executive', label: 'Executive / Plant Head' },
-  { value: 'mrb_committee', label: 'MRB Committee' },
-  { value: 'shop_floor', label: 'Shop Floor' },
+  { value: '', label: 'None (not mapped to system role)' },
+  ...APP_ROLE_ENUM_VALUES.map(role => ({ value: role, label: role })),
+];
+
+// MRB status options for workflow_status mapping
+const MRB_STATUS_OPTIONS = [
+  { value: '', label: 'None' },
+  { value: 'quality_review', label: 'Quality Review' },
+  { value: 'purchase_review', label: 'Purchase Review' },
+  { value: 'engineering_review', label: 'Engineering Review' },
+  { value: 'final_approval', label: 'Final Approval' },
 ];
 
 interface Department {
@@ -33,6 +37,7 @@ interface Department {
   is_active: boolean;
   role_key: string | null;
   is_workflow_enabled: boolean;
+  workflow_status: string | null;
   created_at: string;
 }
 
@@ -45,7 +50,7 @@ export default function DepartmentManagement() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
-  const [form, setForm] = useState({ name: '', description: '', is_active: true, role_key: '', is_workflow_enabled: false });
+  const [form, setForm] = useState({ name: '', description: '', is_active: true, role_key: '', is_workflow_enabled: false, workflow_status: '' });
 
   const isAdmin = userRole === 'admin';
 
@@ -71,13 +76,13 @@ export default function DepartmentManagement() {
   }, [isAdmin]);
 
   const handleOpenCreate = () => {
-    setForm({ name: '', description: '', is_active: true, role_key: '', is_workflow_enabled: false });
+    setForm({ name: '', description: '', is_active: true, role_key: '', is_workflow_enabled: false, workflow_status: '' });
     setEditingDept(null);
     setIsOpen(true);
   };
 
   const handleOpenEdit = (dept: Department) => {
-    setForm({ name: dept.name, description: dept.description || '', is_active: dept.is_active, role_key: dept.role_key || '', is_workflow_enabled: dept.is_workflow_enabled });
+    setForm({ name: dept.name, description: dept.description || '', is_active: dept.is_active, role_key: dept.role_key || '', is_workflow_enabled: dept.is_workflow_enabled, workflow_status: dept.workflow_status || '' });
     setEditingDept(dept);
     setIsOpen(true);
   };
@@ -96,6 +101,7 @@ export default function DepartmentManagement() {
         is_active: form.is_active,
         role_key: form.role_key && form.role_key !== '__none' ? form.role_key : null,
         is_workflow_enabled: form.is_workflow_enabled,
+        workflow_status: form.workflow_status && form.workflow_status !== '__none' ? form.workflow_status : null,
       };
 
       if (editingDept) {
@@ -191,8 +197,9 @@ export default function DepartmentManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Role Name</TableHead>
+                 <TableHead>Role Name</TableHead>
                   <TableHead>System Role Key</TableHead>
+                  <TableHead>Workflow Status</TableHead>
                   <TableHead>Workflow</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Status</TableHead>
@@ -203,7 +210,7 @@ export default function DepartmentManagement() {
               <TableBody>
                 {departments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                     <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
                       No roles configured. Click "Add Role" to create one.
                     </TableCell>
                   </TableRow>
@@ -214,6 +221,13 @@ export default function DepartmentManagement() {
                       <TableCell>
                         {dept.role_key ? (
                           <Badge variant="outline" className="font-mono text-xs">{dept.role_key}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {dept.workflow_status ? (
+                          <Badge variant="outline" className="text-xs">{dept.workflow_status}</Badge>
                         ) : (
                           <span className="text-muted-foreground text-xs">—</span>
                         )}
@@ -291,7 +305,21 @@ export default function DepartmentManagement() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">Maps this role to the system's workflow engine for MRB routing</p>
+              <p className="text-xs text-muted-foreground">Maps this role to the system's authentication & RLS engine</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Workflow Status Mapping</Label>
+              <Select value={form.workflow_status} onValueChange={v => setForm({ ...form, workflow_status: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select MRB status for this role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MRB_STATUS_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value || '__none'} value={opt.value || '__none'}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Which MRB status is set when this role is the active workflow step</p>
             </div>
             <div className="flex items-center gap-3">
               <Switch checked={form.is_workflow_enabled} onCheckedChange={v => setForm({ ...form, is_workflow_enabled: v })} />

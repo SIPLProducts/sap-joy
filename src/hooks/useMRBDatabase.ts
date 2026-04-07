@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { getNextWorkflowStep, ROLE_TO_DEPT } from '@/lib/workflowRouting';
+import { getNextWorkflowStep } from '@/lib/workflowRouting';
+import { fetchDepartmentMaps } from '@/hooks/useDepartmentMap';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
@@ -171,7 +172,9 @@ export function useMRBDatabase() {
         newStatus !== 'closed'
       ) {
         const currentRole = currentMRB?.pending_with || userRole || 'quality';
-        const nextStep = getNextWorkflowStep(workflowRouting, currentRole);
+        // Fetch dynamic department maps for workflow resolution
+        const deptMaps = await fetchDepartmentMaps();
+        const nextStep = getNextWorkflowStep(workflowRouting, currentRole, deptMaps);
 
         if (nextStep) {
           if (nextStep.isLast && nextStep.nextStatus === 'approved') {
