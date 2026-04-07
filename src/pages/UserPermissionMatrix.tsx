@@ -35,11 +35,33 @@ export default function UserPermissionMatrix() {
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [plants, setPlants] = useState<{ code: string; name: string }[]>([]);
   const [selectedPlant, setSelectedPlant] = useState('1300');
-  const [selectedRole, setSelectedRole] = useState('admin');
+  const [selectedRole, setSelectedRole] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const { toast } = useToast();
+  const { departments } = useDepartments();
+
+  const DEFAULT_COLORS = { bg: 'bg-muted/50', text: 'text-muted-foreground', dot: 'bg-muted-foreground' };
+
+  // Build ALL_ROLES dynamically from active departments
+  const ALL_ROLES = useMemo(() =>
+    departments
+      .filter(d => d.is_active)
+      .map(d => {
+        const key = d.role_key || d.name.toLowerCase().replace(/\s+/g, '_');
+        const colors = ROLE_COLOR_MAP[key] || DEFAULT_COLORS;
+        return { key, label: d.name, ...colors };
+      }),
+    [departments]
+  );
+
+  // Auto-select first role
+  useEffect(() => {
+    if (ALL_ROLES.length > 0 && !selectedRole) {
+      setSelectedRole(ALL_ROLES[0].key);
+    }
+  }, [ALL_ROLES, selectedRole]);
 
   const fetchData = async () => {
     setLoading(true);
