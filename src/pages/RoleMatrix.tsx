@@ -67,14 +67,18 @@ export default function RoleMatrix() {
   const [hasChanges, setHasChanges] = useState(false);
 
   // Build ROLES dynamically from Role Management (departments table)
+  // Include ALL active departments — use role_key if set, otherwise generate from name
   const ROLES = useMemo(() => 
     departments
-      .filter(d => d.role_key && d.is_active)
-      .map(d => ({
-        value: d.role_key as AppRole,
-        label: d.name,
-        color: ROLE_COLORS[d.role_key!] || 'bg-muted text-muted-foreground border-border',
-      })),
+      .filter(d => d.is_active)
+      .map(d => {
+        const key = d.role_key || d.name.toLowerCase().replace(/\s+/g, '_');
+        return {
+          value: key as AppRole,
+          label: d.name,
+          color: ROLE_COLORS[key] || 'bg-muted text-muted-foreground border-border',
+        };
+      }),
     [departments]
   );
 
