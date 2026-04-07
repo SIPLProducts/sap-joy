@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, AlertTriangle, Eye, Loader2, Unlock, RefreshCw, CheckSquare, Square, History, Clock, CheckCircle2, XCircle, Download } from 'lucide-react';
+import { Search, AlertTriangle, Eye, Loader2, Unlock, RefreshCw, CheckSquare, Square, History, Clock, CheckCircle2, XCircle, Download, CalendarDays } from 'lucide-react';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -119,6 +119,12 @@ export default function Worklist() {
   const [syncHistory, setSyncHistory] = useState<SAPSyncHistoryEntry[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  
+  // Posting date popup state for SAP 343/344
+  const [showPostingDateDialog, setShowPostingDateDialog] = useState(false);
+  const [postingDate, setPostingDate] = useState(new Date().toISOString().split('T')[0]);
+  const [pendingSAPSyncId, setPendingSAPSyncId] = useState<string | null>(null);
+  const [pendingSAPSyncNumber, setPendingSAPSyncNumber] = useState<string>('');
 
   // RBAC: Block-to-Unrestricted access control (#1.3)
   const isMasterAdmin = profile?.email === MASTER_ADMIN_EMAIL || user?.email === MASTER_ADMIN_EMAIL;
@@ -448,11 +454,33 @@ export default function Worklist() {
       CHARG: String(batch || ''),
       ENTRY_QNT: String(mrb.blockedQuantity || mrb.totalQuantity || 0),
       ENTRY_UOM: String(mrb.uom || 'EA'),
-      // If ART is ever needed here: ART: '01'
     };
   };
 
-  const handleSAPSync = async (mrbId: string, mrbNumber: string) => {
+  // Format posting date from YYYY-MM-DD to YYMMDD for SAP
+  const formatPostingDateForSAP = (dateStr: string): string => {
+    const d = new Date(dateStr);
+    const yy = String(d.getFullYear()).slice(-2);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yy}${mm}${dd}`;
+  };
+
+  // Show posting date dialog instead of directly syncing
+  const handleRequestSAPSync = (mrbId: string, mrbNumber: string) => {
+    setPendingSAPSyncId(mrbId);
+    setPendingSAPSyncNumber(mrbNumber);
+    setPostingDate(new Date().toISOString().split('T')[0]);
+    setShowPostingDateDialog(true);
+  };
+
+  const handleConfirmSAPSync = async () => {
+    if (!pendingSAPSyncId || !postingDate) return;
+    setShowPostingDateDialog(false);
+    await handleSAPSync(pendingSAPSyncId, pendingSAPSyncNumber, postingDate);
+  };
+
+  const handleSAPSync = async (mrbId: string, mrbNumber: string, sapPostingDate?: string) => {
     setSyncingIds(prev => new Set(prev).add(mrbId));
     
     try {
@@ -462,6 +490,10 @@ export default function Worklist() {
 
       // Build request body from MRB data
       const requestBody = await buildUnblockRequestBody(mrb);
+      // Add BUDAT (posting date) in YYMMDD format
+      if (sapPostingDate) {
+        (requestBody as any).BUDAT = formatPostingDateForSAP(sapPostingDate);
+      }
       console.log('SAP 343 Unblock Request:', requestBody);
 
       // Call SAP 343 and then verify with live MB52 stock fetch
@@ -593,6 +625,8 @@ export default function Worklist() {
       try {
         // Build request body from MRB data for SAP 343 unblock
         const requestBody = await buildUnblockRequestBody(mrb);
+        // Add BUDAT for batch sync using current date
+        (requestBody as any).BUDAT = formatPostingDateForSAP(new Date().toISOString().split('T')[0]);
 
         const response = await invokeSapSync({
           action: 'unblock',
@@ -1089,7 +1123,7 @@ export default function Worklist() {
                             <Button 
                               variant="default" 
                               size="sm" 
-                              onClick={() => handleSAPSync(mrb.id, mrb.mrbNumber)}
+                              onClick={() => handleRequestSAPSync(mrb.id, mrb.mrbNumber)}
                               disabled={syncingIds.has(mrb.id)}
                               className="bg-green-600 hover:bg-green-700 whitespace-nowrap"
                             >
@@ -1117,6 +1151,43 @@ export default function Worklist() {
         </div>
       </div>
     </div>
+
+    {/* Posting Date Dialog for SAP Sync */}
+    <Dialog open={showPostingDateDialog} onOpenChange={setShowPostingDateDialog}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-primary" />
+            SAP Posting Date
+          </DialogTitle>
+          <DialogDescription>
+            Enter the posting date for SAP Unblock (343 API). This is mandatory.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4 space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Posting Date <span className="text-destructive">*</span></label>
+            <Input
+              type="date"
+              value={postingDate}
+              onChange={(e) => setPostingDate(e.target.value)}
+              className="w-full"
+            />
+            <p className="text-xs text-muted-foreground">
+              Will be sent as BUDAT in YYMMDD format: <span className="font-mono font-medium">{postingDate ? formatPostingDateForSAP(postingDate) : ''}</span>
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setShowPostingDateDialog(false)}>Cancel</Button>
+          <Button onClick={handleConfirmSAPSync} disabled={!postingDate} className="bg-green-600 hover:bg-green-700 gap-2">
+            <Unlock className="h-4 w-4" />
+            Proceed with Unblock
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
     </TooltipProvider>
   );
 }

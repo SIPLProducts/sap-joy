@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, Send, X, Upload, FileText, Trash2, CheckCircle2, AlertCircle, Clock, Sparkles, Lightbulb, Lock } from 'lucide-react';
+import { ArrowLeft, Save, Send, X, Upload, FileText, Trash2, CheckCircle2, AlertCircle, Clock, Sparkles, Lightbulb, Lock, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -190,6 +190,7 @@ export default function CreateInwardMRB() {
   // Predefined workflow routing from plant_workflow_config
   const [predefinedRouting, setPredefinedRouting] = useState<string[] | null>(null);
   const [routingLocked, setRoutingLocked] = useState(false);
+  const [workflowType, setWorkflowType] = useState<'predefined' | 'manual'>('predefined');
 
   // Fetch predefined workflow for this plant
   useEffect(() => {
@@ -198,6 +199,7 @@ export default function CreateInwardMRB() {
       if (steps.length > 0) {
         const deptSequence = steps.map((s) => s.department);
         setPredefinedRouting(deptSequence);
+        setWorkflowType('predefined');
         setRoutingLocked(true);
         // Auto-populate departments from predefined routing
         setFormData((prev) => ({
@@ -206,11 +208,33 @@ export default function CreateInwardMRB() {
         }));
       } else {
         setPredefinedRouting(null);
+        setWorkflowType('manual');
         setRoutingLocked(false);
       }
     };
     loadPlantWorkflow();
   }, [inspectionLot.plant]);
+
+  // Handle workflow type change
+  const handleWorkflowTypeChange = (type: 'predefined' | 'manual') => {
+    setWorkflowType(type);
+    if (type === 'predefined' && predefinedRouting) {
+      setRoutingLocked(true);
+      setFormData(prev => ({ ...prev, nextReviewDepartments: predefinedRouting }));
+    } else {
+      setRoutingLocked(false);
+      setFormData(prev => ({ ...prev, nextReviewDepartments: [] }));
+    }
+  };
+
+  // Manual routing reorder
+  const moveRouteStep = (index: number, direction: 'up' | 'down') => {
+    const newDepts = [...formData.nextReviewDepartments];
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= newDepts.length) return;
+    [newDepts[index], newDepts[swapIndex]] = [newDepts[swapIndex], newDepts[index]];
+    setFormData(prev => ({ ...prev, nextReviewDepartments: newDepts }));
+  };
 
   // Smart routing suggestions based on quality decision
   // Smart routing based on quality decision
@@ -1051,180 +1075,255 @@ Quality Department`;
 
         <Separator />
 
-        {/* Section 4: Next Review Department */}
+        {/* Section 4: Workflow Routing */}
         <div className="bg-background rounded-lg border border-border shadow-sm">
           <div className="px-6 py-4 border-b border-border bg-muted/30">
             <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
               Workflow Routing
-              {routingLocked && (
-                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                  <Lock className="h-3 w-3 mr-1" /> Predefined
-                </Badge>
-              )}
             </h2>
             <p className="text-sm text-muted-foreground">
-              {routingLocked
-                ? 'Routing is predefined for this plant and will follow the configured sequence automatically'
-                : 'Select department(s) for review — MRB will follow this exact sequence'}
+              Choose how the MRB should be routed for review
             </p>
           </div>
-          <div className="p-6">
-            <div className="space-y-4">
-              {routingLocked && predefinedRouting && predefinedRouting.length > 0 ? (
-                <div className="space-y-3">
-                  <p className="text-sm font-medium text-foreground">MRB will follow this predefined sequence:</p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {predefinedRouting.map((dept, idx) => {
-                      const deptInfo = nextReviewDepartments.find(d => d.value === dept);
-                      return (
-                        <div key={dept} className="flex items-center gap-2">
-                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5">
-                            <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+          <div className="p-6 space-y-6">
+            {/* Workflow Type Selection */}
+            <div className="flex gap-4">
+              <label
+                className={`flex-1 flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  workflowType === 'predefined'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:bg-muted/50'
+                } ${!predefinedRouting ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="workflowType"
+                  value="predefined"
+                  checked={workflowType === 'predefined'}
+                  onChange={() => predefinedRouting && handleWorkflowTypeChange('predefined')}
+                  disabled={!predefinedRouting}
+                  className="h-4 w-4 text-primary"
+                />
+                <div>
+                  <p className="font-medium text-sm text-foreground flex items-center gap-2">
+                    <Lock className="h-4 w-4" />
+                    Use Predefined Workflow
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {predefinedRouting
+                      ? `Follow the configured sequence for Plant ${inspectionLot.plant}`
+                      : 'No predefined workflow configured for this plant'}
+                  </p>
+                </div>
+              </label>
+              <label
+                className={`flex-1 flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  workflowType === 'manual'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:bg-muted/50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="workflowType"
+                  value="manual"
+                  checked={workflowType === 'manual'}
+                  onChange={() => handleWorkflowTypeChange('manual')}
+                  className="h-4 w-4 text-primary"
+                />
+                <div>
+                  <p className="font-medium text-sm text-foreground flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Use Manual Routing
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Select roles and arrange them in a custom sequence
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            {/* Predefined Workflow Display */}
+            {workflowType === 'predefined' && predefinedRouting && predefinedRouting.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-foreground">MRB will follow this predefined sequence:</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {predefinedRouting.map((dept, idx) => {
+                    const deptInfo = nextReviewDepartments.find(d => d.value === dept);
+                    return (
+                      <div key={dept} className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5">
+                          <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                            {idx + 1}
+                          </span>
+                          <span className="text-sm font-medium text-foreground">
+                            {deptInfo?.label || dept}
+                          </span>
+                        </div>
+                        {idx < predefinedRouting.length - 1 && (
+                          <span className="text-muted-foreground text-lg">→</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Manual Routing Selection */}
+            {workflowType === 'manual' && (
+              <>
+                {/* Smart Routing Suggestion Banner */}
+                {recommendedDepartments.length > 0 && (
+                  <div className="flex items-center justify-between p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900">
+                        <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                          Smart Routing Suggestion
+                        </p>
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          {formData.qualityDecision && formData.defectCategory ? (
+                            <>Based on "{inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label}" + "{inwardDefectCategories.find(c => c.value === formData.defectCategory)?.label}" defect</>
+                          ) : formData.qualityDecision ? (
+                            <>Based on "{inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label}" decision</>
+                          ) : formData.defectCategory ? (
+                            <>Based on "{inwardDefectCategories.find(c => c.value === formData.defectCategory)?.label}" defect category</>
+                          ) : null}
+                        </p>
+                      </div>
+                    </div>
+                    {formData.nextReviewDepartments.length === 0 && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleApplyRecommendations}
+                        className="border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900"
+                      >
+                        <Lightbulb className="h-4 w-4 mr-1 text-amber-600" />
+                        Apply
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <Label className="text-foreground">
+                    Select Roles & Arrange Sequence <span className="text-destructive">*</span>
+                  </Label>
+                  {formData.nextReviewDepartments.length > 0 && (
+                    <span className="text-xs text-green-600 flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      {formData.nextReviewDepartments.length} selected
+                    </span>
+                  )}
+                </div>
+
+                {/* Role selection grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {nextReviewDepartments.map((dept) => {
+                    const isSelected = formData.nextReviewDepartments.includes(dept.value);
+                    const isRecommended = isDepartmentRecommended(dept.value);
+                    
+                    return (
+                      <label
+                        key={dept.value}
+                        className={`relative flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                            : isRecommended
+                            ? 'border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/20'
+                            : 'border-border hover:bg-muted/50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            handleFieldBlur('nextReviewDepartments');
+                            if (e.target.checked) {
+                              setFormData({
+                                ...formData,
+                                nextReviewDepartments: [...formData.nextReviewDepartments, dept.value],
+                              });
+                            } else {
+                              setFormData({
+                                ...formData,
+                                nextReviewDepartments: formData.nextReviewDepartments.filter(
+                                  (d) => d !== dept.value
+                                ),
+                              });
+                            }
+                          }}
+                          className="h-4 w-4 text-primary"
+                        />
+                        <div className="flex-1">
+                          <span className={`font-medium text-sm ${isSelected ? 'text-primary' : 'text-foreground'}`}>
+                            {dept.label}
+                          </span>
+                          {isRecommended && !isSelected && (
+                            <Badge variant="outline" className="ml-2 text-xs bg-amber-50 text-amber-700 border-amber-200">
+                              Recommended
+                            </Badge>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {/* Sequence ordering for selected roles */}
+                {formData.nextReviewDepartments.length > 0 && (
+                  <div className="space-y-2 mt-4">
+                    <Label className="text-foreground text-sm font-medium">Execution Sequence (drag to reorder)</Label>
+                    <div className="space-y-2 bg-muted/30 rounded-lg p-3">
+                      {formData.nextReviewDepartments.map((dept, idx) => {
+                        const deptInfo = nextReviewDepartments.find(d => d.value === dept);
+                        return (
+                          <div key={dept} className="flex items-center gap-2 bg-background rounded-md border px-3 py-2">
+                            <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">
                               {idx + 1}
                             </span>
-                            <span className="text-sm font-medium text-foreground">
-                              {deptInfo?.label || dept}
-                            </span>
+                            <span className="flex-1 text-sm font-medium">{deptInfo?.label || dept}</span>
+                            <div className="flex gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                disabled={idx === 0}
+                                onClick={() => moveRouteStep(idx, 'up')}
+                              >
+                                <ArrowUp className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                disabled={idx === formData.nextReviewDepartments.length - 1}
+                                onClick={() => moveRouteStep(idx, 'down')}
+                              >
+                                <ArrowDown className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           </div>
-                          {idx < predefinedRouting.length - 1 && (
-                            <span className="text-muted-foreground text-lg">→</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {/* Smart Routing Suggestion Banner */}
-                  {recommendedDepartments.length > 0 && (
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900">
-                          <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                            Smart Routing Applied
-                          </p>
-                          <p className="text-xs text-amber-600 dark:text-amber-400">
-                            {formData.qualityDecision && formData.defectCategory ? (
-                              <>Based on "{inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label}" + "{inwardDefectCategories.find(c => c.value === formData.defectCategory)?.label}" defect</>
-                            ) : formData.qualityDecision ? (
-                              <>Based on "{inwardQualityDecisions.find(d => d.value === formData.qualityDecision)?.label}" decision</>
-                            ) : formData.defectCategory ? (
-                              <>Based on "{inwardDefectCategories.find(c => c.value === formData.defectCategory)?.label}" defect category</>
-                            ) : null}
-                            {' → '}
-                            <span className="font-medium">
-                              {recommendedDepartments.map(d => 
-                                nextReviewDepartments.find(dept => dept.value === d)?.label
-                              ).join(', ')}
-                            </span>
-                          </p>
-                        </div>
-                      </div>
-                      {formData.nextReviewDepartments.length === 0 && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={handleApplyRecommendations}
-                          className="border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900"
-                        >
-                          <Lightbulb className="h-4 w-4 mr-1 text-amber-600" />
-                          Apply
-                        </Button>
-                      )}
+                        );
+                      })}
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  <div className="flex items-center justify-between">
-                    <Label className="text-foreground">
-                      Next Review Department(s) <span className="text-destructive">*</span>
-                    </Label>
-                    {formData.nextReviewDepartments.length > 0 && (
-                      <span className="text-xs text-green-600 flex items-center gap-1">
-                        <CheckCircle2 className="h-3 w-3" />
-                        {formData.nextReviewDepartments.length} selected
-                      </span>
-                    )}
-                    {touchedFields.has('nextReviewDepartments') && formData.nextReviewDepartments.length === 0 && (
-                      <span className="text-xs text-destructive flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        Select at least one department
-                      </span>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {nextReviewDepartments.map((dept) => {
-                      const isSelected = formData.nextReviewDepartments.includes(dept.value);
-                      const isRecommended = isDepartmentRecommended(dept.value);
-                      
-                      return (
-                        <label
-                          key={dept.value}
-                          className={`relative flex flex-col p-4 rounded-lg border transition-all cursor-pointer ${
-                            isSelected
-                              ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                              : isRecommended
-                              ? 'border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/20'
-                              : 'border-border hover:bg-muted/50'
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={(e) => {
-                                handleFieldBlur('nextReviewDepartments');
-                                if (e.target.checked) {
-                                  setFormData({
-                                    ...formData,
-                                    nextReviewDepartments: [...formData.nextReviewDepartments, dept.value],
-                                  });
-                                } else {
-                                  setFormData({
-                                    ...formData,
-                                    nextReviewDepartments: formData.nextReviewDepartments.filter(
-                                      (d) => d !== dept.value
-                                    ),
-                                  });
-                                }
-                              }}
-                              className="h-4 w-4 text-primary mt-0.5"
-                            />
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className={`font-medium text-sm ${
-                                  isSelected ? 'text-primary' : 'text-foreground'
-                                }`}>
-                                  {dept.label}
-                                </span>
-                                {isRecommended && !isSelected && (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                                    <Sparkles className="h-3 w-3" />
-                                    Recommended
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-1">{dept.description}</p>
-                            </div>
-                          </div>
-                          {isSelected && (
-                            <div className="absolute top-3 right-3 flex items-center gap-1.5">
-                              <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                                {formData.nextReviewDepartments.indexOf(dept.value) + 1}
-                              </span>
-                              <CheckCircle2 className="h-4 w-4 text-primary" />
-                            </div>
-                          )}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
+                {touchedFields.has('nextReviewDepartments') && formData.nextReviewDepartments.length === 0 && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    Select at least one role for routing
+                  </p>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>

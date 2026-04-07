@@ -107,6 +107,9 @@ export default function ShopFloorMaterialBlocking() {
     if (nextReviewDepartments.length === 0) {
       newErrors.nextReviewDepartment = 'At least one review department is required';
     }
+    if (!postingDate) {
+      newErrors.postingDate = 'Posting date is required';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -490,6 +493,19 @@ export default function ShopFloorMaterialBlocking() {
                   onChange={(e) => setProductionOrder(e.target.value)}
                   placeholder="e.g., PRD-2024-1234"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="postingDate">Posting Date <span className="text-destructive">*</span></Label>
+                <Input
+                  id="postingDate"
+                  type="date"
+                  value={postingDate}
+                  onChange={(e) => setPostingDate(e.target.value)}
+                  className={errors.postingDate ? 'border-destructive' : ''}
+                />
+                {errors.postingDate && (
+                  <p className="text-xs text-destructive">{errors.postingDate}</p>
+                )}
               </div>
             </div>
             <div className="space-y-2">

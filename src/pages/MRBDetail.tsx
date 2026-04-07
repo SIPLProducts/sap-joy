@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText, ShoppingCart, Settings, CheckCircle, Database, History, Loader2 } from 'lucide-react';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,7 @@ export default function MRBDetail() {
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
   const [remarks, setRemarks] = useState('');
   const [currentStage, setCurrentStage] = useState('');
+  const [poItemNumber, setPOItemNumber] = useState<string | null>(null);
 
   // Form fields for editing
   const [qualityRemarks, setQualityRemarks] = useState('');
@@ -61,6 +63,19 @@ export default function MRBDetail() {
         setEngineeringRemarks(mrbData.engineering_remarks || '');
         setFinalRemarks(mrbData.final_remarks || '');
         setEngineeringDecision(mrbData.engineering_decision || '');
+        
+        // Fetch PO item number from inward_inspection_lots if inspection_lot is available
+        if (mrbData.inspection_lot) {
+          const { data: lotData } = await supabase
+            .from('inward_inspection_lots')
+            .select('po_item_number')
+            .eq('inspection_lot', mrbData.inspection_lot)
+            .limit(1)
+            .maybeSingle();
+          if (lotData?.po_item_number) {
+            setPOItemNumber(lotData.po_item_number);
+          }
+        }
       }
       
       setApprovalHistory(historyData);
@@ -244,10 +259,11 @@ export default function MRBDetail() {
           pendingWith={mrb.pending_with}
         />
 
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-5">
           <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Material</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.material_number}</p></CardContent></Card>
           <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Vendor</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.vendor_name || 'N/A'}</p></CardContent></Card>
           <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Plant</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.plant}</p></CardContent></Card>
+          <Card><CardHeader className="pb-2"><CardTitle className="text-sm">PO / Line Item</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.po_number || 'N/A'}{poItemNumber ? ` / ${poItemNumber}` : ''}</p></CardContent></Card>
           <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Pending With</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.pending_with ? getRoleDisplayName(mrb.pending_with as any) : 'N/A'}</p></CardContent></Card>
         </div>
 
