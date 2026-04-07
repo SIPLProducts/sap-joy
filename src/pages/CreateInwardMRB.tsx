@@ -109,7 +109,7 @@ export default function CreateInwardMRB() {
   // Build dynamic department options from configured departments (only those with role_key)
   const nextReviewDepartments = useMemo(() => 
     allDepartments
-      .filter(d => d.role_key && d.is_active)
+      .filter(d => d.role_key && d.is_active && d.is_workflow_enabled)
       .map(d => ({
         value: d.role_key!,
         label: d.name,
