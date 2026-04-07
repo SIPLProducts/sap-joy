@@ -6,27 +6,11 @@ import { usePlants } from '@/hooks/usePlantConfig';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Shield, Plus, Trash2, RefreshCw, ArrowDown, ArrowUp, Save, GitBranch } from 'lucide-react';
-import type { Database } from '@/integrations/supabase/types';
-
-type AppRole = Database['public']['Enums']['app_role'];
-
-interface WorkflowStep {
-  id?: string;
-  workflow_step: number;
-  department: AppRole;
-  step_label: string;
-  is_required: boolean;
-  is_active: boolean;
-  plant: string;
-}
+import { Shield, RefreshCw, ArrowDown, ArrowUp, Save, GitBranch } from 'lucide-react';
 
 export default function WorkflowRoutingConfig() {
   const { userRole } = useAuth();
@@ -34,46 +18,67 @@ export default function WorkflowRoutingConfig() {
   const plants = usePlants();
   const { departments } = useDepartments();
   
-  // Build role options dynamically from Role Management (departments table)
-  const roleOptions = useMemo(() => 
+  // All workflow-enabled roles from Role Management
+  const workflowRoles = useMemo(() => 
     departments
       .filter(d => d.is_active && d.is_workflow_enabled && d.role_key)
       .map(d => ({
-        value: d.role_key as AppRole,
-        label: d.name,
+        role_key: d.role_key!,
+        name: d.name,
+        description: d.description,
       })),
     [departments]
   );
   
   const [selectedPlant, setSelectedPlant] = useState('1300');
-  const [steps, setSteps] = useState<WorkflowStep[]>([]);
+  const [steps, setSteps] = useState<{ role_key: string; name: string; workflow_step: number; is_active: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newStep, setNewStep] = useState<Partial<WorkflowStep>>({ department: undefined, step_label: '', is_required: true, is_active: true });
 
   const isAdmin = userRole === 'admin';
 
-  const fetchSteps = async () => {
+  // Build steps list: all workflow-enabled roles, merged with saved config for this plant
+  const buildSteps = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data: savedSteps, error } = await supabase
         .from('plant_workflow_config')
         .select('*')
         .eq('plant', selectedPlant)
         .order('workflow_step', { ascending: true });
 
       if (error) throw error;
-      setSteps((data || []).map(d => ({
-        id: d.id,
-        workflow_step: d.workflow_step,
-        department: d.department as AppRole,
-        step_label: d.step_label,
-        is_required: d.is_required,
-        is_active: d.is_active,
-        plant: d.plant,
-      })));
+
+      const savedMap = new Map<string, { workflow_step: number; is_active: boolean }>();
+      (savedSteps || []).forEach(s => {
+        savedMap.set(s.department, { workflow_step: s.workflow_step, is_active: s.is_active });
+      });
+
+      // Merge: saved roles keep their order, new roles appended at the end
+      const ordered: typeof steps = [];
+      const usedKeys = new Set<string>();
+
+      // First, add saved steps in their order (only if role still exists in workflow roles)
+      const sortedSaved = [...savedMap.entries()].sort((a, b) => a[1].workflow_step - b[1].workflow_step);
+      for (const [roleKey, config] of sortedSaved) {
+        const role = workflowRoles.find(r => r.role_key === roleKey);
+        if (role) {
+          ordered.push({ role_key: roleKey, name: role.name, workflow_step: config.workflow_step, is_active: config.is_active });
+          usedKeys.add(roleKey);
+        }
+      }
+
+      // Then, append any new workflow-enabled roles not yet saved
+      for (const role of workflowRoles) {
+        if (!usedKeys.has(role.role_key)) {
+          ordered.push({ role_key: role.role_key, name: role.name, workflow_step: ordered.length + 1, is_active: false });
+        }
+      }
+
+      // Re-number
+      ordered.forEach((s, i) => { s.workflow_step = i + 1; });
+      setSteps(ordered);
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
@@ -83,8 +88,8 @@ export default function WorkflowRoutingConfig() {
   };
 
   useEffect(() => {
-    if (isAdmin) fetchSteps();
-  }, [isAdmin, selectedPlant]);
+    if (isAdmin && workflowRoles.length >= 0) buildSteps();
+  }, [isAdmin, selectedPlant, workflowRoles.length]);
 
   const handleMoveUp = (index: number) => {
     if (index === 0) return;
@@ -111,49 +116,22 @@ export default function WorkflowRoutingConfig() {
     setHasChanges(true);
   };
 
-  const handleToggleRequired = (index: number) => {
-    const newSteps = [...steps];
-    newSteps[index].is_required = !newSteps[index].is_required;
-    setSteps(newSteps);
-    setHasChanges(true);
-  };
-
-  const handleDeleteStep = (index: number) => {
-    const newSteps = steps.filter((_, i) => i !== index);
-    newSteps.forEach((s, i) => { s.workflow_step = i + 1; });
-    setSteps(newSteps);
-    setHasChanges(true);
-  };
-
-  const handleAddStep = () => {
-    if (!newStep.step_label?.trim() || !newStep.department) return;
-    const step: WorkflowStep = {
-      workflow_step: steps.length + 1,
-      department: newStep.department as AppRole,
-      step_label: newStep.step_label!.trim(),
-      is_required: newStep.is_required ?? true,
-      is_active: newStep.is_active ?? true,
-      plant: selectedPlant,
-    };
-    setSteps([...steps, step]);
-    setHasChanges(true);
-    setIsAddOpen(false);
-    setNewStep({ department: undefined, step_label: '', is_required: true, is_active: true });
-  };
-
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Delete existing config for this plant
       await supabase.from('plant_workflow_config').delete().eq('plant', selectedPlant);
 
-      if (steps.length > 0) {
-        const rows = steps.map(s => ({
+      // Only save active steps
+      const activeSteps = steps.filter(s => s.is_active);
+      if (activeSteps.length > 0) {
+        const rows = activeSteps.map((s, i) => ({
           plant: selectedPlant,
-          workflow_step: s.workflow_step,
-          department: s.department,
-          step_label: s.step_label,
-          is_required: s.is_required,
-          is_active: s.is_active,
+          workflow_step: i + 1,
+          department: s.role_key as any,
+          step_label: s.name,
+          is_required: true,
+          is_active: true,
         }));
         const { error } = await supabase.from('plant_workflow_config').insert(rows);
         if (error) throw error;
@@ -161,7 +139,7 @@ export default function WorkflowRoutingConfig() {
 
       toast({ title: 'Success', description: 'Workflow routing saved successfully' });
       setHasChanges(false);
-      fetchSteps();
+      buildSteps();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
@@ -183,6 +161,8 @@ export default function WorkflowRoutingConfig() {
     );
   }
 
+  const activeCount = steps.filter(s => s.is_active).length;
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -190,7 +170,7 @@ export default function WorkflowRoutingConfig() {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <GitBranch className="h-7 w-7 text-primary" /> Workflow Routing Configuration
           </h1>
-          <p className="text-muted-foreground mt-1">Define the approval sequence for MRB workflow per plant. Roles are loaded from Role Management.</p>
+          <p className="text-muted-foreground mt-1">Enable and order the approval sequence per plant. Roles come from Role Management.</p>
         </div>
         <div className="flex gap-2 items-center">
           <Select value={selectedPlant} onValueChange={setSelectedPlant}>
@@ -203,7 +183,7 @@ export default function WorkflowRoutingConfig() {
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={fetchSteps} variant="outline" disabled={loading}>
+          <Button onClick={buildSteps} variant="outline" disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
         </div>
@@ -220,54 +200,34 @@ export default function WorkflowRoutingConfig() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg">Workflow Steps — Plant {selectedPlant}</CardTitle>
-              <CardDescription>{steps.filter(s => s.is_active).length} active steps in sequence</CardDescription>
-            </div>
-            <Button size="sm" onClick={() => setIsAddOpen(true)} disabled={roleOptions.length === 0}>
-              <Plus className="h-4 w-4 mr-1" /> Add Step
-            </Button>
-          </div>
+          <CardTitle className="text-lg">Workflow Steps — Plant {selectedPlant}</CardTitle>
+          <CardDescription>
+            {activeCount} of {steps.length} roles enabled in the routing sequence. Toggle roles on/off and reorder them.
+          </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
             <div className="flex justify-center py-10"><RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-          ) : roleOptions.length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground">
-              <p>No roles configured in Role Management with a system role key.</p>
-              <p className="text-xs mt-1">Go to Role Management and assign system role keys to roles first.</p>
-            </div>
           ) : steps.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground">
-              <p>No workflow steps configured for this plant.</p>
-              <p className="text-xs mt-1">Users will be able to select manual routing when creating MRBs.</p>
+              <p>No roles with workflow routing enabled.</p>
+              <p className="text-xs mt-1">Go to Role Management and enable "Workflow Routing" for roles first.</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">#</TableHead>
-                  <TableHead>Step Label</TableHead>
+                  <TableHead className="w-16">Order</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead>Required</TableHead>
-                  <TableHead>Active</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Enabled</TableHead>
+                  <TableHead className="text-right">Reorder</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {steps.map((step, index) => (
-                  <TableRow key={step.id || index} className={!step.is_active ? 'opacity-50' : ''}>
+                  <TableRow key={step.role_key} className={!step.is_active ? 'opacity-50' : ''}>
                     <TableCell className="font-mono font-bold text-primary">{step.workflow_step}</TableCell>
-                    <TableCell className="font-medium">{step.step_label}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {roleOptions.find(d => d.value === step.department)?.label || step.department}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Switch checked={step.is_required} onCheckedChange={() => handleToggleRequired(index)} />
-                    </TableCell>
+                    <TableCell className="font-medium">{step.name}</TableCell>
                     <TableCell>
                       <Switch checked={step.is_active} onCheckedChange={() => handleToggleActive(index)} />
                     </TableCell>
@@ -279,9 +239,6 @@ export default function WorkflowRoutingConfig() {
                         <Button variant="ghost" size="icon" onClick={() => handleMoveDown(index)} disabled={index === steps.length - 1}>
                           <ArrowDown className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteStep(index)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -292,19 +249,17 @@ export default function WorkflowRoutingConfig() {
         </CardContent>
       </Card>
 
-      {/* Workflow Preview */}
-      {steps.filter(s => s.is_active).length > 0 && (
+      {/* Workflow Preview — only active roles */}
+      {activeCount > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Workflow Preview</CardTitle>
+            <CardTitle className="text-sm">Active Routing Sequence</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2 flex-wrap">
               {steps.filter(s => s.is_active).map((step, i, arr) => (
-                <div key={step.id || i} className="flex items-center gap-2">
-                  <Badge variant={step.is_required ? 'default' : 'secondary'} className="py-1">
-                    {step.step_label}
-                  </Badge>
+                <div key={step.role_key} className="flex items-center gap-2">
+                  <Badge variant="default" className="py-1">{step.name}</Badge>
                   {i < arr.length - 1 && <span className="text-muted-foreground">→</span>}
                 </div>
               ))}
@@ -312,52 +267,6 @@ export default function WorkflowRoutingConfig() {
           </CardContent>
         </Card>
       )}
-
-      {/* Add Step Dialog */}
-      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Workflow Step</DialogTitle>
-            <DialogDescription>Add a new approval step using roles from Role Management</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Step Label *</Label>
-              <Input
-                value={newStep.step_label || ''}
-                onChange={e => setNewStep({ ...newStep, step_label: e.target.value })}
-                placeholder="e.g. Quality Review"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Role *</Label>
-              <Select value={newStep.department} onValueChange={v => setNewStep({ ...newStep, department: v as AppRole })}>
-                <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
-                <SelectContent>
-                  {roleOptions.map(d => (
-                    <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">Only roles with a system role key (configured in Role Management) are shown</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Switch checked={newStep.is_required ?? true} onCheckedChange={v => setNewStep({ ...newStep, is_required: v })} />
-                <Label>Required</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch checked={newStep.is_active ?? true} onCheckedChange={v => setNewStep({ ...newStep, is_active: v })} />
-                <Label>Active</Label>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddStep} disabled={!newStep.step_label?.trim() || !newStep.department}>Add Step</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
