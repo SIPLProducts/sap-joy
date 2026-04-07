@@ -106,6 +106,7 @@ export default function CreateInwardMRB() {
   const { createMRB, getNextMRBNumber } = useMRBDatabase();
   const { user, profile, userRole } = useAuth();
   const { departments: allDepartments } = useDepartments(true);
+  const { deptToRole, deptToStatus } = useDepartmentMap();
   
   // Build dynamic department options from configured departments (only those with role_key)
   const nextReviewDepartments = useMemo(() => 
