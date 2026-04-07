@@ -95,6 +95,7 @@ export default function DepartmentManagement() {
         description: form.description.trim() || null,
         is_active: form.is_active,
         role_key: form.role_key && form.role_key !== '__none' ? form.role_key : null,
+        is_workflow_enabled: form.is_workflow_enabled,
       };
 
       if (editingDept) {
