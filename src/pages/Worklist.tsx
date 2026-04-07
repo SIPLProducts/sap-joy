@@ -1151,6 +1151,43 @@ export default function Worklist() {
         </div>
       </div>
     </div>
+
+    {/* Posting Date Dialog for SAP Sync */}
+    <Dialog open={showPostingDateDialog} onOpenChange={setShowPostingDateDialog}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-primary" />
+            SAP Posting Date
+          </DialogTitle>
+          <DialogDescription>
+            Enter the posting date for SAP Unblock (343 API). This is mandatory.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4 space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Posting Date <span className="text-destructive">*</span></label>
+            <Input
+              type="date"
+              value={postingDate}
+              onChange={(e) => setPostingDate(e.target.value)}
+              className="w-full"
+            />
+            <p className="text-xs text-muted-foreground">
+              Will be sent as BUDAT in YYMMDD format: <span className="font-mono font-medium">{postingDate ? formatPostingDateForSAP(postingDate) : ''}</span>
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setShowPostingDateDialog(false)}>Cancel</Button>
+          <Button onClick={handleConfirmSAPSync} disabled={!postingDate} className="bg-green-600 hover:bg-green-700 gap-2">
+            <Unlock className="h-4 w-4" />
+            Proceed with Unblock
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
     </TooltipProvider>
   );
 }
