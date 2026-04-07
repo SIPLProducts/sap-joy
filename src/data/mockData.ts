@@ -1,21 +1,9 @@
 import { MRBStatus, UserRole, SLAStatus, EscalationLevel } from '@/types/mrb';
+import { getRoleDisplayName as getRoleDisplayNameFromContext } from '@/contexts/RoleContext';
 
-// Helper function to get role display name
+// Re-export dynamic role display name from RoleContext
 export const getRoleDisplayName = (role: string): string => {
-  const names: Record<string, string> = {
-    quality: 'Quality',
-    quality_head: 'Quality Head',
-    purchase: 'Purchase/SCM',
-    purchase_head: 'Purchase Head',
-    engineering: 'Engineering',
-    engineering_head: 'Engineering Head',
-    plant_head: 'Plant Head',
-    shop_floor: 'Shop Floor',
-    executive: 'Executive',
-    admin: 'Admin',
-    mrb_committee: 'MRB Committee',
-  };
-  return names[role] || role || 'N/A';
+  return getRoleDisplayNameFromContext(role as any);
 };
 
 // Helper function to get status display name
@@ -48,23 +36,24 @@ export const getStatusColor = (status: MRBStatus): string => {
   return colors[status];
 };
 
-// Helper function to get SLA color
-export const getSLAColor = (sla: SLAStatus): string => {
+export const getEscalationColor = (level: EscalationLevel) => {
+  const colors: Record<EscalationLevel, string> = {
+    none: 'bg-muted text-muted-foreground',
+    L1: 'bg-yellow-100 text-yellow-800',
+    L2: 'bg-orange-100 text-orange-800',
+    L3: 'bg-red-100 text-red-800',
+  };
+  return colors[level];
+};
+
+export const getSLAColor = (status: SLAStatus) => {
   const colors: Record<SLAStatus, string> = {
     green: 'bg-green-100 text-green-800',
     yellow: 'bg-yellow-100 text-yellow-800',
     red: 'bg-red-100 text-red-800',
   };
-  return colors[sla];
+  return colors[status];
 };
 
-// Helper function to get escalation color
-export const getEscalationColor = (level: EscalationLevel): string => {
-  const colors: Record<EscalationLevel, string> = {
-    none: '',
-    L1: 'bg-orange-100 text-orange-800',
-    L2: 'bg-red-100 text-red-800',
-    L3: 'bg-red-200 text-red-900',
-  };
-  return colors[level];
-};
+// Mock data is no longer used - all data comes from Supabase
+export const mockMRBs: any[] = [];

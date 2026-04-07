@@ -1,5 +1,6 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode, useEffect, useState } from 'react';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 // Legacy UserRole type for backward compatibility with existing code
 export type UserRole = 'quality' | 'purchase' | 'engineering' | 'plant_head' | 'shop_floor';
@@ -27,41 +28,64 @@ const RoleContext = createContext<RoleContextType | undefined>(undefined);
 const mapAppRoleToUserRole = (appRole: AppRole | null): UserRole => {
   if (!appRole) return 'quality';
   
-  const roleMap: Record<AppRole, UserRole> = {
-    quality: 'quality',
-    quality_head: 'quality',
-    purchase: 'purchase',
-    purchase_head: 'purchase',
-    engineering: 'engineering',
-    engineering_head: 'engineering',
-    shop_floor: 'shop_floor',
-    executive: 'plant_head',
-    admin: 'plant_head',
-    mrb_committee: 'quality',
-  };
-  
-  return roleMap[appRole] || 'quality';
+  // Dynamic mapping based on role_key patterns
+  if (appRole.includes('quality')) return 'quality';
+  if (appRole.includes('purchase')) return 'purchase';
+  if (appRole.includes('engineering')) return 'engineering';
+  if (appRole === 'shop_floor') return 'shop_floor';
+  if (appRole === 'executive' || appRole === 'admin') return 'plant_head';
+  return 'quality';
 };
 
-export const getRoleDisplayName = (role: UserRole | AppRole): string => {
-  const displayNames: Record<string, string> = {
-    quality: 'QC Inspector',
-    quality_head: 'Quality Head',
-    purchase: 'Purchase Team',
-    purchase_head: 'Purchase Head',
-    engineering: 'Engineering',
-    engineering_head: 'Engineering Head',
-    plant_head: 'Plant Head',
-    shop_floor: 'Production',
-    executive: 'Plant Head / GM',
-    admin: 'Administrator',
-    mrb_committee: 'MRB Committee',
-  };
-  return displayNames[role] || role;
+/**
+ * Dynamic role display name resolver.
+ * Fetches from departments table, falls back to role key.
+ */
+let _departmentNamesCache: Record<string, string> | null = null;
+
+async function fetchDepartmentNames(): Promise<Record<string, string>> {
+  if (_departmentNamesCache) return _departmentNamesCache;
+  try {
+    const { data } = await supabase
+      .from('departments')
+      .select('name, role_key')
+      .eq('is_active', true);
+    const map: Record<string, string> = {};
+    data?.forEach(d => {
+      if (d.role_key) map[d.role_key] = d.name;
+    });
+    _departmentNamesCache = map;
+    // Invalidate cache after 5 minutes
+    setTimeout(() => { _departmentNamesCache = null; }, 5 * 60 * 1000);
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+export const getRoleDisplayName = (role: UserRole | AppRole | string): string => {
+  // Synchronous fallback when cache is available
+  if (_departmentNamesCache && _departmentNamesCache[role]) {
+    return _departmentNamesCache[role];
+  }
+  // Fallback: format role key as readable name
+  return role
+    ? role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+    : 'N/A';
 };
 
 export function RoleProvider({ children }: { children: ReactNode }) {
   const { user, profile, userRole } = useAuth();
+  const [displayName, setDisplayName] = useState<string>('');
+  
+  // Fetch department names for display
+  useEffect(() => {
+    fetchDepartmentNames().then(names => {
+      if (userRole && names[userRole]) {
+        setDisplayName(names[userRole]);
+      }
+    });
+  }, [userRole]);
   
   // Map the authenticated user's role to legacy format
   const currentRole = mapAppRoleToUserRole(userRole);
@@ -83,36 +107,29 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const canEdit = (stage: 'quality' | 'purchase' | 'engineering' | 'final_approval'): boolean => {
     // Check against the actual AppRole from auth
     if (!userRole) return false;
+    if (userRole === 'admin') return true;
     
-    const permissions: Record<AppRole, string[]> = {
-      quality: ['quality'],
-      quality_head: ['quality', 'final_approval'],
-      purchase: ['purchase'],
-      purchase_head: ['purchase', 'final_approval'],
-      engineering: ['engineering'],
-      engineering_head: ['engineering', 'final_approval'],
-      shop_floor: [],
-      executive: ['final_approval'],
-      admin: ['quality', 'purchase', 'engineering', 'final_approval'],
-      mrb_committee: ['quality', 'final_approval'],
-    };
-    
-    return permissions[userRole]?.includes(stage) || false;
+    // Dynamic: check if role contains the stage keyword, or is a head role for final_approval
+    if (stage === 'final_approval') {
+      return ['quality_head', 'purchase_head', 'engineering_head', 'executive', 'mrb_committee'].includes(userRole);
+    }
+    return userRole.includes(stage);
   };
 
   const canCreate = (source: 'quality_inspection' | 'shop_floor'): boolean => {
     if (!userRole) return false;
+    if (userRole === 'admin') return true;
     
     if (source === 'quality_inspection') {
-      return ['quality', 'quality_head', 'admin'].includes(userRole);
+      return userRole.includes('quality');
     }
     if (source === 'shop_floor') {
-      return ['shop_floor', 'admin'].includes(userRole);
+      return userRole === 'shop_floor';
     }
     return false;
   };
 
-  const roleDisplayName = getRoleDisplayName(userRole || currentRole);
+  const roleDisplayName = displayName || getRoleDisplayName(userRole || currentRole);
 
   return (
     <RoleContext.Provider
