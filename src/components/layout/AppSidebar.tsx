@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button';
 const menuItems = [
   { title: 'KPI Dashboard', url: '/', icon: BarChart3, matrixKey: 'dashboard_kpi' },
   { title: 'MRB Worklist', url: '/worklist', icon: ClipboardList, matrixKey: 'mrb_worklist' },
-  { title: 'Pending Actions', url: '/pending-actions', icon: AlertTriangle, matrixKey: 'mrb_worklist' },
+  { title: 'Pending Actions', url: '/pending-actions', icon: AlertTriangle, matrixKey: 'pending_actions' },
   { title: 'Material Blocking', url: '/shop-floor/stock-selection', icon: Package, matrixKey: 'material_booking' },
   { title: 'MRB - Inward Materials', url: '/inward/report', icon: FileSpreadsheet, matrixKey: 'inward_materials' },
   { title: 'MRB Print', url: '/mrb-print', icon: Printer, matrixKey: 'mrb_print' },
@@ -44,7 +44,7 @@ const adminItems = [
   { title: 'User & Role Management', url: '/admin/users', icon: UserCog, roles: ['admin'], masterOnly: false },
   { title: 'Role Access Matrix', url: '/admin/matrix', icon: Shield, roles: ['admin'], masterOnly: false },
   { title: 'Plant Management', url: '/admin/plants', icon: Building2, roles: ['admin'], masterOnly: false },
-  { title: 'Department Management', url: '/admin/departments', icon: Layers, roles: ['admin'], masterOnly: false },
+  { title: 'Role Management', url: '/admin/roles', icon: Layers, roles: ['admin'], masterOnly: false },
   { title: 'Workflow Routing', url: '/admin/workflow', icon: GitBranch, roles: ['admin'], masterOnly: false },
   { title: 'SAP API Settings', url: '/admin/sap-api', icon: Settings, roles: ['admin'], masterOnly: true },
   { title: 'SAP Sync Monitor', url: '/admin/sap-sync', icon: TrendingUp, roles: ['admin'], masterOnly: true },
