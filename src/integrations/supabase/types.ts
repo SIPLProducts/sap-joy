@@ -74,6 +74,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          is_workflow_enabled: boolean
           name: string
           role_key: string | null
           updated_at: string
@@ -83,6 +84,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_workflow_enabled?: boolean
           name: string
           role_key?: string | null
           updated_at?: string
@@ -92,6 +94,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_workflow_enabled?: boolean
           name?: string
           role_key?: string | null
           updated_at?: string

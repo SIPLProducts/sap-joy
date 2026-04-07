@@ -32,6 +32,7 @@ interface Department {
   description: string | null;
   is_active: boolean;
   role_key: string | null;
+  is_workflow_enabled: boolean;
   created_at: string;
 }
 
@@ -44,7 +45,7 @@ export default function DepartmentManagement() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
-  const [form, setForm] = useState({ name: '', description: '', is_active: true, role_key: '' });
+  const [form, setForm] = useState({ name: '', description: '', is_active: true, role_key: '', is_workflow_enabled: false });
 
   const isAdmin = userRole === 'admin';
 
@@ -70,13 +71,13 @@ export default function DepartmentManagement() {
   }, [isAdmin]);
 
   const handleOpenCreate = () => {
-    setForm({ name: '', description: '', is_active: true, role_key: '' });
+    setForm({ name: '', description: '', is_active: true, role_key: '', is_workflow_enabled: false });
     setEditingDept(null);
     setIsOpen(true);
   };
 
   const handleOpenEdit = (dept: Department) => {
-    setForm({ name: dept.name, description: dept.description || '', is_active: dept.is_active, role_key: dept.role_key || '' });
+    setForm({ name: dept.name, description: dept.description || '', is_active: dept.is_active, role_key: dept.role_key || '', is_workflow_enabled: dept.is_workflow_enabled });
     setEditingDept(dept);
     setIsOpen(true);
   };
@@ -94,6 +95,7 @@ export default function DepartmentManagement() {
         description: form.description.trim() || null,
         is_active: form.is_active,
         role_key: form.role_key && form.role_key !== '__none' ? form.role_key : null,
+        is_workflow_enabled: form.is_workflow_enabled,
       };
 
       if (editingDept) {
@@ -191,6 +193,7 @@ export default function DepartmentManagement() {
                 <TableRow>
                   <TableHead>Role Name</TableHead>
                   <TableHead>System Role Key</TableHead>
+                  <TableHead>Workflow</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
@@ -200,7 +203,7 @@ export default function DepartmentManagement() {
               <TableBody>
                 {departments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
                       No roles configured. Click "Add Role" to create one.
                     </TableCell>
                   </TableRow>
@@ -214,6 +217,11 @@ export default function DepartmentManagement() {
                         ) : (
                           <span className="text-muted-foreground text-xs">—</span>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={dept.is_workflow_enabled ? 'default' : 'outline'} className="text-xs">
+                          {dept.is_workflow_enabled ? 'Enabled' : 'Disabled'}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">{dept.description || '—'}</TableCell>
                       <TableCell>
@@ -284,6 +292,13 @@ export default function DepartmentManagement() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">Maps this role to the system's workflow engine for MRB routing</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch checked={form.is_workflow_enabled} onCheckedChange={v => setForm({ ...form, is_workflow_enabled: v })} />
+              <div>
+                <Label>Enable for Workflow Routing</Label>
+                <p className="text-xs text-muted-foreground">When enabled, this role will appear in Workflow Config and MRB creation routing</p>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <Switch checked={form.is_active} onCheckedChange={v => setForm({ ...form, is_active: v })} />
