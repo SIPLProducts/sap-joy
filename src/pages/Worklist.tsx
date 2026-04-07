@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, AlertTriangle, Eye, Loader2, Unlock, RefreshCw, CheckSquare, Square, History, Clock, CheckCircle2, XCircle, Download } from 'lucide-react';
+import { Search, AlertTriangle, Eye, Loader2, Unlock, RefreshCw, CheckSquare, Square, History, Clock, CheckCircle2, XCircle, Download, CalendarDays } from 'lucide-react';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -119,6 +119,12 @@ export default function Worklist() {
   const [syncHistory, setSyncHistory] = useState<SAPSyncHistoryEntry[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  
+  // Posting date popup state for SAP 343/344
+  const [showPostingDateDialog, setShowPostingDateDialog] = useState(false);
+  const [postingDate, setPostingDate] = useState(new Date().toISOString().split('T')[0]);
+  const [pendingSAPSyncId, setPendingSAPSyncId] = useState<string | null>(null);
+  const [pendingSAPSyncNumber, setPendingSAPSyncNumber] = useState<string>('');
 
   // RBAC: Block-to-Unrestricted access control (#1.3)
   const isMasterAdmin = profile?.email === MASTER_ADMIN_EMAIL || user?.email === MASTER_ADMIN_EMAIL;
@@ -448,8 +454,30 @@ export default function Worklist() {
       CHARG: String(batch || ''),
       ENTRY_QNT: String(mrb.blockedQuantity || mrb.totalQuantity || 0),
       ENTRY_UOM: String(mrb.uom || 'EA'),
-      // If ART is ever needed here: ART: '01'
     };
+  };
+
+  // Format posting date from YYYY-MM-DD to YYMMDD for SAP
+  const formatPostingDateForSAP = (dateStr: string): string => {
+    const d = new Date(dateStr);
+    const yy = String(d.getFullYear()).slice(-2);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yy}${mm}${dd}`;
+  };
+
+  // Show posting date dialog instead of directly syncing
+  const handleRequestSAPSync = (mrbId: string, mrbNumber: string) => {
+    setPendingSAPSyncId(mrbId);
+    setPendingSAPSyncNumber(mrbNumber);
+    setPostingDate(new Date().toISOString().split('T')[0]);
+    setShowPostingDateDialog(true);
+  };
+
+  const handleConfirmSAPSync = async () => {
+    if (!pendingSAPSyncId || !postingDate) return;
+    setShowPostingDateDialog(false);
+    await handleSAPSync(pendingSAPSyncId, pendingSAPSyncNumber, postingDate);
   };
 
   const handleSAPSync = async (mrbId: string, mrbNumber: string) => {

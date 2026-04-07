@@ -754,20 +754,35 @@ async function mapAndInsertData(
     // Batch upsert matching manual sync
     const batchSize = 500
     const upsertOptions = tableName === 'shop_floor_stock'
-      ? { onConflict: 'stock_key' }
+      ? { onConflict: 'stock_key', ignoreDuplicates: false }
       : tableName === 'inward_inspection_lots'
-      ? { onConflict: 'inspection_lot' }
+      ? { onConflict: 'inspection_lot', ignoreDuplicates: false }
       : undefined
 
     for (let i = 0; i < rows.length; i += batchSize) {
       const batch = rows.slice(i, i + batchSize)
+
+      // Count existing records BEFORE upsert to distinguish inserts vs updates
+      let existingCount = 0
+      if (upsertOptions) {
+        const conflictCol = tableName === 'shop_floor_stock' ? 'stock_key' : 'inspection_lot'
+        const keys = batch.map((r: any) => r[conflictCol]).filter(Boolean)
+        if (keys.length > 0) {
+          const { count } = await supabase.from(tableName).select('id', { count: 'exact', head: true }).in(conflictCol, keys)
+          existingCount = count || 0
+        }
+      }
+
       const { data, error } = await supabase.from(tableName).upsert(batch, upsertOptions).select()
       if (error) {
         console.log(`[scheduler] Upsert error for ${tableName}:`, error.message)
         result.errors.push(`Error inserting into ${tableName}: ${error.message}`)
         break
       }
-      result.inserted += data?.length || 0
+      const totalUpserted = data?.length || 0
+      const newInserts = Math.max(0, totalUpserted - existingCount)
+      result.inserted += newInserts
+      result.updated += totalUpserted - newInserts
     }
   }
 
