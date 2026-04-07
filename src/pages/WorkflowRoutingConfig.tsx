@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDepartments } from '@/hooks/useDepartments';
@@ -13,7 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Shield, Plus, Edit, Trash2, RefreshCw, ArrowDown, ArrowUp, Save, GitBranch } from 'lucide-react';
+import { Shield, Plus, Trash2, RefreshCw, ArrowDown, ArrowUp, Save, GitBranch } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
 type AppRole = Database['public']['Enums']['app_role'];
@@ -28,22 +28,22 @@ interface WorkflowStep {
   plant: string;
 }
 
-const DEPARTMENT_OPTIONS: { value: AppRole; label: string }[] = [
-  { value: 'quality', label: 'Quality Review' },
-  { value: 'quality_head', label: 'Quality Head' },
-  { value: 'purchase', label: 'Purchase Review' },
-  { value: 'purchase_head', label: 'Purchase Head' },
-  { value: 'engineering', label: 'Engineering Review' },
-  { value: 'engineering_head', label: 'Engineering Head' },
-  { value: 'executive', label: 'Executive / Plant Head' },
-  { value: 'mrb_committee', label: 'MRB Committee' },
-];
-
 export default function WorkflowRoutingConfig() {
   const { userRole } = useAuth();
   const { toast } = useToast();
   const plants = usePlants();
   const { departments } = useDepartments();
+  
+  // Build role options dynamically from Role Management (departments table)
+  const roleOptions = useMemo(() => 
+    departments
+      .filter(d => d.role_key && d.is_active)
+      .map(d => ({
+        value: d.role_key as AppRole,
+        label: d.name,
+      })),
+    [departments]
+  );
   
   const [selectedPlant, setSelectedPlant] = useState('1300');
   const [steps, setSteps] = useState<WorkflowStep[]>([]);
@@ -51,7 +51,7 @@ export default function WorkflowRoutingConfig() {
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newStep, setNewStep] = useState<Partial<WorkflowStep>>({ department: 'quality', step_label: '', is_required: true, is_active: true });
+  const [newStep, setNewStep] = useState<Partial<WorkflowStep>>({ department: undefined, step_label: '', is_required: true, is_active: true });
 
   const isAdmin = userRole === 'admin';
 
@@ -138,16 +138,14 @@ export default function WorkflowRoutingConfig() {
     setSteps([...steps, step]);
     setHasChanges(true);
     setIsAddOpen(false);
-    setNewStep({ department: 'quality', step_label: '', is_required: true, is_active: true });
+    setNewStep({ department: undefined, step_label: '', is_required: true, is_active: true });
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Delete existing steps for this plant
       await supabase.from('plant_workflow_config').delete().eq('plant', selectedPlant);
 
-      // Insert updated steps
       if (steps.length > 0) {
         const rows = steps.map(s => ({
           plant: selectedPlant,
@@ -192,7 +190,7 @@ export default function WorkflowRoutingConfig() {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <GitBranch className="h-7 w-7 text-primary" /> Workflow Routing Configuration
           </h1>
-          <p className="text-muted-foreground mt-1">Define the approval sequence for MRB workflow per plant</p>
+          <p className="text-muted-foreground mt-1">Define the approval sequence for MRB workflow per plant. Roles are loaded from Role Management.</p>
         </div>
         <div className="flex gap-2 items-center">
           <Select value={selectedPlant} onValueChange={setSelectedPlant}>
@@ -227,7 +225,7 @@ export default function WorkflowRoutingConfig() {
               <CardTitle className="text-lg">Workflow Steps — Plant {selectedPlant}</CardTitle>
               <CardDescription>{steps.filter(s => s.is_active).length} active steps in sequence</CardDescription>
             </div>
-            <Button size="sm" onClick={() => setIsAddOpen(true)}>
+            <Button size="sm" onClick={() => setIsAddOpen(true)} disabled={roleOptions.length === 0}>
               <Plus className="h-4 w-4 mr-1" /> Add Step
             </Button>
           </div>
@@ -235,10 +233,15 @@ export default function WorkflowRoutingConfig() {
         <CardContent className="p-0">
           {loading ? (
             <div className="flex justify-center py-10"><RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : roleOptions.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              <p>No roles configured in Role Management with a system role key.</p>
+              <p className="text-xs mt-1">Go to Role Management and assign system role keys to roles first.</p>
+            </div>
           ) : steps.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground">
               <p>No workflow steps configured for this plant.</p>
-              <p className="text-xs mt-1">Default workflow (Quality → Purchase → Engineering → Executive) will be used.</p>
+              <p className="text-xs mt-1">Users will be able to select manual routing when creating MRBs.</p>
             </div>
           ) : (
             <Table>
@@ -246,7 +249,7 @@ export default function WorkflowRoutingConfig() {
                 <TableRow>
                   <TableHead className="w-16">#</TableHead>
                   <TableHead>Step Label</TableHead>
-                  <TableHead>Department</TableHead>
+                  <TableHead>Role</TableHead>
                   <TableHead>Required</TableHead>
                   <TableHead>Active</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -259,7 +262,7 @@ export default function WorkflowRoutingConfig() {
                     <TableCell className="font-medium">{step.step_label}</TableCell>
                     <TableCell>
                       <Badge variant="outline">
-                        {DEPARTMENT_OPTIONS.find(d => d.value === step.department)?.label || step.department}
+                        {roleOptions.find(d => d.value === step.department)?.label || step.department}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -315,7 +318,7 @@ export default function WorkflowRoutingConfig() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Workflow Step</DialogTitle>
-            <DialogDescription>Add a new approval step to the workflow sequence</DialogDescription>
+            <DialogDescription>Add a new approval step using roles from Role Management</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -327,15 +330,16 @@ export default function WorkflowRoutingConfig() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Department *</Label>
+              <Label>Role *</Label>
               <Select value={newStep.department} onValueChange={v => setNewStep({ ...newStep, department: v as AppRole })}>
-                <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
                 <SelectContent>
-                  {DEPARTMENT_OPTIONS.map(d => (
+                  {roleOptions.map(d => (
                     <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">Only roles with a system role key (configured in Role Management) are shown</p>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
@@ -350,7 +354,7 @@ export default function WorkflowRoutingConfig() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddStep} disabled={!newStep.step_label?.trim()}>Add Step</Button>
+            <Button onClick={handleAddStep} disabled={!newStep.step_label?.trim() || !newStep.department}>Add Step</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

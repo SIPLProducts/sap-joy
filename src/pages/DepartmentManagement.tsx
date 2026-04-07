@@ -83,7 +83,7 @@ export default function DepartmentManagement() {
 
   const handleSave = async () => {
     if (!form.name.trim()) {
-      toast({ title: 'Validation error', description: 'Department name is required', variant: 'destructive' });
+      toast({ title: 'Validation error', description: 'Role name is required', variant: 'destructive' });
       return;
     }
 
@@ -102,13 +102,13 @@ export default function DepartmentManagement() {
           .update(payload)
           .eq('id', editingDept.id);
         if (error) throw error;
-        toast({ title: 'Success', description: `Department "${form.name}" updated` });
+        toast({ title: 'Success', description: `Role "${form.name}" updated` });
       } else {
         const { error } = await supabase
           .from('departments')
           .insert(payload);
         if (error) throw error;
-        toast({ title: 'Success', description: `Department "${form.name}" created` });
+        toast({ title: 'Success', description: `Role "${form.name}" created` });
       }
       setIsOpen(false);
       fetchDepartments();
@@ -120,14 +120,14 @@ export default function DepartmentManagement() {
   };
 
   const handleDelete = async (dept: Department) => {
-    if (!confirm(`Are you sure you want to delete department "${dept.name}"? This may affect users assigned to this department.`)) return;
+    if (!confirm(`Are you sure you want to delete role "${dept.name}"? This may affect users assigned to this role.`)) return;
     try {
       const { error } = await supabase.from('departments').delete().eq('id', dept.id);
       if (error) throw error;
-      toast({ title: 'Success', description: `Department "${dept.name}" deleted` });
+      toast({ title: 'Success', description: `Role "${dept.name}" deleted` });
       fetchDepartments();
     } catch (error: any) {
-      toast({ title: 'Error', description: 'Cannot delete: Department may be in use', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Cannot delete: Role may be in use', variant: 'destructive' });
     }
   };
 
@@ -151,7 +151,7 @@ export default function DepartmentManagement() {
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Shield className="h-16 w-16 text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold text-foreground mb-2">Access Denied</h2>
-            <p className="text-muted-foreground text-center">Only administrators can manage departments.</p>
+            <p className="text-muted-foreground text-center">Only administrators can manage roles.</p>
           </CardContent>
         </Card>
       </div>
@@ -163,24 +163,24 @@ export default function DepartmentManagement() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Layers className="h-7 w-7 text-primary" /> Department Management
+            <Layers className="h-7 w-7 text-primary" /> Role Management
           </h1>
-          <p className="text-muted-foreground mt-1">Create and manage organizational departments</p>
+          <p className="text-muted-foreground mt-1">Create and manage organizational roles (single source of truth for workflow routing, user assignment, and screen access)</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={fetchDepartments} variant="outline" disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
           <Button onClick={handleOpenCreate} className="gap-2">
-            <Plus className="h-4 w-4" /> Add Department
+            <Plus className="h-4 w-4" /> Add Role
           </Button>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">All Departments</CardTitle>
-          <CardDescription>{departments.length} department(s) configured</CardDescription>
+          <CardTitle className="text-lg">All Roles</CardTitle>
+          <CardDescription>{departments.length} role(s) configured</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
@@ -189,8 +189,8 @@ export default function DepartmentManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Department Name</TableHead>
-                  <TableHead>Role Key</TableHead>
+                  <TableHead>Role Name</TableHead>
+                  <TableHead>System Role Key</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
@@ -201,7 +201,7 @@ export default function DepartmentManagement() {
                 {departments.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                      No departments configured. Click "Add Department" to create one.
+                      No roles configured. Click "Add Role" to create one.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -247,19 +247,19 @@ export default function DepartmentManagement() {
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingDept ? 'Edit Department' : 'Create New Department'}</DialogTitle>
+            <DialogTitle>{editingDept ? 'Edit Role' : 'Create New Role'}</DialogTitle>
             <DialogDescription>
-              {editingDept ? 'Update department details' : 'Departments are used for user assignment, workflow routing, and screen access control.'}
+              {editingDept ? 'Update role details' : 'Roles are used for user assignment, workflow routing, and screen access control.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="dept-name">Department Name *</Label>
+              <Label htmlFor="dept-name">Role Name *</Label>
               <Input
                 id="dept-name"
                 value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
-                placeholder="e.g. Quality Assurance"
+                placeholder="e.g. Quality Head"
               />
             </div>
             <div className="space-y-2">
@@ -272,10 +272,10 @@ export default function DepartmentManagement() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Workflow Role Key</Label>
+              <Label>System Role Key</Label>
               <Select value={form.role_key} onValueChange={v => setForm({ ...form, role_key: v })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select role key (optional)" />
+                  <SelectValue placeholder="Select system role key" />
                 </SelectTrigger>
                 <SelectContent>
                   {ROLE_KEY_OPTIONS.map(opt => (
@@ -283,7 +283,7 @@ export default function DepartmentManagement() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">Maps this department to a workflow role for MRB routing</p>
+              <p className="text-xs text-muted-foreground">Maps this role to the system's workflow engine for MRB routing</p>
             </div>
             <div className="flex items-center gap-3">
               <Switch checked={form.is_active} onCheckedChange={v => setForm({ ...form, is_active: v })} />
