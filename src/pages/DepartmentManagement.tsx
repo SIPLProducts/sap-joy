@@ -71,13 +71,13 @@ export default function DepartmentManagement() {
   }, [isAdmin]);
 
   const handleOpenCreate = () => {
-    setForm({ name: '', description: '', is_active: true, role_key: '' });
+    setForm({ name: '', description: '', is_active: true, role_key: '', is_workflow_enabled: false });
     setEditingDept(null);
     setIsOpen(true);
   };
 
   const handleOpenEdit = (dept: Department) => {
-    setForm({ name: dept.name, description: dept.description || '', is_active: dept.is_active, role_key: dept.role_key || '' });
+    setForm({ name: dept.name, description: dept.description || '', is_active: dept.is_active, role_key: dept.role_key || '', is_workflow_enabled: dept.is_workflow_enabled });
     setEditingDept(dept);
     setIsOpen(true);
   };
