@@ -193,6 +193,7 @@ export default function DepartmentManagement() {
                 <TableRow>
                   <TableHead>Role Name</TableHead>
                   <TableHead>System Role Key</TableHead>
+                  <TableHead>Workflow</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
@@ -202,7 +203,7 @@ export default function DepartmentManagement() {
               <TableBody>
                 {departments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
                       No roles configured. Click "Add Role" to create one.
                     </TableCell>
                   </TableRow>
