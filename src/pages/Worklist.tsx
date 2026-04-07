@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, AlertTriangle, Eye, Loader2, Unlock, RefreshCw, CheckSquare, Square, History, Clock, CheckCircle2, XCircle, Download, CalendarDays } from 'lucide-react';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
+import { useDepartments } from '@/hooks/useDepartments';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -109,6 +110,13 @@ export default function Worklist() {
   const { mrbRecords, isLoading, updateMRB } = useMRBDatabase();
   const { toast } = useToast();
   const { userRole, user, profile } = useAuth();
+  const { departments } = useDepartments();
+  const workflowRoles = useMemo(() =>
+    departments
+      .filter(d => d.is_active && d.is_workflow_enabled && d.role_key)
+      .map(d => ({ role_key: d.role_key!, name: d.name })),
+    [departments]
+  );
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<SourceType>('all');
@@ -897,17 +905,13 @@ export default function Worklist() {
               </Select>
               <Select value={pendingWithFilter} onValueChange={setPendingWithFilter}>
                 <SelectTrigger className="w-full sm:w-[160px]">
-                  <SelectValue placeholder="Pending With" />
+                  <SelectValue placeholder="Role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Departments</SelectItem>
-                  <SelectItem value="quality">Quality</SelectItem>
-                  <SelectItem value="quality_head">Quality Head</SelectItem>
-                  <SelectItem value="purchase">Purchase</SelectItem>
-                  <SelectItem value="purchase_head">Purchase Head</SelectItem>
-                  <SelectItem value="engineering">Engineering</SelectItem>
-                  <SelectItem value="engineering_head">Engineering Head</SelectItem>
-                  <SelectItem value="executive">Executive</SelectItem>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  {workflowRoles.map(role => (
+                    <SelectItem key={role.role_key} value={role.role_key}>{role.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
