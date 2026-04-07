@@ -37,7 +37,7 @@ export default function WorkflowRoutingConfig() {
   // Build role options dynamically from Role Management (departments table)
   const roleOptions = useMemo(() => 
     departments
-      .filter(d => d.role_key && d.is_active)
+      .filter(d => d.is_active && d.is_workflow_enabled && d.role_key)
       .map(d => ({
         value: d.role_key as AppRole,
         label: d.name,
