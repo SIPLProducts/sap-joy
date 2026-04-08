@@ -102,16 +102,64 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
     return { data: null, error: { message: 'config_id is required' } };
   }
 
+  const getFallbackTokens = (currentAction: string): string[] => {
+    switch (currentAction) {
+      case 'unblock':
+        return ['343', '/sap/api/343', 'blocked_to_unrestricted'];
+      case 'fetch_live':
+        return ['mb52', '/sap/api/mb52', 'stock_report'];
+      case 'update_transaction_qty':
+        return ['344', '/sap/api/344', 'unrestricted_to_blocked'];
+      default:
+        return [];
+    }
+  };
+
   // Fetch config from DB to get proxy_tunnel_url and proxy_secret
-  const { data: config, error: configError } = await supabase
+  let config: any = null;
+
+  const { data: exactConfig, error: configError } = await supabase
     .from('sap_api_config')
     .select('*')
     .eq('id', config_id)
-    .single();
+    .maybeSingle();
 
-  if (configError || !config) {
+  if (configError) {
     console.error('[SAP Direct] Config fetch error:', configError);
-    return { data: null, error: { message: configError?.message || 'Configuration not found' } };
+    return { data: null, error: { message: configError?.message || 'Failed to load configuration' } };
+  }
+
+  config = exactConfig;
+
+  if (!config) {
+    const fallbackTokens = getFallbackTokens(action);
+
+    if (fallbackTokens.length > 0) {
+      const { data: configs, error: fallbackError } = await supabase
+        .from('sap_api_config')
+        .select('*')
+        .eq('is_active', true);
+
+      if (fallbackError) {
+        console.error('[SAP Direct] Fallback config fetch error:', fallbackError);
+        return { data: null, error: { message: fallbackError?.message || 'Failed to load fallback configuration' } };
+      }
+
+      config = (configs || []).find((entry: any) => {
+        const name = String(entry.config_name || '').toLowerCase();
+        const endpoint = String(entry.api_endpoint || '').toLowerCase();
+        return fallbackTokens.some((token) => name.includes(token) || endpoint.includes(token));
+      }) || null;
+
+      if (config) {
+        console.warn(`[SAP Direct] Config id "${config_id}" was not found. Falling back to "${config.config_name}" (${config.id}) for action "${action}".`);
+        body.config_id = config.id;
+      }
+    }
+  }
+
+  if (!config) {
+    return { data: null, error: { message: `Configuration not found for id ${config_id}` } };
   }
 
   const authType = normalizeAuthType(config.auth_type);
