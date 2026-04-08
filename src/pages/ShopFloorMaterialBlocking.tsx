@@ -81,10 +81,13 @@ export default function ShopFloorMaterialBlocking() {
   const [attachments, setAttachments] = useState<AttachmentUpload[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const [createdMRBNumber, setCreatedMRBNumber] = useState('');
   const [sapMaterialDocument, setSAPMaterialDocument] = useState('');
+
+  // Workflow routing state (same pattern as CreateInwardMRB)
+  const [predefinedRouting, setPredefinedRouting] = useState<string[] | null>(null);
+  const [predefinedLabels, setPredefinedLabels] = useState<Record<string, string>>({});
+  const [workflowType, setWorkflowType] = useState<'predefined' | 'manual'>('predefined');
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
