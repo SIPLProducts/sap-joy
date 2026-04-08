@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
@@ -27,8 +27,15 @@ import {
   X,
   Loader2,
   Printer,
+  Lock,
+  Sparkles,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
-import { AvailableStockRecord, shopFloorBlockReasons, shopFloorNextDepartments, shopFloorAttachmentCategories } from '@/data/shopFloorStockData';
+import { AvailableStockRecord, shopFloorBlockReasons, shopFloorAttachmentCategories } from '@/data/shopFloorStockData';
+import { useDepartments } from '@/hooks/useDepartments';
+import { useDepartmentMap } from '@/hooks/useDepartmentMap';
+import { fetchPlantWorkflow } from '@/lib/workflowRouting';
 import type { Database } from '@/integrations/supabase/types';
 
 type AppRole = Database['public']['Enums']['app_role'];
