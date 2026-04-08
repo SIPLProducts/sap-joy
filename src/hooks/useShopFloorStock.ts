@@ -45,6 +45,13 @@ export interface SAPStockSyncHistory {
   synced_by: string | null;
 }
 
+export interface StockSearchParams {
+  werks: string;
+  lgort: string;
+  matnr?: string;
+  matart?: string;
+}
+
 export function useShopFloorStock() {
   const [stockRecords, setStockRecords] = useState<ShopFloorStockRecord[]>([]);
   const [sapConfigs, setSapConfigs] = useState<SAPApiConfig[]>([]);
@@ -52,8 +59,8 @@ export function useShopFloorStock() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Fetch stock records live from SAP MB52 API (no Supabase storage)
-  const fetchStockRecords = useCallback(async () => {
+  // Search stock records from SAP MB52 API with user-provided params (no auto-fetch)
+  const searchStockRecords = useCallback(async (params: StockSearchParams) => {
     setIsLoading(true);
     try {
       // Find the MB52 config
@@ -74,7 +81,16 @@ export function useShopFloorStock() {
         return;
       }
 
-      const res = await invokeSapSync({ action: 'fetch_live', config_id: mb52Config.id });
+      const res = await invokeSapSync({
+        action: 'fetch_live',
+        config_id: mb52Config.id,
+        search_params: {
+          WERKS: params.werks,
+          LGORT: params.lgort,
+          ...(params.matnr ? { MATNR: params.matnr } : {}),
+          ...(params.matart ? { MATART: params.matart } : {}),
+        },
+      });
       
       if (res.data?.success && res.data?.records) {
         console.log(`[ShopFloorStock] Loaded ${res.data.records.length} records live from SAP`);
@@ -100,6 +116,12 @@ export function useShopFloorStock() {
       setIsLoading(false);
     }
   }, [toast]);
+
+  // Legacy fetchStockRecords kept for upload refresh — fetches without params
+  const fetchStockRecords = useCallback(async () => {
+    // No-op: stock is now fetched only via searchStockRecords
+    // This prevents auto-fetch on mount
+  }, []);
 
   // Fetch SAP API configurations
   const fetchSAPConfigs = useCallback(async () => {
@@ -339,18 +361,18 @@ export function useShopFloorStock() {
     return [...new Set(stockRecords.map(r => r.storage_location).filter(Boolean))] as string[];
   }, [stockRecords]);
 
-  // Initial fetch
+  // Initial fetch — only configs/history, NOT stock (stock requires explicit search)
   useEffect(() => {
-    fetchStockRecords();
     fetchSAPConfigs();
     fetchSyncHistory();
-  }, [fetchStockRecords, fetchSAPConfigs, fetchSyncHistory]);
+  }, [fetchSAPConfigs, fetchSyncHistory]);
 
   return {
     stockRecords,
     sapConfigs,
     syncHistory,
     isLoading,
+    searchStockRecords,
     fetchStockRecords,
     fetchSAPConfigs,
     fetchSyncHistory,
