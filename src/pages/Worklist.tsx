@@ -417,7 +417,31 @@ export default function Worklist() {
     }
   };
 
-  const SAP_343_CONFIG_ID = 'a1000000-0000-0000-0000-000000000002';
+  // Dynamically resolve SAP 343 and MB52 config IDs from the database
+  const [sap343ConfigId, setSap343ConfigId] = useState<string | null>(null);
+  const [sapMb52ConfigId, setSapMb52ConfigId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadSapConfigIds = async () => {
+      const { data: configs } = await supabase
+        .from('sap_api_config')
+        .select('id, config_name, api_endpoint')
+        .eq('is_active', true);
+      if (configs) {
+        for (const c of configs) {
+          const name = (c.config_name || '').toLowerCase();
+          const endpoint = (c.api_endpoint || '').toLowerCase();
+          if (name.includes('343') || endpoint.includes('343')) {
+            setSap343ConfigId(c.id);
+          }
+          if (name.includes('mb52') || endpoint.includes('mb52')) {
+            setSapMb52ConfigId(c.id);
+          }
+        }
+      }
+    };
+    loadSapConfigIds();
+  }, []);
 
   // Build SAP 343 request body from MRB data
   const buildUnblockRequestBody = async (mrb: UnifiedMRBRecord) => {
