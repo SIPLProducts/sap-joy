@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { MultiSelectFilter } from '@/components/inward/MultiSelectFilter';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import { 
   Search, Package, ArrowRight, RotateCcw, Factory, Upload, Download, 
   RefreshCw, Settings, Database, FileUp, CheckCircle2, AlertCircle, 
@@ -21,6 +22,9 @@ import { useShopFloorStock, ShopFloorStockRecord } from '@/hooks/useShopFloorSto
 import { downloadShopFloorCSVTemplate, validateShopFloorStockData, ShopFloorStockParseResult } from '@/lib/shopFloorStockTemplates';
 import { ShopFloorUploadPreview } from '@/components/shopFloor/ShopFloorUploadPreview';
 import { SAPConfigDialog } from '@/components/shopFloor/SAPConfigDialog';
+import { useAuth } from '@/contexts/AuthContext';
+import { useUserPlants } from '@/hooks/useUserPlants';
+import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,34 +40,52 @@ import {
 export default function ShopFloorStockSelection() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { userRole } = useAuth();
+  const { userPlants } = useUserPlants();
   
+  // All plants for admin dropdown
+  const [allSystemPlants, setAllSystemPlants] = useState<{ code: string; name: string }[]>([]);
+  const isAdmin = userRole === 'admin';
+
+  useEffect(() => {
+    if (isAdmin) {
+      supabase.from('plants').select('code, name').then(({ data }) => {
+        if (data) setAllSystemPlants(data);
+      });
+    }
+  }, [isAdmin]);
+
+  // Plants available in dropdown based on role
+  const availablePlants = useMemo(() => {
+    if (isAdmin) {
+      return allSystemPlants.map(p => ({ value: p.code, label: `${p.code} - ${p.name}` }));
+    }
+    return userPlants.map(p => ({ value: p, label: p }));
+  }, [isAdmin, allSystemPlants, userPlants]);
+
   // Database hook
   const {
     stockRecords,
     sapConfigs,
     syncHistory,
     isLoading,
+    searchStockRecords,
     fetchStockRecords,
     uploadStockRecords,
     saveSAPConfig,
     deleteSAPConfig,
     testSAPConnection,
     triggerSAPSync,
-    getUniquePlants,
-    getUniqueMaterials,
-    getUniqueBatches,
-    getUniqueStorageLocations,
   } = useShopFloorStock();
   
   // Tab state
   const [activeTab, setActiveTab] = useState<'search' | 'upload' | 'api'>('search');
   
-  // Filter states
-  const [selectedPlants, setSelectedPlants] = useState<string[]>([]);
-  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
-  const [materialDescFilter, setMaterialDescFilter] = useState('');
-  const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
-  const [selectedStorageLocations, setSelectedStorageLocations] = useState<string[]>([]);
+  // Search form states (SAP payload fields)
+  const [selectedPlant, setSelectedPlant] = useState('');
+  const [storageLocation, setStorageLocation] = useState('');
+  const [materialCode, setMaterialCode] = useState('');
+  const [materialType, setMaterialType] = useState('');
   
   // Search executed state
   const [hasSearched, setHasSearched] = useState(false);
@@ -89,33 +111,11 @@ export default function ShopFloorStockSelection() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Use only real database data for filters
-  const allPlants = useMemo(() => getUniquePlants(), [stockRecords, getUniquePlants]);
-
-  const allMaterials = useMemo(() => getUniqueMaterials(), [stockRecords, getUniqueMaterials]);
-
-  const allBatches = useMemo(() => getUniqueBatches(), [stockRecords, getUniqueBatches]);
-
-  const allStorageLocations = useMemo(() => getUniqueStorageLocations(), [stockRecords, getUniqueStorageLocations]);
-
-  // Use only real database stock data
-  const combinedStock = useMemo(() => stockRecords, [stockRecords]);
-
-  // Filtered stock results
+  // Stock results come directly from SAP — no client-side filtering needed
   const filteredStock = useMemo(() => {
     if (!hasSearched) return [];
-    
-    return combinedStock.filter(stock => {
-      if (selectedPlants.length > 0 && !selectedPlants.includes(stock.plant)) return false;
-      if (selectedMaterials.length > 0 && !selectedMaterials.includes(stock.material_code)) return false;
-      if (materialDescFilter && stock.material_description && 
-          !stock.material_description.toLowerCase().includes(materialDescFilter.toLowerCase())) return false;
-      if (selectedBatches.length > 0 && stock.batch && !selectedBatches.includes(stock.batch)) return false;
-      if (selectedStorageLocations.length > 0 && stock.storage_location && 
-          !selectedStorageLocations.includes(stock.storage_location)) return false;
-      return true;
-    });
-  }, [hasSearched, combinedStock, selectedPlants, selectedMaterials, materialDescFilter, selectedBatches, selectedStorageLocations]);
+    return stockRecords;
+  }, [hasSearched, stockRecords]);
 
   // Pagination
   const totalPages = Math.ceil(filteredStock.length / itemsPerPage);
@@ -124,31 +124,44 @@ export default function ShopFloorStockSelection() {
     return filteredStock.slice(start, start + itemsPerPage);
   }, [filteredStock, currentPage, itemsPerPage]);
 
-  const handleSearch = () => {
-    // Validation: At least one filter must be selected
+  const handleSearch = async () => {
+    // Validate mandatory fields
     const errors: string[] = [];
-    if (selectedPlants.length === 0) {
+    if (!selectedPlant) {
       errors.push('plant');
+    }
+    if (!storageLocation.trim()) {
+      errors.push('storageLocation');
     }
     
     if (errors.length > 0) {
       setValidationErrors(errors);
-      toast.error('Please select at least one Plant to search');
+      const missing = [];
+      if (errors.includes('plant')) missing.push('Plant (WERKS)');
+      if (errors.includes('storageLocation')) missing.push('Storage Location (LGORT)');
+      toast.error(`Please fill mandatory fields: ${missing.join(', ')}`);
       return;
     }
     
     setValidationErrors([]);
-    setHasSearched(true);
     setSelectedStock(null);
     setCurrentPage(1);
+    
+    // Trigger SAP API with search params
+    await searchStockRecords({
+      werks: selectedPlant,
+      lgort: storageLocation.trim(),
+      matnr: materialCode.trim() || undefined,
+      matart: materialType.trim() || undefined,
+    });
+    setHasSearched(true);
   };
 
   const handleReset = () => {
-    setSelectedPlants([]);
-    setSelectedMaterials([]);
-    setMaterialDescFilter('');
-    setSelectedBatches([]);
-    setSelectedStorageLocations([]);
+    setSelectedPlant('');
+    setStorageLocation('');
+    setMaterialCode('');
+    setMaterialType('');
     setHasSearched(false);
     setSelectedStock(null);
     setCurrentPage(1);
@@ -161,7 +174,6 @@ export default function ShopFloorStockSelection() {
 
   const handleProceed = () => {
     if (selectedStock) {
-      // Map to expected format
       const stockItem = {
         id: selectedStock.id,
         plant: selectedStock.plant,
@@ -400,71 +412,78 @@ export default function ShopFloorStockSelection() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  {/* Plant (WERKS) - Dropdown - Mandatory */}
                   <div className="space-y-2">
                     <Label className={validationErrors.includes('plant') ? 'text-destructive' : ''}>
-                      Plant <span className="text-destructive">*</span>
+                      Plant (WERKS) <span className="text-destructive">*</span>
                     </Label>
                     <div className={validationErrors.includes('plant') ? 'ring-2 ring-destructive rounded-md' : ''}>
-                      <MultiSelectFilter
-                        label="Select..."
-                        options={allPlants.map(p => ({ value: p, label: p }))}
-                        selectedValues={selectedPlants}
-                        onSelectionChange={(vals) => {
-                          setSelectedPlants(vals);
-                          if (vals.length > 0) setValidationErrors(prev => prev.filter(e => e !== 'plant'));
+                      <Select
+                        value={selectedPlant}
+                        onValueChange={(val) => {
+                          setSelectedPlant(val);
+                          if (val) setValidationErrors(prev => prev.filter(e => e !== 'plant'));
                         }}
-                      />
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Plant..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availablePlants.map(p => (
+                            <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     {validationErrors.includes('plant') && (
                       <p className="text-xs text-destructive">Plant is required</p>
                     )}
                   </div>
 
+                  {/* Storage Location (LGORT) - Input - Mandatory */}
                   <div className="space-y-2">
-                    <Label>Material</Label>
-                    <MultiSelectFilter
-                      label="Select..."
-                      options={allMaterials.map(m => ({ value: m.code, label: `${m.code} - ${m.description}` }))}
-                      selectedValues={selectedMaterials}
-                      onSelectionChange={setSelectedMaterials}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Material Description</Label>
+                    <Label className={validationErrors.includes('storageLocation') ? 'text-destructive' : ''}>
+                      Storage Location (LGORT) <span className="text-destructive">*</span>
+                    </Label>
                     <Input
-                      placeholder="Search description..."
-                      value={materialDescFilter}
-                      onChange={(e) => setMaterialDescFilter(e.target.value)}
-                      className="h-10"
+                      placeholder="e.g. 0001"
+                      value={storageLocation}
+                      onChange={(e) => {
+                        setStorageLocation(e.target.value);
+                        if (e.target.value.trim()) setValidationErrors(prev => prev.filter(e => e !== 'storageLocation'));
+                      }}
+                      className={validationErrors.includes('storageLocation') ? 'ring-2 ring-destructive' : ''}
+                    />
+                    {validationErrors.includes('storageLocation') && (
+                      <p className="text-xs text-destructive">Storage Location is required</p>
+                    )}
+                  </div>
+
+                  {/* Material Code (MATNR) - Input - Optional */}
+                  <div className="space-y-2">
+                    <Label>Material Code (MATNR)</Label>
+                    <Input
+                      placeholder="e.g. 100001234"
+                      value={materialCode}
+                      onChange={(e) => setMaterialCode(e.target.value)}
                     />
                   </div>
 
+                  {/* Material Type (MATART) - Input - Optional */}
                   <div className="space-y-2">
-                    <Label>Batch</Label>
-                    <MultiSelectFilter
-                      label="Select..."
-                      options={allBatches.map(b => ({ value: b, label: b }))}
-                      selectedValues={selectedBatches}
-                      onSelectionChange={setSelectedBatches}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Storage Location</Label>
-                    <MultiSelectFilter
-                      label="Select..."
-                      options={allStorageLocations.map(sl => ({ value: sl, label: sl }))}
-                      selectedValues={selectedStorageLocations}
-                      onSelectionChange={setSelectedStorageLocations}
+                    <Label>Material Type (MATART)</Label>
+                    <Input
+                      placeholder="e.g. ROH, HALB"
+                      value={materialType}
+                      onChange={(e) => setMaterialType(e.target.value)}
                     />
                   </div>
                 </div>
 
                 <div className="flex gap-3 pt-4 border-t">
-                  <Button onClick={handleSearch} className="gap-2">
-                    <Search className="w-4 h-4" />
+                  <Button onClick={handleSearch} className="gap-2" disabled={isLoading}>
+                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                     Search
                   </Button>
                   <Button variant="outline" onClick={handleReset} className="gap-2">

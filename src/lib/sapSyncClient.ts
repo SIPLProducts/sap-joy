@@ -795,6 +795,14 @@ async function directFetchLive(
           }
         });
       }
+      // Merge search params from the UI (WERKS, LGORT, MATNR, MATART etc.)
+      if (body.search_params && typeof body.search_params === 'object') {
+        Object.entries(body.search_params).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && String(value).trim() !== '') {
+            requestBody[key] = String(value).trim();
+          }
+        });
+      }
       if (config.max_records) {
         if (requestBody.MAX_ROWS === undefined) requestBody.MAX_ROWS = config.max_records;
         if (requestBody.MAX_HITS === undefined) requestBody.MAX_HITS = config.max_records;
