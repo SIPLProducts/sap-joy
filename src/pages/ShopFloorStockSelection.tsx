@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { MultiSelectFilter } from '@/components/inward/MultiSelectFilter';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Search, Package, ArrowRight, RotateCcw, Factory, Upload, Download, 
   RefreshCw, Settings, Database, FileUp, CheckCircle2, AlertCircle, 
@@ -21,6 +21,9 @@ import { useShopFloorStock, ShopFloorStockRecord } from '@/hooks/useShopFloorSto
 import { downloadShopFloorCSVTemplate, validateShopFloorStockData, ShopFloorStockParseResult } from '@/lib/shopFloorStockTemplates';
 import { ShopFloorUploadPreview } from '@/components/shopFloor/ShopFloorUploadPreview';
 import { SAPConfigDialog } from '@/components/shopFloor/SAPConfigDialog';
+import { useAuth } from '@/contexts/AuthContext';
+import { useUserPlants } from '@/hooks/useUserPlants';
+import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,13 +39,36 @@ import {
 export default function ShopFloorStockSelection() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { userRole } = useAuth();
+  const { userPlants } = useUserPlants();
   
+  // All plants for admin dropdown
+  const [allSystemPlants, setAllSystemPlants] = useState<{ code: string; name: string }[]>([]);
+  const isAdmin = userRole === 'admin';
+
+  useEffect(() => {
+    if (isAdmin) {
+      supabase.from('plants').select('code, name').then(({ data }) => {
+        if (data) setAllSystemPlants(data);
+      });
+    }
+  }, [isAdmin]);
+
+  // Plants available in dropdown based on role
+  const availablePlants = useMemo(() => {
+    if (isAdmin) {
+      return allSystemPlants.map(p => ({ value: p.code, label: `${p.code} - ${p.name}` }));
+    }
+    return userPlants.map(p => ({ value: p, label: p }));
+  }, [isAdmin, allSystemPlants, userPlants]);
+
   // Database hook
   const {
     stockRecords,
     sapConfigs,
     syncHistory,
     isLoading,
+    searchStockRecords,
     fetchStockRecords,
     uploadStockRecords,
     saveSAPConfig,
