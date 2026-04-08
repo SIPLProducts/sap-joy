@@ -416,71 +416,78 @@ export default function ShopFloorStockSelection() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  {/* Plant (WERKS) - Dropdown - Mandatory */}
                   <div className="space-y-2">
                     <Label className={validationErrors.includes('plant') ? 'text-destructive' : ''}>
-                      Plant <span className="text-destructive">*</span>
+                      Plant (WERKS) <span className="text-destructive">*</span>
                     </Label>
                     <div className={validationErrors.includes('plant') ? 'ring-2 ring-destructive rounded-md' : ''}>
-                      <MultiSelectFilter
-                        label="Select..."
-                        options={allPlants.map(p => ({ value: p, label: p }))}
-                        selectedValues={selectedPlants}
-                        onSelectionChange={(vals) => {
-                          setSelectedPlants(vals);
-                          if (vals.length > 0) setValidationErrors(prev => prev.filter(e => e !== 'plant'));
+                      <Select
+                        value={selectedPlant}
+                        onValueChange={(val) => {
+                          setSelectedPlant(val);
+                          if (val) setValidationErrors(prev => prev.filter(e => e !== 'plant'));
                         }}
-                      />
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Plant..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availablePlants.map(p => (
+                            <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     {validationErrors.includes('plant') && (
                       <p className="text-xs text-destructive">Plant is required</p>
                     )}
                   </div>
 
+                  {/* Storage Location (LGORT) - Input - Mandatory */}
                   <div className="space-y-2">
-                    <Label>Material</Label>
-                    <MultiSelectFilter
-                      label="Select..."
-                      options={allMaterials.map(m => ({ value: m.code, label: `${m.code} - ${m.description}` }))}
-                      selectedValues={selectedMaterials}
-                      onSelectionChange={setSelectedMaterials}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Material Description</Label>
+                    <Label className={validationErrors.includes('storageLocation') ? 'text-destructive' : ''}>
+                      Storage Location (LGORT) <span className="text-destructive">*</span>
+                    </Label>
                     <Input
-                      placeholder="Search description..."
-                      value={materialDescFilter}
-                      onChange={(e) => setMaterialDescFilter(e.target.value)}
-                      className="h-10"
+                      placeholder="e.g. 0001"
+                      value={storageLocation}
+                      onChange={(e) => {
+                        setStorageLocation(e.target.value);
+                        if (e.target.value.trim()) setValidationErrors(prev => prev.filter(e => e !== 'storageLocation'));
+                      }}
+                      className={validationErrors.includes('storageLocation') ? 'ring-2 ring-destructive' : ''}
+                    />
+                    {validationErrors.includes('storageLocation') && (
+                      <p className="text-xs text-destructive">Storage Location is required</p>
+                    )}
+                  </div>
+
+                  {/* Material Code (MATNR) - Input - Optional */}
+                  <div className="space-y-2">
+                    <Label>Material Code (MATNR)</Label>
+                    <Input
+                      placeholder="e.g. 100001234"
+                      value={materialCode}
+                      onChange={(e) => setMaterialCode(e.target.value)}
                     />
                   </div>
 
+                  {/* Material Type (MATART) - Input - Optional */}
                   <div className="space-y-2">
-                    <Label>Batch</Label>
-                    <MultiSelectFilter
-                      label="Select..."
-                      options={allBatches.map(b => ({ value: b, label: b }))}
-                      selectedValues={selectedBatches}
-                      onSelectionChange={setSelectedBatches}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Storage Location</Label>
-                    <MultiSelectFilter
-                      label="Select..."
-                      options={allStorageLocations.map(sl => ({ value: sl, label: sl }))}
-                      selectedValues={selectedStorageLocations}
-                      onSelectionChange={setSelectedStorageLocations}
+                    <Label>Material Type (MATART)</Label>
+                    <Input
+                      placeholder="e.g. ROH, HALB"
+                      value={materialType}
+                      onChange={(e) => setMaterialType(e.target.value)}
                     />
                   </div>
                 </div>
 
                 <div className="flex gap-3 pt-4 border-t">
-                  <Button onClick={handleSearch} className="gap-2">
-                    <Search className="w-4 h-4" />
+                  <Button onClick={handleSearch} className="gap-2" disabled={isLoading}>
+                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                     Search
                   </Button>
                   <Button variant="outline" onClick={handleReset} className="gap-2">
