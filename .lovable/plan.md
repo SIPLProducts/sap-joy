@@ -1,64 +1,29 @@
 
 
-## Plan: Dual-Mode Architecture (Lovable Cloud Dev + Self-Hosted Production)
+## Fix: Node.js Middleware Running on Port 3000
 
-### Current State
-- `invokeSapSync()` in `sapSyncClient.ts` **always** calls `invokeDirect()` (browser → middleware), ignoring the `isLovableCloud()` check entirely
-- Edge Function `sap-sync/index.ts` exists and works but is never called from the client
-- Connection modes (`vpn_tunnel`, `proxy`, `direct`) are stored per API config but the routing logic doesn't use them properly
-- The `isLovableCloud()` function exists but is unused
+### No Code Changes Needed
 
-### Problem
-- **Dev mode (Lovable Cloud + ngrok):** Browser makes HTTPS→HTTP calls which get blocked by mixed-content. Should route through Edge Function instead.
-- **Production (self-hosted):** Browser→middleware direct calls work fine since both are HTTP on the same network.
+The middleware port is **not hardcoded** in the application. It's stored in the `proxy_tunnel_url` field of each SAP API configuration in the database.
 
-### Solution
+### What You Need to Do
 
-**One code change in `src/lib/sapSyncClient.ts`** — restore the dual-mode routing in `invokeSapSync()`:
+In **SAP API Settings** (the page you're on now), update the **Node.js Middleware URL** for each API:
 
-```text
-┌─────────────────────────────────────────────────┐
-│              invokeSapSync()                    │
-│                                                 │
-│  isLovableCloud()?                              │
-│    YES ──► Edge Function (sap-sync)             │
-│            Edge Fn reads config from DB         │
-│            Edge Fn calls ngrok/proxy URL        │
-│            ngrok → Node.js middleware → SAP     │
-│                                                 │
-│    NO  ──► invokeDirect()                       │
-│            Browser reads config from DB         │
-│            Browser calls middleware directly    │
-│            http://10.10.4.178:3002 → SAP        │
-└─────────────────────────────────────────────────┘
-```
+| API | Old URL | New URL |
+|-----|---------|---------|
+| ZMRB_Inward_Inspection | `https://your-ngrok-url.ngrok-free.app` | `https://your-ngrok-url.ngrok-free.app` (ngrok must tunnel to port **3000**) |
+| MB52_Stock | same | same |
+| 343_Unblock | same | same |
+| 344_Block | same | same |
 
-### File Changes
+### Key Point
 
-**1. `src/lib/sapSyncClient.ts`** — Update `invokeSapSync()` (lines 1164-1171):
-- If `isLovableCloud()` is true, call `supabase.functions.invoke('sap-sync', { body })` (the Edge Function)
-- If false, call `invokeDirect(body)` as it does now
-- This is ~10 lines changed
+- **ngrok command**: Run `ngrok http 3000` (not `ngrok http 3002`)
+- **Self-hosted proxy URL**: Use `http://10.10.4.178:3000` instead of `http://10.10.4.178:3002`
+- **No database migration or code change is required** — just update the URL in the SAP API Settings UI
 
-**2. `supabase/functions/sap-sync/index.ts`** — Minor fix:
-- Change `.single()` to `.maybeSingle()` on config lookup (line 44) to match the resilience already in `sapSyncClient.ts`
-- Ensure `unblock`, `update_transaction_qty`, and `fetch_live` actions are handled (verify they exist)
+### If You Want a Database Update Instead
 
-### No Other Changes Needed
-- SAP API Settings UI already lets users set `connection_mode` and `proxy_tunnel_url` per config
-- Edge Function already reads `proxy_tunnel_url` and routes through it
-- Deploy scripts already handle both environments
-- The `.env` determines which mode: `VITE_SUPABASE_URL=https://xxx.supabase.co` → Cloud, `VITE_SUPABASE_URL=http://10.10.4.178:8000` → Self-hosted
-
-### How It Works for Each Scenario
-
-**Developer (Lovable Cloud + ngrok):**
-1. Set connection mode to "VPN Tunnel" in SAP API Settings
-2. Set proxy URL to ngrok URL (e.g., `https://abc.ngrok-free.app`)
-3. App detects `supabase.co` → routes through Edge Function → Edge Function calls ngrok → Node.js → VPN → SAP
-
-**Production (Self-Hosted):**
-1. Set connection mode to "proxy" or "vpn_tunnel"
-2. Set proxy URL to `http://10.10.4.178:3002`
-3. App detects non-supabase.co URL → calls middleware directly from browser → Node.js → SAP
+I can create a migration to update all `sap_api_config` rows, changing any `proxy_tunnel_url` references from port 3002 to 3000. Let me know if you'd prefer that approach.
 
