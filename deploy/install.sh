@@ -76,6 +76,7 @@ rsync -a --exclude='node_modules' --exclude='.git' \
 
 # Copy all deploy scripts to scripts dir (from source, not from frontend copy)
 cp "$SCRIPT_DIR"/*.sh "$APP_DIR/scripts/"
+cp "$SCRIPT_DIR"/*.sql "$APP_DIR/scripts/" 2>/dev/null || true
 chmod +x "$APP_DIR/scripts/"*.sh
 
 # Copy middleware if present
