@@ -429,7 +429,7 @@ export default function ShopFloorMaterialBlocking() {
             <div className="text-sm text-muted-foreground space-y-1 text-left bg-muted/30 rounded-lg p-4">
               {poNumber && <p>• <strong>PO Number:</strong> {poNumber}</p>}
               {productionOrder && <p>• <strong>Production Order:</strong> {productionOrder}</p>}
-              <p>• <strong>Routed to:</strong> {nextReviewDepartments.map(d => shopFloorNextDepartments.find(dept => dept.value === d)?.label).join(', ')}</p>
+              <p>• <strong>Routed to:</strong> {nextReviewDepartments.map(d => workflowDepartments.find(dept => dept.value === d)?.label || d).join(', ')}</p>
               <p>• <strong>Email notification:</strong> Sent</p>
             </div>
             
