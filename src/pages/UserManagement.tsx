@@ -1,3 +1,6 @@
+import { useState, useEffect, useMemo } from 'react';
+import { useAuth, AppRole } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { createClient } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
 import { useDepartments } from '@/hooks/useDepartments';
