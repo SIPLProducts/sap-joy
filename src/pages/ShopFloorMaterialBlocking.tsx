@@ -54,8 +54,21 @@ export default function ShopFloorMaterialBlocking() {
   const { createMRB, getNextMRBNumber } = useMRBDatabase();
   const { currentRole } = useRole();
   const { user } = useAuth();
+  const { departments: allDepartments } = useDepartments(true);
+  const { deptToRole, deptToStatus } = useDepartmentMap();
   
   const stockItem = location.state?.stockItem as AvailableStockRecord | undefined;
+
+  // Build dynamic department options (same as CreateInwardMRB)
+  const workflowDepartments = useMemo(() =>
+    allDepartments
+      .filter(d => d.role_key && d.is_active && d.is_workflow_enabled)
+      .map(d => ({
+        value: d.role_key!,
+        label: d.name,
+      })),
+    [allDepartments]
+  );
 
   // Form states
   const [blockQuantity, setBlockQuantity] = useState<number>(0);
@@ -64,8 +77,10 @@ export default function ShopFloorMaterialBlocking() {
   const [postingDate, setPostingDate] = useState(new Date().toISOString().split('T')[0]);
   const [blockReason, setBlockReason] = useState('');
   const [defectDescription, setDefectDescription] = useState('');
-  const [nextReviewDepartments, setNextReviewDepartments] = useState<AppRole[]>([]);
+  const [nextReviewDepartments, setNextReviewDepartments] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<AttachmentUpload[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [createdMRBNumber, setCreatedMRBNumber] = useState('');
