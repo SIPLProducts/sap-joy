@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
@@ -27,8 +27,15 @@ import {
   X,
   Loader2,
   Printer,
+  Lock,
+  Sparkles,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
-import { AvailableStockRecord, shopFloorBlockReasons, shopFloorNextDepartments, shopFloorAttachmentCategories } from '@/data/shopFloorStockData';
+import { AvailableStockRecord, shopFloorBlockReasons, shopFloorAttachmentCategories } from '@/data/shopFloorStockData';
+import { useDepartments } from '@/hooks/useDepartments';
+import { useDepartmentMap } from '@/hooks/useDepartmentMap';
+import { fetchPlantWorkflow } from '@/lib/workflowRouting';
 import type { Database } from '@/integrations/supabase/types';
 
 type AppRole = Database['public']['Enums']['app_role'];
@@ -47,8 +54,21 @@ export default function ShopFloorMaterialBlocking() {
   const { createMRB, getNextMRBNumber } = useMRBDatabase();
   const { currentRole } = useRole();
   const { user } = useAuth();
+  const { departments: allDepartments } = useDepartments(true);
+  const { deptToRole, deptToStatus } = useDepartmentMap();
   
   const stockItem = location.state?.stockItem as AvailableStockRecord | undefined;
+
+  // Build dynamic department options (same as CreateInwardMRB)
+  const workflowDepartments = useMemo(() =>
+    allDepartments
+      .filter(d => d.role_key && d.is_active && d.is_workflow_enabled)
+      .map(d => ({
+        value: d.role_key!,
+        label: d.name,
+      })),
+    [allDepartments]
+  );
 
   // Form states
   const [blockQuantity, setBlockQuantity] = useState<number>(0);
@@ -57,12 +77,17 @@ export default function ShopFloorMaterialBlocking() {
   const [postingDate, setPostingDate] = useState(new Date().toISOString().split('T')[0]);
   const [blockReason, setBlockReason] = useState('');
   const [defectDescription, setDefectDescription] = useState('');
-  const [nextReviewDepartments, setNextReviewDepartments] = useState<AppRole[]>([]);
+  const [nextReviewDepartments, setNextReviewDepartments] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<AttachmentUpload[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [createdMRBNumber, setCreatedMRBNumber] = useState('');
   const [sapMaterialDocument, setSAPMaterialDocument] = useState('');
+
+  // Workflow routing state (same pattern as CreateInwardMRB)
+  const [predefinedRouting, setPredefinedRouting] = useState<string[] | null>(null);
+  const [predefinedLabels, setPredefinedLabels] = useState<Record<string, string>>({});
+  const [workflowType, setWorkflowType] = useState<'predefined' | 'manual'>('predefined');
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -86,6 +111,46 @@ export default function ShopFloorMaterialBlocking() {
       navigate('/');
     }
   }, [canBlock, navigate]);
+
+  // Fetch predefined workflow for this plant (same as CreateInwardMRB)
+  useEffect(() => {
+    if (!stockItem) return;
+    const loadPlantWorkflow = async () => {
+      const steps = await fetchPlantWorkflow(stockItem.plant);
+      if (steps.length > 0) {
+        const deptSequence = steps.map((s) => s.department);
+        const labels: Record<string, string> = {};
+        steps.forEach((s) => { labels[s.department] = s.label; });
+        setPredefinedRouting(deptSequence);
+        setPredefinedLabels(labels);
+        setWorkflowType('predefined');
+        setNextReviewDepartments(deptSequence);
+      } else {
+        setPredefinedRouting(null);
+        setWorkflowType('manual');
+      }
+    };
+    loadPlantWorkflow();
+  }, [stockItem?.plant]);
+
+  // Handle workflow type change
+  const handleWorkflowTypeChange = (type: 'predefined' | 'manual') => {
+    setWorkflowType(type);
+    if (type === 'predefined' && predefinedRouting) {
+      setNextReviewDepartments(predefinedRouting);
+    } else {
+      setNextReviewDepartments([]);
+    }
+  };
+
+  // Manual routing reorder
+  const moveRouteStep = (index: number, direction: 'up' | 'down') => {
+    const newDepts = [...nextReviewDepartments];
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= newDepts.length) return;
+    [newDepts[index], newDepts[swapIndex]] = [newDepts[swapIndex], newDepts[index]];
+    setNextReviewDepartments(newDepts);
+  };
 
   if (!stockItem) return null;
 
@@ -162,7 +227,7 @@ export default function ShopFloorMaterialBlocking() {
         status: 'quality_review',
         source: 'shop_floor',
         created_by: user?.id || 'shop_floor_user',
-        pending_with: nextReviewDepartments[0] || 'quality',
+        pending_with: (nextReviewDepartments[0] || 'quality') as AppRole,
         pending_days: 0,
         sla_status: 'green',
         escalation_level: 'none',
@@ -184,7 +249,7 @@ export default function ShopFloorMaterialBlocking() {
         issue_description: `${blockReason}: ${defectDescription}`,
         impact_on_production: 'Material blocked for review',
         immediate_block_required: true,
-      });
+      } as any, nextReviewDepartments);
 
       // Generate SAP Material Document Number (simulated)
       const sapMatDoc = `49${format(new Date(), 'yyyyMMdd')}${Math.floor(100000 + Math.random() * 900000)}`;
@@ -278,7 +343,7 @@ export default function ShopFloorMaterialBlocking() {
           <div class="section">
             <div class="section-title">Routing Information</div>
             <div class="info-grid">
-              <div class="info-item"><div class="info-label">Routed To</div><div class="info-value">${nextReviewDepartments.map(d => shopFloorNextDepartments.find(dept => dept.value === d)?.label).join(', ')}</div></div>
+              <div class="info-item"><div class="info-label">Routed To</div><div class="info-value">${nextReviewDepartments.map(d => workflowDepartments.find(dept => dept.value === d)?.label || d).join(', ')}</div></div>
               <div class="info-item"><div class="info-label">Created Date</div><div class="info-value">${format(new Date(), 'dd MMM yyyy HH:mm')}</div></div>
             </div>
           </div>
@@ -364,7 +429,7 @@ export default function ShopFloorMaterialBlocking() {
             <div className="text-sm text-muted-foreground space-y-1 text-left bg-muted/30 rounded-lg p-4">
               {poNumber && <p>• <strong>PO Number:</strong> {poNumber}</p>}
               {productionOrder && <p>• <strong>Production Order:</strong> {productionOrder}</p>}
-              <p>• <strong>Routed to:</strong> {nextReviewDepartments.map(d => shopFloorNextDepartments.find(dept => dept.value === d)?.label).join(', ')}</p>
+              <p>• <strong>Routed to:</strong> {nextReviewDepartments.map(d => workflowDepartments.find(dept => dept.value === d)?.label || d).join(', ')}</p>
               <p>• <strong>Email notification:</strong> Sent</p>
             </div>
             
@@ -543,47 +608,195 @@ export default function ShopFloorMaterialBlocking() {
           </CardContent>
         </Card>
 
-        {/* Next Review Departments */}
+        {/* Workflow Routing (same as MRB creation / Workflow Routing Config) */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Send className="w-5 h-5" />
               Route for Review
             </CardTitle>
-            <CardDescription>Select departments to receive MRB for review</CardDescription>
+            <CardDescription>Choose how the MRB should be routed for review</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {shopFloorNextDepartments.map((dept) => (
-                <label
-                  key={dept.value}
-                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    nextReviewDepartments.includes(dept.value as AppRole)
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:bg-muted/50'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={nextReviewDepartments.includes(dept.value as AppRole)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setNextReviewDepartments([...nextReviewDepartments, dept.value as AppRole]);
-                      } else {
-                        setNextReviewDepartments(nextReviewDepartments.filter((d) => d !== dept.value));
-                      }
-                    }}
-                    className="w-4 h-4 accent-primary"
-                  />
-                  <div>
-                    <span className="font-medium">{dept.label}</span>
-                  </div>
-                </label>
-              ))}
-              {errors.nextReviewDepartment && (
-                <p className="text-xs text-destructive">{errors.nextReviewDepartment}</p>
-              )}
+          <CardContent className="space-y-6">
+            {/* Workflow Type Selection */}
+            <div className="flex gap-4">
+              <label
+                className={`flex-1 flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  workflowType === 'predefined'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:bg-muted/50'
+                } ${!predefinedRouting ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="workflowType"
+                  value="predefined"
+                  checked={workflowType === 'predefined'}
+                  onChange={() => predefinedRouting && handleWorkflowTypeChange('predefined')}
+                  disabled={!predefinedRouting}
+                  className="h-4 w-4 text-primary"
+                />
+                <div>
+                  <p className="font-medium text-sm text-foreground flex items-center gap-2">
+                    <Lock className="h-4 w-4" />
+                    Use Predefined Workflow
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {predefinedRouting
+                      ? `Follow the configured sequence for Plant ${stockItem.plant}`
+                      : 'No predefined workflow configured for this plant'}
+                  </p>
+                </div>
+              </label>
+              <label
+                className={`flex-1 flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  workflowType === 'manual'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:bg-muted/50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="workflowType"
+                  value="manual"
+                  checked={workflowType === 'manual'}
+                  onChange={() => handleWorkflowTypeChange('manual')}
+                  className="h-4 w-4 text-primary"
+                />
+                <div>
+                  <p className="font-medium text-sm text-foreground flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Use Manual Routing
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Select roles and arrange them in a custom sequence
+                  </p>
+                </div>
+              </label>
             </div>
+
+            {/* Predefined Workflow Display */}
+            {workflowType === 'predefined' && predefinedRouting && predefinedRouting.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-foreground">MRB will follow this predefined sequence:</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {predefinedRouting.map((dept, idx) => {
+                    const deptInfo = workflowDepartments.find(d => d.value === dept);
+                    return (
+                      <div key={dept} className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/5">
+                          <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                            {idx + 1}
+                          </span>
+                          <span className="text-sm font-medium text-foreground">
+                            {predefinedLabels[dept] || deptInfo?.label || dept}
+                          </span>
+                        </div>
+                        {idx < predefinedRouting.length - 1 && (
+                          <span className="text-muted-foreground text-lg">→</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Manual Routing Selection */}
+            {workflowType === 'manual' && (
+              <>
+                <div className="flex items-center justify-between">
+                  <Label className="text-foreground">
+                    Select Roles & Arrange Sequence <span className="text-destructive">*</span>
+                  </Label>
+                  {nextReviewDepartments.length > 0 && (
+                    <span className="text-xs text-green-600 flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" />
+                      {nextReviewDepartments.length} selected
+                    </span>
+                  )}
+                </div>
+
+                {/* Role selection grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {workflowDepartments.map((dept) => {
+                    const isSelected = nextReviewDepartments.includes(dept.value);
+                    return (
+                      <label
+                        key={dept.value}
+                        className={`relative flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                            : 'border-border hover:bg-muted/50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNextReviewDepartments([...nextReviewDepartments, dept.value]);
+                            } else {
+                              setNextReviewDepartments(nextReviewDepartments.filter((d) => d !== dept.value));
+                            }
+                          }}
+                          className="h-4 w-4 text-primary"
+                        />
+                        <span className={`font-medium text-sm ${isSelected ? 'text-primary' : 'text-foreground'}`}>
+                          {dept.label}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {/* Sequence ordering for selected roles */}
+                {nextReviewDepartments.length > 0 && (
+                  <div className="space-y-2 mt-4">
+                    <Label className="text-foreground text-sm font-medium">Execution Sequence (use arrows to reorder)</Label>
+                    <div className="space-y-2 bg-muted/30 rounded-lg p-3">
+                      {nextReviewDepartments.map((dept, idx) => {
+                        const deptInfo = workflowDepartments.find(d => d.value === dept);
+                        return (
+                          <div key={dept} className="flex items-center gap-2 bg-background rounded-md border px-3 py-2">
+                            <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">
+                              {idx + 1}
+                            </span>
+                            <span className="flex-1 text-sm font-medium">{deptInfo?.label || dept}</span>
+                            <div className="flex gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                disabled={idx === 0}
+                                onClick={() => moveRouteStep(idx, 'up')}
+                              >
+                                <ArrowUp className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                disabled={idx === nextReviewDepartments.length - 1}
+                                onClick={() => moveRouteStep(idx, 'down')}
+                              >
+                                <ArrowDown className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {errors.nextReviewDepartment && (
+              <p className="text-xs text-destructive">{errors.nextReviewDepartment}</p>
+            )}
           </CardContent>
         </Card>
 
