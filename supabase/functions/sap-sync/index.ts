@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       .from('sap_api_config')
       .select('*')
       .eq('id', config_id)
-      .single()
+      .maybeSingle()
 
     if (configError || !config) {
       return new Response(JSON.stringify({ success: false, error: 'Configuration not found', details: configError?.message }), {
