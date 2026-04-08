@@ -249,7 +249,7 @@ export default function ShopFloorMaterialBlocking() {
         issue_description: `${blockReason}: ${defectDescription}`,
         impact_on_production: 'Material blocked for review',
         immediate_block_required: true,
-      });
+      } as any, nextReviewDepartments);
 
       // Generate SAP Material Document Number (simulated)
       const sapMatDoc = `49${format(new Date(), 'yyyyMMdd')}${Math.floor(100000 + Math.random() * 900000)}`;
