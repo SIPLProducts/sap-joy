@@ -417,7 +417,31 @@ export default function Worklist() {
     }
   };
 
-  const SAP_343_CONFIG_ID = 'a1000000-0000-0000-0000-000000000002';
+  // Dynamically resolve SAP 343 and MB52 config IDs from the database
+  const [sap343ConfigId, setSap343ConfigId] = useState<string | null>(null);
+  const [sapMb52ConfigId, setSapMb52ConfigId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadSapConfigIds = async () => {
+      const { data: configs } = await supabase
+        .from('sap_api_config')
+        .select('id, config_name, api_endpoint')
+        .eq('is_active', true);
+      if (configs) {
+        for (const c of configs) {
+          const name = (c.config_name || '').toLowerCase();
+          const endpoint = (c.api_endpoint || '').toLowerCase();
+          if (name.includes('343') || endpoint.includes('343')) {
+            setSap343ConfigId(c.id);
+          }
+          if (name.includes('mb52') || endpoint.includes('mb52')) {
+            setSapMb52ConfigId(c.id);
+          }
+        }
+      }
+    };
+    loadSapConfigIds();
+  }, []);
 
   // Build SAP 343 request body from MRB data
   const buildUnblockRequestBody = async (mrb: UnifiedMRBRecord) => {
@@ -505,10 +529,12 @@ export default function Worklist() {
       console.log('SAP 343 Unblock Request:', requestBody);
 
       // Call SAP 343 and then verify with live MB52 stock fetch
+      if (!sap343ConfigId) throw new Error('SAP 343 configuration not found. Please configure it in SAP API Settings.');
+
       const response = await invokeSapSync({
         action: 'unblock',
-        config_id: SAP_343_CONFIG_ID,
-        verify_config_id: 'a1000000-0000-0000-0000-000000000001',
+        config_id: sap343ConfigId,
+        verify_config_id: sapMb52ConfigId || undefined,
         request_body: requestBody,
       });
 
@@ -636,9 +662,11 @@ export default function Worklist() {
         // Add BUDAT for batch sync using current date
         (requestBody as any).BUDAT = formatPostingDateForSAP(new Date().toISOString().split('T')[0]);
 
+        if (!sap343ConfigId) throw new Error('SAP 343 configuration not found.');
+
         const response = await invokeSapSync({
           action: 'unblock',
-          config_id: SAP_343_CONFIG_ID,
+          config_id: sap343ConfigId,
           request_body: requestBody,
         });
 
