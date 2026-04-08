@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       .from('sap_api_config')
       .select('*')
       .eq('id', config_id)
-      .single()
+      .maybeSingle()
 
     if (configError || !config) {
       return new Response(JSON.stringify({ success: false, error: 'Configuration not found', details: configError?.message }), {
@@ -413,7 +413,102 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ success: false, error: 'Invalid action. Use "test", "sync", "unblock", or "update_transaction_qty".' }), {
+    // FETCH LIVE - MB52 on-demand stock fetch
+    if (action === 'fetch_live') {
+      try {
+        const { data: requestFields } = await supabase
+          .from('sap_api_request_fields')
+          .select('*')
+          .eq('config_id', config_id)
+          .order('sort_order')
+
+        const { data: responseFields } = await supabase
+          .from('sap_api_response_fields')
+          .select('*')
+          .eq('config_id', config_id)
+          .order('sort_order')
+
+        // Build request payload from fields + overrides
+        const requestPayload: Record<string, any> = {}
+        for (const field of (requestFields || [])) {
+          requestPayload[field.sap_field_name || field.field_name] = field.default_value || ''
+        }
+        // Apply overrides from body
+        if (body.request_body && typeof body.request_body === 'object') {
+          Object.assign(requestPayload, body.request_body)
+        }
+
+        const url = buildUrl(config)
+        const headers = buildAuthHeaders(config)
+        const method = (config.http_method || 'POST').toUpperCase()
+        const timeout = config.timeout_ms || 30000
+
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), timeout)
+
+        const fetchOpts: RequestInit = {
+          method,
+          headers,
+          signal: controller.signal,
+        }
+        if (['POST', 'PUT', 'PATCH'].includes(method)) {
+          fetchOpts.body = JSON.stringify(requestPayload)
+        }
+
+        const response = await fetch(url, fetchOpts)
+        clearTimeout(timer)
+
+        const bodyText = await response.text()
+        console.log('SAP fetch_live raw response status:', response.status)
+
+        if (!response.ok) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
+          }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        let sapData: any = null
+        try {
+          const parsed = bodyText.trim() ? JSON.parse(bodyText) : {}
+          // Extract array from common SAP response structures
+          if (parsed.d?.results) sapData = parsed.d.results
+          else if (parsed.value) sapData = parsed.value
+          else if (Array.isArray(parsed)) sapData = parsed
+          else sapData = parsed
+        } catch {
+          sapData = { raw: bodyText.substring(0, 2000) }
+        }
+
+        // Map response fields if configured
+        let mappedRecords = Array.isArray(sapData) ? sapData : [sapData]
+        if (responseFields && responseFields.length > 0 && Array.isArray(sapData)) {
+          mappedRecords = sapData.map((item: any) => {
+            const mapped: Record<string, any> = {}
+            for (const field of responseFields) {
+              const sapKey = field.sap_field_name || field.field_name
+              mapped[field.field_name] = item[sapKey] ?? null
+            }
+            return mapped
+          })
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          records: mappedRecords,
+          total: mappedRecords.length,
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      } catch (err: any) {
+        const errMsg = err.name === 'AbortError'
+          ? `SAP API timed out after ${config.timeout_ms || 30000}ms`
+          : `Network error: ${err.message}`
+        return new Response(JSON.stringify({ success: false, error: errMsg }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
+    return new Response(JSON.stringify({ success: false, error: 'Invalid action. Use "test", "sync", "unblock", "fetch_live", or "update_transaction_qty".' }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err: any) {

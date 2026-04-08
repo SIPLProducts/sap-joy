@@ -1167,5 +1167,24 @@ export async function invokeSapSync(body: Record<string, any>): Promise<{ data: 
     return { data: null, error: { message: 'Not authenticated' } };
   }
 
+  // Dual-mode routing:
+  // Lovable Cloud (supabase.co) → Edge Function (avoids mixed-content HTTPS→HTTP)
+  // Self-hosted (private IP) → Direct browser→middleware call
+  if (isLovableCloud()) {
+    console.log('[SAP Sync] Lovable Cloud detected — routing through Edge Function');
+    try {
+      const { data, error } = await supabase.functions.invoke('sap-sync', { body });
+      if (error) {
+        console.error('[SAP Sync] Edge Function error:', error);
+        return { data: null, error: { message: error.message || 'Edge Function call failed' } };
+      }
+      return { data, error: null };
+    } catch (err: any) {
+      console.error('[SAP Sync] Edge Function exception:', err);
+      return { data: null, error: { message: err?.message || 'Edge Function call failed' } };
+    }
+  }
+
+  // Self-hosted: direct browser → middleware
   return invokeDirect(body);
 }
