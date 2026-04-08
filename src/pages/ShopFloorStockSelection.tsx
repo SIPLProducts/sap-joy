@@ -76,10 +76,6 @@ export default function ShopFloorStockSelection() {
     deleteSAPConfig,
     testSAPConnection,
     triggerSAPSync,
-    getUniquePlants,
-    getUniqueMaterials,
-    getUniqueBatches,
-    getUniqueStorageLocations,
   } = useShopFloorStock();
   
   // Tab state
