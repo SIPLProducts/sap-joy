@@ -529,10 +529,12 @@ export default function Worklist() {
       console.log('SAP 343 Unblock Request:', requestBody);
 
       // Call SAP 343 and then verify with live MB52 stock fetch
+      if (!sap343ConfigId) throw new Error('SAP 343 configuration not found. Please configure it in SAP API Settings.');
+
       const response = await invokeSapSync({
         action: 'unblock',
-        config_id: SAP_343_CONFIG_ID,
-        verify_config_id: 'a1000000-0000-0000-0000-000000000001',
+        config_id: sap343ConfigId,
+        verify_config_id: sapMb52ConfigId || undefined,
         request_body: requestBody,
       });
 
@@ -660,9 +662,11 @@ export default function Worklist() {
         // Add BUDAT for batch sync using current date
         (requestBody as any).BUDAT = formatPostingDateForSAP(new Date().toISOString().split('T')[0]);
 
+        if (!sap343ConfigId) throw new Error('SAP 343 configuration not found.');
+
         const response = await invokeSapSync({
           action: 'unblock',
-          config_id: SAP_343_CONFIG_ID,
+          config_id: sap343ConfigId,
           request_body: requestBody,
         });
 
