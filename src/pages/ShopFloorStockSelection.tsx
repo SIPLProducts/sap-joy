@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MultiSelectFilter } from '@/components/inward/MultiSelectFilter';
+
 import { 
   Search, Package, ArrowRight, RotateCcw, Factory, Upload, Download, 
   RefreshCw, Settings, Database, FileUp, CheckCircle2, AlertCircle, 
