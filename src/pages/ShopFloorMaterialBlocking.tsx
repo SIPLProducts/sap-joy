@@ -112,6 +112,46 @@ export default function ShopFloorMaterialBlocking() {
     }
   }, [canBlock, navigate]);
 
+  // Fetch predefined workflow for this plant (same as CreateInwardMRB)
+  useEffect(() => {
+    if (!stockItem) return;
+    const loadPlantWorkflow = async () => {
+      const steps = await fetchPlantWorkflow(stockItem.plant);
+      if (steps.length > 0) {
+        const deptSequence = steps.map((s) => s.department);
+        const labels: Record<string, string> = {};
+        steps.forEach((s) => { labels[s.department] = s.label; });
+        setPredefinedRouting(deptSequence);
+        setPredefinedLabels(labels);
+        setWorkflowType('predefined');
+        setNextReviewDepartments(deptSequence);
+      } else {
+        setPredefinedRouting(null);
+        setWorkflowType('manual');
+      }
+    };
+    loadPlantWorkflow();
+  }, [stockItem?.plant]);
+
+  // Handle workflow type change
+  const handleWorkflowTypeChange = (type: 'predefined' | 'manual') => {
+    setWorkflowType(type);
+    if (type === 'predefined' && predefinedRouting) {
+      setNextReviewDepartments(predefinedRouting);
+    } else {
+      setNextReviewDepartments([]);
+    }
+  };
+
+  // Manual routing reorder
+  const moveRouteStep = (index: number, direction: 'up' | 'down') => {
+    const newDepts = [...nextReviewDepartments];
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= newDepts.length) return;
+    [newDepts[index], newDepts[swapIndex]] = [newDepts[swapIndex], newDepts[index]];
+    setNextReviewDepartments(newDepts);
+  };
+
   if (!stockItem) return null;
 
   const validateForm = (): boolean => {
