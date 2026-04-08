@@ -227,7 +227,7 @@ export default function ShopFloorMaterialBlocking() {
         status: 'quality_review',
         source: 'shop_floor',
         created_by: user?.id || 'shop_floor_user',
-        pending_with: nextReviewDepartments[0] || 'quality',
+        pending_with: (nextReviewDepartments[0] || 'quality') as AppRole,
         pending_days: 0,
         sla_status: 'green',
         escalation_level: 'none',
