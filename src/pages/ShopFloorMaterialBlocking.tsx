@@ -343,7 +343,7 @@ export default function ShopFloorMaterialBlocking() {
           <div class="section">
             <div class="section-title">Routing Information</div>
             <div class="info-grid">
-              <div class="info-item"><div class="info-label">Routed To</div><div class="info-value">${nextReviewDepartments.map(d => shopFloorNextDepartments.find(dept => dept.value === d)?.label).join(', ')}</div></div>
+              <div class="info-item"><div class="info-label">Routed To</div><div class="info-value">${nextReviewDepartments.map(d => workflowDepartments.find(dept => dept.value === d)?.label || d).join(', ')}</div></div>
               <div class="info-item"><div class="info-label">Created Date</div><div class="info-value">${format(new Date(), 'dd MMM yyyy HH:mm')}</div></div>
             </div>
           </div>
