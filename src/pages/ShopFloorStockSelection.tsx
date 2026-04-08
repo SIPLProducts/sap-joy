@@ -85,12 +85,11 @@ export default function ShopFloorStockSelection() {
   // Tab state
   const [activeTab, setActiveTab] = useState<'search' | 'upload' | 'api'>('search');
   
-  // Filter states
-  const [selectedPlants, setSelectedPlants] = useState<string[]>([]);
-  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
-  const [materialDescFilter, setMaterialDescFilter] = useState('');
-  const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
-  const [selectedStorageLocations, setSelectedStorageLocations] = useState<string[]>([]);
+  // Search form states (SAP payload fields)
+  const [selectedPlant, setSelectedPlant] = useState('');
+  const [storageLocation, setStorageLocation] = useState('');
+  const [materialCode, setMaterialCode] = useState('');
+  const [materialType, setMaterialType] = useState('');
   
   // Search executed state
   const [hasSearched, setHasSearched] = useState(false);
@@ -116,33 +115,11 @@ export default function ShopFloorStockSelection() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Use only real database data for filters
-  const allPlants = useMemo(() => getUniquePlants(), [stockRecords, getUniquePlants]);
-
-  const allMaterials = useMemo(() => getUniqueMaterials(), [stockRecords, getUniqueMaterials]);
-
-  const allBatches = useMemo(() => getUniqueBatches(), [stockRecords, getUniqueBatches]);
-
-  const allStorageLocations = useMemo(() => getUniqueStorageLocations(), [stockRecords, getUniqueStorageLocations]);
-
-  // Use only real database stock data
-  const combinedStock = useMemo(() => stockRecords, [stockRecords]);
-
-  // Filtered stock results
+  // Stock results come directly from SAP — no client-side filtering needed
   const filteredStock = useMemo(() => {
     if (!hasSearched) return [];
-    
-    return combinedStock.filter(stock => {
-      if (selectedPlants.length > 0 && !selectedPlants.includes(stock.plant)) return false;
-      if (selectedMaterials.length > 0 && !selectedMaterials.includes(stock.material_code)) return false;
-      if (materialDescFilter && stock.material_description && 
-          !stock.material_description.toLowerCase().includes(materialDescFilter.toLowerCase())) return false;
-      if (selectedBatches.length > 0 && stock.batch && !selectedBatches.includes(stock.batch)) return false;
-      if (selectedStorageLocations.length > 0 && stock.storage_location && 
-          !selectedStorageLocations.includes(stock.storage_location)) return false;
-      return true;
-    });
-  }, [hasSearched, combinedStock, selectedPlants, selectedMaterials, materialDescFilter, selectedBatches, selectedStorageLocations]);
+    return stockRecords;
+  }, [hasSearched, stockRecords]);
 
   // Pagination
   const totalPages = Math.ceil(filteredStock.length / itemsPerPage);
@@ -151,31 +128,44 @@ export default function ShopFloorStockSelection() {
     return filteredStock.slice(start, start + itemsPerPage);
   }, [filteredStock, currentPage, itemsPerPage]);
 
-  const handleSearch = () => {
-    // Validation: At least one filter must be selected
+  const handleSearch = async () => {
+    // Validate mandatory fields
     const errors: string[] = [];
-    if (selectedPlants.length === 0) {
+    if (!selectedPlant) {
       errors.push('plant');
+    }
+    if (!storageLocation.trim()) {
+      errors.push('storageLocation');
     }
     
     if (errors.length > 0) {
       setValidationErrors(errors);
-      toast.error('Please select at least one Plant to search');
+      const missing = [];
+      if (errors.includes('plant')) missing.push('Plant (WERKS)');
+      if (errors.includes('storageLocation')) missing.push('Storage Location (LGORT)');
+      toast.error(`Please fill mandatory fields: ${missing.join(', ')}`);
       return;
     }
     
     setValidationErrors([]);
-    setHasSearched(true);
     setSelectedStock(null);
     setCurrentPage(1);
+    
+    // Trigger SAP API with search params
+    await searchStockRecords({
+      werks: selectedPlant,
+      lgort: storageLocation.trim(),
+      matnr: materialCode.trim() || undefined,
+      matart: materialType.trim() || undefined,
+    });
+    setHasSearched(true);
   };
 
   const handleReset = () => {
-    setSelectedPlants([]);
-    setSelectedMaterials([]);
-    setMaterialDescFilter('');
-    setSelectedBatches([]);
-    setSelectedStorageLocations([]);
+    setSelectedPlant('');
+    setStorageLocation('');
+    setMaterialCode('');
+    setMaterialType('');
     setHasSearched(false);
     setSelectedStock(null);
     setCurrentPage(1);
@@ -188,7 +178,6 @@ export default function ShopFloorStockSelection() {
 
   const handleProceed = () => {
     if (selectedStock) {
-      // Map to expected format
       const stockItem = {
         id: selectedStock.id,
         plant: selectedStock.plant,
