@@ -1,8 +1,12 @@
 -- =============================================================================
 -- HBL MRB – Complete Seed Data for Self-Hosted Supabase
 -- Run AFTER setup-db.sh has created all tables/functions
--- This provides all configuration data needed for the application to work
+-- This provides ALL configuration data needed for the application to work
 -- Updated: 2026-04-08
+-- =============================================================================
+-- IMPORTANT: Users (auth.users) must be created SEPARATELY via the create-users.sh
+-- script because auth.users is managed by Supabase Auth and requires API calls.
+-- This file seeds EVERYTHING ELSE: config, profiles, roles, permissions, SAP, etc.
 -- =============================================================================
 
 BEGIN;
@@ -15,7 +19,7 @@ INSERT INTO public.plants (code, name, location) VALUES
 ON CONFLICT (code) DO NOTHING;
 
 -- =============================================================================
--- 2. DEPARTMENTS
+-- 2. DEPARTMENTS (Roles)
 -- =============================================================================
 INSERT INTO public.departments (name, role_key, description, is_active, is_workflow_enabled, workflow_status) VALUES
   ('Quality',       'quality',       'Quality Assurance & Control',        true, true,  'quality_review'),
@@ -46,9 +50,217 @@ INSERT INTO public.plant_print_config (plant, company_name, division_name, mrb_d
 ON CONFLICT DO NOTHING;
 
 -- =============================================================================
--- 5. SAP API CONFIG (4 endpoints)
+-- 5. DEFECT CODES
 -- =============================================================================
--- Use deterministic UUIDs so request/response fields can reference them
+INSERT INTO public.defect_codes (code, description, category, is_active) VALUES
+  ('DC001', 'Dimension Out of Tolerance', 'dimensional',    true),
+  ('DC002', 'Surface Scratch/Damage',     'surface',        true),
+  ('DC003', 'Material Composition Issue', 'material',       true),
+  ('DC004', 'Functional Test Failure',    'functional',     true),
+  ('DC005', 'Missing Documentation',      'documentation',  true),
+  ('DC006', 'Packaging Damage',           'packaging',      true)
+ON CONFLICT DO NOTHING;
+
+-- =============================================================================
+-- 6. EMAIL TEMPLATES
+-- =============================================================================
+INSERT INTO public.email_templates (template_key, subject_template, body_template, is_active) VALUES
+  ('mrb_created',   'New MRB Created: {{mrb_number}}',       'A new MRB {{mrb_number}} has been created for material {{material_description}} at plant {{plant}}. Please review.', true),
+  ('mrb_forwarded', 'MRB {{mrb_number}} - Action Required',  'MRB {{mrb_number}} has been forwarded to {{pending_with}} for review. Material: {{material_description}}, Plant: {{plant}}.', true),
+  ('mrb_approved',  'MRB {{mrb_number}} - Approved',         'MRB {{mrb_number}} for material {{material_description}} has been approved. Final decision: {{final_decision}}.', true),
+  ('mrb_rejected',  'MRB {{mrb_number}} - Rejected',         'MRB {{mrb_number}} for material {{material_description}} has been rejected. Please take necessary action.', true),
+  ('sla_warning',   'SLA Warning: MRB {{mrb_number}}',       'MRB {{mrb_number}} is approaching SLA deadline. Current pending days: {{pending_days}}. Please expedite review.', true)
+ON CONFLICT DO NOTHING;
+
+-- =============================================================================
+-- 7. ROLE PERMISSIONS (Plant 1300 - All 10 roles × 17 modules = 170 rows)
+-- =============================================================================
+INSERT INTO public.role_permissions (role, module_key, module_label, can_view, can_edit, plant) VALUES
+  -- ADMIN (full access)
+  ('admin', 'analytics', 'MRB Analytics', true, true, '1300'),
+  ('admin', 'email_log', 'Email Log', true, true, '1300'),
+  ('admin', 'engineering_dashboard', 'Engineering Dashboard', true, true, '1300'),
+  ('admin', 'executive_summary', 'Executive Summary', true, true, '1300'),
+  ('admin', 'help_support', 'Help & Support', true, true, '1300'),
+  ('admin', 'inward_materials', 'MRB - Inward Materials', true, true, '1300'),
+  ('admin', 'kpi_dashboard', 'KPI Dashboard', true, true, '1300'),
+  ('admin', 'material_blocking', 'Material Blocking', true, true, '1300'),
+  ('admin', 'mrb_print', 'MRB Print', true, true, '1300'),
+  ('admin', 'plant_management', 'Plant Management', true, true, '1300'),
+  ('admin', 'purchase_dashboard', 'Purchase Dashboard', true, true, '1300'),
+  ('admin', 'quality_dashboard', 'Quality Dashboard', true, true, '1300'),
+  ('admin', 'sap_api_settings', 'SAP API Settings', true, true, '1300'),
+  ('admin', 'sap_sync_monitor', 'SAP Sync Monitor', true, true, '1300'),
+  ('admin', 'user_management', 'User & Role Management', true, true, '1300'),
+  ('admin', 'user_matrix', 'User Permission Matrix', true, true, '1300'),
+  ('admin', 'worklist', 'MRB Worklist', true, true, '1300'),
+  -- ENGINEERING
+  ('engineering', 'analytics', 'MRB Analytics', true, false, '1300'),
+  ('engineering', 'email_log', 'Email Log', true, false, '1300'),
+  ('engineering', 'engineering_dashboard', 'Engineering Dashboard', true, false, '1300'),
+  ('engineering', 'executive_summary', 'Executive Summary', false, false, '1300'),
+  ('engineering', 'help_support', 'Help & Support', true, false, '1300'),
+  ('engineering', 'inward_materials', 'MRB - Inward Materials', true, true, '1300'),
+  ('engineering', 'kpi_dashboard', 'KPI Dashboard', true, false, '1300'),
+  ('engineering', 'material_blocking', 'Material Blocking', false, false, '1300'),
+  ('engineering', 'mrb_print', 'MRB Print', true, false, '1300'),
+  ('engineering', 'plant_management', 'Plant Management', false, false, '1300'),
+  ('engineering', 'purchase_dashboard', 'Purchase Dashboard', false, false, '1300'),
+  ('engineering', 'quality_dashboard', 'Quality Dashboard', false, false, '1300'),
+  ('engineering', 'sap_api_settings', 'SAP API Settings', false, false, '1300'),
+  ('engineering', 'sap_sync_monitor', 'SAP Sync Monitor', false, false, '1300'),
+  ('engineering', 'user_management', 'User & Role Management', false, false, '1300'),
+  ('engineering', 'user_matrix', 'User Permission Matrix', false, false, '1300'),
+  ('engineering', 'worklist', 'MRB Worklist', true, true, '1300'),
+  -- ENGINEERING HEAD
+  ('engineering_head', 'analytics', 'MRB Analytics', true, false, '1300'),
+  ('engineering_head', 'email_log', 'Email Log', true, false, '1300'),
+  ('engineering_head', 'engineering_dashboard', 'Engineering Dashboard', true, false, '1300'),
+  ('engineering_head', 'executive_summary', 'Executive Summary', true, false, '1300'),
+  ('engineering_head', 'help_support', 'Help & Support', true, false, '1300'),
+  ('engineering_head', 'inward_materials', 'MRB - Inward Materials', true, true, '1300'),
+  ('engineering_head', 'kpi_dashboard', 'KPI Dashboard', true, false, '1300'),
+  ('engineering_head', 'material_blocking', 'Material Blocking', false, false, '1300'),
+  ('engineering_head', 'mrb_print', 'MRB Print', true, false, '1300'),
+  ('engineering_head', 'plant_management', 'Plant Management', false, false, '1300'),
+  ('engineering_head', 'purchase_dashboard', 'Purchase Dashboard', false, false, '1300'),
+  ('engineering_head', 'quality_dashboard', 'Quality Dashboard', false, false, '1300'),
+  ('engineering_head', 'sap_api_settings', 'SAP API Settings', false, false, '1300'),
+  ('engineering_head', 'sap_sync_monitor', 'SAP Sync Monitor', false, false, '1300'),
+  ('engineering_head', 'user_management', 'User & Role Management', false, false, '1300'),
+  ('engineering_head', 'user_matrix', 'User Permission Matrix', false, false, '1300'),
+  ('engineering_head', 'worklist', 'MRB Worklist', true, true, '1300'),
+  -- EXECUTIVE
+  ('executive', 'analytics', 'MRB Analytics', true, false, '1300'),
+  ('executive', 'email_log', 'Email Log', true, false, '1300'),
+  ('executive', 'engineering_dashboard', 'Engineering Dashboard', true, false, '1300'),
+  ('executive', 'executive_summary', 'Executive Summary', true, false, '1300'),
+  ('executive', 'help_support', 'Help & Support', true, false, '1300'),
+  ('executive', 'inward_materials', 'MRB - Inward Materials', true, true, '1300'),
+  ('executive', 'kpi_dashboard', 'KPI Dashboard', true, false, '1300'),
+  ('executive', 'material_blocking', 'Material Blocking', false, false, '1300'),
+  ('executive', 'mrb_print', 'MRB Print', true, false, '1300'),
+  ('executive', 'plant_management', 'Plant Management', false, false, '1300'),
+  ('executive', 'purchase_dashboard', 'Purchase Dashboard', true, false, '1300'),
+  ('executive', 'quality_dashboard', 'Quality Dashboard', true, false, '1300'),
+  ('executive', 'sap_api_settings', 'SAP API Settings', false, false, '1300'),
+  ('executive', 'sap_sync_monitor', 'SAP Sync Monitor', false, false, '1300'),
+  ('executive', 'user_management', 'User & Role Management', false, false, '1300'),
+  ('executive', 'user_matrix', 'User Permission Matrix', false, false, '1300'),
+  ('executive', 'worklist', 'MRB Worklist', true, true, '1300'),
+  -- MRB COMMITTEE
+  ('mrb_committee', 'analytics', 'MRB Analytics', true, false, '1300'),
+  ('mrb_committee', 'email_log', 'Email Log', true, false, '1300'),
+  ('mrb_committee', 'engineering_dashboard', 'Engineering Dashboard', true, false, '1300'),
+  ('mrb_committee', 'executive_summary', 'Executive Summary', true, false, '1300'),
+  ('mrb_committee', 'help_support', 'Help & Support', true, false, '1300'),
+  ('mrb_committee', 'inward_materials', 'MRB - Inward Materials', true, true, '1300'),
+  ('mrb_committee', 'kpi_dashboard', 'KPI Dashboard', true, false, '1300'),
+  ('mrb_committee', 'material_blocking', 'Material Blocking', false, false, '1300'),
+  ('mrb_committee', 'mrb_print', 'MRB Print', true, false, '1300'),
+  ('mrb_committee', 'plant_management', 'Plant Management', false, false, '1300'),
+  ('mrb_committee', 'purchase_dashboard', 'Purchase Dashboard', true, false, '1300'),
+  ('mrb_committee', 'quality_dashboard', 'Quality Dashboard', true, false, '1300'),
+  ('mrb_committee', 'sap_api_settings', 'SAP API Settings', false, false, '1300'),
+  ('mrb_committee', 'sap_sync_monitor', 'SAP Sync Monitor', false, false, '1300'),
+  ('mrb_committee', 'user_management', 'User & Role Management', false, false, '1300'),
+  ('mrb_committee', 'user_matrix', 'User Permission Matrix', false, false, '1300'),
+  ('mrb_committee', 'worklist', 'MRB Worklist', true, true, '1300'),
+  -- PURCHASE
+  ('purchase', 'analytics', 'MRB Analytics', true, false, '1300'),
+  ('purchase', 'email_log', 'Email Log', true, false, '1300'),
+  ('purchase', 'engineering_dashboard', 'Engineering Dashboard', false, false, '1300'),
+  ('purchase', 'executive_summary', 'Executive Summary', false, false, '1300'),
+  ('purchase', 'help_support', 'Help & Support', true, false, '1300'),
+  ('purchase', 'inward_materials', 'MRB - Inward Materials', true, true, '1300'),
+  ('purchase', 'kpi_dashboard', 'KPI Dashboard', true, false, '1300'),
+  ('purchase', 'material_blocking', 'Material Blocking', false, false, '1300'),
+  ('purchase', 'mrb_print', 'MRB Print', true, false, '1300'),
+  ('purchase', 'plant_management', 'Plant Management', false, false, '1300'),
+  ('purchase', 'purchase_dashboard', 'Purchase Dashboard', true, false, '1300'),
+  ('purchase', 'quality_dashboard', 'Quality Dashboard', false, false, '1300'),
+  ('purchase', 'sap_api_settings', 'SAP API Settings', false, false, '1300'),
+  ('purchase', 'sap_sync_monitor', 'SAP Sync Monitor', false, false, '1300'),
+  ('purchase', 'user_management', 'User & Role Management', false, false, '1300'),
+  ('purchase', 'user_matrix', 'User Permission Matrix', false, false, '1300'),
+  ('purchase', 'worklist', 'MRB Worklist', true, true, '1300'),
+  -- PURCHASE HEAD
+  ('purchase_head', 'analytics', 'MRB Analytics', true, false, '1300'),
+  ('purchase_head', 'email_log', 'Email Log', true, false, '1300'),
+  ('purchase_head', 'engineering_dashboard', 'Engineering Dashboard', false, false, '1300'),
+  ('purchase_head', 'executive_summary', 'Executive Summary', true, false, '1300'),
+  ('purchase_head', 'help_support', 'Help & Support', true, false, '1300'),
+  ('purchase_head', 'inward_materials', 'MRB - Inward Materials', true, true, '1300'),
+  ('purchase_head', 'kpi_dashboard', 'KPI Dashboard', true, true, '1300'),
+  ('purchase_head', 'material_blocking', 'Material Blocking', false, false, '1300'),
+  ('purchase_head', 'mrb_print', 'MRB Print', true, false, '1300'),
+  ('purchase_head', 'plant_management', 'Plant Management', false, false, '1300'),
+  ('purchase_head', 'purchase_dashboard', 'Purchase Dashboard', true, false, '1300'),
+  ('purchase_head', 'quality_dashboard', 'Quality Dashboard', false, false, '1300'),
+  ('purchase_head', 'sap_api_settings', 'SAP API Settings', false, false, '1300'),
+  ('purchase_head', 'sap_sync_monitor', 'SAP Sync Monitor', false, false, '1300'),
+  ('purchase_head', 'user_management', 'User & Role Management', false, false, '1300'),
+  ('purchase_head', 'user_matrix', 'User Permission Matrix', false, false, '1300'),
+  ('purchase_head', 'worklist', 'MRB Worklist', true, true, '1300'),
+  -- QUALITY
+  ('quality', 'analytics', 'MRB Analytics', true, false, '1300'),
+  ('quality', 'email_log', 'Email Log', false, false, '1300'),
+  ('quality', 'engineering_dashboard', 'Engineering Dashboard', false, false, '1300'),
+  ('quality', 'executive_summary', 'Executive Summary', false, false, '1300'),
+  ('quality', 'help_support', 'Help & Support', false, false, '1300'),
+  ('quality', 'inward_materials', 'MRB - Inward Materials', false, false, '1300'),
+  ('quality', 'kpi_dashboard', 'KPI Dashboard', true, false, '1300'),
+  ('quality', 'material_blocking', 'Material Blocking', false, false, '1300'),
+  ('quality', 'mrb_print', 'MRB Print', false, false, '1300'),
+  ('quality', 'plant_management', 'Plant Management', false, false, '1300'),
+  ('quality', 'purchase_dashboard', 'Purchase Dashboard', false, false, '1300'),
+  ('quality', 'quality_dashboard', 'Quality Dashboard', false, false, '1300'),
+  ('quality', 'sap_api_settings', 'SAP API Settings', false, false, '1300'),
+  ('quality', 'sap_sync_monitor', 'SAP Sync Monitor', false, false, '1300'),
+  ('quality', 'user_management', 'User & Role Management', false, false, '1300'),
+  ('quality', 'user_matrix', 'User Permission Matrix', false, false, '1300'),
+  ('quality', 'worklist', 'MRB Worklist', true, true, '1300'),
+  -- QUALITY HEAD
+  ('quality_head', 'analytics', 'MRB Analytics', true, false, '1300'),
+  ('quality_head', 'email_log', 'Email Log', true, false, '1300'),
+  ('quality_head', 'engineering_dashboard', 'Engineering Dashboard', false, false, '1300'),
+  ('quality_head', 'executive_summary', 'Executive Summary', true, false, '1300'),
+  ('quality_head', 'help_support', 'Help & Support', true, false, '1300'),
+  ('quality_head', 'inward_materials', 'MRB - Inward Materials', true, true, '1300'),
+  ('quality_head', 'kpi_dashboard', 'KPI Dashboard', true, true, '1300'),
+  ('quality_head', 'material_blocking', 'Material Blocking', true, true, '1300'),
+  ('quality_head', 'mrb_print', 'MRB Print', true, false, '1300'),
+  ('quality_head', 'plant_management', 'Plant Management', false, false, '1300'),
+  ('quality_head', 'purchase_dashboard', 'Purchase Dashboard', false, false, '1300'),
+  ('quality_head', 'quality_dashboard', 'Quality Dashboard', true, false, '1300'),
+  ('quality_head', 'sap_api_settings', 'SAP API Settings', false, false, '1300'),
+  ('quality_head', 'sap_sync_monitor', 'SAP Sync Monitor', false, false, '1300'),
+  ('quality_head', 'user_management', 'User & Role Management', false, false, '1300'),
+  ('quality_head', 'user_matrix', 'User Permission Matrix', false, false, '1300'),
+  ('quality_head', 'worklist', 'MRB Worklist', true, true, '1300'),
+  -- SHOP FLOOR
+  ('shop_floor', 'analytics', 'MRB Analytics', false, false, '1300'),
+  ('shop_floor', 'email_log', 'Email Log', false, false, '1300'),
+  ('shop_floor', 'engineering_dashboard', 'Engineering Dashboard', false, false, '1300'),
+  ('shop_floor', 'executive_summary', 'Executive Summary', false, false, '1300'),
+  ('shop_floor', 'help_support', 'Help & Support', true, false, '1300'),
+  ('shop_floor', 'inward_materials', 'MRB - Inward Materials', false, false, '1300'),
+  ('shop_floor', 'kpi_dashboard', 'KPI Dashboard', false, false, '1300'),
+  ('shop_floor', 'material_blocking', 'Material Blocking', true, true, '1300'),
+  ('shop_floor', 'mrb_print', 'MRB Print', false, false, '1300'),
+  ('shop_floor', 'plant_management', 'Plant Management', false, false, '1300'),
+  ('shop_floor', 'purchase_dashboard', 'Purchase Dashboard', false, false, '1300'),
+  ('shop_floor', 'quality_dashboard', 'Quality Dashboard', false, false, '1300'),
+  ('shop_floor', 'sap_api_settings', 'SAP API Settings', false, false, '1300'),
+  ('shop_floor', 'sap_sync_monitor', 'SAP Sync Monitor', false, false, '1300'),
+  ('shop_floor', 'user_management', 'User & Role Management', false, false, '1300'),
+  ('shop_floor', 'user_matrix', 'User Permission Matrix', false, false, '1300'),
+  ('shop_floor', 'worklist', 'MRB Worklist', true, true, '1300')
+ON CONFLICT DO NOTHING;
+
+-- =============================================================================
+-- 8. SAP API CONFIG (4 endpoints)
+-- =============================================================================
 INSERT INTO public.sap_api_config (id, config_name, api_endpoint, auth_type, connection_mode, http_method, base_url, endpoint_path, description, username, encrypted_password, sap_client, proxy_tunnel_url, proxy_secret, timeout_ms, retry_count, retry_delay_ms, max_records, enable_logging, is_active, sync_frequency, scheduler_enabled) VALUES
   ('a1000001-0001-0001-0001-000000000001', 'MB52_Stock_Report',
    'http://10.10.6.115:8000/sap/api/mb52', 'basic', 'proxy', 'POST',
@@ -80,10 +292,10 @@ INSERT INTO public.sap_api_config (id, config_name, api_endpoint, auth_type, con
 ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
--- 6. SAP REQUEST FIELDS
+-- 9. SAP REQUEST FIELDS (24 total)
 -- =============================================================================
 
--- MB52 Request Fields
+-- MB52 Request Fields (6)
 INSERT INTO public.sap_api_request_fields (config_id, field_name, sap_field_name, field_type, is_required, default_value, sort_order, description) VALUES
   ('a1000001-0001-0001-0001-000000000001', 'WERKS',  'WERKS',  'string', true,  '1300', 1, 'Plant (CHAR 4)'),
   ('a1000001-0001-0001-0001-000000000001', 'LGORT',  'LGORT',  'string', true,  'S061', 2, 'Storage Location (CHAR 4)'),
@@ -93,7 +305,7 @@ INSERT INTO public.sap_api_request_fields (config_id, field_name, sap_field_name
   ('a1000001-0001-0001-0001-000000000001', 'XMCHB',  'XMCHB',  'string', true,  'X',    6, 'Batch Management Indicator (CHAR 1)')
 ON CONFLICT DO NOTHING;
 
--- SAP 343 Request Fields
+-- SAP 343 Request Fields (6)
 INSERT INTO public.sap_api_request_fields (config_id, field_name, sap_field_name, field_type, is_required, default_value, sort_order, description) VALUES
   ('a1000001-0001-0001-0001-000000000002', 'MATNR',     'MATNR',     'string', true, NULL,   1, 'Material Number (CHAR 18)'),
   ('a1000001-0001-0001-0001-000000000002', 'WERKS',     'WERKS',     'string', true, '1300', 2, 'Plant (CHAR 4)'),
@@ -103,7 +315,7 @@ INSERT INTO public.sap_api_request_fields (config_id, field_name, sap_field_name
   ('a1000001-0001-0001-0001-000000000002', 'ENTRY_UOM', 'ENTRY_UOM', 'string', true, NULL,   6, 'Unit of Measure (UNIT 3)')
 ON CONFLICT DO NOTHING;
 
--- SAP 344 Request Fields
+-- SAP 344 Request Fields (6)
 INSERT INTO public.sap_api_request_fields (config_id, field_name, sap_field_name, field_type, is_required, default_value, sort_order, description) VALUES
   ('a1000001-0001-0001-0001-000000000003', 'MATNR',     'MATNR',     'string', true, NULL,   1, 'Material Number (CHAR 18)'),
   ('a1000001-0001-0001-0001-000000000003', 'WERKS',     'WERKS',     'string', true, '1300', 2, 'Plant (CHAR 4)'),
@@ -113,7 +325,7 @@ INSERT INTO public.sap_api_request_fields (config_id, field_name, sap_field_name
   ('a1000001-0001-0001-0001-000000000003', 'ENTRY_UOM', 'ENTRY_UOM', 'string', true, NULL,   6, 'Unit of Measure (UNIT 3)')
 ON CONFLICT DO NOTHING;
 
--- ZMRB Inward Request Fields
+-- ZMRB Inward Request Fields (6)
 INSERT INTO public.sap_api_request_fields (config_id, field_name, sap_field_name, field_type, is_required, default_value, sort_order, description) VALUES
   ('a1000001-0001-0001-0001-000000000004', 'WERKS',    'WERKS',    'string', true,  '1300', 1, 'Plant (CHAR 4) - Mandatory'),
   ('a1000001-0001-0001-0001-000000000004', 'LGORT',    'LGORT',    'string', false, NULL,   2, 'Storage Location (CHAR 4)'),
@@ -124,10 +336,10 @@ INSERT INTO public.sap_api_request_fields (config_id, field_name, sap_field_name
 ON CONFLICT DO NOTHING;
 
 -- =============================================================================
--- 7. SAP RESPONSE FIELDS
+-- 10. SAP RESPONSE FIELDS (51 total)
 -- =============================================================================
 
--- MB52 Response Fields (19 fields → shop_floor_stock)
+-- MB52 Response Fields (19 → shop_floor_stock)
 INSERT INTO public.sap_api_response_fields (config_id, field_name, sap_field_name, field_type, map_to_table, map_to_column, sort_order, description) VALUES
   ('a1000001-0001-0001-0001-000000000001', 'WERKS',   'WERKS',   'string', 'shop_floor_stock', 'plant',                    1,  'Plant (CHAR 4)'),
   ('a1000001-0001-0001-0001-000000000001', 'LGORT',   'LGORT',   'string', 'shop_floor_stock', 'storage_location',         2,  'Storage Location (CHAR 4)'),
@@ -150,7 +362,7 @@ INSERT INTO public.sap_api_response_fields (config_id, field_name, sap_field_nam
   ('a1000001-0001-0001-0001-000000000001', 'BINNO',   'BINNO',   'string', 'shop_floor_stock', 'bin_number',               19, 'Bin Number - Custom (CHAR 5)')
 ON CONFLICT DO NOTHING;
 
--- SAP 343 Response Fields
+-- SAP 343 Response Fields (4)
 INSERT INTO public.sap_api_response_fields (config_id, field_name, sap_field_name, field_type, map_to_table, map_to_column, sort_order, description) VALUES
   ('a1000001-0001-0001-0001-000000000002', 'CODE',  'CODE',  'string', NULL, NULL, 1, 'Response Code (100 = Success)'),
   ('a1000001-0001-0001-0001-000000000002', 'MSG',   'MSG',   'string', NULL, NULL, 2, 'Response Message'),
@@ -158,7 +370,7 @@ INSERT INTO public.sap_api_response_fields (config_id, field_name, sap_field_nam
   ('a1000001-0001-0001-0001-000000000002', 'MJAHR', 'MJAHR', 'number', NULL, NULL, 4, 'Material Document Year')
 ON CONFLICT DO NOTHING;
 
--- SAP 344 Response Fields
+-- SAP 344 Response Fields (4)
 INSERT INTO public.sap_api_response_fields (config_id, field_name, sap_field_name, field_type, map_to_table, map_to_column, sort_order, description) VALUES
   ('a1000001-0001-0001-0001-000000000003', 'CODE',  'CODE',  'string', NULL, NULL, 1, 'Response Code (100 = Success)'),
   ('a1000001-0001-0001-0001-000000000003', 'MSG',   'MSG',   'string', NULL, NULL, 2, 'Response Message'),
@@ -166,7 +378,7 @@ INSERT INTO public.sap_api_response_fields (config_id, field_name, sap_field_nam
   ('a1000001-0001-0001-0001-000000000003', 'MJAHR', 'MJAHR', 'number', NULL, NULL, 4, 'Material Document Year')
 ON CONFLICT DO NOTHING;
 
--- ZMRB Inward Response Fields (24 fields → inward_inspection_lots)
+-- ZMRB Inward Response Fields (24 → inward_inspection_lots)
 INSERT INTO public.sap_api_response_fields (config_id, field_name, sap_field_name, field_type, map_to_table, map_to_column, sort_order, description) VALUES
   ('a1000001-0001-0001-0001-000000000004', 'PRUEFLOS',   'PRUEFLOS',   'string', 'inward_inspection_lots', 'inspection_lot',        1,  'Inspection Lot Number (NUMC 12)'),
   ('a1000001-0001-0001-0001-000000000004', 'WERK',       'WERK',       'string', 'inward_inspection_lots', 'plant',                 2,  'Plant (CHAR 4)'),
@@ -195,3 +407,31 @@ INSERT INTO public.sap_api_response_fields (config_id, field_name, sap_field_nam
 ON CONFLICT DO NOTHING;
 
 COMMIT;
+
+-- =============================================================================
+-- NOTE ON USERS:
+-- =============================================================================
+-- Users CANNOT be created via SQL because auth.users is managed by Supabase Auth.
+-- After running this seed, use the create-users.sh script to create users via API:
+--
+-- Users to create (all with password: 12345678 or as configured):
+--
+-- | Email                              | Full Name          | Role              |
+-- |------------------------------------|--------------------|-------------------|
+-- | masteradmin@sharviinfotech.com      | Master Admin       | admin             |
+-- | quality.demo@hbl.com               | Quality Inspector  | quality           |
+-- | qualityhead.demo@hbl.com           | Quality Head       | quality_head      |
+-- | purchase.demo@hbl.com              | Purchase Team      | purchase          |
+-- | purchasehead.demo@hbl.com          | Purchase Head      | purchase_head     |
+-- | engineering.demo@hbl.com           | Engineering Team   | engineering       |
+-- | enghead.demo@hbl.com               | Engineering Head   | engineering_head  |
+-- | executive.demo@hbl.com             | Executive Manager  | executive         |
+-- | shopfloor.demo@hbl.com             | Shop Floor User    | shop_floor        |
+--
+-- After users are created via Auth API, run create-users.sh which will:
+-- 1. Create auth.users entries
+-- 2. Insert profiles (triggered by handle_new_user)
+-- 3. Assign user_roles
+-- 4. Assign user_plants (plant 1300)
+-- 5. Create user_security records
+-- =============================================================================
