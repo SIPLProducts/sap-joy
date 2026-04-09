@@ -81,6 +81,23 @@ export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
   const [proxyUrl, setProxyUrl] = useState(config?.proxy_tunnel_url || '');
   const [proxySecret, setProxySecret] = useState(config?.proxy_secret || '');
 
+  // Deployment mode: detect from existing proxy URL
+  const detectDeploymentMode = (url: string): 'cloud' | 'selfhosted' => {
+    if (!url) return 'selfhosted';
+    if (url.includes('ngrok') || url.includes('lovable')) return 'cloud';
+    return 'selfhosted';
+  };
+  const detectPort = (url: string, mode: 'cloud' | 'selfhosted'): string => {
+    try {
+      const u = new URL(url);
+      if (u.port) return u.port;
+    } catch {}
+    return mode === 'cloud' ? '3000' : '3002';
+  };
+  const initialMode = detectDeploymentMode(config?.proxy_tunnel_url || '');
+  const [deploymentMode, setDeploymentMode] = useState<'cloud' | 'selfhosted'>(initialMode);
+  const [middlewarePort, setMiddlewarePort] = useState(detectPort(config?.proxy_tunnel_url || '', initialMode));
+
   // Credentials state
   const [username, setUsername] = useState(config?.username || '');
   const [password, setPassword] = useState(config?.encrypted_password || '');
