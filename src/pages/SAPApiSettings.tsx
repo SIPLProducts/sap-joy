@@ -233,8 +233,9 @@ export default function SAPApiSettings() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                <div className="max-h-[60vh] overflow-auto">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                     <TableRow>
                       <TableHead>API</TableHead>
                       <TableHead>Frequency</TableHead>
@@ -275,6 +276,7 @@ export default function SAPApiSettings() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -300,8 +302,9 @@ export default function SAPApiSettings() {
                   No API configurations yet. Click "Add API Configuration" to create one.
                 </div>
               ) : (
+                <div className="max-h-[60vh] overflow-auto">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                     <TableRow>
                       <TableHead>NAME</TableHead>
                       <TableHead>ENDPOINT</TableHead>
@@ -362,6 +365,7 @@ export default function SAPApiSettings() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
           </Card>

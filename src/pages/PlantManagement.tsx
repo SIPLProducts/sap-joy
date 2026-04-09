@@ -150,8 +150,9 @@ export default function PlantManagement() {
           {loading ? (
              <div className="flex justify-center py-10"><RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : (
-             <Table>
-              <TableHeader>
+              <div className="max-h-[60vh] overflow-auto">
+              <Table>
+              <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                 <TableRow>
                   <TableHead>Plant Code</TableHead>
                   <TableHead>Plant Name</TableHead>
@@ -199,6 +200,7 @@ export default function PlantManagement() {
                 )}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

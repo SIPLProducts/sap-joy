@@ -384,8 +384,9 @@ export default function SAPSyncMonitor() {
               {syncHistory.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">No sync history yet. Trigger a sync from the API Connections tab.</div>
               ) : (
+                <div className="max-h-[60vh] overflow-auto">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                     <TableRow>
                       <TableHead>STATUS</TableHead>
                       <TableHead>API CONFIG</TableHead>
@@ -428,6 +429,7 @@ export default function SAPSyncMonitor() {
                     })}
                   </TableBody>
                 </Table>
+                </div>
               )}
               {syncHistory.some(s => s.error_message) && (
                 <div className="mt-4 space-y-2">
@@ -481,7 +483,7 @@ export default function SAPSyncMonitor() {
                   ) : (
                     <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                       <Table>
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                           <TableRow>
                             <TableHead className="text-xs whitespace-nowrap">#</TableHead>
                             {allColumns.map(key => (

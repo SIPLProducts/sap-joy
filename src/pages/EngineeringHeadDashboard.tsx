@@ -317,9 +317,9 @@ export default function EngineeringHeadDashboard() {
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
+            <div className="rounded-md border max-h-[60vh] overflow-auto">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                   <TableRow>
                     <TableHead>MRB Number</TableHead>
                     <TableHead>Material Code</TableHead>

@@ -214,8 +214,9 @@ export default function WorkflowRoutingConfig() {
               <p className="text-xs mt-1">Go to Role Management and enable "Workflow Routing" for roles first.</p>
             </div>
           ) : (
+            <div className="max-h-[60vh] overflow-auto">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                 <TableRow>
                   <TableHead className="w-16">Order</TableHead>
                   <TableHead>Role</TableHead>
@@ -245,6 +246,7 @@ export default function WorkflowRoutingConfig() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

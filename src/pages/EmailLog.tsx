@@ -88,8 +88,9 @@ export default function EmailLog() {
                 No email logs found. Emails are generated when MRB workflow transitions occur.
               </div>
             ) : (
+              <div className="max-h-[60vh] overflow-auto">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                   <TableRow>
                     <TableHead>Status</TableHead>
                     <TableHead>MRB</TableHead>
@@ -140,6 +141,7 @@ export default function EmailLog() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>

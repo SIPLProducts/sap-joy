@@ -190,8 +190,9 @@ export default function DepartmentManagement() {
           {loading ? (
             <div className="flex justify-center py-10"><RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : (
+            <div className="max-h-[60vh] overflow-auto">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                 <TableRow>
                   <TableHead>Role Name</TableHead>
                   <TableHead>Description</TableHead>
@@ -238,6 +239,7 @@ export default function DepartmentManagement() {
                 )}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
