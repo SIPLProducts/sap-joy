@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award, UserPlus, Eye, EyeOff, Zap, WifiOff, RefreshCw, Activity, Trash2, AlertTriangle } from 'lucide-react';
+import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award, UserPlus, Eye, EyeOff, WifiOff, RefreshCw, Activity, Trash2, AlertTriangle } from 'lucide-react';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHealthCheck, ConnectionStatus } from '@/hooks/useHealthCheck';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -17,40 +17,6 @@ import { PasswordPolicyIndicator } from '@/components/auth/PasswordPolicyIndicat
 import loginHeroImage from '@/assets/login-hero.jpg';
 import hblLogo from '@/assets/hbl-logo.png';
 
-// Demo Account Row Component
-function DemoAccountRow({ 
-  email, 
-  description, 
-  role, 
-  roleColor, 
-  onQuickLogin 
-}: { 
-  email: string; 
-  description: string; 
-  role: string; 
-  roleColor: string; 
-  onQuickLogin: (email: string) => void;
-}) {
-  return (
-    <div className="flex items-center gap-2 p-2 rounded-md bg-background border hover:bg-muted/50 transition-colors">
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-foreground truncate text-[11px]">{email}</p>
-        <p className="text-muted-foreground text-[10px]">{description}</p>
-      </div>
-      <span className={`px-2 py-0.5 rounded-full ${roleColor} font-medium text-[10px] whitespace-nowrap`}>{role}</span>
-      <Button 
-        type="button"
-        variant="outline" 
-        size="sm" 
-        className="h-6 px-2 text-[10px]"
-        onClick={() => onQuickLogin(email)}
-      >
-        <Zap className="w-3 h-3 mr-1" />
-        Quick
-      </Button>
-    </div>
-  );
-}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -545,113 +511,6 @@ export default function Login() {
             </Tabs>
           </Card>
 
-          {/* Demo Accounts Section */}
-          <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
-            <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-primary">
-                <Users className="w-4 h-4" />
-                Demo Accounts for Testing
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Click "Quick Login" to auto-fill credentials (Password: demo123)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pb-4">
-              <div className="space-y-1.5 text-xs max-h-[320px] overflow-y-auto pr-1">
-                {/* Admin Accounts */}
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide pt-1">Admin Access</p>
-                
-                <DemoAccountRow 
-                  email="inturimounika@sharviinfotech.com"
-                  description="Full system access - all stages"
-                  role="Admin"
-                  roleColor="bg-red-100 text-red-700"
-                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword(''); }}
-                />
-                
-                {/* Quality Team */}
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide pt-2">Quality Team</p>
-                <DemoAccountRow 
-                  email="quality.demo@hbl.com"
-                  description="Quality review & MRB creation"
-                  role="Quality"
-                  roleColor="bg-blue-100 text-blue-700"
-                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
-                />
-                <DemoAccountRow 
-                  email="qualityhead.demo@hbl.com"
-                  description="Quality oversight & approvals"
-                  role="Quality Head"
-                  roleColor="bg-blue-100 text-blue-700"
-                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
-                />
-                
-                {/* Purchase Team */}
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide pt-2">Purchase Team</p>
-                <DemoAccountRow 
-                  email="purchase.demo@hbl.com"
-                  description="Vendor actions & purchase review"
-                  role="Purchase"
-                  roleColor="bg-purple-100 text-purple-700"
-                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
-                />
-                <DemoAccountRow 
-                  email="purchasehead.demo@hbl.com"
-                  description="Purchase oversight & vendor mgmt"
-                  role="Purchase Head"
-                  roleColor="bg-purple-100 text-purple-700"
-                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
-                />
-                
-                {/* Engineering Team */}
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide pt-2">Engineering Team</p>
-                <DemoAccountRow 
-                  email="engineering.demo@hbl.com"
-                  description="Technical evaluation & deviations"
-                  role="Engineering"
-                  roleColor="bg-orange-100 text-orange-700"
-                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
-                />
-                <DemoAccountRow 
-                  email="enghead.demo@hbl.com"
-                  description="Engineering oversight & decisions"
-                  role="Eng Head"
-                  roleColor="bg-orange-100 text-orange-700"
-                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
-                />
-                
-                {/* Other Roles */}
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide pt-2">Other Roles</p>
-                <DemoAccountRow 
-                  email="shopfloor.demo@hbl.com"
-                  description="Report issues & material defects"
-                  role="Shop Floor"
-                  roleColor="bg-amber-100 text-amber-700"
-                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
-                />
-                <DemoAccountRow 
-                  email="executive.demo@hbl.com"
-                  description="Final approvals & dashboards"
-                  role="Executive"
-                  roleColor="bg-green-100 text-green-700"
-                  onQuickLogin={(email) => { setSignInEmail(email); setSignInPassword('demo123'); }}
-                />
-              </div>
-              
-              <div className="mt-3 pt-3 border-t">
-                <p className="text-xs font-medium text-foreground mb-2">MRB Workflow Stages:</p>
-                <div className="flex flex-wrap gap-1 items-center">
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700">Quality</span>
-                  <span className="text-muted-foreground text-[10px]">→</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-purple-100 text-purple-700">Purchase</span>
-                  <span className="text-muted-foreground text-[10px]">→</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-orange-100 text-orange-700">Engineering</span>
-                  <span className="text-muted-foreground text-[10px]">→</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-green-100 text-green-700">Final</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Footer with Health Check & Clear Session */}
           <div className="space-y-3">
