@@ -333,9 +333,9 @@ export default function ShopFloorStockSelection() {
                     </div>
                   ) : (
                     <>
-                      <div className="rounded-md border">
+                    <div className="rounded-md border max-h-[60vh] overflow-auto">
                         <Table>
-                          <TableHeader>
+                          <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                             <TableRow>
                               <TableHead className="w-12">Select</TableHead>
                               <TableHead>Plant</TableHead>

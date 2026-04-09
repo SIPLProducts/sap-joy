@@ -458,8 +458,9 @@ export default function UserManagement() {
           ) : filteredUsers.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">No users found</div>
           ) : (
+            <div className="max-h-[60vh] overflow-auto">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>

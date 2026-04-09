@@ -386,9 +386,9 @@ export default function QualityHeadDashboard() {
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
+            <div className="rounded-md border max-h-[60vh] overflow-auto">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                   <TableRow>
                     <TableHead>Inspection Lot</TableHead>
                     <TableHead>Material Code</TableHead>
