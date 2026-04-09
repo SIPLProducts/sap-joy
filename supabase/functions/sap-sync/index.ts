@@ -224,9 +224,10 @@ Deno.serve(async (req) => {
         }
 
         if (!response.ok) {
+          const sapErrorHint = extractSapErrorHint(response.status, bodyText)
           return new Response(JSON.stringify({
             success: false,
-            error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
+            error: sapErrorHint || `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
             sap_response: responseData,
             http_status: response.status,
           }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
@@ -373,9 +374,10 @@ Deno.serve(async (req) => {
             .update({ transaction_quantity: oldQuantity, updated_at: new Date().toISOString() })
             .eq('id', lot_id)
 
+          const sapErrorHint = extractSapErrorHint(response.status, bodyText)
           return new Response(JSON.stringify({
             success: false,
-            error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
+            error: sapErrorHint || `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
             rolled_back: true,
             old_quantity: oldQuantity,
           }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
@@ -462,9 +464,10 @@ Deno.serve(async (req) => {
         console.log('SAP fetch_live raw response status:', response.status)
 
         if (!response.ok) {
+          const sapErrorHint = extractSapErrorHint(response.status, bodyText)
           return new Response(JSON.stringify({
             success: false,
-            error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
+            error: sapErrorHint || `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
           }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
@@ -517,6 +520,38 @@ Deno.serve(async (req) => {
     })
   }
 })
+
+// ═══════════════ SAP Error Detection ═══════════════
+
+/**
+ * Detect SAP-specific auth/logon errors in response body.
+ * Returns a friendly message or null if not a SAP auth error.
+ */
+function isSapAuthError(bodyText: string): boolean {
+  const lower = bodyText.toLowerCase()
+  return lower.includes('logon error message') ||
+    lower.includes('anmeldung fehlgeschlagen') ||
+    lower.includes('login failed') ||
+    lower.includes('not authenticated') ||
+    lower.includes('sap logon')
+}
+
+/**
+ * Extract a user-friendly error message from SAP responses.
+ */
+function extractSapErrorHint(status: number, bodyText: string): string | null {
+  if (isSapAuthError(bodyText)) {
+    return `Transport OK. SAP rejected username/password or SAP client (HTTP ${status}). Check credentials in SAP API Settings.`
+  }
+  if (status === 401 || status === 403) {
+    return `SAP authentication failed (HTTP ${status}). Check username, password, and SAP client.`
+  }
+  if (status === 404 && bodyText.includes('<html')) {
+    // SAP returns HTML 404 for auth errors
+    return `Transport OK but SAP returned HTML error page (HTTP 404). This usually means wrong credentials or SAP client number.`
+  }
+  return null
+}
 
 // Build the SAP target URL (what SAP actually receives)
 function buildSapTargetUrl(config: any): string {
@@ -647,6 +682,11 @@ function buildUrl(config: any): string {
   return buildSapTargetUrl(config)
 }
 
+// Normalize credential values
+function normalizeCredential(value: string | null | undefined): string {
+  return typeof value === 'string' ? value.replace(/\r?\n/g, '').trim() : ''
+}
+
 // Build auth headers
 function buildAuthHeaders(config: any): Record<string, string> {
   const headers: Record<string, string> = {
@@ -656,8 +696,8 @@ function buildAuthHeaders(config: any): Record<string, string> {
   }
 
   const authType = String(config.auth_type || 'basic').toLowerCase()
-  const username = typeof config.username === 'string' ? config.username : ''
-  const password = typeof config.encrypted_password === 'string' ? config.encrypted_password : ''
+  const username = normalizeCredential(config.username)
+  const password = normalizeCredential(config.encrypted_password)
 
   if (config.proxy_secret) {
     headers['x-proxy-secret'] = config.proxy_secret
@@ -669,6 +709,11 @@ function buildAuthHeaders(config: any): Record<string, string> {
 
   if (authType === 'basic' && username) {
     headers['Authorization'] = `Basic ${btoa(`${username}:${password}`)}`
+    // Forward raw credentials for proxy to reconstruct
+    headers['username'] = username
+    headers['password'] = password
+    headers['x-sap-username'] = username
+    headers['x-sap-password'] = password
   } else if (authType === 'api_key' && config.api_key) {
     headers['X-API-Key'] = config.api_key
   } else if ((authType === 'oauth' || authType === 'oauth2') && config.token_url) {
@@ -684,9 +729,34 @@ function buildAuthHeaders(config: any): Record<string, string> {
   return headers
 }
 
+// Build alternate auth headers (sap-client in header only, no query param)
+function buildAltAuthHeaders(config: any): Record<string, string> {
+  const headers = buildAuthHeaders(config)
+  // Add additional credential aliases
+  const username = normalizeCredential(config.username)
+  const password = normalizeCredential(config.encrypted_password)
+  if (username && password) {
+    headers['sap-username'] = username
+    headers['sap-password'] = password
+    headers['sap_user'] = username
+    headers['sap_password'] = password
+  }
+  return headers
+}
+
+function removeSapClientFromUrl(rawUrl: string): string {
+  try {
+    const parsed = new URL(rawUrl)
+    parsed.searchParams.delete('sap-client')
+    return parsed.toString()
+  } catch {
+    return rawUrl
+  }
+}
+
 function buildDebugMeta(config: any, url: string, headers: Record<string, string>, method: string) {
-  const username = typeof config.username === 'string' ? config.username : ''
-  const password = typeof config.encrypted_password === 'string' ? config.encrypted_password : ''
+  const username = normalizeCredential(config.username)
+  const password = normalizeCredential(config.encrypted_password)
 
   return {
     credentials_source: 'sap_api_config',
@@ -707,8 +777,9 @@ function buildDebugMeta(config: any, url: string, headers: Record<string, string
   }
 }
 
-// Test SAP connection
-async function testConnection(config: any): Promise<{ success: boolean; message: string; status?: number; responseTime?: number; debug: ReturnType<typeof buildDebugMeta> }> {
+// ═══════════════ Multi-attempt Test Connection ═══════════════
+
+async function testConnection(config: any): Promise<{ success: boolean; message: string; status?: number; responseTime?: number; debug: ReturnType<typeof buildDebugMeta>; attempt?: string }> {
   const url = buildUrl(config)
   const headers = buildAuthHeaders(config)
   const method = (config.http_method || 'GET').toUpperCase()
@@ -717,44 +788,102 @@ async function testConnection(config: any): Promise<{ success: boolean; message:
 
   console.log('[sap-sync:test] Using DB credentials', debug)
 
-  const start = Date.now()
-  try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeout)
+  const authType = String(config.auth_type || 'basic').toLowerCase()
+  const username = normalizeCredential(config.username)
+  const password = normalizeCredential(config.encrypted_password)
 
-    const fetchOpts: RequestInit = { method, headers, signal: controller.signal }
-    if (['POST', 'PUT', 'PATCH'].includes(method)) {
-      fetchOpts.body = JSON.stringify({})
+  // Build attempt queue similar to browser client
+  const attemptQueue: Array<{ label: string; targetUrl: string; attemptHeaders: Record<string, string> }> = [
+    { label: 'default', targetUrl: url, attemptHeaders: headers },
+  ]
+
+  if (authType === 'basic' && username && password) {
+    // Attempt 2: sap-client in header only (remove from URL query)
+    const noQueryUrl = removeSapClientFromUrl(url)
+    if (noQueryUrl !== url) {
+      attemptQueue.push({
+        label: 'sap-client_header_only',
+        targetUrl: noQueryUrl,
+        attemptHeaders: headers,
+      })
     }
 
-    const response = await proxyAwareFetch(config, url, fetchOpts)
-    clearTimeout(timer)
-    const elapsed = Date.now() - start
-    const bodyText = await response.text()
+    // Attempt 3: alt credential headers
+    attemptQueue.push({
+      label: 'alt_credential_headers',
+      targetUrl: url,
+      attemptHeaders: buildAltAuthHeaders(config),
+    })
+  }
 
-    if (response.ok) {
-      return {
-        success: true,
-        message: `Connection successful. Status: ${response.status}, Response time: ${elapsed}ms, Body length: ${bodyText.length} chars`,
-        status: response.status,
-        responseTime: elapsed,
-        debug,
+  const start = Date.now()
+
+  for (const attempt of attemptQueue) {
+    try {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), timeout)
+
+      const fetchOpts: RequestInit = { method, headers: attempt.attemptHeaders, signal: controller.signal }
+      if (['POST', 'PUT', 'PATCH'].includes(method)) {
+        fetchOpts.body = JSON.stringify({})
       }
-    } else {
+
+      console.log(`[sap-sync:test] Attempt: ${attempt.label} → ${attempt.targetUrl}`)
+      const response = await proxyAwareFetch(config, attempt.targetUrl, fetchOpts)
+      clearTimeout(timer)
+      const elapsed = Date.now() - start
+      const bodyText = await response.text()
+
+      if (response.ok) {
+        return {
+          success: true,
+          message: `Connection successful (attempt: ${attempt.label}). Status: ${response.status}, Response time: ${elapsed}ms, Body length: ${bodyText.length} chars`,
+          status: response.status,
+          responseTime: elapsed,
+          debug,
+          attempt: attempt.label,
+        }
+      }
+
+      // Check if this is a SAP auth error — try next attempt
+      if (isSapAuthError(bodyText) || response.status === 401 || response.status === 403) {
+        console.log(`[sap-sync:test] Attempt "${attempt.label}" got SAP auth error (${response.status}), trying next...`)
+        continue
+      }
+
+      // Non-auth error on first attempt with HTML 404 — could be SAP login page
+      if (response.status === 404 && bodyText.includes('<html')) {
+        console.log(`[sap-sync:test] Attempt "${attempt.label}" got HTML 404 (possible SAP login page), trying next...`)
+        continue
+      }
+
+      // Other error — return it
+      const sapHint = extractSapErrorHint(response.status, bodyText)
       return {
         success: false,
-        message: `HTTP ${response.status}: ${response.statusText}. Body: ${bodyText.substring(0, 500)}`,
+        message: sapHint || `HTTP ${response.status}: ${response.statusText}. Body: ${bodyText.substring(0, 500)}`,
         status: response.status,
         responseTime: elapsed,
         debug,
+        attempt: attempt.label,
       }
+    } catch (err: any) {
+      const elapsed = Date.now() - start
+      if (err.name === 'AbortError') {
+        return { success: false, message: `Connection timed out after ${timeout}ms`, responseTime: elapsed, debug, attempt: attempt.label }
+      }
+      return { success: false, message: `Network error: ${err.message}`, responseTime: elapsed, debug, attempt: attempt.label }
     }
-  } catch (err: any) {
-    const elapsed = Date.now() - start
-    if (err.name === 'AbortError') {
-      return { success: false, message: `Connection timed out after ${timeout}ms`, responseTime: elapsed, debug }
-    }
-    return { success: false, message: `Network error: ${err.message}`, responseTime: elapsed, debug }
+  }
+
+  // All attempts exhausted
+  const elapsed = Date.now() - start
+  return {
+    success: false,
+    message: `Transport OK but SAP rejected all ${attemptQueue.length} credential attempts. Check username, password, and SAP client number in API Settings.`,
+    responseTime: elapsed,
+    debug,
+    attempt: 'all_exhausted',
   }
 }
 
@@ -795,35 +924,79 @@ async function callSAPApi(
   const debug = buildDebugMeta(config, finalUrl, headers, method)
   console.log('[sap-sync:sync] Using DB credentials', debug)
 
-  try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeout)
+  // Build attempt queue for multi-attempt auth fallback
+  const authType = String(config.auth_type || 'basic').toLowerCase()
+  const username = normalizeCredential(config.username)
+  const password = normalizeCredential(config.encrypted_password)
 
-    const fetchOpts: RequestInit = { method, headers, signal: controller.signal }
-    if (requestBody) {
-      fetchOpts.body = JSON.stringify(requestBody)
+  const attemptQueue: Array<{ label: string; targetUrl: string; attemptHeaders: Record<string, string> }> = [
+    { label: 'default', targetUrl: finalUrl, attemptHeaders: headers },
+  ]
+
+  if (authType === 'basic' && username && password) {
+    const noQueryUrl = removeSapClientFromUrl(finalUrl)
+    if (noQueryUrl !== finalUrl) {
+      attemptQueue.push({
+        label: 'sap-client_header_only',
+        targetUrl: noQueryUrl,
+        attemptHeaders: headers,
+      })
     }
+    attemptQueue.push({
+      label: 'alt_credential_headers',
+      targetUrl: finalUrl,
+      attemptHeaders: buildAltAuthHeaders(config),
+    })
+  }
 
-    const response = await proxyAwareFetch(config, finalUrl, fetchOpts)
-    clearTimeout(timer)
-
-    const bodyText = await response.text()
-    if (!response.ok) {
-      return { success: false, error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`, debug }
-    }
-
+  for (const attempt of attemptQueue) {
     try {
-      const jsonData = JSON.parse(bodyText)
-      const records = jsonData?.d?.results || jsonData?.value || jsonData?.data || (Array.isArray(jsonData) ? jsonData : [jsonData])
-      return { success: true, data: records, debug }
-    } catch {
-      return { success: false, error: `Response is not valid JSON: ${bodyText.substring(0, 200)}`, debug }
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), timeout)
+
+      const fetchOpts: RequestInit = { method, headers: attempt.attemptHeaders, signal: controller.signal }
+      if (requestBody) {
+        fetchOpts.body = JSON.stringify(requestBody)
+      }
+
+      console.log(`[sap-sync:sync] Attempt: ${attempt.label}`)
+      const response = await proxyAwareFetch(config, attempt.targetUrl, fetchOpts)
+      clearTimeout(timer)
+
+      const bodyText = await response.text()
+
+      if (response.ok) {
+        try {
+          const jsonData = JSON.parse(bodyText)
+          const records = jsonData?.d?.results || jsonData?.value || jsonData?.data || (Array.isArray(jsonData) ? jsonData : [jsonData])
+          return { success: true, data: records, debug }
+        } catch {
+          return { success: false, error: `Response is not valid JSON: ${bodyText.substring(0, 200)}`, debug }
+        }
+      }
+
+      // Check for SAP auth errors — try next attempt
+      if (isSapAuthError(bodyText) || response.status === 401 || response.status === 403 || (response.status === 404 && bodyText.includes('<html'))) {
+        console.log(`[sap-sync:sync] Attempt "${attempt.label}" got SAP auth/login error (${response.status}), trying next...`)
+        continue
+      }
+
+      // Non-retryable error
+      const hint = extractSapErrorHint(response.status, bodyText)
+      return { success: false, error: hint || `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`, debug }
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return { success: false, error: `SAP API timed out after ${timeout}ms`, debug }
+      }
+      return { success: false, error: `Network error calling SAP: ${err.message}`, debug }
     }
-  } catch (err: any) {
-    if (err.name === 'AbortError') {
-      return { success: false, error: `SAP API timed out after ${timeout}ms`, debug }
-    }
-    return { success: false, error: `Network error calling SAP: ${err.message}`, debug }
+  }
+
+  // All attempts exhausted
+  return {
+    success: false,
+    error: `Transport OK but SAP rejected all ${attemptQueue.length} credential attempts. Check username, password, and SAP client in API Settings.`,
+    debug,
   }
 }
 

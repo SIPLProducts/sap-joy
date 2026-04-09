@@ -393,11 +393,11 @@ export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
                   <div className="space-y-2">
                     <Label>Node.js Middleware URL</Label>
                     <Input value={proxyUrl} onChange={(e) => setProxyUrl(e.target.value)}
-                      placeholder="e.g. https://abc.ngrok-free.app or http://host.docker.internal:3002" />
+                      placeholder="e.g. https://abc.ngrok-free.app or http://host.docker.internal:3000" />
                     <div className="text-xs text-muted-foreground space-y-1">
-                      <p><strong>This is the URL of your Node.js middleware</strong> that connects to SAP.</p>
-                      <p>• <strong>UICloud DB:</strong> Use ngrok URL (e.g. <code>https://abc.ngrok-free.app</code>)</p>
-                      <p>• <strong>Client Server DB:</strong> Use <code>http://host.docker.internal:3002</code> or <code>http://10.10.4.178:3002</code></p>
+                      <p><strong>Base URL of your Node.js middleware</strong> (do not append <code>/proxy</code>).</p>
+                      <p>• <strong>Cloud Preview:</strong> Use ngrok URL (e.g. <code>https://abc.ngrok-free.app</code>)</p>
+                      <p>• <strong>Client Server:</strong> Use <code>http://host.docker.internal:3000</code> or <code>http://10.10.4.178:3000</code></p>
                     </div>
                   </div>
                 )}

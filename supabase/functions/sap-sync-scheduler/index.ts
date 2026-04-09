@@ -430,21 +430,137 @@ function matchesSupportedCron(cronExpression: string | null, now: Date, lastRun:
   return now.getTime() - lastRun.getTime() >= 60 * 1000
 }
 
-// ═══════════════ SAP API Calling (matches manual sync logic) ═══════════════
+// ═══════════════ SAP API Calling (Proxy-Aware, matches manual sync logic) ═══════════════
 
-function buildUrl(config: any): string {
-  let url: string
-  if ((config.connection_mode === 'vpn_tunnel' || config.connection_mode === 'proxy') && config.proxy_tunnel_url) {
-    url = `${config.proxy_tunnel_url.replace(/\/$/, '')}${config.endpoint_path || ''}`
-  } else {
-    url = `${(config.base_url || '').replace(/\/$/, '')}${config.endpoint_path || config.api_endpoint || ''}`
-  }
+// Build the real SAP target URL (what SAP actually receives)
+function buildSapTargetUrl(config: any): string {
+  const base = (config.base_url || config.api_endpoint || '').replace(/\/$/, '')
+  const path = config.endpoint_path || ''
+  let url = `${base}${path}`
 
   if (config.sap_client && !/[?&]sap-client=/.test(url)) {
     url += `${url.includes('?') ? '&' : '?'}sap-client=${config.sap_client}`
   }
 
   return url
+}
+
+// Get proxy base URL
+function getProxyBaseUrl(config: any): string | null {
+  if ((config.connection_mode === 'vpn_tunnel' || config.connection_mode === 'proxy' || config.connection_mode === 'internal') && config.proxy_tunnel_url) {
+    return config.proxy_tunnel_url.replace(/\/$/, '')
+  }
+  return null
+}
+
+function normalizeCredential(value: string | null | undefined): string {
+  return typeof value === 'string' ? value.replace(/\r?\n/g, '').trim() : ''
+}
+
+// Route fetch through the proxy's POST /proxy endpoint
+async function fetchViaProxy(
+  proxyBaseUrl: string,
+  targetUrl: string,
+  method: string,
+  headers: Record<string, string>,
+  body?: string,
+  proxySecret?: string,
+  timeout?: number,
+): Promise<Response> {
+  const proxyEndpoint = `${proxyBaseUrl}/proxy`
+
+  const proxyHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  if (proxySecret) {
+    proxyHeaders['x-proxy-secret'] = proxySecret
+  }
+
+  // Forward headers (exclude proxy-specific)
+  const forwardHeaders = { ...headers }
+  delete forwardHeaders['x-proxy-secret']
+
+  let parsedBody: any = undefined
+  if (body) {
+    try { parsedBody = JSON.parse(body) } catch { parsedBody = body }
+  }
+
+  // Extract raw credentials from Authorization header
+  let authInfo: { username: string; password: string } | undefined
+  if (forwardHeaders['Authorization']?.startsWith('Basic ')) {
+    try {
+      const decoded = atob(forwardHeaders['Authorization'].replace('Basic ', ''))
+      const colonIdx = decoded.indexOf(':')
+      if (colonIdx > 0) {
+        authInfo = {
+          username: decoded.substring(0, colonIdx),
+          password: decoded.substring(colonIdx + 1),
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  const proxyPayload: Record<string, any> = {
+    url: targetUrl,
+    method,
+    headers: forwardHeaders,
+    body: parsedBody,
+  }
+  if (authInfo) {
+    proxyPayload.auth = authInfo
+  }
+
+  console.log(`[scheduler:fetchViaProxy] POST ${proxyEndpoint} → ${method} ${targetUrl}`)
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeout || 60000)
+
+  const response = await fetch(proxyEndpoint, {
+    method: 'POST',
+    headers: proxyHeaders,
+    body: JSON.stringify(proxyPayload),
+    signal: controller.signal,
+  })
+  clearTimeout(timer)
+
+  const responseText = await response.text()
+
+  if (!response.ok) {
+    return new Response(responseText, { status: response.status, statusText: response.statusText })
+  }
+
+  // Unwrap proxy response: { statusCode, headers, body }
+  try {
+    const proxyResult = JSON.parse(responseText)
+    const sapStatus = proxyResult.statusCode || 200
+    const sapBody = typeof proxyResult.body === 'string' ? proxyResult.body : JSON.stringify(proxyResult.body || '')
+    return new Response(sapBody, {
+      status: sapStatus,
+      statusText: `SAP ${sapStatus}`,
+      headers: { 'content-type': proxyResult.headers?.['content-type'] || 'application/json' },
+    })
+  } catch {
+    return new Response(responseText, { status: 502, statusText: 'Proxy returned invalid response' })
+  }
+}
+
+// Proxy-aware fetch: routes through POST /proxy when proxy is configured
+async function proxyAwareFetch(config: any, targetUrl: string, fetchOpts: RequestInit): Promise<Response> {
+  const proxyBaseUrl = getProxyBaseUrl(config)
+  const method = (fetchOpts.method || 'GET').toUpperCase()
+  const headers = fetchOpts.headers as Record<string, string> || {}
+  const body = fetchOpts.body as string | undefined
+
+  if (proxyBaseUrl) {
+    return fetchViaProxy(proxyBaseUrl, targetUrl, method, headers, body, config.proxy_secret, config.timeout_ms)
+  }
+
+  // Direct mode (no proxy)
+  return fetch(targetUrl, fetchOpts)
+}
+
+function buildUrl(config: any): string {
+  return buildSapTargetUrl(config)
 }
 
 function buildAuthHeaders(config: any): Record<string, string> {
@@ -454,18 +570,18 @@ function buildAuthHeaders(config: any): Record<string, string> {
     'ngrok-skip-browser-warning': 'true',
   }
 
+  const username = normalizeCredential(config.username)
+  const password = normalizeCredential(config.encrypted_password)
+
   if (config.proxy_secret) headers['x-proxy-secret'] = config.proxy_secret
   if (config.sap_client) headers['sap-client'] = String(config.sap_client)
 
-  if (config.auth_type === 'basic' && config.username) {
-    const user = String(config.username || '').replace(/\r?\n/g, '').trim()
-    const pass = String(config.encrypted_password || '').replace(/\r?\n/g, '').trim()
-    headers['Authorization'] = `Basic ${btoa(`${user}:${pass}`)}`
-    // Forward credentials like manual sync does
-    headers['username'] = user
-    headers['password'] = pass
-    headers['x-sap-username'] = user
-    headers['x-sap-password'] = pass
+  if (config.auth_type === 'basic' && username) {
+    headers['Authorization'] = `Basic ${btoa(`${username}:${password}`)}`
+    headers['username'] = username
+    headers['password'] = password
+    headers['x-sap-username'] = username
+    headers['x-sap-password'] = password
   } else if (config.auth_type === 'api_key' && config.api_key) {
     headers['X-API-Key'] = config.api_key
   }
@@ -477,6 +593,14 @@ function buildAuthHeaders(config: any): Record<string, string> {
   }
 
   return headers
+}
+
+function isSapAuthError(bodyText: string): boolean {
+  const lower = bodyText.toLowerCase()
+  return lower.includes('logon error message') ||
+    lower.includes('anmeldung fehlgeschlagen') ||
+    lower.includes('login failed') ||
+    lower.includes('not authenticated')
 }
 
 async function callSAPApi(
@@ -495,7 +619,6 @@ async function callSAPApi(
     requestFields.forEach((field: any) => {
       const key = field.sap_field_name || field.field_name
 
-      // Apply plant override if this is a plant field
       if (plantOverrides[key] !== undefined) {
         requestBody![key] = plantOverrides[key]
         return
@@ -503,7 +626,6 @@ async function callSAPApi(
 
       if (field.is_required || (field.default_value && String(field.default_value).trim() !== '')) {
         let val = field.default_value ?? ''
-        // Match manual sync: preserve string format, pad ART field
         if (key === 'ART' || key === 'INSPECTION_TYPE') {
           val = String(val).trim().padStart(2, '0')
         }
@@ -511,13 +633,11 @@ async function callSAPApi(
       }
     })
 
-    // Inject max records like manual sync
     if (config.max_records) {
       if (requestBody.MAX_ROWS === undefined) requestBody.MAX_ROWS = config.max_records
       if (requestBody.MAX_HITS === undefined) requestBody.MAX_HITS = config.max_records
     }
 
-    // Filter out empty optional fields (MATNR, CHARG) like manual sync
     for (const optionalKey of ['MATNR', 'CHARG']) {
       if (requestBody[optionalKey] !== undefined && String(requestBody[optionalKey]).trim() === '') {
         delete requestBody[optionalKey]
@@ -543,19 +663,16 @@ async function callSAPApi(
   if (requestBody) console.log(`[scheduler] Payload keys: ${Object.keys(requestBody).join(', ')}`)
 
   try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeout)
-    const response = await fetch(finalUrl, {
+    const fetchOpts: RequestInit = {
       method,
       headers,
-      signal: controller.signal,
       body: requestBody ? JSON.stringify(requestBody) : undefined,
-    })
-    clearTimeout(timer)
+    }
+
+    const response = await proxyAwareFetch(config, finalUrl, fetchOpts)
 
     const bodyText = await response.text()
     if (!response.ok) {
-      // User-friendly error messages (Requirement #13)
       const friendlyMsg = extractFriendlyError(response.status, bodyText)
       return { success: false, error: friendlyMsg }
     }
@@ -571,16 +688,15 @@ async function callSAPApi(
   }
 }
 
-/**
- * Requirement #13: Show user-friendly messages, not technical errors
- */
 function extractFriendlyError(status: number, bodyText: string): string {
-  const lower = bodyText.toLowerCase()
-  if (lower.includes('anmeldung fehlgeschlagen') || lower.includes('logon error')) {
-    return 'SAP login failed — please verify username, password, and SAP client in API Settings.'
+  if (isSapAuthError(bodyText)) {
+    return 'Transport OK. SAP rejected username/password or SAP client. Check credentials in API Settings.'
   }
   if (status === 401 || status === 403) {
     return 'SAP authentication failed — check credentials in API Settings.'
+  }
+  if (status === 404 && bodyText.includes('<html')) {
+    return 'Transport OK but SAP returned HTML error page (HTTP 404). Usually means wrong credentials or SAP client.'
   }
   if (status === 404) {
     return 'SAP endpoint not found — verify the endpoint path in API Settings.'

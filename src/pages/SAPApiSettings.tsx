@@ -199,22 +199,22 @@ export default function SAPApiSettings() {
                 <p className="text-sm font-semibold">How SAP Connection Works</p>
               </div>
               <div className="text-xs text-muted-foreground space-y-2 ml-7">
-                <p>Your app calls the <strong>Node.js Middleware URL</strong> directly from the browser and sends the credentials saved in the <strong>Credentials</strong> tab for that API config.</p>
+                <p>All requests go through your <strong>Node.js middleware</strong> via its <code>POST /proxy</code> endpoint. The middleware URL is the <strong>base URL only</strong> (do not append <code>/proxy</code>).</p>
                 <div className="grid grid-cols-2 gap-3 mt-2">
                   <div className="bg-white rounded-md border p-3">
-                    <p className="font-semibold text-purple-700 mb-1">☁️ Using from UI Preview</p>
-                    <p>The browser sends requests directly to your middleware.</p>
-                    <p className="mt-1">→ Set <strong>"Node.js Middleware URL"</strong> in each config to your <strong>public ngrok URL</strong></p>
+                    <p className="font-semibold text-purple-700 mb-1">☁️ Lovable Cloud Preview</p>
+                    <p>App → Backend Function → ngrok → local proxy → SAP</p>
+                    <p className="mt-1">→ Set <strong>"Node.js Middleware URL"</strong> to your <strong>public ngrok URL</strong></p>
                     <p className="text-[10px] mt-1 opacity-70">e.g. https://abc123.ngrok-free.app</p>
                   </div>
                   <div className="bg-white rounded-md border p-3">
-                    <p className="font-semibold text-green-700 mb-1">🖥️ Using from Client Server</p>
-                    <p>The browser can call your internal middleware directly if reachable on the network.</p>
-                    <p className="mt-1">→ Set <strong>"Node.js Middleware URL"</strong> in each config to <strong>http://host.docker.internal:3002</strong></p>
-                    <p className="text-[10px] mt-1 opacity-70">or http://10.10.4.178:3002</p>
+                    <p className="font-semibold text-green-700 mb-1">🖥️ Self-Hosted / Client Server</p>
+                    <p>Browser → internal middleware → SAP</p>
+                    <p className="mt-1">→ Set <strong>"Node.js Middleware URL"</strong> to <strong>http://host.docker.internal:3000</strong></p>
+                    <p className="text-[10px] mt-1 opacity-70">or http://10.10.4.178:3000</p>
                   </div>
                 </div>
-                <p className="text-[11px] mt-2 font-medium">💡 Trigger Sync now uses the credentials saved in this page only, so you can change SAP auth from the UI without redeploying the app.</p>
+                <p className="text-[11px] mt-2 font-medium">💡 Credentials are read from this page. The system tries multiple auth strategies automatically if SAP rejects the first attempt.</p>
               </div>
             </CardContent>
           </Card>
