@@ -1,43 +1,46 @@
 
 
-## Plan: Fix SAP Credential Forwarding — `auth` Object Not Sent When Password Has Special Characters
+## Plan: Add Deployment Mode Selector with Auto-Port Configuration
 
-### Root Cause
+### What Changes
 
-In `src/lib/sapSyncClient.ts`, the `fetchViaProxy` function (line 132-143) extracts raw credentials for the `auth` object by doing `btoa` → `atob` round-trip on the password. If the SAP password contains special characters (e.g., `#`, `@`, `!`), `atob()` can silently fail or produce corrupted output. When the `catch` block swallows the error, **no `auth` object is sent** to the proxy middleware. The middleware then cannot reconstruct a clean `Authorization: Basic` header, and SAP rejects all 3 attempts.
+**Single file: `src/components/sapApi/SAPApiEditForm.tsx`**
 
-This only manifests on on-premise (self-hosted) deployments because they use `invokeDirect` → `fetchViaProxy` (client-side). Cloud deployments use the edge function's own `fetchViaProxy` which has the same issue but may have different credential values.
+1. **Add a "Deployment Mode" dropdown** above the Connection Mode field with two options:
+   - **Cloud (Lovable Preview)** — sets default port to `3000`, shows ngrok URL guidance
+   - **Self-Hosted (Client Server)** — sets default port to `3002`, shows LAN IP guidance
 
-### Fix — Two files
+2. **Add a "Middleware Port" input field** next to the deployment mode selector, pre-filled based on the selected mode (3000 for Cloud, 3002 for Self-Hosted), but editable so the user can override.
 
-**File 1: `src/lib/sapSyncClient.ts`**
+3. **Auto-build the middleware URL** when the user changes deployment mode or port:
+   - Cloud: placeholder shows `https://abc.ngrok-free.app` (port is embedded in ngrok URL, so port field is hidden)
+   - Self-Hosted: placeholder shows `http://10.10.4.178:{port}` and `http://host.docker.internal:{port}`
 
-1. Add an optional `rawAuth` parameter to `fetchViaProxy` so callers can pass raw credentials directly (no Base64 round-trip needed)
-2. Update `proxyAwareFetch` to extract `username` and `encrypted_password` from the `config` object and pass them as `rawAuth`
-3. In `fetchViaProxy`, prefer `rawAuth` over Base64-decoded credentials for the `auth` object
-4. Improve the "all attempts exhausted" error message to include the username and password length being used, so the user can verify credentials
+4. **Update help text** dynamically based on the selected deployment mode — Cloud shows ngrok instructions, Self-Hosted shows LAN IP / Docker instructions with the correct port.
 
-**File 2: `supabase/functions/sap-sync/index.ts`**
+5. **Store deployment mode** — save it as part of the connection_mode or as a new state variable used only for UI guidance (no DB schema change needed since the final `proxy_tunnel_url` already captures the full URL with port).
 
-5. Apply the same fix to the edge function's `fetchViaProxy` — pass raw credentials from `buildAuthHeaders` context instead of re-extracting from Base64
+### UI Layout
+
+```text
+┌─────────────────────────────────────────────┐
+│ Connection Mode    │ Via VPN Tunnel  ▼       │
+├─────────────────────────────────────────────┤
+│ Deployment Mode    │ ○ Cloud (Preview)       │
+│                    │ ● Self-Hosted (Client)  │
+├─────────────────────────────────────────────┤
+│ Middleware Port    │ [ 3002 ]                │
+│                    │ Cloud=3000, Self=3002   │
+├─────────────────────────────────────────────┤
+│ Node.js Middleware │ [ http://10.10.4.178:3002 ] │
+│ URL                │ Base URL only, no /proxy│
+└─────────────────────────────────────────────┘
+```
 
 ### Technical Detail
-
-Current broken flow:
-```text
-config.password → btoa(user:pass) → Authorization header → atob() → auth object
-                    ↑ encoding issue with special chars causes silent failure
-```
-
-Fixed flow:
-```text
-config.password → auth object (direct, no encoding)
-config.password → btoa(user:pass) → Authorization header (kept as fallback)
-```
-
-### Result
-- Raw SAP credentials are always sent to the proxy in the `auth` object, bypassing Base64 encoding issues
-- Proxy can reconstruct a clean `Authorization: Basic` header from raw credentials
-- Diagnostic info (username, password length) is shown on failure to help verify config
-- Both cloud and on-premise paths use the same credential forwarding logic
+- New local state: `deploymentMode` (`'cloud' | 'selfhosted'`), initialized by detecting if existing `proxy_tunnel_url` contains `ngrok` or a private IP
+- When deployment mode changes, auto-update the port field and placeholder text
+- The middleware URL input remains fully editable — the deployment mode just provides smart defaults
+- No database migration needed — the final saved value is still `proxy_tunnel_url`
+- Also update the info card in `src/pages/SAPApiSettings.tsx` to show port `3002` for self-hosted examples
 
