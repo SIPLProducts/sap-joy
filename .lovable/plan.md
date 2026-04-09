@@ -1,38 +1,28 @@
 
 
-## Plan: Auto-Schedule Inward (ZMRB01) API Every 5 Minutes
+## Plan: Remove Upload Data and API Integration Tabs from Both Screens
 
-### Current State
-All 4 SAP APIs are set to `manual` sync with scheduling disabled:
-- **ZMRB_Inward_Inspection** — stores data in `inward_inspection_lots` table
-- **MB52_Stock_Report** — real-time live fetch (no local storage needed)
-- **SAP_343** / **SAP_344** — transactional (action-based, no scheduled sync)
+Since Inward data auto-syncs every 5 minutes and Shop Floor fetches live from SAP, the manual Upload and API tabs are unnecessary on both screens.
 
-### What Changes
+### Changes
 
-**1. Enable scheduler for ZMRB Inward only**
-- Update `sap_api_config` for ZMRB: set `scheduler_enabled = true`, `sync_frequency = 'every_5_min'`
-- MB52, 343, 344 remain `manual` / real-time — no changes
+**1. `src/pages/InwardReport.tsx`**
+- Remove the entire Tabs wrapper (lines 604-623) and show search content directly
+- Delete Upload tab content block (lines 1087-1201)
+- Delete API Integration tab content block (lines 1204-1390 approx)
+- Remove `activeTab` state and change rendering to always show search view
+- Remove unused state: `isUploading`, `uploadStatus`, `uploadMessage`, `parseResult`, `showPreview`, `previewFileName`
+- Remove `fileInputRef`
+- Clean up unused imports: `Upload`, `Database`, `FileUp`, `Loader2`, `XLSX`, `UploadPreviewModal`, `downloadCSVTemplate`, `validateParsedData`, `ParseResult`
 
-**2. Set up pg_cron to invoke the scheduler edge function every 5 minutes**
-- The `sap-sync-scheduler` edge function already handles the full sync logic (lock, fetch from SAP via proxy, map fields, upsert into `inward_inspection_lots`)
-- Create a `pg_cron` job: every 5 minutes, call the scheduler edge function via `pg_net`
-- This replaces the need for any manual "Trigger Sync" clicks
+**2. `src/pages/ShopFloorStockSelection.tsx`**
+- Remove the Tabs wrapper (lines 383-398) and show search content directly
+- Delete Upload tab content block (lines 663-725)
+- Delete SAP API tab content block (lines 727-865 approx)
+- Remove `activeTab` state
+- Remove unused state: `uploadStatus`, `uploadMessage`, `parseResult`, `showPreview`, `previewFileName`, SAP config states, file upload handler
+- Remove `fileInputRef`
+- Clean up unused imports: `Upload`, `Database`, `FileUp`, `Download`, `Settings`, `XLSX`, `ShopFloorUploadPreview`, `SAPConfigDialog`, `downloadShopFloorCSVTemplate`, `validateShopFloorStockData`, `Tabs`, `TabsList`, `TabsTrigger`
 
-**3. No code changes needed**
-- The scheduler edge function already supports the `every_5_min` frequency and has built-in field mappings for ZMRB01
-- The existing proxy-aware `callSAPApi` in the scheduler already wraps requests correctly for your `POST /proxy` middleware
-
-### Summary
-| API | Behavior | Scheduled? |
-|-----|----------|-----------|
-| ZMRB01 (Inward) | Auto-sync every 5 min → updates `inward_inspection_lots` | Yes |
-| MB52 (Stock) | Live fetch on user action | No |
-| 343 (Unblock) | Called on user action, response shown in UI | No |
-| 344 (Block) | Called on user action, response shown in UI | No |
-
-### Technical Steps
-1. Use insert tool to UPDATE the ZMRB config row
-2. Use insert tool to create a pg_cron scheduled job calling the edge function every 5 minutes
-3. Verify the scheduler runs and populates data
+Both pages will show only the search/results view with no tab navigation.
 
