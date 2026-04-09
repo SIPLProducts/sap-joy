@@ -369,6 +369,7 @@ async function directTest(
   url: string,
   headers: Record<string, string>,
   config: any,
+  proxyBaseUrl: string,
 ): Promise<{ data: any; error: any }> {
   const method = (config.http_method || 'GET').toUpperCase();
   const start = Date.now();
@@ -378,7 +379,7 @@ async function directTest(
     fetchOpts.body = JSON.stringify({});
   }
 
-  const response = await fetch(url, fetchOpts);
+  const response = await proxyAwareFetch(proxyBaseUrl, url, fetchOpts, config);
   const elapsed = Date.now() - start;
   const bodyText = await response.text();
 
