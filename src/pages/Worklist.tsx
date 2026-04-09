@@ -1207,7 +1207,7 @@ export default function Worklist() {
               className="w-full"
             />
             <p className="text-xs text-muted-foreground">
-              Will be sent as BUDAT in YYMMDD format: <span className="font-mono font-medium">{postingDate ? formatPostingDateForSAP(postingDate) : ''}</span>
+              Will be sent as BUDAT in YYYYMMDD format: <span className="font-mono font-medium">{postingDate ? formatPostingDateForSAP(postingDate) : ''}</span>
             </p>
           </div>
         </div>
