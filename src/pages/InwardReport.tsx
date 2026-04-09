@@ -592,7 +592,7 @@ export default function InwardReport() {
                   </div>
                 )}
                 <Card className="border-border shadow-sm">
-                  <CardHeader className="border-b border-border bg-muted/30 py-3 flex-shrink-0">
+                  <CardHeader className="border-b border-border bg-muted/30 py-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base font-semibold">
                         Search Results ({searchResults.length} records)
