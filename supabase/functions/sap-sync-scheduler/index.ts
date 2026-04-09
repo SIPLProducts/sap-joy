@@ -47,6 +47,7 @@ Deno.serve({ port }, async (req) => {
 
     const body = await req.json().catch(() => ({}))
     const ignoreSchedule = body?.ignoreSchedule === true
+    const isCronTrigger = body?.source === 'pg_cron'
     const requestedConfigIds = Array.isArray(body?.config_ids) ? body.config_ids : null
 
     // ── 2. Fetch active scheduler-enabled configs ──
@@ -71,7 +72,8 @@ Deno.serve({ port }, async (req) => {
 
     for (const config of configs || []) {
       if (requestedConfigIds && !requestedConfigIds.includes(config.id)) continue
-      if (!ignoreSchedule && !shouldRunNow(config, now)) continue
+      // When triggered by pg_cron, always run — the cron schedule itself handles timing
+      if (!ignoreSchedule && !isCronTrigger && !shouldRunNow(config, now)) continue
 
       // Fetch response field mappings
       const { data: dbResponseFields } = await supabase
@@ -267,7 +269,7 @@ async function ensureDynamicColumns(supabase: any, responseFields: any[], sample
 
     if (!tableColumns.has(table)) {
       // Fetch existing columns for this table
-      const { data: cols } = await supabase.rpc('get_table_columns', { _table_name: table }).catch(() => ({ data: null }))
+      const { data: cols } = await supabase.rpc('get_table_columns', { _table_name: table })
       tableColumns.set(table, new Set((cols || []).map((c: any) => c.column_name)))
     }
 
@@ -340,6 +342,7 @@ function generateBuiltInResponseFields(config: any): any[] {
       { sap: 'SGTXT', col: 'block_reason', type: 'string' },
       { sap: 'MENGENEINH', col: 'uom', type: 'string' },
       { sap: 'LMENGE04', col: 'blocked_quantity', type: 'number' },
+      { sap: 'LMENGE04', col: 'transaction_quantity', type: 'number' },
       { sap: 'MAKTX', col: 'material_description', type: 'string' },
       { sap: 'NAME1', col: 'vendor_name', type: 'string' },
       { sap: 'LGORT', col: 'storage_location', type: 'string' },
