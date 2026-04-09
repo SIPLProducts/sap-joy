@@ -207,12 +207,12 @@ export default function SAPApiSettings() {
                     <p className="mt-1">→ Set <strong>"Node.js Middleware URL"</strong> to your <strong>public ngrok URL</strong></p>
                     <p className="text-[10px] mt-1 opacity-70">e.g. https://abc123.ngrok-free.app</p>
                   </div>
-                  <div className="bg-white rounded-md border p-3">
-                    <p className="font-semibold text-green-700 mb-1">🖥️ Self-Hosted / Client Server</p>
-                    <p>Browser → internal middleware → SAP</p>
-                    <p className="mt-1">→ Set <strong>"Node.js Middleware URL"</strong> to <strong>http://host.docker.internal:3000</strong></p>
-                    <p className="text-[10px] mt-1 opacity-70">or http://10.10.4.178:3000</p>
-                  </div>
+                   <div className="bg-white rounded-md border p-3">
+                     <p className="font-semibold text-green-700 mb-1">🖥️ Self-Hosted / Client Server</p>
+                     <p>Browser → internal middleware → SAP</p>
+                     <p className="mt-1">→ Set <strong>"Node.js Middleware URL"</strong> to <strong>http://host.docker.internal:3002</strong></p>
+                     <p className="text-[10px] mt-1 opacity-70">or http://10.10.4.178:3002 (default port: 3002)</p>
+                   </div>
                 </div>
                 <p className="text-[11px] mt-2 font-medium">💡 Credentials are read from this page. The system tries multiple auth strategies automatically if SAP rejects the first attempt.</p>
               </div>
