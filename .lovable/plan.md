@@ -1,18 +1,18 @@
 
 
-## Plan: Move "Block Selected" Button Next to "Available Stock" Header
+## Plan: Fix Checkbox Selection Behavior
 
-### Change — Single file: `src/pages/ShopFloorStockSelection.tsx`
+### Problem
+Clicking a single checkbox selects/deselects incorrectly because the entire row has an `onClick` handler that also toggles selection. This causes double-toggling or unexpected "all selected" behavior.
 
-Move the "Block Selected" button from the sticky top header (line 348–367) into the "Available Stock" card header (line 490), placing it opposite the title on the same row.
+### Changes — Single file: `src/pages/ShopFloorStockSelection.tsx`
 
-**1. Remove "Block Selected" from sticky header** (lines 348–367)
-- Delete the conditional block that renders the Block Selected button in the top bar
-
-**2. Add "Block Selected" into the Available Stock card header** (lines 490–497)
-- Place the Block Selected button alongside the existing "Proceed to MRB" button, so it sits on the right side opposite the "Available Stock" title
-- Keep the same conditional rendering (`selectedStocks.size > 0`), styling, and progress indicator logic
+1. **Remove `onClick` from `TableRow`** (line 537) — rows should not toggle selection on click; only the checkbox should control selection
+2. **Remove `onClick={(e) => e.stopPropagation()}`** from the Checkbox (line 543) — no longer needed since the row won't have a click handler
+3. **Label the header checkbox** — add "Select All" text next to the header checkbox so it's clearly distinguishable from individual checkboxes
 
 ### Result
-The "Block Selected" button appears on the same row as "Available Stock", aligned to the right — directly opposite the heading.
+- Clicking a checkbox only selects/deselects that single item
+- Header checkbox is clearly labeled "Select All" and only affects the current page
+- No accidental mass selection from row clicks
 
