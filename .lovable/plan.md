@@ -1,31 +1,55 @@
 
 
-## Plan: Add Auto-Refresh with Live Indicator on Inward Materials Screen
+## Plan: Fix Checkbox Default Selection + Add Block Button with SAP 344 API
 
-### Current State
-The page already has `lastSyncAt` / `relativeTime` / `nextSyncIn` state and badges showing "Last synced: X min ago" and "Next sync: ~Y min". However, there is **no automatic data refresh** — the data only refreshes on manual button click or page mount.
+### Problem
+1. All checkboxes appear selected by default on the Material Blocking screen
+2. No multi-select capability — currently single-select only
+3. No "Block" button that triggers SAP 344 API directly from this screen
 
-### Changes — Single file: `src/pages/InwardReport.tsx`
+### Current Behavior
+- `selectedStock` is a single `ShopFloorStockRecord | null` — acts like a radio button
+- Checkbox `checked` compares against `selectedStock?.id === stock.id` — nothing is checked by default (no bug there, but user reports otherwise)
+- "Proceed to Block" navigates to a separate form page — doesn't call SAP 344
 
-**1. Add auto-refresh interval (every 5 minutes)**
-- Add a `useEffect` with a `setInterval` that calls `refreshData()` every 5 minutes (300,000 ms)
-- After each auto-refresh completes, update `lastSyncAt` to `new Date().toISOString()`
-- Add an `isAutoRefreshing` state to show a subtle indicator during background refresh (without blocking the UI like the manual sync button does)
+### Changes — Single file: `src/pages/ShopFloorStockSelection.tsx`
 
-**2. Update relative time more frequently**
-- Change the relative-time update interval from 30s to 15s so "Last synced" feels more responsive
+**1. Change from single-select to multi-select**
+- Replace `selectedStock: ShopFloorStockRecord | null` with `selectedStocks: Set<string>` (set of IDs)
+- Add `selectedStocksData: ShopFloorStockRecord[]` derived from the set for payload building
+- Checkbox `checked` = `selectedStocks.has(stock.id)`
+- Add "Select All" / "Deselect All" checkbox in the table header
+- Ensure nothing is selected by default (empty Set on search)
 
-**3. Enhance the sync indicator UI**
-- Add a small pulsing green dot next to "Last synced" badge to show auto-refresh is active
-- When auto-refresh is in progress, show a spinning icon on the "Next sync" badge
-- Add tooltip or text: "Auto-refreshes every 5 min" so users understand the behavior
+**2. Add "Block Selected" button in the results header**
+- Show button only when `selectedStocks.size > 0`
+- Display count: "Block (3 items)"
+- Button triggers a confirmation dialog with posting date picker (same pattern as Worklist's 343 dialog)
 
-**4. Re-fetch `last_sync_at` from database after auto-refresh**
-- After each auto-refresh, query `sap_api_config` for the latest `last_sync_at` value (in case the background scheduler also ran), ensuring the timestamp shown is always accurate
+**3. Add SAP 344 blocking logic**
+- On confirm, iterate over selected items and call `invokeSapSync` with `action: 'unblock'` but targeting the 344 config (dynamically resolved by searching for '344' in config name/endpoint)
+- Build payload per item: `MATNR`, `WERKS`, `LGORT`, `CHARG`, `ENTRY_QNT`, `ENTRY_UOM`, `BUDAT` (YYYYMMDD format)
+- Show progress: "Blocking 1/3..." with a loading state
+- On success: show toast with SAP Material Document number, update `shop_floor_stock` status
+- On failure: show error toast with SAP error details
+
+**4. Add posting date dialog**
+- Reuse the same AlertDialog pattern from Worklist
+- Default to today's date
+- Format as YYYYMMDD for SAP BUDAT field
+
+**5. Keep existing "Proceed to Material Blocking" flow**
+- Still available for single item selection to navigate to the detailed MRB creation form
+- Multi-select "Block" is for quick SAP 344 blocking without MRB creation
+
+### Technical Details
+- SAP 344 config resolved dynamically: query `sap_api_config` where name/endpoint contains '344'
+- Uses `invokeSapSync` from `sapSyncClient.ts` (same as Worklist uses for 343)
+- Posting date formatted with `YYYYMMDD` (4-digit year fix already applied)
 
 ### Result
-- Data auto-refreshes every 5 minutes without user intervention
-- Users see a live "Last synced: 2 min ago" indicator that updates every 15 seconds
-- A green pulse dot confirms auto-refresh is active
-- New inspection lots from SAP appear automatically within minutes
+- Checkboxes are unchecked by default after search
+- Users can multi-select items with checkboxes (including Select All)
+- "Block Selected" button appears when items are checked, triggers SAP 344 API with posting date confirmation
+- Each blocked item gets a SAP Material Document number confirmation
 
