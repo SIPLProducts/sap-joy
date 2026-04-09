@@ -115,12 +115,12 @@ export default function ShopFloorStockSelection() {
 
   // Derived selected data for payload
   const selectedStocksData = useMemo(() => {
-    return filteredStock.filter(s => selectedStocks.has(s.id));
+    return filteredStock.filter(s => selectedStocks.has(s._rowKey));
   }, [filteredStock, selectedStocks]);
 
   // Check if all items on current page are selected
   const allPageSelected = useMemo(() => {
-    return paginatedStock.length > 0 && paginatedStock.every(s => selectedStocks.has(s.id));
+    return paginatedStock.length > 0 && paginatedStock.every(s => selectedStocks.has(s._rowKey));
   }, [paginatedStock, selectedStocks]);
 
   const handlePageSizeChange = (newSize: string) => {
@@ -208,11 +208,9 @@ export default function ShopFloorStockSelection() {
     setSelectedStocks(prev => {
       const next = new Set(prev);
       if (allPageSelected) {
-        // Deselect all on current page
-        paginatedStock.forEach(s => next.delete(s.id));
+        paginatedStock.forEach(s => next.delete(s._rowKey));
       } else {
-        // Select all on current page
-        paginatedStock.forEach(s => next.add(s.id));
+        paginatedStock.forEach(s => next.add(s._rowKey));
       }
       return next;
     });
