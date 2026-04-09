@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, Upload, RefreshCw, Database, FileUp, AlertCircle, CheckCircle2, Download, Loader2, Layers, XCircle, Save, X } from 'lucide-react';
+import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, RefreshCw, AlertCircle, CheckCircle2, Loader2, Layers, XCircle, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -45,7 +45,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { downloadCSVTemplate, validateParsedData, ParseResult } from '@/lib/csvTemplates';
 import * as XLSX from 'xlsx';
 import { Checkbox } from '@/components/ui/checkbox';
-import { UploadPreviewModal } from '@/components/inward/UploadPreviewModal';
+
 import { useExtraDynamicFields } from '@/hooks/useDynamicFields';
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
@@ -57,22 +57,12 @@ export default function InwardReport() {
 
   // Role-based permissions
   const canCreateMRB = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
-  const canUploadData = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
+  
   const canEditQuantity = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
   const [hasSearched, setHasSearched] = useState(false);
   const [searchResults, setSearchResults] = useState<InspectionLotRecord[]>([]);
-  const [activeTab, setActiveTab] = useState<'search' | 'upload' | 'api'>('search');
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [uploadMessage, setUploadMessage] = useState('');
-  const [parseResult, setParseResult] = useState<ParseResult | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Preview modal state
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewFileName, setPreviewFileName] = useState('');
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
