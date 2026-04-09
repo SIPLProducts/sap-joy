@@ -1,7 +1,7 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, Upload, RefreshCw, Database, FileUp, AlertCircle, CheckCircle2, Download, Loader2, Layers, XCircle, Save, X } from 'lucide-react';
+import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, RefreshCw, AlertCircle, CheckCircle2, Loader2, Layers, XCircle, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -26,11 +26,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -42,10 +37,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { downloadCSVTemplate, validateParsedData, ParseResult } from '@/lib/csvTemplates';
-import * as XLSX from 'xlsx';
 import { Checkbox } from '@/components/ui/checkbox';
-import { UploadPreviewModal } from '@/components/inward/UploadPreviewModal';
+
 import { useExtraDynamicFields } from '@/hooks/useDynamicFields';
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
@@ -57,22 +50,12 @@ export default function InwardReport() {
 
   // Role-based permissions
   const canCreateMRB = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
-  const canUploadData = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
+  
   const canEditQuantity = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
   const [hasSearched, setHasSearched] = useState(false);
   const [searchResults, setSearchResults] = useState<InspectionLotRecord[]>([]);
-  const [activeTab, setActiveTab] = useState<'search' | 'upload' | 'api'>('search');
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [uploadMessage, setUploadMessage] = useState('');
-  const [parseResult, setParseResult] = useState<ParseResult | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Preview modal state
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewFileName, setPreviewFileName] = useState('');
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -344,149 +327,8 @@ export default function InwardReport() {
     setCurrentPage(1);
   };
 
-  // Parse CSV content
-  const parseCSV = (content: string): Record<string, unknown>[] => {
-    const lines = content.split('\n').filter(line => line.trim());
-    if (lines.length < 2) return [];
-    
-    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-    const data: Record<string, unknown>[] = [];
-    
-    for (let i = 1; i < lines.length; i++) {
-      const values: string[] = [];
-      let current = '';
-      let inQuotes = false;
-      
-      for (const char of lines[i]) {
-        if (char === '"') {
-          inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-          values.push(current.trim());
-          current = '';
-        } else {
-          current += char;
-        }
-      }
-      values.push(current.trim());
-      
-      const row: Record<string, unknown> = {};
-      headers.forEach((header, index) => {
-        row[header] = values[index] || '';
-      });
-      data.push(row);
-    }
-    
-    return data;
-  };
 
-  // File upload handler - now shows preview first
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
 
-    // Validate file type
-    const isCSV = file.name.endsWith('.csv') || file.type === 'text/csv';
-    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || 
-                    file.type === 'application/vnd.ms-excel' || 
-                    file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-
-    if (!isCSV && !isExcel) {
-      toast.error('Invalid file type. Please upload a CSV or Excel file.');
-      return;
-    }
-
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('File too large. Maximum size is 10MB.');
-      return;
-    }
-
-    setUploadStatus('idle');
-    setUploadMessage('');
-    setParseResult(null);
-
-    try {
-      let parsedData: Record<string, unknown>[] = [];
-
-      if (isCSV) {
-        // Parse CSV
-        const text = await file.text();
-        parsedData = parseCSV(text);
-      } else {
-        // Parse Excel
-        const arrayBuffer = await file.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        parsedData = XLSX.utils.sheet_to_json(worksheet);
-      }
-
-      if (parsedData.length === 0) {
-        throw new Error('No data found in the file');
-      }
-
-      // Validate the parsed data
-      const validationResult = validateParsedData(parsedData);
-      setParseResult(validationResult);
-      setPreviewFileName(file.name);
-      
-      // Show preview modal instead of directly uploading
-      setShowPreview(true);
-
-    } catch (error) {
-      console.error('Parse error:', error);
-      setUploadStatus('error');
-      setUploadMessage(error instanceof Error ? error.message : 'Failed to process file');
-      toast.error('Failed to parse file');
-    } finally {
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  // Confirm upload from preview modal
-  const handleConfirmUpload = async () => {
-    if (!parseResult || !parseResult.success) return;
-
-    setIsUploading(true);
-
-    try {
-      const uploadBatchId = `batch-${Date.now()}`;
-      const uploadResult = await uploadInspectionLots(parseResult.data, uploadBatchId);
-
-      if (uploadResult.success) {
-        setUploadStatus('success');
-        setUploadMessage(`Successfully uploaded ${uploadResult.insertedCount} records from ${previewFileName}.`);
-        toast.success(`${uploadResult.insertedCount} records uploaded successfully!`);
-        setShowPreview(false);
-      } else {
-        setUploadStatus('error');
-        setUploadMessage(`Partial upload: ${uploadResult.insertedCount} records inserted. Errors: ${uploadResult.errors.join('; ')}`);
-        toast.error('Some records failed to upload');
-      }
-    } catch (error) {
-      console.error('Upload error:', error);
-      setUploadStatus('error');
-      setUploadMessage(error instanceof Error ? error.message : 'Failed to upload data');
-      toast.error('Upload failed');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  // Close preview modal
-  const handleClosePreview = () => {
-    setShowPreview(false);
-    setParseResult(null);
-    setPreviewFileName('');
-  };
-
-  // Template download handler
-  const handleDownloadTemplate = () => {
-    downloadCSVTemplate();
-    toast.success('Template downloaded successfully!');
-  };
 
   // API sync handler
   const handleAPISync = async () => {
@@ -600,32 +442,11 @@ export default function InwardReport() {
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="sticky top-[73px] z-30 bg-background border-b border-border shadow-sm flex-shrink-0">
-        <div className="px-6 py-3">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-            <TabsList className="grid w-full max-w-md grid-cols-3">
-              <TabsTrigger value="search" className="flex items-center gap-2">
-                <Search className="h-4 w-4" />
-                Search
-              </TabsTrigger>
-              <TabsTrigger value="upload" className="flex items-center gap-2" disabled={!canUploadData}>
-                <Upload className="h-4 w-4" />
-                Upload Data
-              </TabsTrigger>
-              <TabsTrigger value="api" className="flex items-center gap-2">
-                <Database className="h-4 w-4" />
-                API Integration
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-      </div>
 
       {/* Content Area */}
       <div className="flex-1 overflow-auto bg-muted/30 min-h-0">
-        {/* Search Tab Content */}
-        {activeTab === 'search' && (
+        {/* Search Content */}
+        {true && (
           <>
             {/* Filter Section */}
             <div className="px-6 py-4 border-b border-border bg-background">
@@ -1082,275 +903,8 @@ export default function InwardReport() {
             )}
           </>
         )}
-
-        {/* Upload Tab Content */}
-        {activeTab === 'upload' && (
-          <div className="p-6">
-            <Card className="border-border shadow-sm max-w-2xl mx-auto">
-              <CardHeader className="border-b border-border bg-muted/30">
-                <CardTitle className="flex items-center gap-2">
-                  <FileUp className="h-5 w-5" />
-                  Upload Inspection Lot Data
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <p className="text-muted-foreground mb-4">
-                      Upload a CSV or Excel file containing inspection lot data. The file should include columns for:
-                    </p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-muted-foreground mb-6">
-                      <Badge variant="outline">inspection_lot *</Badge>
-                      <Badge variant="outline">material_code *</Badge>
-                      <Badge variant="outline">plant *</Badge>
-                      <Badge variant="outline">blocked_quantity</Badge>
-                      <Badge variant="outline">vendor_code</Badge>
-                      <Badge variant="outline">vendor_name</Badge>
-                      <Badge variant="outline">po_number</Badge>
-                      <Badge variant="outline">block_reason</Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">* Required fields</p>
-                  </div>
-
-                  <div 
-                    className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                      isUploading ? 'border-primary/50 bg-primary/5' : 'border-border hover:border-primary/50'
-                    }`}
-                    onClick={() => !isUploading && fileInputRef.current?.click()}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".csv,.xlsx,.xls"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                      disabled={isUploading}
-                    />
-                    {isUploading ? (
-                      <>
-                        <Loader2 className="h-12 w-12 text-primary mx-auto mb-4 animate-spin" />
-                        <p className="text-lg font-medium mb-2">Processing file...</p>
-                        <p className="text-sm text-muted-foreground">
-                          Please wait while we parse and validate your data
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <p className="text-lg font-medium mb-2">
-                          Click to upload or drag and drop
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Supports CSV, XLS, XLSX files (max 10MB)
-                        </p>
-                      </>
-                    )}
-                  </div>
-
-                  {uploadStatus !== 'idle' && (
-                    <Alert variant={uploadStatus === 'success' ? 'default' : 'destructive'}>
-                      {uploadStatus === 'success' ? (
-                        <CheckCircle2 className="h-4 w-4" />
-                      ) : (
-                        <AlertCircle className="h-4 w-4" />
-                      )}
-                      <AlertTitle>
-                        {uploadStatus === 'success' ? 'Upload Successful' : 'Upload Failed'}
-                      </AlertTitle>
-                      <AlertDescription>{uploadMessage}</AlertDescription>
-                    </Alert>
-                  )}
-
-                  {parseResult && (
-                    <div className="text-sm bg-muted/50 rounded-lg p-4">
-                      <h4 className="font-medium mb-2">Parse Summary</h4>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>Total rows: {parseResult.totalRows}</div>
-                        <div>Valid rows: {parseResult.validRows}</div>
-                      </div>
-                      {parseResult.errors.length > 0 && (
-                        <div className="mt-2 text-destructive">
-                          <p className="font-medium">Errors ({parseResult.errors.length}):</p>
-                          <ul className="list-disc list-inside text-xs max-h-32 overflow-auto">
-                            {parseResult.errors.slice(0, 10).map((err, i) => (
-                              <li key={i}>{err}</li>
-                            ))}
-                            {parseResult.errors.length > 10 && (
-                              <li>... and {parseResult.errors.length - 10} more errors</li>
-                            )}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-4">
-                    <h4 className="font-medium mb-2">Template Download</h4>
-                    <p className="mb-3">
-                      Download the template file to ensure your data is in the correct format.
-                    </p>
-                    <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download CSV Template
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* API Integration Tab Content */}
-        {activeTab === 'api' && (
-          <div className="p-6">
-            <div className="max-w-4xl mx-auto space-y-6">
-              <Card className="border-border shadow-sm">
-                <CardHeader className="border-b border-border bg-muted/30">
-                  <CardTitle className="flex items-center gap-2">
-                    <Database className="h-5 w-5" />
-                    External System Integration
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <div className="space-y-6">
-                    <p className="text-muted-foreground">
-                      This screen integrates with external systems to fetch and sync inspection lot data automatically. 
-                      Data is pulled from SAP, ERP, and other connected systems.
-                    </p>
-
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {/* SAP Integration */}
-                      <Card className="border">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                                <Database className="h-5 w-5 text-blue-500" />
-                              </div>
-                              <div>
-                                <h4 className="font-medium">SAP QM</h4>
-                                <p className="text-xs text-muted-foreground">Quality Management</p>
-                              </div>
-                            </div>
-                            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30">
-                              Configure
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Fetches inspection lots, quality decisions, and blocked stock data.
-                          </p>
-                          <Button variant="outline" size="sm" className="w-full">
-                            Configure Connection
-                          </Button>
-                        </CardContent>
-                      </Card>
-
-                      {/* MM Integration */}
-                      <Card className="border">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
-                                <Database className="h-5 w-5 text-orange-500" />
-                              </div>
-                              <div>
-                                <h4 className="font-medium">SAP MM</h4>
-                                <p className="text-xs text-muted-foreground">Materials Management</p>
-                              </div>
-                            </div>
-                            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30">
-                              Configure
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Syncs vendor info, purchase orders, and GRN data.
-                          </p>
-                          <Button variant="outline" size="sm" className="w-full">
-                            Configure Connection
-                          </Button>
-                        </CardContent>
-                      </Card>
-
-                      {/* REST API */}
-                      <Card className="border">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                                <RefreshCw className="h-5 w-5 text-purple-500" />
-                              </div>
-                              <div>
-                                <h4 className="font-medium">REST API</h4>
-                                <p className="text-xs text-muted-foreground">Custom Integration</p>
-                              </div>
-                            </div>
-                            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30">
-                              Configure
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Connect to any REST API endpoint for data sync.
-                          </p>
-                          <Button variant="outline" size="sm" className="w-full">
-                            Configure Endpoint
-                          </Button>
-                        </CardContent>
-                      </Card>
-
-                      {/* Webhook */}
-                      <Card className="border">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center">
-                                <Database className="h-5 w-5 text-green-500" />
-                              </div>
-                              <div>
-                                <h4 className="font-medium">Webhooks</h4>
-                                <p className="text-xs text-muted-foreground">Push Notifications</p>
-                              </div>
-                            </div>
-                            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30">
-                              Configure
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Receive real-time updates from external systems.
-                          </p>
-                          <Button variant="outline" size="sm" className="w-full">
-                            View Webhook URL
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>API Configuration Required</AlertTitle>
-                      <AlertDescription>
-                        Configure your external system connections to enable automatic data synchronization. 
-                        Contact your administrator for API credentials and endpoint URLs.
-                      </AlertDescription>
-                    </Alert>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Upload Preview Modal */}
-      {parseResult && (
-        <UploadPreviewModal
-          isOpen={showPreview}
-          onClose={handleClosePreview}
-          parseResult={parseResult}
-          fileName={previewFileName}
-          onConfirmUpload={handleConfirmUpload}
-          isUploading={isUploading}
-        />
-      )}
 
       {/* Single MRB Creation Confirmation Dialog */}
       <AlertDialog open={showSingleConfirm} onOpenChange={setShowSingleConfirm}>
