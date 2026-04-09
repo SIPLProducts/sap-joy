@@ -91,6 +91,132 @@ function isLovableCloud(): boolean {
 }
 
 /**
+ * Route a fetch request through the Node.js proxy's POST /proxy endpoint.
+ * The proxy expects: { url, method, headers, body } in the request body
+ * and returns: { statusCode, headers, body } in the response.
+ */
+async function fetchViaProxy(
+  proxyBaseUrl: string,
+  targetUrl: string,
+  options: {
+    method: string;
+    headers: Record<string, string>;
+    body?: string;
+    proxySecret?: string;
+  }
+): Promise<{ ok: boolean; status: number; statusText: string; bodyText: string; headers: Record<string, string> }> {
+  const proxyEndpoint = `${proxyBaseUrl.replace(/\/$/, '')}/proxy`;
+
+  const proxyHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
+  };
+  if (options.proxySecret) {
+    proxyHeaders['x-proxy-secret'] = options.proxySecret;
+  }
+
+  // Build the forwarded headers (exclude proxy-specific ones)
+  const forwardHeaders = { ...options.headers };
+  delete forwardHeaders['x-proxy-secret'];
+  delete forwardHeaders['ngrok-skip-browser-warning'];
+
+  const proxyBody = {
+    url: targetUrl,
+    method: options.method,
+    headers: forwardHeaders,
+    body: options.body ? ((() => { try { return JSON.parse(options.body); } catch { return options.body; } })()) : undefined,
+  };
+
+  console.log(`[fetchViaProxy] POST ${proxyEndpoint} → ${options.method} ${targetUrl}`);
+
+  const response = await fetch(proxyEndpoint, {
+    method: 'POST',
+    headers: proxyHeaders,
+    body: JSON.stringify(proxyBody),
+  });
+
+  const responseText = await response.text();
+
+  // If the proxy itself fails (network error, unauthorized, etc.)
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status,
+      statusText: response.statusText,
+      bodyText: responseText,
+      headers: {},
+    };
+  }
+
+  // Parse the proxy's wrapped response
+  try {
+    const proxyResult = JSON.parse(responseText);
+    const sapStatus = proxyResult.statusCode || 200;
+    const sapBody = typeof proxyResult.body === 'string' ? proxyResult.body : JSON.stringify(proxyResult.body || '');
+    return {
+      ok: sapStatus >= 200 && sapStatus < 300,
+      status: sapStatus,
+      statusText: `SAP ${sapStatus}`,
+      bodyText: sapBody,
+      headers: proxyResult.headers || {},
+    };
+  } catch {
+    // Proxy returned non-JSON — treat as error
+    return {
+      ok: false,
+      status: 502,
+      statusText: 'Proxy returned invalid response',
+      bodyText: responseText,
+      headers: {},
+    };
+  }
+}
+
+/**
+ * Wrapper that replaces direct fetch() calls — routes through POST /proxy.
+ * Builds the real SAP target URL from config, then sends via proxy.
+ */
+async function proxyAwareFetch(
+  proxyBaseUrl: string,
+  sapTargetUrl: string,
+  fetchOpts: RequestInit,
+  config: any,
+): Promise<Response> {
+  const method = (fetchOpts.method || 'GET').toUpperCase();
+  const headers = fetchOpts.headers as Record<string, string> || {};
+  const bodyStr = fetchOpts.body as string | undefined;
+
+  const result = await fetchViaProxy(proxyBaseUrl, sapTargetUrl, {
+    method,
+    headers,
+    body: bodyStr,
+    proxySecret: config.proxy_secret,
+  });
+
+  // Create a Response-like object for backward compatibility
+  return new Response(result.bodyText, {
+    status: result.status,
+    statusText: result.statusText,
+  });
+}
+
+/**
+ * Build the real SAP target URL (not the proxy URL).
+ * This is what the proxy will call on SAP's side.
+ */
+function buildSapTargetUrl(config: any): string {
+  const base = (config.base_url || config.api_endpoint || '').replace(/\/$/, '');
+  const path = config.endpoint_path || '';
+  let url = `${base}${path}`;
+
+  if (config.sap_client && !/[?&]sap-client=/.test(url)) {
+    url += `${url.includes('?') ? '&' : '?'}sap-client=${config.sap_client}`;
+  }
+
+  return url;
+}
+
+/**
  * For self-hosted environments, call the Node.js middleware directly
  * from the browser (no edge function needed).
  */
@@ -173,15 +299,14 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
     return { data: null, error: { message: 'No proxy/tunnel URL configured. Set the Proxy URL in SAP API Settings.' } };
   }
 
-  // Build the target URL
-  const baseUrl = proxyUrl.replace(/\/$/, '');
-  const endpointPath = config.endpoint_path || '';
-  let url = `${baseUrl}${endpointPath}`;
+  // Build the real SAP target URL (what the proxy will call)
+  const sapTargetUrl = buildSapTargetUrl(config);
 
-  // Add sap-client if configured and not already in URL
-  if (config.sap_client && !/[?&]sap-client=/.test(url)) {
-    url += `${url.includes('?') ? '&' : '?'}sap-client=${config.sap_client}`;
-  }
+  // Build the proxy base URL (where the proxy is running)
+  const proxyBaseUrl = proxyUrl.replace(/\/$/, '');
+
+  // For backward compat, keep 'url' pointing to proxy endpoint for logging
+  const url = sapTargetUrl;
 
   // Build headers
   const headers: Record<string, string> = {
@@ -215,23 +340,23 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
 
   try {
     if (action === 'test') {
-      return await directTest(url, headers, config);
+      return await directTest(url, headers, config, proxyBaseUrl);
     }
 
     if (action === 'sync') {
-      return await directSync(url, headers, config, body);
+      return await directSync(url, headers, config, body, proxyBaseUrl);
     }
 
     if (action === 'unblock') {
-      return await directUnblock(url, headers, config, body);
+      return await directUnblock(url, headers, config, body, proxyBaseUrl);
     }
 
     if (action === 'update_transaction_qty') {
-      return await directUpdateQty(url, headers, config, body);
+      return await directUpdateQty(url, headers, config, body, proxyBaseUrl);
     }
 
     if (action === 'fetch_live') {
-      return await directFetchLive(url, headers, config, body);
+      return await directFetchLive(url, headers, config, body, proxyBaseUrl);
     }
 
     return { data: { success: false, error: 'Invalid action' }, error: null };
@@ -244,6 +369,7 @@ async function directTest(
   url: string,
   headers: Record<string, string>,
   config: any,
+  proxyBaseUrl: string,
 ): Promise<{ data: any; error: any }> {
   const method = (config.http_method || 'GET').toUpperCase();
   const start = Date.now();
@@ -253,7 +379,7 @@ async function directTest(
     fetchOpts.body = JSON.stringify({});
   }
 
-  const response = await fetch(url, fetchOpts);
+  const response = await proxyAwareFetch(proxyBaseUrl, url, fetchOpts, config);
   const elapsed = Date.now() - start;
   const bodyText = await response.text();
 
@@ -285,6 +411,7 @@ async function directSync(
   headers: Record<string, string>,
   config: any,
   body: Record<string, any>,
+  proxyBaseUrl: string,
 ): Promise<{ data: any; error: any }> {
   const method = (config.http_method || 'GET').toUpperCase();
   const debugLabel = `[SAP Sync Debug] ${config.config_name || config.endpoint_path || body.config_id || 'Unknown API'}`;
@@ -531,7 +658,7 @@ async function directSync(
       }
 
       console.log(`${debugLabel} Attempt: ${attempt.label}`);
-      const currentResponse = await fetch(attempt.requestUrl, attemptOpts);
+      const currentResponse = await proxyAwareFetch(proxyBaseUrl, attempt.requestUrl, attemptOpts, config);
       const currentBodyText = await currentResponse.text();
       const currentContentType = currentResponse.headers.get('content-type') || 'unknown';
       const currentPreview = currentBodyText.substring(0, 2000);
@@ -657,6 +784,7 @@ async function directUnblock(
   headers: Record<string, string>,
   config: any,
   body: Record<string, any>,
+  proxyBaseUrl: string,
 ): Promise<{ data: any; error: any }> {
   const { request_body } = body;
   if (!request_body) {
@@ -671,11 +799,11 @@ async function directUnblock(
   console.log(`[SAP Unblock API Request] Method: ${method}`);
   console.log(`[SAP Unblock API Request] Payload:`, payload);
 
-  const response = await fetch(url, {
+  const response = await proxyAwareFetch(proxyBaseUrl, url, {
     method,
     headers,
     body: JSON.stringify(payload),
-  });
+  }, config);
 
   const bodyText = await response.text();
   console.log(`[SAP Unblock API Response] Status: ${response.status}`);
@@ -720,6 +848,7 @@ async function directUpdateQty(
   headers: Record<string, string>,
   config: any,
   body: Record<string, any>,
+  proxyBaseUrl: string,
 ): Promise<{ data: any; error: any }> {
   const { lot_id, new_quantity, inspection_lot, material_code, plant, storage_location, batch } = body;
 
@@ -762,7 +891,7 @@ async function directUpdateQty(
       ACTION: 'UPDATE_QTY',
     };
 
-    const response = await fetch(url, { method, headers, body: JSON.stringify(sapPayload) });
+    const response = await proxyAwareFetch(proxyBaseUrl, url, { method, headers, body: JSON.stringify(sapPayload) }, config);
     const bodyText = await response.text();
 
     if (!response.ok) {
@@ -821,6 +950,7 @@ async function directFetchLive(
   headers: Record<string, string>,
   config: any,
   body: Record<string, any>,
+  proxyBaseUrl: string,
 ): Promise<{ data: any; error: any }> {
   const method = (config.http_method || 'POST').toUpperCase();
   const debugLabel = `[SAP Live Fetch] ${config.config_name || 'MB52'}`;
@@ -863,7 +993,7 @@ async function directFetchLive(
     }
 
     console.log(`${debugLabel} Fetching live data from SAP... URL: ${url}`);
-    const response = await fetch(url, fetchOpts);
+    const response = await proxyAwareFetch(proxyBaseUrl, url, fetchOpts, config);
     const bodyText = await response.text();
 
     if (!response.ok) {
