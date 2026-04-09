@@ -440,17 +440,7 @@ export default function InwardReport() {
             </div>
           </div>
         </div>
-      </div>
-
-
-      {/* Content Area */}
-      <div className="flex-1 overflow-auto bg-muted/30 min-h-0">
-        {/* Search Content */}
-        {true && (
-          <>
-            {/* Filter Section */}
-            <div className="px-6 py-4 border-b border-border bg-background">
-              <Card className="border-border shadow-sm overflow-hidden">
+          <Card className="mx-6 mb-4 border-border shadow-sm overflow-hidden">
                 <CardHeader className="border-b border-border bg-muted/30 py-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base font-semibold">Selection Criteria</CardTitle>
@@ -525,8 +515,14 @@ export default function InwardReport() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
+        </div>
 
+
+      {/* Content Area */}
+      <div className="flex-1 overflow-auto bg-muted/30 min-h-0">
+        {/* Search Content */}
+        {true && (
+          <>
             {/* Results Section */}
             {hasSearched && (
               <div className="h-full flex flex-col px-6 py-4 min-h-0">
