@@ -1,19 +1,23 @@
 
 
-## Plan: Make Selection Criteria Section Sticky as Part of the Header
+## Plan: Fix Sticky Header on Inward Materials Screen
 
-### Problem
-The filter section (Plant, Material Code, Vendor, Storage Location, Inspection Lot, Posting Date) scrolls away when users browse the data table, forcing them to scroll back up to change filters.
+### Root Cause
+The `<main className="flex-1 overflow-auto">` in `AppLayout.tsx` is the scroll container. When `<main>` scrolls, the "sticky" header inside `InwardReport.tsx` scrolls away with it — `sticky` only works relative to its nearest scrolling ancestor.
 
-### Change — Single file: `src/pages/InwardReport.tsx`
+### Changes
 
-Move the "Selection Criteria" card (lines 451–528) from the scrollable content area into the sticky header section (lines 411–443), so the page title, action buttons, and all filters remain pinned at the top while only the results table scrolls.
+**1. `src/components/layout/AppLayout.tsx` (line 28)**
+- Change `overflow-auto` → `overflow-hidden` on `<main>` so each page controls its own scrolling
 
-Specifically:
-1. Move the filter `Card` block (lines 452–528) inside the existing `sticky top-0 z-40 bg-background` div, right after the title/buttons row
-2. Remove the wrapping `<div className="px-6 py-4 border-b ...">` around it since the sticky header already has padding and border
-3. The scrollable area (`flex-1 overflow-auto`) will then contain only the results table and pagination
+**2. `src/pages/InwardReport.tsx`**
+- Line 409: Add `overflow-hidden` to root div
+- Line 411: Remove `sticky top-0 z-40` (unnecessary with flex layout — `flex-shrink-0` already keeps it pinned)
+- Ensure the results table area below has `flex-1 overflow-auto min-h-0` so it scrolls independently
+
+**3. Other pages safeguard**
+- Add `overflow-auto` to the root wrapper of pages that currently rely on `<main>` scrolling: Dashboard, Worklist, ShopFloorStockSelection, UserManagement, and all other list/detail pages. This is a one-line className addition per file.
 
 ### Result
-The entire top section — title bar, Refresh/Reset/Search buttons, and all Selection Criteria filters — stays visible at all times while the data table scrolls independently beneath it.
+Title bar + Selection Criteria filters stay permanently fixed at the top. Only the data table scrolls beneath them.
 
