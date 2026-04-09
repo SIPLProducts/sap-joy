@@ -123,16 +123,44 @@ export default function InwardReport() {
     fetchSapConfig();
   }, []);
 
-  // Update relative time every 30s
+  // Update relative time every 15s
   useEffect(() => {
     setRelativeTime(computeRelativeTime(lastSyncAt));
     setNextSyncIn(computeNextSync(lastSyncAt));
     const timer = setInterval(() => {
       setRelativeTime(computeRelativeTime(lastSyncAt));
       setNextSyncIn(computeNextSync(lastSyncAt));
-    }, 30_000);
+    }, 15_000);
     return () => clearInterval(timer);
   }, [lastSyncAt, computeRelativeTime, computeNextSync]);
+
+  // Auto-refresh data every 5 minutes
+  useEffect(() => {
+    const AUTO_REFRESH_MS = 5 * 60_000;
+    const interval = setInterval(async () => {
+      setIsAutoRefreshing(true);
+      try {
+        await refreshData();
+        // Re-fetch last_sync_at from DB for accuracy
+        const { data } = await supabase
+          .from('sap_api_config')
+          .select('last_sync_at')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (data && data.length > 0 && data[0].last_sync_at) {
+          setLastSyncAt(data[0].last_sync_at);
+        } else {
+          setLastSyncAt(new Date().toISOString());
+        }
+      } catch (err) {
+        console.error('Auto-refresh failed:', err);
+      } finally {
+        setIsAutoRefreshing(false);
+      }
+    }, AUTO_REFRESH_MS);
+    return () => clearInterval(interval);
+  }, [refreshData]);
 
   const handleStartEditQty = (record: InspectionLotRecord) => {
     setEditingQtyId(record.id);
