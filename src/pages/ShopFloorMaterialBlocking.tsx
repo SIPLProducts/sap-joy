@@ -251,7 +251,7 @@ export default function ShopFloorMaterialBlocking() {
 
       console.log('[MRB Submit] Calling SAP 344 Block API:', sapPayload);
       const sapRes = await invokeSapSync({
-        action: 'block',
+        action: 'unblock', // reuses same edge function action for transactional posting (works for both 343 and 344)
         config_id: config344.id,
         request_body: sapPayload,
       });
