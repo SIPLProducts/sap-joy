@@ -1,33 +1,61 @@
 
 
-## Plan: Fix MB52 Config Resolution — Wrong SAP Config Being Selected
+## Plan: Align MRB Submit SAP 344 Call with Block Selected Button Logic
 
-### Problem
-The Material Blocking search returns empty data because the wrong SAP config is selected. All three SAP configs share the same endpoint URL containing `/mrb/mb52/mat_stocks`. The `searchStockRecords` function in `useShopFloorStock.ts` uses `.find()` which returns the first match — currently the `SAP_344_Unrestricted_To_Blocked` config (http_method: `GET`), not the `MB52_Stock_Report` config (http_method: `POST`).
+### Two Problems
 
-With `GET`, the request body (WERKS, LGORT) is dropped (line 464 of edge function only attaches body for POST/PUT/PATCH), so SAP responds "Request Payload is empty".
+**1. Logout on submit** — `invokeSapSync` (line 1379 of `sapSyncClient.ts`) calls `refreshSession()` unconditionally. If the refresh token is stale (common on long form sessions), the Supabase SDK fires a `SIGNED_OUT` event, logging the user out before the SAP call even happens.
 
-### Evidence
-- Network request shows `config_id: a1000001-0001-0001-0001-000000000003` (the 344 config)
-- Edge function logs: `→ GET http://10.10.6.115:8000/mrb/mb52/mat_stocks` — should be POST
-- SAP response: `{"CODE":"200","MSG":"Request Payload is empty"}`
-- Correct config is `a1000001-0001-0001-0001-000000000001` (`MB52_Stock_Report`, http_method: `POST`)
+**2. Response parsing mismatch** — The "Block Selected" button (in `ShopFloorStockSelection.tsx`) checks `resData?.CODE === '100'` and `resData?.result?.CODE === '100'`. The MRB Submit (in `ShopFloorMaterialBlocking.tsx`) checks `sapData?.record?.CODE` — a path that doesn't exist in the actual SAP response, so it always fails even when SAP returns success.
 
-### Fix — Single file: `src/hooks/useShopFloorStock.ts` (lines 72–76)
+### Changes
 
-Change the config lookup to prioritize matching by **config_name** containing 'mb52' first, falling back to endpoint match only if no name match is found. This ensures `MB52_Stock_Report` is selected over `SAP_344` and `SAP_343` which happen to share the same endpoint path.
+**File 1: `src/lib/sapSyncClient.ts`** (lines 1377–1383)
+- Remove the unconditional `refreshSession()` call
+- Replace with: get session first, only refresh if token expires within 60 seconds
+- Wrap refresh in try-catch so failure doesn't trigger logout
+- Always proceed with existing token if refresh fails
 
-Updated logic:
+```typescript
+export async function invokeSapSync(body: Record<string, any>): Promise<{ data: any; error: any }> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    return { data: null, error: { message: 'Not authenticated. Please log in again.' } };
+  }
+
+  // Only refresh if token expires within 60 seconds
+  const expiresAt = session.expires_at || 0;
+  if (expiresAt - Math.floor(Date.now() / 1000) < 60) {
+    try {
+      await supabase.auth.refreshSession();
+    } catch (e) {
+      console.warn('[SAP Sync] Token refresh failed, proceeding with current token');
+    }
+  }
+  // ... rest unchanged
 ```
-1. First: find config where config_name contains 'mb52'
-2. Fallback: find config where endpoint contains 'mb52' (but name does NOT contain '343' or '344')
-3. If neither found, show empty data with warning
+
+**File 2: `src/pages/ShopFloorMaterialBlocking.tsx`** (lines 259–271)
+- Align response parsing with the working "Block Selected" pattern from `ShopFloorStockSelection.tsx`
+- Check `sapData?.CODE`, `sapData?.result?.CODE`, and `sapData?.success` (same as Block Selected)
+- Extract MBLNR from `sapData?.MBLNR`, `sapData?.result?.MBLNR`, `sapData?.data?.MBLNR`
+
+Replace:
+```typescript
+const sapCode = sapData?.record?.CODE || sapData?.CODE;
+const sapMblnr = sapData?.record?.MBLNR || sapData?.MBLNR;
+if (sapError || sapCode !== '100' || !sapMblnr) {
 ```
 
-Additionally, add a secondary safeguard: treat SAP error responses (where `CODE` exists but no stock fields like `MATNR`/`WERKS` are present) as errors rather than valid records, so users see a clear error message instead of an empty row.
+With:
+```typescript
+const isSuccess = sapData?.success || sapData?.CODE === '100' || sapData?.result?.CODE === '100';
+const sapMblnr = sapData?.MBLNR || sapData?.result?.MBLNR || sapData?.data?.MBLNR || '';
+if (sapError || !isSuccess) {
+```
 
 ### Result
-- The correct MB52 config (POST method) is always selected for stock searches
-- SAP receives the request payload correctly and returns actual stock data
-- Error responses from SAP are surfaced clearly instead of showing as empty rows
+- No more unexpected logouts during MRB submission
+- MRB Submit uses the exact same SAP 344 call and response parsing as the working "Block Selected" button
+- MRB record is created only after SAP confirms success (CODE 100)
 
