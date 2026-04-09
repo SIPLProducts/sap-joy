@@ -36,7 +36,7 @@ import {
 
 export default function ShopFloorStockSelection() {
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const { userRole } = useAuth();
   const { userPlants } = useUserPlants();
   
@@ -76,7 +76,7 @@ export default function ShopFloorStockSelection() {
   } = useShopFloorStock();
   
   // Tab state
-  const [activeTab, setActiveTab] = useState<'search' | 'upload' | 'api'>('search');
+  
   
   // Search form states (SAP payload fields)
   const [selectedPlant, setSelectedPlant] = useState('');
@@ -91,18 +91,8 @@ export default function ShopFloorStockSelection() {
   // Selection state
   const [selectedStock, setSelectedStock] = useState<ShopFloorStockRecord | null>(null);
 
-  // Upload states
-  const [showUploadPreview, setShowUploadPreview] = useState(false);
-  const [parseResult, setParseResult] = useState<ShopFloorStockParseResult | null>(null);
-  const [previewFileName, setPreviewFileName] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [uploadMessage, setUploadMessage] = useState('');
 
-  // SAP config states
-  const [showSAPConfig, setShowSAPConfig] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [configToDelete, setConfigToDelete] = useState<string | null>(null);
+
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
