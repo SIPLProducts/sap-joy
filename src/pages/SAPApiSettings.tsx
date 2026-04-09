@@ -365,6 +365,7 @@ export default function SAPApiSettings() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
           </Card>
