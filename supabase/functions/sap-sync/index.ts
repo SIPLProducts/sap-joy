@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
         const url = buildUrl(config)
         const headers = buildAuthHeaders(config)
         const method = (config.http_method || 'PUT').toUpperCase()
-        const timeout = config.timeout_ms || 30000
+        const timeout = config.timeout_ms || 60000
 
         const controller = new AbortController()
         const timer = setTimeout(() => controller.abort(), timeout)

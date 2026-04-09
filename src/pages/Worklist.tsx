@@ -489,13 +489,13 @@ export default function Worklist() {
     };
   };
 
-  // Format posting date from YYYY-MM-DD to YYMMDD for SAP
+  // Format posting date from YYYY-MM-DD to YYYYMMDD for SAP
   const formatPostingDateForSAP = (dateStr: string): string => {
     const d = new Date(dateStr);
-    const yy = String(d.getFullYear()).slice(-2);
+    const yyyy = String(d.getFullYear());
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
-    return `${yy}${mm}${dd}`;
+    return `${yyyy}${mm}${dd}`;
   };
 
   // Show posting date dialog instead of directly syncing
@@ -522,7 +522,7 @@ export default function Worklist() {
 
       // Build request body from MRB data
       const requestBody = await buildUnblockRequestBody(mrb);
-      // Add BUDAT (posting date) in YYMMDD format
+      // Add BUDAT (posting date) in YYYYMMDD format
       if (sapPostingDate) {
         (requestBody as any).BUDAT = formatPostingDateForSAP(sapPostingDate);
       }
@@ -539,7 +539,8 @@ export default function Worklist() {
       });
 
       if (response.error) {
-        throw new Error(response.error.message || 'SAP unblock edge function failed');
+        const errDetail = typeof response.error === 'object' ? (response.error.message || JSON.stringify(response.error)) : String(response.error);
+        throw new Error(errDetail || 'SAP unblock edge function failed');
       }
 
       const result = response.data;
