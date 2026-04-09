@@ -103,6 +103,7 @@ async function fetchViaProxy(
     headers: Record<string, string>;
     body?: string;
     proxySecret?: string;
+    rawAuth?: { username: string; password: string };
   }
 ): Promise<{ ok: boolean; status: number; statusText: string; bodyText: string; headers: Record<string, string> }> {
   const proxyEndpoint = `${proxyBaseUrl.replace(/\/$/, '')}/proxy`;
@@ -127,9 +128,15 @@ async function fetchViaProxy(
     body: options.body ? ((() => { try { return JSON.parse(options.body); } catch { return options.body; } })()) : undefined,
   };
 
-  // Also send raw credentials so proxy can rebuild Authorization header fresh
-  // This avoids encoding issues with special characters going through JSON serialization
-  if (forwardHeaders['Authorization']?.startsWith('Basic ')) {
+  // Prefer rawAuth (direct credentials) over Base64-decoded credentials
+  // This avoids corruption when SAP passwords contain special characters (#, @, !)
+  if (options.rawAuth?.username && options.rawAuth?.password) {
+    proxyBody.auth = {
+      username: options.rawAuth.username,
+      password: options.rawAuth.password,
+    };
+    console.log(`[fetchViaProxy] Using rawAuth — user="${options.rawAuth.username}", pass_length=${options.rawAuth.password.length}`);
+  } else if (forwardHeaders['Authorization']?.startsWith('Basic ')) {
     try {
       const decoded = atob(forwardHeaders['Authorization'].replace('Basic ', ''));
       const colonIdx = decoded.indexOf(':');
@@ -138,8 +145,11 @@ async function fetchViaProxy(
           username: decoded.substring(0, colonIdx),
           password: decoded.substring(colonIdx + 1),
         };
+        console.log(`[fetchViaProxy] Using Base64-decoded auth (fallback)`);
       }
-    } catch { /* ignore decode errors */ }
+    } catch {
+      console.warn(`[fetchViaProxy] Failed to decode Base64 Authorization header — no auth object sent`);
+    }
   }
 
   console.log(`[fetchViaProxy] POST ${proxyEndpoint} → ${options.method} ${targetUrl}`);
@@ -201,11 +211,17 @@ async function proxyAwareFetch(
   const headers = fetchOpts.headers as Record<string, string> || {};
   const bodyStr = fetchOpts.body as string | undefined;
 
+  // Extract raw credentials from config to pass directly (avoids Base64 corruption)
+  const rawAuth = config.username && config.encrypted_password
+    ? { username: String(config.username).trim(), password: String(config.encrypted_password).trim() }
+    : undefined;
+
   const result = await fetchViaProxy(proxyBaseUrl, sapTargetUrl, {
     method,
     headers,
     body: bodyStr,
     proxySecret: config.proxy_secret,
+    rawAuth,
   });
 
   // Create a Response-like object for backward compatibility

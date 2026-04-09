@@ -631,6 +631,7 @@ async function fetchViaProxy(
   body?: string,
   proxySecret?: string,
   timeout?: number,
+  rawAuth?: { username: string; password: string },
 ): Promise<Response> {
   const proxyEndpoint = `${proxyBaseUrl}/proxy`
 
@@ -650,9 +651,12 @@ async function fetchViaProxy(
     try { parsedBody = JSON.parse(body) } catch { parsedBody = body }
   }
 
-  // Extract raw credentials from Authorization header to avoid encoding issues
+  // Prefer rawAuth (direct credentials) over Base64-decoded credentials
   let authInfo: { username: string; password: string } | undefined
-  if (forwardHeaders['Authorization']?.startsWith('Basic ')) {
+  if (rawAuth?.username && rawAuth?.password) {
+    authInfo = rawAuth
+    console.log(`[fetchViaProxy] Using rawAuth — user="${rawAuth.username}", pass_length=${rawAuth.password.length}`)
+  } else if (forwardHeaders['Authorization']?.startsWith('Basic ')) {
     try {
       const decoded = atob(forwardHeaders['Authorization'].replace('Basic ', ''))
       const colonIdx = decoded.indexOf(':')
@@ -661,8 +665,11 @@ async function fetchViaProxy(
           username: decoded.substring(0, colonIdx),
           password: decoded.substring(colonIdx + 1),
         }
+        console.log(`[fetchViaProxy] Using Base64-decoded auth (fallback)`)
       }
-    } catch { /* ignore */ }
+    } catch {
+      console.warn(`[fetchViaProxy] Failed to decode Base64 Authorization header`)
+    }
   }
 
   const proxyPayload: Record<string, any> = {
@@ -725,8 +732,13 @@ async function proxyAwareFetch(config: any, targetUrl: string, fetchOpts: Reques
   const headers = fetchOpts.headers as Record<string, string> || {}
   const body = fetchOpts.body as string | undefined
 
+  // Extract raw credentials from config to pass directly (avoids Base64 corruption with special chars)
+  const rawAuth = config.username && config.encrypted_password
+    ? { username: String(config.username).trim(), password: String(config.encrypted_password).trim() }
+    : undefined
+
   if (proxyBaseUrl) {
-    return fetchViaProxy(proxyBaseUrl, targetUrl, method, headers, body, config.proxy_secret, config.timeout_ms)
+    return fetchViaProxy(proxyBaseUrl, targetUrl, method, headers, body, config.proxy_secret, config.timeout_ms, rawAuth)
   }
 
   // Direct mode (no proxy)
