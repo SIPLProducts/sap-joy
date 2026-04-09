@@ -345,26 +345,6 @@ export default function ShopFloorStockSelection() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {selectedStocks.size > 0 && (
-                <Button
-                  variant="destructive"
-                  onClick={handleBlockSelected}
-                  disabled={isBlocking}
-                  className="gap-2"
-                >
-                  {isBlocking ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Blocking {blockProgress.current}/{blockProgress.total}...
-                    </>
-                  ) : (
-                    <>
-                      <ShieldAlert className="h-4 w-4" />
-                      Block Selected ({selectedStocks.size})
-                    </>
-                  )}
-                </Button>
-              )}
               <Button variant="outline" onClick={handleRefreshData} disabled={isLoading}>
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                 Refresh
@@ -488,6 +468,26 @@ export default function ShopFloorStockSelection() {
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
+                    {selectedStocks.size > 0 && (
+                      <Button
+                        variant="destructive"
+                        onClick={handleBlockSelected}
+                        disabled={isBlocking}
+                        className="gap-2"
+                      >
+                        {isBlocking ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Blocking {blockProgress.current}/{blockProgress.total}...
+                          </>
+                        ) : (
+                          <>
+                            <ShieldAlert className="h-4 w-4" />
+                            Block Selected ({selectedStocks.size})
+                          </>
+                        )}
+                      </Button>
+                    )}
                     {selectedStocksData.length === 1 && (
                       <Button variant="outline" onClick={handleProceed} className="gap-2">
                         Proceed to MRB
