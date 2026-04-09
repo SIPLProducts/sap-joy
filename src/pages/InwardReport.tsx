@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { CalendarDays } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { CalendarDays, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, RefreshCw, AlertCircle, CheckCircle2, Loader2, Layers, XCircle, Save, X } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -76,27 +77,61 @@ export default function InwardReport() {
 
   // SAP config for ZMRB01/04 (Inward Report endpoint)
   const [sapConfigId, setSapConfigId] = useState<string | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const [relativeTime, setRelativeTime] = useState<string>('');
+  const [nextSyncIn, setNextSyncIn] = useState<string>('');
+
+  // Helper to compute relative time string
+  const computeRelativeTime = useCallback((isoStr: string | null) => {
+    if (!isoStr) return 'Never';
+    const diff = Date.now() - new Date(isoStr).getTime();
+    if (diff < 60_000) return 'Just now';
+    if (diff < 3600_000) return `${Math.floor(diff / 60_000)} min ago`;
+    if (diff < 86400_000) return `${Math.floor(diff / 3600_000)}h ago`;
+    return new Date(isoStr).toLocaleString();
+  }, []);
+
+  const computeNextSync = useCallback((isoStr: string | null) => {
+    if (!isoStr) return 'Soon';
+    const next = new Date(isoStr).getTime() + 5 * 60_000; // 5-min schedule
+    const remaining = next - Date.now();
+    if (remaining <= 0) return 'Any moment';
+    const mins = Math.ceil(remaining / 60_000);
+    return `~${mins} min`;
+  }, []);
 
   // Fetch the inward SAP API config on mount
   useEffect(() => {
     const fetchSapConfig = async () => {
-      const { data } = await (await import('@/integrations/supabase/client')).supabase
+      const { data } = await supabase
         .from('sap_api_config')
-        .select('id, config_name')
+        .select('id, config_name, last_sync_at')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
       
       if (data && data.length > 0) {
-        // Prefer ZMRB or inward config, else fallback to first active
         const inwardConfig = data.find(c => 
           c.config_name.toLowerCase().includes('zmrb') || 
           c.config_name.toLowerCase().includes('inward')
         );
-        setSapConfigId(inwardConfig?.id || data[0].id);
+        const chosen = inwardConfig || data[0];
+        setSapConfigId(chosen.id);
+        setLastSyncAt(chosen.last_sync_at);
       }
     };
     fetchSapConfig();
   }, []);
+
+  // Update relative time every 30s
+  useEffect(() => {
+    setRelativeTime(computeRelativeTime(lastSyncAt));
+    setNextSyncIn(computeNextSync(lastSyncAt));
+    const timer = setInterval(() => {
+      setRelativeTime(computeRelativeTime(lastSyncAt));
+      setNextSyncIn(computeNextSync(lastSyncAt));
+    }, 30_000);
+    return () => clearInterval(timer);
+  }, [lastSyncAt, computeRelativeTime, computeNextSync]);
 
   const handleStartEditQty = (record: InspectionLotRecord) => {
     setEditingQtyId(record.id);
