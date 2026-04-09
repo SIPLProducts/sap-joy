@@ -1,42 +1,41 @@
 
-## Plan: Fix Remaining Multi-Selection Bug on Material Blocking Screen
 
-### What’s actually happening
-The earlier row-click fix was correct, but it did not solve the real remaining bug.
+## Plan: Call SAP 344 Block API on MRB Submit — Create MRB Only on Success
 
-This screen is running through Lovable Cloud, so MB52 data is coming from the backend `fetch_live` path. In that path, the returned rows do not guarantee a unique row `id`. That means multiple rows can share the same `stock.id` value, or have no usable id at all. Because the page uses `stock.id` for both React row keys and checkbox state, one click can mark several rows as selected.
+### Problem
+In `ShopFloorMaterialBlocking.tsx` (line 254–255), the SAP material document number is **simulated** with a random string. The MRB record is created regardless of SAP status. The user wants: call SAP 344 first, and only create the MRB if SAP returns success.
 
-This also matches the console warning about non-unique `key` props.
+### Changes — Single file: `src/pages/ShopFloorMaterialBlocking.tsx`
 
-### Changes
+**1. Import `invokeSapSync`** from `@/lib/sapSyncClient`
 
-1. **Fix live MB52 row mapping in `supabase/functions/sap-sync/index.ts`**
-   - guarantee a unique internal id for every returned stock row
-   - normalize the response shape so it matches what the page expects (`plant`, `material_code`, `batch`, `storage_location`, `available_quantity`, etc.)
-   - keep numeric quantity conversion and default metadata (`source`, `status`, `created_at`)
+**2. Reorder `handleSubmit` (lines 212–278):**
 
-2. **Make the UI defensive in `src/pages/ShopFloorStockSelection.tsx`**
-   - stop depending only on raw `stock.id`
-   - add a stable row-key helper with fallback logic
-   - use that same key for:
-     - React table row keys
-     - individual checkbox selection
-     - “All” checkbox on the current page
-     - selected-row highlighting
-     - selected-row lookup for Block and Proceed actions
+- **Step 1 — Call SAP 344 API first** (before creating MRB)
+  - Look up active 344 config from `sap_api_config` (name/endpoint contains "344")
+  - Build payload: `MATNR` (stockItem.materialCode), `WERKS` (stockItem.plant), `LGORT` (stockItem.storageLocation), `CHARG` (stockItem.batch), `ENTRY_QNT` (blockQuantity), `ENTRY_UOM` (stockItem.uom), `BUDAT` (postingDate formatted as YYYYMMDD)
+  - Call `invokeSapSync({ action: 'unblock', config_id, request_body: payload })`
+  - If SAP fails (no CODE 100 / no MBLNR) → show error toast, **stop**, do NOT create MRB
+  - If SAP succeeds → extract real `MBLNR`
 
-3. **Keep selection count aligned with actual rows**
-   - derive selected row data from the same stable key logic so one click always means one selected row
+- **Step 2 — Create MRB record only after SAP success**
+  - Move existing `createMRB(...)` call to after SAP confirmation
+  - Use the real SAP Material Document number instead of the fake one
 
-4. **Verify the exact user flow**
-   - search stock on the Material Blocking screen
-   - click one checkbox and confirm only that row gets selected
-   - test repeated material rows to confirm they no longer select together
-   - test the header “All” checkbox for current page only
-   - confirm the React unique-key warning is gone
+- **Step 3 — Update stock status and show confirmation**
+  - Same as current: update `shop_floor_stock` status to `mrb_created`
+  - Display real MBLNR from SAP in the success screen
+
+**3. Error handling**
+- SAP 344 fails → "SAP blocking failed — MRB not created. Please retry."
+- SAP succeeds but MRB DB insert fails → warning with the SAP document number so user knows block happened in SAP
+
+### Technical Detail
+Reuses the exact same `invokeSapSync` call pattern already working in `ShopFloorStockSelection.tsx` (lines 252–334). Posting date uses `postingDate.replace(/-/g, '')` for YYYYMMDD format.
 
 ### Result
-- one checkbox selects only one row
-- repeated SAP rows no longer share selection state
-- bulk blocking runs only for the rows the user actually selected
-- cloud behavior becomes consistent and reliable
+- SAP 344 is called when clicking Submit on the MRB form
+- MRB document is created only after SAP confirms successful blocking (CODE 100)
+- Real SAP Material Document number is stored and displayed
+- No orphan MRB records when SAP is unreachable
+
