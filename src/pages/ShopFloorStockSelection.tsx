@@ -422,11 +422,27 @@ export default function ShopFloorStockSelection() {
 
                       {/* Pagination */}
                       {totalPages > 1 && (
-                        <div className="flex items-center justify-between mt-4">
-                          <p className="text-sm text-muted-foreground">
-                            Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredStock.length)} of {filteredStock.length}
-                          </p>
-                          <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center justify-between mt-4 gap-4">
+                          <div className="flex items-center gap-4">
+                            <p className="text-sm text-muted-foreground">
+                              Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, filteredStock.length)} of {filteredStock.length}
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-muted-foreground">Rows:</span>
+                              <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
+                                <SelectTrigger className="w-[80px] h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="25">25</SelectItem>
+                                  <SelectItem value="50">50</SelectItem>
+                                  <SelectItem value="100">100</SelectItem>
+                                  <SelectItem value="200">200</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
                             <Button
                               variant="outline"
                               size="sm"
@@ -435,7 +451,21 @@ export default function ShopFloorStockSelection() {
                             >
                               <ChevronLeft className="h-4 w-4" />
                             </Button>
-                            <span className="text-sm">Page {currentPage} of {totalPages}</span>
+                            {getPageNumbers().map((page, idx) =>
+                              page === 'ellipsis' ? (
+                                <span key={`e-${idx}`} className="px-2 text-muted-foreground">…</span>
+                              ) : (
+                                <Button
+                                  key={page}
+                                  variant={currentPage === page ? 'default' : 'outline'}
+                                  size="sm"
+                                  className="w-8 h-8 p-0"
+                                  onClick={() => setCurrentPage(page)}
+                                >
+                                  {page}
+                                </Button>
+                              )
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
@@ -444,6 +474,20 @@ export default function ShopFloorStockSelection() {
                             >
                               <ChevronRight className="h-4 w-4" />
                             </Button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">Go to:</span>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={totalPages}
+                              value={goToPageInput}
+                              onChange={(e) => setGoToPageInput(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && handleGoToPage()}
+                              className="w-16 h-8"
+                              placeholder="#"
+                            />
+                            <Button size="sm" variant="outline" className="h-8" onClick={handleGoToPage}>Go</Button>
                           </div>
                         </div>
                       )}
