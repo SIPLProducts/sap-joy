@@ -732,8 +732,13 @@ async function proxyAwareFetch(config: any, targetUrl: string, fetchOpts: Reques
   const headers = fetchOpts.headers as Record<string, string> || {}
   const body = fetchOpts.body as string | undefined
 
+  // Extract raw credentials from config to pass directly (avoids Base64 corruption with special chars)
+  const rawAuth = config.username && config.encrypted_password
+    ? { username: String(config.username).trim(), password: String(config.encrypted_password).trim() }
+    : undefined
+
   if (proxyBaseUrl) {
-    return fetchViaProxy(proxyBaseUrl, targetUrl, method, headers, body, config.proxy_secret, config.timeout_ms)
+    return fetchViaProxy(proxyBaseUrl, targetUrl, method, headers, body, config.proxy_secret, config.timeout_ms, rawAuth)
   }
 
   // Direct mode (no proxy)
