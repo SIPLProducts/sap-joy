@@ -901,7 +901,6 @@ export default function InwardReport() {
                 </Card>
               </div>
             )}
-         )}
           </>
         )}
       </div>
