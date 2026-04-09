@@ -299,15 +299,14 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
     return { data: null, error: { message: 'No proxy/tunnel URL configured. Set the Proxy URL in SAP API Settings.' } };
   }
 
-  // Build the target URL
-  const baseUrl = proxyUrl.replace(/\/$/, '');
-  const endpointPath = config.endpoint_path || '';
-  let url = `${baseUrl}${endpointPath}`;
+  // Build the real SAP target URL (what the proxy will call)
+  const sapTargetUrl = buildSapTargetUrl(config);
 
-  // Add sap-client if configured and not already in URL
-  if (config.sap_client && !/[?&]sap-client=/.test(url)) {
-    url += `${url.includes('?') ? '&' : '?'}sap-client=${config.sap_client}`;
-  }
+  // Build the proxy base URL (where the proxy is running)
+  const proxyBaseUrl = proxyUrl.replace(/\/$/, '');
+
+  // For backward compat, keep 'url' pointing to proxy endpoint for logging
+  const url = sapTargetUrl;
 
   // Build headers
   const headers: Record<string, string> = {
