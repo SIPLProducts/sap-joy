@@ -91,6 +91,132 @@ function isLovableCloud(): boolean {
 }
 
 /**
+ * Route a fetch request through the Node.js proxy's POST /proxy endpoint.
+ * The proxy expects: { url, method, headers, body } in the request body
+ * and returns: { statusCode, headers, body } in the response.
+ */
+async function fetchViaProxy(
+  proxyBaseUrl: string,
+  targetUrl: string,
+  options: {
+    method: string;
+    headers: Record<string, string>;
+    body?: string;
+    proxySecret?: string;
+  }
+): Promise<{ ok: boolean; status: number; statusText: string; bodyText: string; headers: Record<string, string> }> {
+  const proxyEndpoint = `${proxyBaseUrl.replace(/\/$/, '')}/proxy`;
+
+  const proxyHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
+  };
+  if (options.proxySecret) {
+    proxyHeaders['x-proxy-secret'] = options.proxySecret;
+  }
+
+  // Build the forwarded headers (exclude proxy-specific ones)
+  const forwardHeaders = { ...options.headers };
+  delete forwardHeaders['x-proxy-secret'];
+  delete forwardHeaders['ngrok-skip-browser-warning'];
+
+  const proxyBody = {
+    url: targetUrl,
+    method: options.method,
+    headers: forwardHeaders,
+    body: options.body ? ((() => { try { return JSON.parse(options.body); } catch { return options.body; } })()) : undefined,
+  };
+
+  console.log(`[fetchViaProxy] POST ${proxyEndpoint} → ${options.method} ${targetUrl}`);
+
+  const response = await fetch(proxyEndpoint, {
+    method: 'POST',
+    headers: proxyHeaders,
+    body: JSON.stringify(proxyBody),
+  });
+
+  const responseText = await response.text();
+
+  // If the proxy itself fails (network error, unauthorized, etc.)
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status,
+      statusText: response.statusText,
+      bodyText: responseText,
+      headers: {},
+    };
+  }
+
+  // Parse the proxy's wrapped response
+  try {
+    const proxyResult = JSON.parse(responseText);
+    const sapStatus = proxyResult.statusCode || 200;
+    const sapBody = typeof proxyResult.body === 'string' ? proxyResult.body : JSON.stringify(proxyResult.body || '');
+    return {
+      ok: sapStatus >= 200 && sapStatus < 300,
+      status: sapStatus,
+      statusText: `SAP ${sapStatus}`,
+      bodyText: sapBody,
+      headers: proxyResult.headers || {},
+    };
+  } catch {
+    // Proxy returned non-JSON — treat as error
+    return {
+      ok: false,
+      status: 502,
+      statusText: 'Proxy returned invalid response',
+      bodyText: responseText,
+      headers: {},
+    };
+  }
+}
+
+/**
+ * Wrapper that replaces direct fetch() calls — routes through POST /proxy.
+ * Builds the real SAP target URL from config, then sends via proxy.
+ */
+async function proxyAwareFetch(
+  proxyBaseUrl: string,
+  sapTargetUrl: string,
+  fetchOpts: RequestInit,
+  config: any,
+): Promise<Response> {
+  const method = (fetchOpts.method || 'GET').toUpperCase();
+  const headers = fetchOpts.headers as Record<string, string> || {};
+  const bodyStr = fetchOpts.body as string | undefined;
+
+  const result = await fetchViaProxy(proxyBaseUrl, sapTargetUrl, {
+    method,
+    headers,
+    body: bodyStr,
+    proxySecret: config.proxy_secret,
+  });
+
+  // Create a Response-like object for backward compatibility
+  return new Response(result.bodyText, {
+    status: result.status,
+    statusText: result.statusText,
+  });
+}
+
+/**
+ * Build the real SAP target URL (not the proxy URL).
+ * This is what the proxy will call on SAP's side.
+ */
+function buildSapTargetUrl(config: any): string {
+  const base = (config.base_url || config.api_endpoint || '').replace(/\/$/, '');
+  const path = config.endpoint_path || '';
+  let url = `${base}${path}`;
+
+  if (config.sap_client && !/[?&]sap-client=/.test(url)) {
+    url += `${url.includes('?') ? '&' : '?'}sap-client=${config.sap_client}`;
+  }
+
+  return url;
+}
+
+/**
  * For self-hosted environments, call the Node.js middleware directly
  * from the browser (no edge function needed).
  */
