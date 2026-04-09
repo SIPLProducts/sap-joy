@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award, UserPlus, Eye, EyeOff, Zap, WifiOff, RefreshCw, Activity, Trash2, AlertTriangle } from 'lucide-react';
+import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award, UserPlus, Eye, EyeOff, WifiOff, RefreshCw, Activity, Trash2, AlertTriangle } from 'lucide-react';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHealthCheck, ConnectionStatus } from '@/hooks/useHealthCheck';
 import { Alert, AlertDescription } from '@/components/ui/alert';
