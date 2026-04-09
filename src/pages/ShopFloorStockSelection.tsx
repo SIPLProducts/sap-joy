@@ -303,13 +303,14 @@ export default function ShopFloorStockSelection() {
         });
 
         const resData = res.data;
-        if (resData?.success || resData?.CODE === '100' || resData?.result?.CODE === '100') {
-          const docNum = resData?.MBLNR || resData?.result?.MBLNR || resData?.data?.MBLNR || '';
+        // Normalized: backend returns success=true only when CODE=100
+        if (resData?.success === true) {
+          const docNum = resData?.material_document || resData?.MBLNR || resData?.sap_response?.MBLNR || '';
           successCount++;
           results.push({ material: item.material_code, success: true, doc: docNum });
         } else {
           failCount++;
-          const errMsg = resData?.error || resData?.MESSAGE || resData?.result?.MESSAGE || 'Unknown error';
+          const errMsg = resData?.message || resData?.MESSAGE || resData?.error || 'Unknown error';
           results.push({ material: item.material_code, success: false, error: errMsg });
         }
       } catch (err) {

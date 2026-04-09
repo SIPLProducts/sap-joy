@@ -259,13 +259,13 @@ export default function ShopFloorMaterialBlocking() {
       const sapData = sapRes.data;
       const sapError = sapRes.error;
 
-      // Check for SAP success — aligned with "Block Selected" button logic in ShopFloorStockSelection
-      const isSuccess = sapData?.success || sapData?.CODE === '100' || sapData?.result?.CODE === '100';
-      const sapMblnr = sapData?.MBLNR || sapData?.result?.MBLNR || sapData?.data?.MBLNR || '';
+      // Normalized response: backend returns success=true only when CODE=100
+      const isSuccess = sapData?.success === true;
+      const sapMblnr = sapData?.material_document || sapData?.MBLNR || sapData?.sap_response?.MBLNR || '';
 
       if (sapError || !isSuccess) {
-        const errMsg = sapData?.result?.MESSAGE || sapData?.MESSAGE || sapData?.error || sapError?.message || 'SAP did not return a success response';
-        console.error('[MRB Submit] SAP 344 failed:', errMsg);
+        const errMsg = sapData?.message || sapData?.MESSAGE || sapData?.error || sapError?.message || 'SAP did not return a success response';
+        console.error('[MRB Submit] SAP 344 failed:', errMsg, sapData);
         toast.error(`SAP blocking failed — MRB not created. ${errMsg}`);
         setIsSubmitting(false);
         return;
