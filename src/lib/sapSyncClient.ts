@@ -340,23 +340,23 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
 
   try {
     if (action === 'test') {
-      return await directTest(url, headers, config);
+      return await directTest(url, headers, config, proxyBaseUrl);
     }
 
     if (action === 'sync') {
-      return await directSync(url, headers, config, body);
+      return await directSync(url, headers, config, body, proxyBaseUrl);
     }
 
     if (action === 'unblock') {
-      return await directUnblock(url, headers, config, body);
+      return await directUnblock(url, headers, config, body, proxyBaseUrl);
     }
 
     if (action === 'update_transaction_qty') {
-      return await directUpdateQty(url, headers, config, body);
+      return await directUpdateQty(url, headers, config, body, proxyBaseUrl);
     }
 
     if (action === 'fetch_live') {
-      return await directFetchLive(url, headers, config, body);
+      return await directFetchLive(url, headers, config, body, proxyBaseUrl);
     }
 
     return { data: { success: false, error: 'Invalid action' }, error: null };
