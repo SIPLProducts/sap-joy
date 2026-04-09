@@ -483,7 +483,7 @@ export default function SAPSyncMonitor() {
                   ) : (
                     <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                       <Table>
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                           <TableRow>
                             <TableHead className="text-xs whitespace-nowrap">#</TableHead>
                             {allColumns.map(key => (
