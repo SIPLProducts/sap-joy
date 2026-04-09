@@ -110,7 +110,7 @@ export default function UserProfile() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-3xl space-y-6">
+    <div className="container mx-auto p-6 max-w-3xl space-y-6 overflow-auto h-full">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">My Profile</h1>

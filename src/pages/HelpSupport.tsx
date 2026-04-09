@@ -96,7 +96,7 @@ const HelpSupport: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-auto">
       {/* Sticky Header */}
       <div className="sticky top-0 z-10 bg-background border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">

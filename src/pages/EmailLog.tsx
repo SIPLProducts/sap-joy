@@ -56,7 +56,7 @@ export default function EmailLog() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-muted/30 overflow-auto h-full">
       <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm">
         <div className="px-6 py-4 flex items-center justify-between">
           <div>
