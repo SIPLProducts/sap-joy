@@ -1,21 +1,43 @@
 
 
-## Plan: Match User Management Scroll Pattern on Inward Materials Screen
+## Plan: Fix MB52 Live Fetch Not Returning Data on Material Blocking Screen
 
-### What the User Management Screen Does
-The page body scrolls normally (header, stats cards, filters all scroll together). The **data table** sits inside a `max-h-[60vh] overflow-auto` container with `sticky top-0` on `TableHeader` — so column headers stay visible while table rows scroll.
+### Root Cause
+Two bugs in the **edge function** `sap-sync/index.ts` `fetch_live` handler:
 
-### What Inward Materials Currently Does
-The entire header + filters are locked in place (`flex-shrink-0 overflow-hidden`) and the content area below scrolls via `flex-1 overflow-auto`. This means the filters always consume screen space, leaving less room for data.
+1. **Search params ignored**: The client sends WERKS/LGORT as `body.search_params`, but the edge function only merges `body.request_body` (line 439). So the user's plant/storage location selections never reach SAP.
 
-### Change — `src/pages/InwardReport.tsx`
+2. **Wrong field mapping keys**: The edge function maps records using `field.field_name` (e.g., `WERKS`, `MATNR`) as output keys. But the client expects `map_to_column` values (e.g., `plant`, `material_code`). Records without `plant` and `material_code` keys are filtered out, so the UI shows nothing.
 
-1. **Remove the flex-column pinned-header layout**: Change the root div from `flex flex-col h-full overflow-hidden` to a simple `overflow-auto h-full` scrollable page (like User Management)
-2. **Remove `flex-shrink-0`** from the header/filter section — let it scroll with the page
-3. **Wrap the results Table** in `<div className="max-h-[60vh] overflow-auto">` and keep `<TableHeader className="sticky top-0 z-20 bg-muted/80 backdrop-blur-sm">` — this gives the table its own scroll with sticky column headers
-4. Remove the outer `flex-1 overflow-auto min-h-0` wrapper around the content area since the page itself now scrolls
+The SAP API **is connected and returning data** (confirmed in logs: 392KB responses with stock records). The data is just lost in translation.
+
+### Changes — Single file: `supabase/functions/sap-sync/index.ts`
+
+**Fix 1** (around line 439): Also merge `body.search_params` into the request payload:
+```typescript
+if (body.request_body && typeof body.request_body === 'object') {
+  Object.assign(requestPayload, body.request_body)
+}
+// Also merge search_params from the UI (WERKS, LGORT, MATNR, MATART)
+if (body.search_params && typeof body.search_params === 'object') {
+  for (const [key, value] of Object.entries(body.search_params)) {
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      requestPayload[key] = String(value).trim()
+    }
+  }
+}
+```
+
+**Fix 2** (line 493): Use `map_to_column` instead of `field_name` as the output key:
+```typescript
+const outKey = field.map_to_column || field.field_name
+mapped[outKey] = item[sapKey] ?? null
+```
 
 ### Result
-- Page scrolls normally: title, filters, bulk actions all scroll up naturally
-- Data table has its own scroll area (60vh) with column headers always visible — exactly like User Management
+- User selects Plant + Storage Location and clicks Search
+- Edge function sends WERKS/LGORT to SAP via proxy
+- SAP returns MB52 stock records
+- Records are mapped with correct column names (`plant`, `material_code`, `available_quantity`, etc.)
+- UI displays the stock data in the table
 
