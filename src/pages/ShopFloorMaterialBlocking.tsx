@@ -452,7 +452,7 @@ export default function ShopFloorMaterialBlocking() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-muted/30 overflow-auto h-full">
       {/* Header */}
       <div className="sticky top-0 z-40 bg-card border-b border-border shadow-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">

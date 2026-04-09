@@ -47,7 +47,7 @@ const ProposalGenerator = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-auto h-full">
       <style>{proposalStyles}</style>
 
       <div>

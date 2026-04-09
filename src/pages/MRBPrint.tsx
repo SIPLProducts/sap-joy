@@ -622,7 +622,7 @@ const MRBPrint = () => {
   );
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="space-y-6 p-4 md:p-6 overflow-auto h-full">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

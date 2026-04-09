@@ -461,7 +461,7 @@ export default function KPIDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-muted/30 overflow-auto h-full">
       {/* Welcome + Header */}
       <div className="sticky top-0 z-40 bg-gradient-to-br from-primary/10 via-background to-accent/10 border-b border-border shadow-sm">
         <div className="px-6 py-6">

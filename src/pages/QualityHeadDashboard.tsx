@@ -213,7 +213,7 @@ export default function QualityHeadDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-muted/30 overflow-auto h-full">
       <div className="bg-card border-b border-border sticky top-0 z-10">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between flex-wrap gap-4">

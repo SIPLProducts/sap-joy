@@ -213,7 +213,7 @@ export default function RoleMatrix() {
   const selectedRoleData = ROLES.find(r => r.value === selectedRole);
 
   return (
-    <div className="container mx-auto p-4 md:p-6 space-y-5 max-w-6xl">
+    <div className="container mx-auto p-4 md:p-6 space-y-5 max-w-6xl overflow-auto h-full">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
