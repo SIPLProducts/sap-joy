@@ -518,24 +518,115 @@ Deno.serve(async (req) => {
   }
 })
 
-// Build the full URL based on connection mode
-function buildUrl(config: any): string {
-  let url: string
-  if (config.connection_mode === 'vpn_tunnel' && config.proxy_tunnel_url) {
-    url = `${config.proxy_tunnel_url.replace(/\/$/, '')}${config.endpoint_path || ''}`
-  } else if (config.connection_mode === 'proxy' && config.proxy_tunnel_url) {
-    url = `${config.proxy_tunnel_url.replace(/\/$/, '')}${config.endpoint_path || ''}`
-  } else {
-    const base = config.base_url || ''
-    const path = config.endpoint_path || config.api_endpoint || ''
-    url = `${base.replace(/\/$/, '')}${path}`
-  }
+// Build the SAP target URL (what SAP actually receives)
+function buildSapTargetUrl(config: any): string {
+  const base = (config.base_url || config.api_endpoint || '').replace(/\/$/, '')
+  const path = config.endpoint_path || ''
+  let url = `${base}${path}`
 
   if (config.sap_client && !/[?&]sap-client=/.test(url)) {
     url += `${url.includes('?') ? '&' : '?'}sap-client=${config.sap_client}`
   }
 
   return url
+}
+
+// Get proxy base URL
+function getProxyBaseUrl(config: any): string | null {
+  if ((config.connection_mode === 'vpn_tunnel' || config.connection_mode === 'proxy' || config.connection_mode === 'internal') && config.proxy_tunnel_url) {
+    return config.proxy_tunnel_url.replace(/\/$/, '')
+  }
+  return null
+}
+
+// Route fetch through the proxy's POST /proxy endpoint
+async function fetchViaProxy(
+  proxyBaseUrl: string,
+  targetUrl: string,
+  method: string,
+  headers: Record<string, string>,
+  body?: string,
+  proxySecret?: string,
+  timeout?: number,
+): Promise<Response> {
+  const proxyEndpoint = `${proxyBaseUrl}/proxy`
+
+  const proxyHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  if (proxySecret) {
+    proxyHeaders['x-proxy-secret'] = proxySecret
+  }
+
+  // Forward headers (exclude proxy-specific)
+  const forwardHeaders = { ...headers }
+  delete forwardHeaders['x-proxy-secret']
+
+  let parsedBody: any = undefined
+  if (body) {
+    try { parsedBody = JSON.parse(body) } catch { parsedBody = body }
+  }
+
+  const proxyPayload = {
+    url: targetUrl,
+    method,
+    headers: forwardHeaders,
+    body: parsedBody,
+  }
+
+  console.log(`[fetchViaProxy] POST ${proxyEndpoint} → ${method} ${targetUrl}`)
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeout || 60000)
+
+  const response = await fetch(proxyEndpoint, {
+    method: 'POST',
+    headers: proxyHeaders,
+    body: JSON.stringify(proxyPayload),
+    signal: controller.signal,
+  })
+  clearTimeout(timer)
+
+  const responseText = await response.text()
+
+  if (!response.ok) {
+    // Proxy itself failed
+    return new Response(responseText, { status: response.status, statusText: response.statusText })
+  }
+
+  // Unwrap proxy response: { statusCode, headers, body }
+  try {
+    const proxyResult = JSON.parse(responseText)
+    const sapStatus = proxyResult.statusCode || 200
+    const sapBody = typeof proxyResult.body === 'string' ? proxyResult.body : JSON.stringify(proxyResult.body || '')
+    return new Response(sapBody, {
+      status: sapStatus,
+      statusText: `SAP ${sapStatus}`,
+      headers: { 'content-type': proxyResult.headers?.['content-type'] || 'application/json' },
+    })
+  } catch {
+    return new Response(responseText, { status: 502, statusText: 'Proxy returned invalid response' })
+  }
+}
+
+// Proxy-aware fetch: routes through POST /proxy when proxy is configured
+async function proxyAwareFetch(config: any, targetUrl: string, fetchOpts: RequestInit): Promise<Response> {
+  const proxyBaseUrl = getProxyBaseUrl(config)
+  const method = (fetchOpts.method || 'GET').toUpperCase()
+  const headers = fetchOpts.headers as Record<string, string> || {}
+  const body = fetchOpts.body as string | undefined
+
+  if (proxyBaseUrl) {
+    return fetchViaProxy(proxyBaseUrl, targetUrl, method, headers, body, config.proxy_secret, config.timeout_ms)
+  }
+
+  // Direct mode (no proxy)
+  return fetch(targetUrl, fetchOpts)
+}
+
+// Build URL for backward compatibility (returns SAP target URL)
+function buildUrl(config: any): string {
+  return buildSapTargetUrl(config)
 }
 
 // Build auth headers
