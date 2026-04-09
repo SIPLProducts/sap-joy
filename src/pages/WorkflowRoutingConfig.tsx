@@ -246,6 +246,7 @@ export default function WorkflowRoutingConfig() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

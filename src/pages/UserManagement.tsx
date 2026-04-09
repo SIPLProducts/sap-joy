@@ -508,6 +508,7 @@ export default function UserManagement() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

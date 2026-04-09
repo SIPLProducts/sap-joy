@@ -429,6 +429,7 @@ export default function SAPSyncMonitor() {
                     })}
                   </TableBody>
                 </Table>
+                </div>
               )}
               {syncHistory.some(s => s.error_message) && (
                 <div className="mt-4 space-y-2">

@@ -200,6 +200,7 @@ export default function PlantManagement() {
                 )}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

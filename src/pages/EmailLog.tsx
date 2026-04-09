@@ -141,6 +141,7 @@ export default function EmailLog() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>

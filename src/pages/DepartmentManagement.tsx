@@ -239,6 +239,7 @@ export default function DepartmentManagement() {
                 )}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
