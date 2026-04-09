@@ -439,6 +439,14 @@ Deno.serve(async (req) => {
         if (body.request_body && typeof body.request_body === 'object') {
           Object.assign(requestPayload, body.request_body)
         }
+        // Also merge search_params from the UI (WERKS, LGORT, MATNR, MATART)
+        if (body.search_params && typeof body.search_params === 'object') {
+          for (const [key, value] of Object.entries(body.search_params)) {
+            if (value !== undefined && value !== null && String(value).trim() !== '') {
+              requestPayload[key] = String(value).trim()
+            }
+          }
+        }
 
         const url = buildUrl(config)
         const headers = buildAuthHeaders(config)
@@ -490,7 +498,8 @@ Deno.serve(async (req) => {
             const mapped: Record<string, any> = {}
             for (const field of responseFields) {
               const sapKey = field.sap_field_name || field.field_name
-              mapped[field.field_name] = item[sapKey] ?? null
+              const outKey = field.map_to_column || field.field_name
+              mapped[outKey] = item[sapKey] ?? null
             }
             return mapped
           })
