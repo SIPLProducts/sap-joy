@@ -406,9 +406,9 @@ export default function InwardReport() {
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm flex-shrink-0">
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Fixed Header */}
+      <div className="bg-background border-b border-border shadow-sm flex-shrink-0">
         <div className="px-6 py-4 max-w-full overflow-hidden">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

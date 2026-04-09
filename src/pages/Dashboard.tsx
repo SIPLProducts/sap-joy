@@ -35,7 +35,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-muted/30 overflow-auto h-full">
       {/* Sticky Header */}
       <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm">
         <div className="px-6 py-4">
