@@ -453,9 +453,19 @@ export default function InwardReport() {
               <FileSpreadsheet className="h-6 w-6 text-primary" />
               <div>
                 <h1 className="text-xl font-bold text-foreground">MRB - Inward Materials</h1>
-                <p className="text-sm text-muted-foreground">
-                  Upload data or sync from external systems for MRB creation
-                </p>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <p className="text-sm text-muted-foreground">
+                    Auto-synced from SAP every 5 minutes
+                  </p>
+                  <Badge variant="outline" className="text-xs flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    Last synced: {relativeTime}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs flex items-center gap-1 bg-primary/5">
+                    <RefreshCw className="h-3 w-3" />
+                    Next sync: {nextSyncIn}
+                  </Badge>
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
