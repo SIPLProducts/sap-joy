@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ ok: false, error: 'Authorization header missing. Please log in again.' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     const { data: userData, error: userError } = await authClient.auth.getUser()
     if (userError || !userData?.user) {
       console.error('Auth error:', userError?.message || 'No user found')
-      return new Response(JSON.stringify({ error: 'Unauthorized', details: userError?.message }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ ok: false, error: 'Auth session missing! Please log in again.', details: userError?.message }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
     const userEmail = userData.user.email || 'unknown'
 
