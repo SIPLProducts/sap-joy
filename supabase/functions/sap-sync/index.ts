@@ -647,17 +647,25 @@ async function fetchViaProxy(
     return new Response(responseText, { status: response.status, statusText: response.statusText })
   }
 
-  // Unwrap proxy response: { statusCode, headers, body }
+  // Unwrap proxy response: { statusCode, headers, body/data }
   try {
     const proxyResult = JSON.parse(responseText)
-    const sapStatus = proxyResult.statusCode || 200
-    const sapBody = typeof proxyResult.body === 'string' ? proxyResult.body : JSON.stringify(proxyResult.body || '')
+    console.log(`[fetchViaProxy] Proxy response keys: ${Object.keys(proxyResult).join(', ')}, statusCode: ${proxyResult.statusCode}`)
+    const sapStatus = proxyResult.statusCode || proxyResult.status || 200
+
+    // Handle both 'body' and 'data' field names from different proxy implementations
+    const rawBody = proxyResult.body ?? proxyResult.data ?? proxyResult.response ?? ''
+    const sapBody = typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody)
+
+    console.log(`[fetchViaProxy] SAP status: ${sapStatus}, body length: ${sapBody.length}, body preview: ${sapBody.substring(0, 300)}`)
+
     return new Response(sapBody, {
       status: sapStatus,
       statusText: `SAP ${sapStatus}`,
       headers: { 'content-type': proxyResult.headers?.['content-type'] || 'application/json' },
     })
   } catch {
+    console.log(`[fetchViaProxy] Failed to parse proxy response, returning raw. Length: ${responseText.length}, preview: ${responseText.substring(0, 300)}`)
     return new Response(responseText, { status: 502, statusText: 'Proxy returned invalid response' })
   }
 }
