@@ -408,17 +408,58 @@ export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
                 </div>
                 {(connectionMode === 'proxy' || connectionMode === 'vpn_tunnel') && (
                   <div className="space-y-2">
-                    <Label>Node.js Middleware URL</Label>
-                    <Input value={proxyUrl} onChange={(e) => setProxyUrl(e.target.value)}
-                      placeholder="e.g. https://abc.ngrok-free.app or http://host.docker.internal:3000" />
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      <p><strong>Base URL of your Node.js middleware</strong> (do not append <code>/proxy</code>).</p>
-                      <p>• <strong>Cloud Preview:</strong> Use ngrok URL (e.g. <code>https://abc.ngrok-free.app</code>)</p>
-                      <p>• <strong>Client Server:</strong> Use <code>http://host.docker.internal:3000</code> or <code>http://10.10.4.178:3000</code></p>
-                    </div>
+                    <Label>Deployment Mode</Label>
+                    <Select value={deploymentMode} onValueChange={(v: 'cloud' | 'selfhosted') => {
+                      setDeploymentMode(v);
+                      const newPort = v === 'cloud' ? '3000' : '3002';
+                      setMiddlewarePort(newPort);
+                    }}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cloud">☁️ Cloud (Lovable Preview)</SelectItem>
+                        <SelectItem value="selfhosted">🖥️ Self-Hosted (Client Server)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {deploymentMode === 'cloud'
+                        ? 'Uses ngrok tunnel. Default port: 3000'
+                        : 'Direct LAN/Docker access. Default port: 3002'}
+                    </p>
                   </div>
                 )}
               </div>
+
+              {(connectionMode === 'proxy' || connectionMode === 'vpn_tunnel') && (
+                <div className="grid grid-cols-3 gap-4">
+                  {deploymentMode === 'selfhosted' && (
+                    <div className="space-y-2">
+                      <Label>Middleware Port</Label>
+                      <Input value={middlewarePort} onChange={(e) => setMiddlewarePort(e.target.value)}
+                        placeholder="3002" className="font-mono" />
+                      <p className="text-xs text-muted-foreground">Cloud=3000, Self-Hosted=3002</p>
+                    </div>
+                  )}
+                  <div className={`space-y-2 ${deploymentMode === 'selfhosted' ? 'col-span-2' : 'col-span-3'}`}>
+                    <Label>Node.js Middleware URL</Label>
+                    <Input value={proxyUrl} onChange={(e) => setProxyUrl(e.target.value)}
+                      placeholder={deploymentMode === 'cloud'
+                        ? 'https://abc123.ngrok-free.app'
+                        : `http://10.10.4.178:${middlewarePort}`}
+                    />
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <p><strong>Base URL only</strong> (do not append <code>/proxy</code>).</p>
+                      {deploymentMode === 'cloud' ? (
+                        <p>• Use your <strong>ngrok public URL</strong> (e.g. <code>https://abc123.ngrok-free.app</code>)</p>
+                      ) : (
+                        <>
+                          <p>• Use <code>http://&lt;server-ip&gt;:{middlewarePort}</code> (e.g. <code>http://10.10.4.178:{middlewarePort}</code>)</p>
+                          <p>• For Docker: <code>http://host.docker.internal:{middlewarePort}</code></p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {(connectionMode === 'proxy' || connectionMode === 'vpn_tunnel') && (
                 <div className="space-y-2">
