@@ -901,10 +901,10 @@ export default function InwardReport() {
                 </Card>
               </div>
             )}
+         )}
           </>
         )}
-
-
+      </div>
 
 
       {/* Single MRB Creation Confirmation Dialog */}
