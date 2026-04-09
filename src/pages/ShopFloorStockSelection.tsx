@@ -89,7 +89,8 @@ export default function ShopFloorStockSelection() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [pageSize, setPageSize] = useState(50);
+  const [goToPageInput, setGoToPageInput] = useState('');
 
   // Stock results come directly from SAP — no client-side filtering needed
   const filteredStock = useMemo(() => {
@@ -98,11 +99,42 @@ export default function ShopFloorStockSelection() {
   }, [hasSearched, stockRecords]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredStock.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredStock.length / pageSize);
   const paginatedStock = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredStock.slice(start, start + itemsPerPage);
-  }, [filteredStock, currentPage, itemsPerPage]);
+    const start = (currentPage - 1) * pageSize;
+    return filteredStock.slice(start, start + pageSize);
+  }, [filteredStock, currentPage, pageSize]);
+
+  const handlePageSizeChange = (newSize: string) => {
+    setPageSize(Number(newSize));
+    setCurrentPage(1);
+  };
+
+  const handleGoToPage = () => {
+    const page = parseInt(goToPageInput);
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      setGoToPageInput('');
+    } else {
+      toast.error(`Please enter a page between 1 and ${totalPages}`);
+    }
+  };
+
+  const getPageNumbers = () => {
+    const pages: (number | 'ellipsis')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('ellipsis');
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push('ellipsis');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   const handleSearch = async () => {
     // Validate mandatory fields
@@ -390,11 +422,27 @@ export default function ShopFloorStockSelection() {
 
                       {/* Pagination */}
                       {totalPages > 1 && (
-                        <div className="flex items-center justify-between mt-4">
-                          <p className="text-sm text-muted-foreground">
-                            Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredStock.length)} of {filteredStock.length}
-                          </p>
-                          <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center justify-between mt-4 gap-4">
+                          <div className="flex items-center gap-4">
+                            <p className="text-sm text-muted-foreground">
+                              Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, filteredStock.length)} of {filteredStock.length}
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-muted-foreground">Rows:</span>
+                              <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
+                                <SelectTrigger className="w-[80px] h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="25">25</SelectItem>
+                                  <SelectItem value="50">50</SelectItem>
+                                  <SelectItem value="100">100</SelectItem>
+                                  <SelectItem value="200">200</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
                             <Button
                               variant="outline"
                               size="sm"
@@ -403,7 +451,21 @@ export default function ShopFloorStockSelection() {
                             >
                               <ChevronLeft className="h-4 w-4" />
                             </Button>
-                            <span className="text-sm">Page {currentPage} of {totalPages}</span>
+                            {getPageNumbers().map((page, idx) =>
+                              page === 'ellipsis' ? (
+                                <span key={`e-${idx}`} className="px-2 text-muted-foreground">…</span>
+                              ) : (
+                                <Button
+                                  key={page}
+                                  variant={currentPage === page ? 'default' : 'outline'}
+                                  size="sm"
+                                  className="w-8 h-8 p-0"
+                                  onClick={() => setCurrentPage(page)}
+                                >
+                                  {page}
+                                </Button>
+                              )
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
@@ -412,6 +474,20 @@ export default function ShopFloorStockSelection() {
                             >
                               <ChevronRight className="h-4 w-4" />
                             </Button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">Go to:</span>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={totalPages}
+                              value={goToPageInput}
+                              onChange={(e) => setGoToPageInput(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && handleGoToPage()}
+                              className="w-16 h-8"
+                              placeholder="#"
+                            />
+                            <Button size="sm" variant="outline" className="h-8" onClick={handleGoToPage}>Go</Button>
                           </div>
                         </div>
                       )}
