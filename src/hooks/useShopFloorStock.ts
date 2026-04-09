@@ -69,10 +69,16 @@ export function useShopFloorStock() {
         .select('id, config_name, api_endpoint, is_active')
         .eq('is_active', true);
 
+      // Priority 1: match config_name containing 'mb52' but NOT '343' or '344'
       const mb52Config = (configs || []).find((c: any) => {
         const name = (c.config_name || '').toLowerCase();
+        return name.includes('mb52') && !name.includes('343') && !name.includes('344');
+      }) ||
+      // Priority 2: fallback to endpoint match excluding transactional configs
+      (configs || []).find((c: any) => {
+        const name = (c.config_name || '').toLowerCase();
         const endpoint = (c.api_endpoint || '').toLowerCase();
-        return name.includes('mb52') || endpoint.includes('mb52');
+        return endpoint.includes('mb52') && !name.includes('343') && !name.includes('344');
       });
 
       if (!mb52Config) {
