@@ -370,6 +370,9 @@ export default function InwardReport() {
     setIsSyncing(true);
     try {
       await refreshData();
+      // Refresh last_sync_at
+      const now = new Date().toISOString();
+      setLastSyncAt(now);
       toast.success('Data refreshed successfully!');
     } catch (error) {
       console.error('Sync error:', error);
