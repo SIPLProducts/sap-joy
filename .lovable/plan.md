@@ -1,37 +1,31 @@
 
 
-## Plan: Fix SAP 343 Unblock Posting + BUDAT Date Format
+## Plan: Add Auto-Refresh with Live Indicator on Inward Materials Screen
 
-### Two Issues to Fix
+### Current State
+The page already has `lastSyncAt` / `relativeTime` / `nextSyncIn` state and badges showing "Last synced: X min ago" and "Next sync: ~Y min". However, there is **no automatic data refresh** — the data only refreshes on manual button click or page mount.
 
-**Issue 1: BUDAT date format sends YYMMDD instead of YYYYMMDD**
-The `formatPostingDateForSAP` function uses `.slice(-2)` on the year, producing `260409` instead of `20260409`.
+### Changes — Single file: `src/pages/InwardReport.tsx`
 
-**Issue 2: SAP unblock (343) fails with "SAP sync down" error**
-The edge function's `proxyAwareFetch` for the unblock action uses a 30-second timeout (`config.timeout_ms || 30000`). Analytics show the last `sap-sync` call took 31.7 seconds — just over the limit. The AbortController aborts the SAP request, the edge function catches it as a generic error, and the UI shows "SAP unblock edge function failed" or the abort error message. Additionally, the edge function doesn't have graceful degradation for timeout/abort errors.
+**1. Add auto-refresh interval (every 5 minutes)**
+- Add a `useEffect` with a `setInterval` that calls `refreshData()` every 5 minutes (300,000 ms)
+- After each auto-refresh completes, update `lastSyncAt` to `new Date().toISOString()`
+- Add an `isAutoRefreshing` state to show a subtle indicator during background refresh (without blocking the UI like the manual sync button does)
 
-### Changes
+**2. Update relative time more frequently**
+- Change the relative-time update interval from 30s to 15s so "Last synced" feels more responsive
 
-**1. `src/pages/Worklist.tsx`** — Fix date format
-- Line 492-498: Change `String(d.getFullYear()).slice(-2)` to `String(d.getFullYear())` to produce `YYYYMMDD`
-- Line 492: Update comment from `YYMMDD` to `YYYYMMDD`
-- Line 525: Update comment from `YYMMDD` to `YYYYMMDD`
+**3. Enhance the sync indicator UI**
+- Add a small pulsing green dot next to "Last synced" badge to show auto-refresh is active
+- When auto-refresh is in progress, show a spinning icon on the "Next sync" badge
+- Add tooltip or text: "Auto-refreshes every 5 min" so users understand the behavior
 
-**2. `supabase/functions/sap-sync/index.ts`** — Fix unblock timeout + error handling
-- Line 172: Increase default timeout for unblock action from `30000` to `60000` ms (SAP 343 can be slow)
-- Lines 168-233: Wrap the entire unblock try/catch in a graceful error handler that returns structured JSON (not a 500) when the fetch is aborted or times out
-- Add specific detection for `AbortError` to return a user-friendly message like "SAP request timed out — the server took too long to respond. Please try again."
-
-**3. `src/pages/Worklist.tsx`** — Better error display for unblock failures
-- Lines 541-543: Instead of throwing a generic error when `response.error` exists, extract and display the actual error message from the response data for better debugging
-
-### Technical Details
-- The edge function analytics show execution times up to 31.7 seconds, which exceeds the default 30s AbortController timeout
-- The Supabase SDK's `functions.invoke` also has its own timeout, but the primary bottleneck is the internal AbortController in the edge function
-- The fix increases the timeout to 60s and adds abort-specific error handling
+**4. Re-fetch `last_sync_at` from database after auto-refresh**
+- After each auto-refresh, query `sap_api_config` for the latest `last_sync_at` value (in case the background scheduler also ran), ensuring the timestamp shown is always accurate
 
 ### Result
-- Posting date sent to SAP as `20260409` (YYYYMMDD) instead of `260409`
-- Unblock requests get 60 seconds to complete instead of timing out at 30s
-- If SAP still takes too long, users see a clear "timed out" message instead of "SAP sync down"
+- Data auto-refreshes every 5 minutes without user intervention
+- Users see a live "Last synced: 2 min ago" indicator that updates every 15 seconds
+- A green pulse dot confirms auto-refresh is active
+- New inspection lots from SAP appear automatically within minutes
 
