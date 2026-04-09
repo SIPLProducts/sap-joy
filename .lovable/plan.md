@@ -1,43 +1,19 @@
 
 
-## Plan: Add Sticky Table Headers Across All Screens
+## Plan: Make Selection Criteria Section Sticky as Part of the Header
 
 ### Problem
-When users scroll through data tables, column headers disappear, making it hard to identify which field each column represents.
+The filter section (Plant, Material Code, Vendor, Storage Location, Inspection Lot, Posting Date) scrolls away when users browse the data table, forcing them to scroll back up to change filters.
 
-### Current State
-- **Already has sticky headers**: `InwardReport.tsx`, `Worklist.tsx`
-- **Missing sticky headers** (13 screens):
-  - `ShopFloorStockSelection.tsx`
-  - `PurchaseHeadDashboard.tsx`
-  - `QualityHeadDashboard.tsx`
-  - `ExecutiveSummaryDashboard.tsx`
-  - `EngineeringHeadDashboard.tsx`
-  - `PlantHeadDashboard.tsx`
-  - `UserManagement.tsx`
-  - `PlantManagement.tsx`
-  - `DepartmentManagement.tsx`
-  - `EmailLog.tsx`
-  - `WorkflowRoutingConfig.tsx`
-  - `SAPApiSettings.tsx`
-  - `SAPSyncMonitor.tsx`
+### Change — Single file: `src/pages/InwardReport.tsx`
 
-### What Changes
+Move the "Selection Criteria" card (lines 451–528) from the scrollable content area into the sticky header section (lines 411–443), so the page title, action buttons, and all filters remain pinned at the top while only the results table scrolls.
 
-For every table missing sticky headers, two changes are applied:
-
-1. **Wrap the table's parent `<div className="rounded-md border">` with overflow control**:
-   ```html
-   <div className="rounded-md border max-h-[60vh] overflow-auto">
-   ```
-
-2. **Add sticky classes to `<TableHeader>`**:
-   ```html
-   <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
-   ```
-
-This matches the existing pattern used in `InwardReport.tsx` and `Worklist.tsx`.
+Specifically:
+1. Move the filter `Card` block (lines 452–528) inside the existing `sticky top-0 z-40 bg-background` div, right after the title/buttons row
+2. Remove the wrapping `<div className="px-6 py-4 border-b ...">` around it since the sticky header already has padding and border
+3. The scrollable area (`flex-1 overflow-auto`) will then contain only the results table and pagination
 
 ### Result
-All data tables will keep column headers visible while scrolling, enabling users to always see field names for data analysis.
+The entire top section — title bar, Refresh/Reset/Search buttons, and all Selection Criteria filters — stays visible at all times while the data table scrolls independently beneath it.
 
