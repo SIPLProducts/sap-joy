@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify(Array.isArray(request_body) ? request_body : [request_body]),
         }
 
-        const response = await fetch(url, fetchOpts)
+        const response = await proxyAwareFetch(config, url, fetchOpts)
         clearTimeout(timer)
 
         const bodyText = await response.text()
@@ -361,7 +361,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify(sapPayload),
         }
 
-        const response = await fetch(url, fetchOpts)
+        const response = await proxyAwareFetch(config, url, fetchOpts)
         clearTimeout(timer)
 
         const bodyText = await response.text()
@@ -455,7 +455,7 @@ Deno.serve(async (req) => {
           fetchOpts.body = JSON.stringify(requestPayload)
         }
 
-        const response = await fetch(url, fetchOpts)
+        const response = await proxyAwareFetch(config, url, fetchOpts)
         clearTimeout(timer)
 
         const bodyText = await response.text()
@@ -709,7 +709,7 @@ async function testConnection(config: any): Promise<{ success: boolean; message:
       fetchOpts.body = JSON.stringify({})
     }
 
-    const response = await fetch(url, fetchOpts)
+    const response = await proxyAwareFetch(config, url, fetchOpts)
     clearTimeout(timer)
     const elapsed = Date.now() - start
     const bodyText = await response.text()
@@ -786,7 +786,7 @@ async function callSAPApi(
       fetchOpts.body = JSON.stringify(requestBody)
     }
 
-    const response = await fetch(finalUrl, fetchOpts)
+    const response = await proxyAwareFetch(config, finalUrl, fetchOpts)
     clearTimeout(timer)
 
     const bodyText = await response.text()
