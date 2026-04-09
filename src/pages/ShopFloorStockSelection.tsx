@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,21 +7,18 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { 
-  Search, Package, ArrowRight, RotateCcw, Factory, Upload, Download, 
-  RefreshCw, Settings, Database, FileUp, CheckCircle2, AlertCircle, 
-  ChevronLeft, ChevronRight, Play, History, Trash2, Loader2 
+  Search, Package, ArrowRight, RotateCcw, Factory, 
+  RefreshCw, 
+  ChevronLeft, ChevronRight, Loader2 
 } from 'lucide-react';
 import { toast } from 'sonner';
-import * as XLSX from 'xlsx';
+
 import { useShopFloorStock, ShopFloorStockRecord } from '@/hooks/useShopFloorStock';
-import { downloadShopFloorCSVTemplate, validateShopFloorStockData, ShopFloorStockParseResult } from '@/lib/shopFloorStockTemplates';
-import { ShopFloorUploadPreview } from '@/components/shopFloor/ShopFloorUploadPreview';
-import { SAPConfigDialog } from '@/components/shopFloor/SAPConfigDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPlants } from '@/hooks/useUserPlants';
 import { supabase } from '@/integrations/supabase/client';
