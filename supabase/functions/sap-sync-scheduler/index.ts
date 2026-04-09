@@ -269,7 +269,7 @@ async function ensureDynamicColumns(supabase: any, responseFields: any[], sample
 
     if (!tableColumns.has(table)) {
       // Fetch existing columns for this table
-      const { data: cols } = await supabase.rpc('get_table_columns', { _table_name: table }).catch(() => ({ data: null }))
+      const { data: cols } = await supabase.rpc('get_table_columns', { _table_name: table })
       tableColumns.set(table, new Set((cols || []).map((c: any) => c.column_name)))
     }
 
