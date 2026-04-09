@@ -80,6 +80,7 @@ export default function InwardReport() {
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [relativeTime, setRelativeTime] = useState<string>('');
   const [nextSyncIn, setNextSyncIn] = useState<string>('');
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
 
   // Helper to compute relative time string
   const computeRelativeTime = useCallback((isoStr: string | null) => {
