@@ -1,77 +1,56 @@
 
+Diagnosis
+- The 404 is not from ngrok or your Node route. Runtime evidence shows the request reaches `https://...ngrok.../proxy`, and your proxy forwards it to `http://10.10.6.115:8000/sap/api/zmrb01?sap-client=234`.
+- The response body is SAP’s HTML `Logon Error Message`, so the failing part is SAP auth/client formatting, not tunnel reachability.
+- In cloud preview, `invokeSapSync()` routes through the `sap-sync` backend function. The current UI help text still says the preview browser calls middleware directly, which is misleading.
+- The browser client has richer SAP credential fallback logic, but the backend function and scheduler do not. `Test Route` currently uses a single attempt, so auth-like SAP failures returned as 404 are surfaced without retries.
 
-## Plan: Generate Zero-Config Generic Node.js Proxy
+Plan
+1. Unify SAP request compatibility logic
+   - Create one internal retry strategy for wrapped `POST /proxy` calls.
+   - Keep your existing global Node proxy unchanged.
+   - Retry on auth-like failures, including SAP HTML login pages returned as 404.
 
-### The Problem
-Your current proxy code has **one route**: `POST /proxy` that expects the full SAP URL inside the request body (`req.body.url`).
+2. Fix the cloud preview path
+   - Update `supabase/functions/sap-sync/index.ts` so `test`, `sync`, `fetch_live`, `unblock`, and `update_transaction_qty` all use the same fallback helper.
+   - Port the missing compatibility behavior already present on the browser side:
+     - trimmed credentials
+     - alternate credential header aliases
+     - sap-client in header vs query
+     - credentials in payload/query when needed
+     - friendly detection of `Logon Error Message` / `Anmeldung fehlgeschlagen`
 
-But the app calls the proxy like this:
-```text
-POST https://ngrok-url/sap/api/zmrb01?sap-client=234
-Headers: Authorization: Basic xxx, x-proxy-secret: xxx, sap-client: 234
-Body: { ...SAP request payload... }
-```
+3. Fix the direct/self-hosted path
+   - Refactor `src/lib/sapSyncClient.ts` so `directTest()` uses the same retry helper.
+   - Adjust the current stop condition so auth-like 404 responses do not stop after the first attempt.
 
-The proxy receives `POST /sap/api/zmrb01` → has no handler for it → returns **404 Not Found**.
+4. Fix scheduled syncs
+   - Update `supabase/functions/sap-sync-scheduler/index.ts` to use the same wrapped `/proxy` protocol.
+   - It currently builds `proxy_tunnel_url + endpoint_path`, which does not match your existing `POST /proxy` middleware and will keep failing in scheduled/cloud scenarios.
 
-### The Fix
-Replace the single `/proxy` route with a **wildcard handler** that:
-1. Accepts ANY path (`/*`)
-2. Validates `x-proxy-secret` from headers
-3. Combines `SAP_BASE_URL` (the only env var) + the incoming request path + query string to build the real SAP URL
-4. Forwards the method, body, `Authorization`, and `sap-client` headers to SAP
-5. Returns SAP's response as-is
+5. Improve diagnostics
+   - Replace raw `HTTP 404` messaging with a clear message like: `Transport OK. SAP rejected username/password or SAP client.`
+   - Include the attempt label in debug output to make support easier.
 
-### How It Will Work
+6. Correct setup guidance in the UI
+   - Update `src/pages/SAPApiSettings.tsx` and `src/components/sapApi/SAPApiEditForm.tsx` to match the real architecture:
+     - Lovable Cloud preview: app -> backend function -> ngrok -> local proxy -> SAP
+     - Self-hosted: browser -> internal proxy -> SAP
+   - Replace old `3002` examples with `3000`
+   - Clarify that the “Node.js Middleware URL” is the base URL only, not `/proxy`
 
-```text
-App sends:  POST https://ngrok-url/sap/api/zmrb01?sap-client=234
-            Headers: Authorization: Basic xxx, x-proxy-secret: secret123
+Files
+- `supabase/functions/sap-sync/index.ts`
+- `supabase/functions/sap-sync-scheduler/index.ts`
+- `src/lib/sapSyncClient.ts`
+- `src/pages/SAPApiSettings.tsx`
+- `src/components/sapApi/SAPApiEditForm.tsx`
 
-Proxy receives path: /sap/api/zmrb01?sap-client=234
-Proxy builds:  SAP_BASE_URL + /sap/api/zmrb01?sap-client=234
-               = http://sap-server:8000/sap/api/zmrb01?sap-client=234
-Proxy forwards request to SAP with same method, body, and auth headers
-```
+No database changes
+- The current config row is already populated for this test: `vpn_tunnel`, ngrok URL, proxy secret `123456`, base URL `http://10.10.6.115:8000`, endpoint `/sap/api/zmrb01`, client `234`.
+- No migration is needed.
 
-### Files to Generate (copy to local system)
-
-**1. `server.js`** (~80 lines)
-- Express with CORS, JSON parsing
-- `x-proxy-secret` validation middleware
-- `/health` endpoint (no auth)
-- Wildcard `app.all('/*', ...)` that forwards to `SAP_BASE_URL + req.originalUrl`
-- Forwards `Authorization`, `sap-client`, `Content-Type` headers
-- Handles JSON and non-JSON SAP responses
-- Request logging with timing
-- SSL certificate bypass for SAP (`rejectUnauthorized: false`)
-
-**2. `package.json`** — express, axios, cors, dotenv
-
-**3. `.env.example`**
-```
-PORT=3000
-PROXY_SECRET=7d9f2e1b4a5c8e3d6f1g0h2j4k6l8m0n
-SAP_BASE_URL=http://your-sap-server:8000
-```
-
-Only 3 env vars. No SAP credentials, no sap-client, no endpoint paths — all come from the UI.
-
-### No App Code Changes
-The Edge Function `buildUrl()` already constructs `proxy_tunnel_url + endpoint_path`. The `sapSyncClient.ts` `invokeDirect()` does the same. Both send credentials as headers. The new proxy just needs to forward them.
-
-### Deployment
-```bash
-npm install
-cp .env.example .env   # set SAP_BASE_URL and PROXY_SECRET
-node server.js          # or: pm2 start server.js --name sap-proxy
-ngrok http 3000
-```
-
-### Technical Details
-- The wildcard catches all 4 current APIs (zmrb01, mb52, 343, 344) and any future ones added via the UI
-- Query params (like `?sap-client=234`) are preserved via `req.originalUrl`
-- Uses `axios` with `rejectUnauthorized: false` for SAP's self-signed certs
-- 60-second timeout matching your current proxy
-- Returns structured error JSON on failure
-
+Expected outcome
+- Your existing global proxy stays as-is.
+- Preview, self-hosted manual actions, and scheduled syncs all use the same compatible transport.
+- The recurring “404” will be treated correctly as an SAP authentication/client-format issue instead of a missing ngrok route.
