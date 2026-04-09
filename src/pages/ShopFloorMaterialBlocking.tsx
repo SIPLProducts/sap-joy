@@ -36,6 +36,7 @@ import { AvailableStockRecord, shopFloorBlockReasons, shopFloorAttachmentCategor
 import { useDepartments } from '@/hooks/useDepartments';
 import { useDepartmentMap } from '@/hooks/useDepartmentMap';
 import { fetchPlantWorkflow } from '@/lib/workflowRouting';
+import { invokeSapSync } from '@/lib/sapSyncClient';
 import type { Database } from '@/integrations/supabase/types';
 
 type AppRole = Database['public']['Enums']['app_role'];
@@ -218,10 +219,63 @@ export default function ShopFloorMaterialBlocking() {
     setIsSubmitting(true);
 
     try {
-      // Generate MRB number
+      // Step 1: Look up active SAP 344 config
+      const { data: configs } = await supabase
+        .from('sap_api_config')
+        .select('id, config_name, api_endpoint, is_active')
+        .eq('is_active', true);
+
+      const config344 = (configs || []).find((c: any) => {
+        const name = (c.config_name || '').toLowerCase();
+        const endpoint = (c.api_endpoint || '').toLowerCase();
+        return name.includes('344') || endpoint.includes('344');
+      });
+
+      if (!config344) {
+        toast.error('No active SAP 344 (Block) API configuration found. Please configure it first.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Step 2: Build SAP 344 payload and call API
+      const formattedPostingDate = postingDate.replace(/-/g, '');
+      const sapPayload = {
+        MATNR: stockItem.materialCode,
+        WERKS: stockItem.plant,
+        LGORT: stockItem.storageLocation || '',
+        CHARG: stockItem.batch || '',
+        ENTRY_QNT: String(blockQuantity),
+        ENTRY_UOM: stockItem.uom || 'EA',
+        BUDAT: formattedPostingDate,
+      };
+
+      console.log('[MRB Submit] Calling SAP 344 Block API:', sapPayload);
+      const sapRes = await invokeSapSync({
+        action: 'block',
+        config_id: config344.id,
+        request_body: sapPayload,
+      });
+
+      const sapData = sapRes.data;
+      const sapError = sapRes.error;
+
+      // Check for SAP success (CODE 100 with MBLNR)
+      const sapCode = sapData?.record?.CODE || sapData?.CODE;
+      const sapMblnr = sapData?.record?.MBLNR || sapData?.MBLNR;
+
+      if (sapError || sapCode !== '100' || !sapMblnr) {
+        const errMsg = sapData?.record?.MESSAGE || sapData?.error || sapError?.message || 'SAP did not return a success response';
+        console.error('[MRB Submit] SAP 344 failed:', errMsg);
+        toast.error(`SAP blocking failed — MRB not created. ${errMsg}`);
+        setIsSubmitting(false);
+        return;
+      }
+
+      console.log('[MRB Submit] SAP 344 success, MBLNR:', sapMblnr);
+
+      // Step 3: SAP succeeded — now create MRB record
       const mrbNumber = await getNextMRBNumber();
 
-      // Create MRB record using database hook
       const mrbResult = await createMRB({
         mrb_number: mrbNumber,
         status: 'quality_review',
@@ -251,9 +305,6 @@ export default function ShopFloorMaterialBlocking() {
         immediate_block_required: true,
       } as any, nextReviewDepartments);
 
-      // Generate SAP Material Document Number (simulated)
-      const sapMatDoc = `49${format(new Date(), 'yyyyMMdd')}${Math.floor(100000 + Math.random() * 900000)}`;
-
       if (mrbResult) {
         // Update shop_floor_stock status to 'mrb_created'
         await supabase
@@ -262,16 +313,17 @@ export default function ShopFloorMaterialBlocking() {
           .eq('id', stockItem.id);
 
         setCreatedMRBNumber(mrbNumber);
-        setSAPMaterialDocument(sapMatDoc);
+        setSAPMaterialDocument(sapMblnr);
         setIsSubmitted(true);
-        toast.success(`MRB ${mrbNumber} created & SAP Block synced successfully!`);
+        toast.success(`MRB ${mrbNumber} created & SAP Block (${sapMblnr}) synced successfully!`);
       } else {
-        throw new Error('Failed to create MRB');
+        // SAP block happened but MRB creation failed — warn user
+        toast.warning(`SAP Block succeeded (Doc: ${sapMblnr}) but MRB creation failed. Please contact admin with this document number.`);
       }
 
     } catch (error) {
-      console.error('Error creating MRB:', error);
-      toast.error('Failed to create MRB. Please try again.');
+      console.error('Error in MRB submission:', error);
+      toast.error('Failed to complete MRB submission. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
