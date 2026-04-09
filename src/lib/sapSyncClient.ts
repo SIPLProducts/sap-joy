@@ -912,14 +912,26 @@ async function directUnblock(
     };
   }
 
+  // Business-level success: only when SAP CODE is '100'
+  const sapCode = responseData?.CODE || responseData?.code || null;
+  const sapMsg = responseData?.MSG || responseData?.msg || responseData?.Message || null;
+  const sapMBLNR = responseData?.MBLNR || responseData?.mblnr || null;
+  const sapMJAHR = responseData?.MJAHR || responseData?.mjahr || null;
+  const isBusinessSuccess = sapCode === '100' || sapCode === 100;
+
   return {
     data: {
-      success: true,
+      success: isBusinessSuccess,
+      error: isBusinessSuccess ? undefined : (sapMsg || `SAP returned CODE ${sapCode}`),
       sap_response: responseData,
-      code: responseData?.CODE || null,
-      message: responseData?.MSG || null,
-      material_document: responseData?.MBLNR || null,
-      material_document_year: responseData?.MJAHR || null,
+      code: sapCode,
+      CODE: sapCode,
+      message: sapMsg,
+      MESSAGE: sapMsg,
+      material_document: sapMBLNR,
+      MBLNR: sapMBLNR,
+      material_document_year: sapMJAHR,
+      MJAHR: sapMJAHR,
       http_status: response.status,
     },
     error: null,

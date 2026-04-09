@@ -275,13 +275,39 @@ Deno.serve(async (req) => {
           }
         }
 
+        // Business-level success: only when SAP CODE is '100'
+        const isBusinessSuccess = sapCode === '100' || sapCode === 100;
+
+        if (!isBusinessSuccess) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: sapMsg || `SAP returned CODE ${sapCode} — blocking was not successful`,
+            sap_response: responseData,
+            code: sapCode,
+            CODE: sapCode,
+            message: sapMsg,
+            MESSAGE: sapMsg,
+            material_document: sapMBLNR,
+            MBLNR: sapMBLNR,
+            material_document_year: sapMJAHR,
+            MJAHR: sapMJAHR,
+            http_status: response.status,
+            raw_body_length: bodyText.length,
+            verification,
+          }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
         return new Response(JSON.stringify({
           success: true,
           sap_response: responseData,
           code: sapCode,
+          CODE: sapCode,
           message: sapMsg,
+          MESSAGE: sapMsg,
           material_document: sapMBLNR,
+          MBLNR: sapMBLNR,
           material_document_year: sapMJAHR,
+          MJAHR: sapMJAHR,
           http_status: response.status,
           raw_body_length: bodyText.length,
           verification,
