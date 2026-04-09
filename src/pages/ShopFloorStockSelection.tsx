@@ -373,7 +373,7 @@ export default function ShopFloorStockSelection() {
                                   <TableCell>{stock.batch || '-'}</TableCell>
                                   <TableCell>{stock.storage_location || '-'}</TableCell>
                                   <TableCell className="text-right font-medium">
-                                    {stock.available_quantity.toLocaleString()}
+                                    {(stock.available_quantity ?? 0).toLocaleString()}
                                   </TableCell>
                                   <TableCell>{stock.uom || 'EA'}</TableCell>
                                   <TableCell>
