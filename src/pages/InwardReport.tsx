@@ -80,6 +80,7 @@ export default function InwardReport() {
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [relativeTime, setRelativeTime] = useState<string>('');
   const [nextSyncIn, setNextSyncIn] = useState<string>('');
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
 
   // Helper to compute relative time string
   const computeRelativeTime = useCallback((isoStr: string | null) => {
@@ -122,16 +123,44 @@ export default function InwardReport() {
     fetchSapConfig();
   }, []);
 
-  // Update relative time every 30s
+  // Update relative time every 15s
   useEffect(() => {
     setRelativeTime(computeRelativeTime(lastSyncAt));
     setNextSyncIn(computeNextSync(lastSyncAt));
     const timer = setInterval(() => {
       setRelativeTime(computeRelativeTime(lastSyncAt));
       setNextSyncIn(computeNextSync(lastSyncAt));
-    }, 30_000);
+    }, 15_000);
     return () => clearInterval(timer);
   }, [lastSyncAt, computeRelativeTime, computeNextSync]);
+
+  // Auto-refresh data every 5 minutes
+  useEffect(() => {
+    const AUTO_REFRESH_MS = 5 * 60_000;
+    const interval = setInterval(async () => {
+      setIsAutoRefreshing(true);
+      try {
+        await refreshData();
+        // Re-fetch last_sync_at from DB for accuracy
+        const { data } = await supabase
+          .from('sap_api_config')
+          .select('last_sync_at')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (data && data.length > 0 && data[0].last_sync_at) {
+          setLastSyncAt(data[0].last_sync_at);
+        } else {
+          setLastSyncAt(new Date().toISOString());
+        }
+      } catch (err) {
+        console.error('Auto-refresh failed:', err);
+      } finally {
+        setIsAutoRefreshing(false);
+      }
+    }, AUTO_REFRESH_MS);
+    return () => clearInterval(interval);
+  }, [refreshData]);
 
   const handleStartEditQty = (record: InspectionLotRecord) => {
     setEditingQtyId(record.id);
@@ -455,15 +484,19 @@ export default function InwardReport() {
                 <h1 className="text-xl font-bold text-foreground">MRB - Inward Materials</h1>
                 <div className="flex items-center gap-3 mt-0.5">
                   <p className="text-sm text-muted-foreground">
-                    Auto-synced from SAP every 5 minutes
+                    Auto-refreshes every 5 min
                   </p>
                   <Badge variant="outline" className="text-xs flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    </span>
+                    <Clock className="h-3 w-3 ml-0.5" />
                     Last synced: {relativeTime}
                   </Badge>
                   <Badge variant="outline" className="text-xs flex items-center gap-1 bg-primary/5">
-                    <RefreshCw className="h-3 w-3" />
-                    Next sync: {nextSyncIn}
+                    <RefreshCw className={`h-3 w-3 ${isAutoRefreshing ? 'animate-spin' : ''}`} />
+                    {isAutoRefreshing ? 'Refreshing...' : `Next sync: ${nextSyncIn}`}
                   </Badge>
                 </div>
               </div>
