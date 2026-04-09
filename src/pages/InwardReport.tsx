@@ -406,9 +406,9 @@ export default function InwardReport() {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Fixed Header */}
-      <div className="bg-background border-b border-border shadow-sm flex-shrink-0">
+    <div className="h-full overflow-auto">
+      {/* Header */}
+      <div className="bg-background border-b border-border shadow-sm">
         <div className="px-6 py-4 max-w-full overflow-hidden">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -519,7 +519,7 @@ export default function InwardReport() {
 
 
       {/* Content Area */}
-      <div className="flex-1 overflow-auto bg-muted/30 min-h-0">
+      <div className="bg-muted/30">
         {/* Search Content */}
         {true && (
           <>
@@ -591,7 +591,7 @@ export default function InwardReport() {
                     </div>
                   </div>
                 )}
-                <Card className="border-border shadow-sm flex-1 flex flex-col overflow-hidden">
+                <Card className="border-border shadow-sm">
                   <CardHeader className="border-b border-border bg-muted/30 py-3 flex-shrink-0">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base font-semibold">
@@ -621,7 +621,7 @@ export default function InwardReport() {
                   </CardHeader>
                   
                   {/* Scrollable Table Container */}
-                  <div className="flex-1 overflow-auto min-h-0">
+                  <div className="max-h-[60vh] overflow-auto">
                     <div className="min-w-max">
                       <Table>
                         <TableHeader className="sticky top-0 z-20 bg-muted/80 backdrop-blur-sm">
