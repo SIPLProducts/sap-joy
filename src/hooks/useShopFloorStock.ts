@@ -69,10 +69,16 @@ export function useShopFloorStock() {
         .select('id, config_name, api_endpoint, is_active')
         .eq('is_active', true);
 
+      // Priority 1: match config_name containing 'mb52' but NOT '343' or '344'
       const mb52Config = (configs || []).find((c: any) => {
         const name = (c.config_name || '').toLowerCase();
+        return name.includes('mb52') && !name.includes('343') && !name.includes('344');
+      }) ||
+      // Priority 2: fallback to endpoint match excluding transactional configs
+      (configs || []).find((c: any) => {
+        const name = (c.config_name || '').toLowerCase();
         const endpoint = (c.api_endpoint || '').toLowerCase();
-        return name.includes('mb52') || endpoint.includes('mb52');
+        return endpoint.includes('mb52') && !name.includes('343') && !name.includes('344');
       });
 
       if (!mb52Config) {
@@ -93,8 +99,22 @@ export function useShopFloorStock() {
       });
       
       if (res.data?.success && res.data?.records) {
-        console.log(`[ShopFloorStock] Loaded ${res.data.records.length} records live from SAP`);
-        setStockRecords(res.data.records);
+        // Filter out SAP error responses that look like records but have no stock data
+        const validRecords = res.data.records.filter((r: any) =>
+          r.material_code || r.MATNR || r.plant || r.WERKS
+        );
+        if (validRecords.length === 0 && res.data.records.length > 0) {
+          console.warn('[ShopFloorStock] SAP returned non-stock response:', res.data.records[0]);
+          toast({
+            title: 'SAP Response Error',
+            description: res.data.records[0]?.MSG || 'SAP returned an unexpected response format',
+            variant: 'destructive',
+          });
+          setStockRecords([]);
+        } else {
+          console.log(`[ShopFloorStock] Loaded ${validRecords.length} records live from SAP`);
+          setStockRecords(validRecords);
+        }
       } else {
         console.warn('[ShopFloorStock] SAP live fetch failed:', res.data?.error || res.error?.message);
         toast({
