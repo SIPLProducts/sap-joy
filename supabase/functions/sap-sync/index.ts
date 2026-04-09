@@ -498,7 +498,8 @@ Deno.serve(async (req) => {
             const mapped: Record<string, any> = {}
             for (const field of responseFields) {
               const sapKey = field.sap_field_name || field.field_name
-              mapped[field.field_name] = item[sapKey] ?? null
+              const outKey = field.map_to_column || field.field_name
+              mapped[outKey] = item[sapKey] ?? null
             }
             return mapped
           })
