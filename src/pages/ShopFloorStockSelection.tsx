@@ -90,10 +90,20 @@ export default function ShopFloorStockSelection() {
   const [pageSize, setPageSize] = useState(50);
   const [goToPageInput, setGoToPageInput] = useState('');
 
+  // Stable row key helper — guarantees uniqueness even if backend id is missing/duplicated
+  const getRowKey = (stock: ShopFloorStockRecord, index: number) => {
+    if (stock.id && !stock.id.startsWith('live-')) return stock.id;
+    return `row-${index}-${stock.material_code || ''}-${stock.batch || ''}-${stock.storage_location || ''}-${stock.available_quantity ?? 0}`;
+  };
+
   // Stock results come directly from SAP — no client-side filtering needed
+  // Assign stable keys on arrival so all downstream logic uses the same key
   const filteredStock = useMemo(() => {
     if (!hasSearched) return [];
-    return stockRecords;
+    return stockRecords.map((s, i) => ({
+      ...s,
+      _rowKey: getRowKey(s, i),
+    }));
   }, [hasSearched, stockRecords]);
 
   // Pagination
@@ -105,12 +115,12 @@ export default function ShopFloorStockSelection() {
 
   // Derived selected data for payload
   const selectedStocksData = useMemo(() => {
-    return filteredStock.filter(s => selectedStocks.has(s.id));
+    return filteredStock.filter(s => selectedStocks.has(s._rowKey));
   }, [filteredStock, selectedStocks]);
 
   // Check if all items on current page are selected
   const allPageSelected = useMemo(() => {
-    return paginatedStock.length > 0 && paginatedStock.every(s => selectedStocks.has(s.id));
+    return paginatedStock.length > 0 && paginatedStock.every(s => selectedStocks.has(s._rowKey));
   }, [paginatedStock, selectedStocks]);
 
   const handlePageSizeChange = (newSize: string) => {
@@ -198,11 +208,9 @@ export default function ShopFloorStockSelection() {
     setSelectedStocks(prev => {
       const next = new Set(prev);
       if (allPageSelected) {
-        // Deselect all on current page
-        paginatedStock.forEach(s => next.delete(s.id));
+        paginatedStock.forEach(s => next.delete(s._rowKey));
       } else {
-        // Select all on current page
-        paginatedStock.forEach(s => next.add(s.id));
+        paginatedStock.forEach(s => next.add(s._rowKey));
       }
       return next;
     });
@@ -532,16 +540,16 @@ export default function ShopFloorStockSelection() {
                         </TableHeader>
                         <TableBody>
                           {paginatedStock.map((stock) => {
-                            const isSelected = selectedStocks.has(stock.id);
+                            const isSelected = selectedStocks.has(stock._rowKey);
                             return (
                               <TableRow
-                                key={stock.id}
+                                key={stock._rowKey}
                                 className={`transition-colors ${isSelected ? 'bg-primary/10' : 'hover:bg-muted/50'}`}
                               >
                                 <TableCell>
                                   <Checkbox
                                     checked={isSelected}
-                                    onCheckedChange={() => handleToggleStock(stock.id)}
+                                    onCheckedChange={() => handleToggleStock(stock._rowKey)}
                                   />
                                 </TableCell>
                                 <TableCell>
