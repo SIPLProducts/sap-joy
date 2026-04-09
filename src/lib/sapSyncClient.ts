@@ -1375,11 +1375,21 @@ async function mapAndInsertClientSide(
  * Self-hosted → Direct middleware call
  */
 export async function invokeSapSync(body: Record<string, any>): Promise<{ data: any; error: any }> {
-  // Refresh token first to prevent stale session issues on long-lived forms
-  await supabase.auth.refreshSession();
+  // Get current session first — do NOT call refreshSession() unconditionally
+  // as it triggers a SIGNED_OUT event if the refresh token is stale
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
     return { data: null, error: { message: 'Not authenticated. Please log in again.' } };
+  }
+
+  // Only refresh if token expires within 60 seconds
+  const expiresAt = session.expires_at || 0;
+  if (expiresAt - Math.floor(Date.now() / 1000) < 60) {
+    try {
+      await supabase.auth.refreshSession();
+    } catch (e) {
+      console.warn('[SAP Sync] Token refresh failed, proceeding with current token:', e);
+    }
   }
 
   // Dual-mode routing:
