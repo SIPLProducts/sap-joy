@@ -598,12 +598,14 @@ export default function KPIDashboard() {
       </div>
 
       <div className="p-4 space-y-4">
-        {/* Top KPI Cards */}
+        {/* Top KPI Cards — Enterprise Grade */}
         <div className="grid gap-3 grid-cols-2 md:grid-cols-4 xl:grid-cols-7">
-          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+          <Card className="border-l-4 border-l-[hsl(210,85%,45%)] bg-[hsl(210,85%,97%)] dark:bg-[hsl(210,40%,15%)] shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total MRBs</CardTitle>
-              <ClipboardList className="h-5 w-5 text-primary" />
+              <div className="p-1.5 rounded-lg bg-[hsl(210,85%,45%)]/10">
+                <ClipboardList className="h-4 w-4 text-[hsl(210,85%,45%)]" />
+              </div>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-foreground">{kpis.totalMRBs}</p>
@@ -611,10 +613,12 @@ export default function KPIDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-destructive/5 to-destructive/10 border-destructive/20">
+          <Card className="border-l-4 border-l-[hsl(0,72%,51%)] bg-[hsl(0,72%,97%)] dark:bg-[hsl(0,30%,15%)] shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Rejected</CardTitle>
-              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <div className="p-1.5 rounded-lg bg-[hsl(0,72%,51%)]/10">
+                <AlertTriangle className="h-4 w-4 text-[hsl(0,72%,51%)]" />
+              </div>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-foreground">{kpis.rejectedMRBs}</p>
@@ -624,10 +628,12 @@ export default function KPIDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-accent/30 to-accent/10 border-accent/20">
+          <Card className="border-l-4 border-l-[hsl(142,70%,40%)] bg-[hsl(142,50%,96%)] dark:bg-[hsl(142,30%,14%)] shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Accepted</CardTitle>
-              <ShieldCheck className="h-5 w-5 text-primary" />
+              <div className="p-1.5 rounded-lg bg-[hsl(142,70%,40%)]/10">
+                <ShieldCheck className="h-4 w-4 text-[hsl(142,70%,40%)]" />
+              </div>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-foreground">{kpis.acceptedMRBs}</p>
@@ -637,10 +643,12 @@ export default function KPIDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-warning/5 to-warning/10 border-warning/20">
+          <Card className="border-l-4 border-l-[hsl(38,92%,50%)] bg-[hsl(38,80%,96%)] dark:bg-[hsl(38,40%,14%)] shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
-              <Clock className="h-5 w-5 text-warning" />
+              <div className="p-1.5 rounded-lg bg-[hsl(38,92%,50%)]/10">
+                <Clock className="h-4 w-4 text-[hsl(38,92%,50%)]" />
+              </div>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-foreground">{kpis.pendingMRBs}</p>
@@ -648,10 +656,12 @@ export default function KPIDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-secondary/5 to-secondary/10 border-secondary/20">
+          <Card className="border-l-4 border-l-[hsl(160,60%,40%)] bg-[hsl(160,50%,96%)] dark:bg-[hsl(160,30%,14%)] shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Approved</CardTitle>
-              <CheckCircle className="h-5 w-5 text-secondary" />
+              <div className="p-1.5 rounded-lg bg-[hsl(160,60%,40%)]/10">
+                <CheckCircle className="h-4 w-4 text-[hsl(160,60%,40%)]" />
+              </div>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-foreground">{kpis.approvedMRBs}</p>
@@ -659,10 +669,12 @@ export default function KPIDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-muted to-muted/50 border-border">
+          <Card className="border-l-4 border-l-[hsl(220,15%,55%)] bg-[hsl(220,15%,96%)] dark:bg-[hsl(220,15%,14%)] shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Closed</CardTitle>
-              <FileText className="h-5 w-5 text-muted-foreground" />
+              <div className="p-1.5 rounded-lg bg-[hsl(220,15%,55%)]/10">
+                <FileText className="h-4 w-4 text-[hsl(220,15%,55%)]" />
+              </div>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-foreground">{kpis.closedMRBs}</p>
@@ -670,10 +682,12 @@ export default function KPIDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-info/5 to-info/10 border-info/20">
+          <Card className="border-l-4 border-l-[hsl(270,60%,55%)] bg-[hsl(270,50%,97%)] dark:bg-[hsl(270,30%,14%)] shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">My Pending</CardTitle>
-              <Users className="h-5 w-5 text-info" />
+              <div className="p-1.5 rounded-lg bg-[hsl(270,60%,55%)]/10">
+                <Users className="h-4 w-4 text-[hsl(270,60%,55%)]" />
+              </div>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-foreground">{kpis.myPending}</p>
