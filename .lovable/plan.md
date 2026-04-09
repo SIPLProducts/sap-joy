@@ -1,28 +1,43 @@
 
 
-## Plan: Remove Upload Data and API Integration Tabs from Both Screens
+## Plan: Add Sticky Table Headers Across All Screens
 
-Since Inward data auto-syncs every 5 minutes and Shop Floor fetches live from SAP, the manual Upload and API tabs are unnecessary on both screens.
+### Problem
+When users scroll through data tables, column headers disappear, making it hard to identify which field each column represents.
 
-### Changes
+### Current State
+- **Already has sticky headers**: `InwardReport.tsx`, `Worklist.tsx`
+- **Missing sticky headers** (13 screens):
+  - `ShopFloorStockSelection.tsx`
+  - `PurchaseHeadDashboard.tsx`
+  - `QualityHeadDashboard.tsx`
+  - `ExecutiveSummaryDashboard.tsx`
+  - `EngineeringHeadDashboard.tsx`
+  - `PlantHeadDashboard.tsx`
+  - `UserManagement.tsx`
+  - `PlantManagement.tsx`
+  - `DepartmentManagement.tsx`
+  - `EmailLog.tsx`
+  - `WorkflowRoutingConfig.tsx`
+  - `SAPApiSettings.tsx`
+  - `SAPSyncMonitor.tsx`
 
-**1. `src/pages/InwardReport.tsx`**
-- Remove the entire Tabs wrapper (lines 604-623) and show search content directly
-- Delete Upload tab content block (lines 1087-1201)
-- Delete API Integration tab content block (lines 1204-1390 approx)
-- Remove `activeTab` state and change rendering to always show search view
-- Remove unused state: `isUploading`, `uploadStatus`, `uploadMessage`, `parseResult`, `showPreview`, `previewFileName`
-- Remove `fileInputRef`
-- Clean up unused imports: `Upload`, `Database`, `FileUp`, `Loader2`, `XLSX`, `UploadPreviewModal`, `downloadCSVTemplate`, `validateParsedData`, `ParseResult`
+### What Changes
 
-**2. `src/pages/ShopFloorStockSelection.tsx`**
-- Remove the Tabs wrapper (lines 383-398) and show search content directly
-- Delete Upload tab content block (lines 663-725)
-- Delete SAP API tab content block (lines 727-865 approx)
-- Remove `activeTab` state
-- Remove unused state: `uploadStatus`, `uploadMessage`, `parseResult`, `showPreview`, `previewFileName`, SAP config states, file upload handler
-- Remove `fileInputRef`
-- Clean up unused imports: `Upload`, `Database`, `FileUp`, `Download`, `Settings`, `XLSX`, `ShopFloorUploadPreview`, `SAPConfigDialog`, `downloadShopFloorCSVTemplate`, `validateShopFloorStockData`, `Tabs`, `TabsList`, `TabsTrigger`
+For every table missing sticky headers, two changes are applied:
 
-Both pages will show only the search/results view with no tab navigation.
+1. **Wrap the table's parent `<div className="rounded-md border">` with overflow control**:
+   ```html
+   <div className="rounded-md border max-h-[60vh] overflow-auto">
+   ```
+
+2. **Add sticky classes to `<TableHeader>`**:
+   ```html
+   <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
+   ```
+
+This matches the existing pattern used in `InwardReport.tsx` and `Worklist.tsx`.
+
+### Result
+All data tables will keep column headers visible while scrolling, enabling users to always see field names for data analysis.
 
