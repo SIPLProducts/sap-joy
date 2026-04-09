@@ -63,16 +63,9 @@ export default function ShopFloorStockSelection() {
   // Database hook
   const {
     stockRecords,
-    sapConfigs,
-    syncHistory,
     isLoading,
     searchStockRecords,
     fetchStockRecords,
-    uploadStockRecords,
-    saveSAPConfig,
-    deleteSAPConfig,
-    testSAPConnection,
-    triggerSAPSync,
   } = useShopFloorStock();
   
   // Tab state
