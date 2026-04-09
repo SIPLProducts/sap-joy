@@ -90,10 +90,20 @@ export default function ShopFloorStockSelection() {
   const [pageSize, setPageSize] = useState(50);
   const [goToPageInput, setGoToPageInput] = useState('');
 
+  // Stable row key helper — guarantees uniqueness even if backend id is missing/duplicated
+  const getRowKey = (stock: ShopFloorStockRecord, index: number) => {
+    if (stock.id && !stock.id.startsWith('live-')) return stock.id;
+    return `row-${index}-${stock.material_code || ''}-${stock.batch || ''}-${stock.storage_location || ''}-${stock.available_quantity ?? 0}`;
+  };
+
   // Stock results come directly from SAP — no client-side filtering needed
+  // Assign stable keys on arrival so all downstream logic uses the same key
   const filteredStock = useMemo(() => {
     if (!hasSearched) return [];
-    return stockRecords;
+    return stockRecords.map((s, i) => ({
+      ...s,
+      _rowKey: getRowKey(s, i),
+    }));
   }, [hasSearched, stockRecords]);
 
   // Pagination

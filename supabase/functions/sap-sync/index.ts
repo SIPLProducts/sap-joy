@@ -505,6 +505,19 @@ Deno.serve(async (req) => {
           })
         }
 
+        // Guarantee every record has a unique `id`
+        mappedRecords = mappedRecords.map((rec: any, idx: number) => {
+          if (!rec.id) {
+            // Build a deterministic key from SAP fields, with index as final uniquifier
+            const plant = rec.plant || rec.WERKS || ''
+            const matnr = rec.material_code || rec.MATNR || ''
+            const batch = rec.batch || rec.CHARG || ''
+            const sloc = rec.storage_location || rec.LGORT || ''
+            rec.id = `live-${idx}-${plant}-${matnr}-${batch}-${sloc}`
+          }
+          return rec
+        })
+
         return new Response(JSON.stringify({
           success: true,
           records: mappedRecords,
