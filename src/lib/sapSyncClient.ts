@@ -120,12 +120,27 @@ async function fetchViaProxy(
   delete forwardHeaders['x-proxy-secret'];
   delete forwardHeaders['ngrok-skip-browser-warning'];
 
-  const proxyBody = {
+  const proxyBody: Record<string, any> = {
     url: targetUrl,
     method: options.method,
     headers: forwardHeaders,
     body: options.body ? ((() => { try { return JSON.parse(options.body); } catch { return options.body; } })()) : undefined,
   };
+
+  // Also send raw credentials so proxy can rebuild Authorization header fresh
+  // This avoids encoding issues with special characters going through JSON serialization
+  if (forwardHeaders['Authorization']?.startsWith('Basic ')) {
+    try {
+      const decoded = atob(forwardHeaders['Authorization'].replace('Basic ', ''));
+      const colonIdx = decoded.indexOf(':');
+      if (colonIdx > 0) {
+        proxyBody.auth = {
+          username: decoded.substring(0, colonIdx),
+          password: decoded.substring(colonIdx + 1),
+        };
+      }
+    } catch { /* ignore decode errors */ }
+  }
 
   console.log(`[fetchViaProxy] POST ${proxyEndpoint} → ${options.method} ${targetUrl}`);
 
