@@ -89,7 +89,8 @@ export default function ShopFloorStockSelection() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [pageSize, setPageSize] = useState(50);
+  const [goToPageInput, setGoToPageInput] = useState('');
 
   // Stock results come directly from SAP — no client-side filtering needed
   const filteredStock = useMemo(() => {
@@ -98,11 +99,42 @@ export default function ShopFloorStockSelection() {
   }, [hasSearched, stockRecords]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredStock.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredStock.length / pageSize);
   const paginatedStock = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredStock.slice(start, start + itemsPerPage);
-  }, [filteredStock, currentPage, itemsPerPage]);
+    const start = (currentPage - 1) * pageSize;
+    return filteredStock.slice(start, start + pageSize);
+  }, [filteredStock, currentPage, pageSize]);
+
+  const handlePageSizeChange = (newSize: string) => {
+    setPageSize(Number(newSize));
+    setCurrentPage(1);
+  };
+
+  const handleGoToPage = () => {
+    const page = parseInt(goToPageInput);
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      setGoToPageInput('');
+    } else {
+      toast.error(`Please enter a page between 1 and ${totalPages}`);
+    }
+  };
+
+  const getPageNumbers = () => {
+    const pages: (number | 'ellipsis')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('ellipsis');
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push('ellipsis');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   const handleSearch = async () => {
     // Validate mandatory fields
