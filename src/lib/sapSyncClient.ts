@@ -389,36 +389,104 @@ async function directTest(
   const method = (config.http_method || 'GET').toUpperCase();
   const start = Date.now();
 
-  const fetchOpts: RequestInit = { method, headers };
-  if (['POST', 'PUT', 'PATCH'].includes(method)) {
-    fetchOpts.body = JSON.stringify({});
+  const authType = normalizeAuthType(config.auth_type);
+  const trimmedUsername = normalizeCredential(config.username);
+  const trimmedPassword = normalizeCredential(config.encrypted_password);
+
+  // Build attempt queue for multi-attempt auth fallback
+  const attemptQueue: Array<{ label: string; requestUrl: string; requestHeaders: Record<string, string> }> = [
+    { label: 'default', requestUrl: url, requestHeaders: headers },
+  ];
+
+  if (authType === 'basic' && trimmedUsername && trimmedPassword) {
+    // Attempt: sap-client in header only (remove from URL query)
+    const noQueryUrl = removeSapClientFromUrl(url);
+    if (noQueryUrl !== url) {
+      attemptQueue.push({
+        label: 'sap-client_header_only',
+        requestUrl: noQueryUrl,
+        requestHeaders: headers,
+      });
+    }
+
+    // Attempt: alt credential headers
+    attemptQueue.push({
+      label: 'alt_credential_headers',
+      requestUrl: url,
+      requestHeaders: {
+        ...headers,
+        Authorization: `Basic ${btoa(`${trimmedUsername}:${trimmedPassword}`)}`,
+        ...buildCredentialForwardHeaders(trimmedUsername, trimmedPassword, config.sap_client),
+      },
+    });
   }
 
-  const response = await proxyAwareFetch(proxyBaseUrl, url, fetchOpts, config);
-  const elapsed = Date.now() - start;
-  const bodyText = await response.text();
+  const extractSapErrorSummary = (rawBody: string): string | null => {
+    const normalized = rawBody.toLowerCase();
+    if (normalized.includes('anmeldung fehlgeschlagen') || normalized.includes('logon error message')) {
+      return 'SAP login failed: username/password or sap-client was rejected by SAP.';
+    }
+    if (normalized.includes('login failed') || normalized.includes('not authenticated')) {
+      return 'SAP authentication failed.';
+    }
+    return null;
+  };
 
-  if (response.ok) {
-    return {
-      data: {
-        success: true,
-        message: `Route reachable (${response.status}), ${elapsed}ms. Note: this only verifies network/auth — use "Trigger Sync" to validate the full payload.`,
-        status: response.status,
-        responseTime: elapsed,
-      },
-      error: null,
-    };
-  } else {
+  for (const attempt of attemptQueue) {
+    const fetchOpts: RequestInit = { method, headers: attempt.requestHeaders };
+    if (['POST', 'PUT', 'PATCH'].includes(method)) {
+      fetchOpts.body = JSON.stringify({});
+    }
+
+    console.log(`[SAP Direct Test] Attempt: ${attempt.label} → ${attempt.requestUrl}`);
+    const response = await proxyAwareFetch(proxyBaseUrl, attempt.requestUrl, fetchOpts, config);
+    const elapsed = Date.now() - start;
+    const bodyText = await response.text();
+
+    if (response.ok) {
+      return {
+        data: {
+          success: true,
+          message: `Route reachable (${response.status}), ${elapsed}ms (attempt: ${attempt.label}). Note: this only verifies network/auth — use "Trigger Sync" to validate the full payload.`,
+          status: response.status,
+          responseTime: elapsed,
+          attempt: attempt.label,
+        },
+        error: null,
+      };
+    }
+
+    // Check for SAP auth errors — try next attempt
+    const sapError = extractSapErrorSummary(bodyText);
+    if (sapError || response.status === 401 || response.status === 403 || (response.status === 404 && bodyText.includes('<html'))) {
+      console.log(`[SAP Direct Test] Attempt "${attempt.label}" got SAP auth error (${response.status}), trying next...`);
+      continue;
+    }
+
+    // Non-auth error — return immediately
     return {
       data: {
         success: false,
         message: `HTTP ${response.status}: ${response.statusText}. Body: ${bodyText.substring(0, 500)}`,
         status: response.status,
         responseTime: elapsed,
+        attempt: attempt.label,
       },
       error: null,
     };
   }
+
+  // All attempts exhausted
+  const elapsed = Date.now() - start;
+  return {
+    data: {
+      success: false,
+      message: `Transport OK but SAP rejected all ${attemptQueue.length} credential attempts. Check username, password, and SAP client number in API Settings.`,
+      responseTime: elapsed,
+      attempt: 'all_exhausted',
+    },
+    error: null,
+  };
 }
 
 async function directSync(
