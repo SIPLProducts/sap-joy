@@ -510,13 +510,16 @@ export default function ShopFloorStockSelection() {
                       <Table>
                         <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                           <TableRow>
-                            <TableHead className="w-12">
-                              <Checkbox
-                                checked={allPageSelected}
-                                onCheckedChange={handleToggleAllPage}
-                                aria-label="Select all on this page"
-                              />
-                            </TableHead>
+                             <TableHead className="w-12">
+                              <div className="flex items-center gap-1.5">
+                                <Checkbox
+                                  checked={allPageSelected}
+                                  onCheckedChange={handleToggleAllPage}
+                                  aria-label="Select all on this page"
+                                />
+                                <span className="text-xs font-normal text-muted-foreground">All</span>
+                              </div>
+                             </TableHead>
                             <TableHead>Plant</TableHead>
                             <TableHead>Material</TableHead>
                             <TableHead className="max-w-[200px]">Description</TableHead>
@@ -533,14 +536,12 @@ export default function ShopFloorStockSelection() {
                             return (
                               <TableRow
                                 key={stock.id}
-                                className={`cursor-pointer transition-colors ${isSelected ? 'bg-primary/10' : 'hover:bg-muted/50'}`}
-                                onClick={() => handleToggleStock(stock.id)}
+                                className={`transition-colors ${isSelected ? 'bg-primary/10' : 'hover:bg-muted/50'}`}
                               >
                                 <TableCell>
                                   <Checkbox
                                     checked={isSelected}
                                     onCheckedChange={() => handleToggleStock(stock.id)}
-                                    onClick={(e) => e.stopPropagation()}
                                   />
                                 </TableCell>
                                 <TableCell>
