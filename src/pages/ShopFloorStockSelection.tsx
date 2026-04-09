@@ -540,16 +540,16 @@ export default function ShopFloorStockSelection() {
                         </TableHeader>
                         <TableBody>
                           {paginatedStock.map((stock) => {
-                            const isSelected = selectedStocks.has(stock.id);
+                            const isSelected = selectedStocks.has(stock._rowKey);
                             return (
                               <TableRow
-                                key={stock.id}
+                                key={stock._rowKey}
                                 className={`transition-colors ${isSelected ? 'bg-primary/10' : 'hover:bg-muted/50'}`}
                               >
                                 <TableCell>
                                   <Checkbox
                                     checked={isSelected}
-                                    onCheckedChange={() => handleToggleStock(stock.id)}
+                                    onCheckedChange={() => handleToggleStock(stock._rowKey)}
                                   />
                                 </TableCell>
                                 <TableCell>
