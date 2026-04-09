@@ -1375,9 +1375,11 @@ async function mapAndInsertClientSide(
  * Self-hosted → Direct middleware call
  */
 export async function invokeSapSync(body: Record<string, any>): Promise<{ data: any; error: any }> {
+  // Refresh token first to prevent stale session issues on long-lived forms
+  await supabase.auth.refreshSession();
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
-    return { data: null, error: { message: 'Not authenticated' } };
+    return { data: null, error: { message: 'Not authenticated. Please log in again.' } };
   }
 
   // Dual-mode routing:
