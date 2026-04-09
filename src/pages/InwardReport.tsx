@@ -327,149 +327,8 @@ export default function InwardReport() {
     setCurrentPage(1);
   };
 
-  // Parse CSV content
-  const parseCSV = (content: string): Record<string, unknown>[] => {
-    const lines = content.split('\n').filter(line => line.trim());
-    if (lines.length < 2) return [];
-    
-    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-    const data: Record<string, unknown>[] = [];
-    
-    for (let i = 1; i < lines.length; i++) {
-      const values: string[] = [];
-      let current = '';
-      let inQuotes = false;
-      
-      for (const char of lines[i]) {
-        if (char === '"') {
-          inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-          values.push(current.trim());
-          current = '';
-        } else {
-          current += char;
-        }
-      }
-      values.push(current.trim());
-      
-      const row: Record<string, unknown> = {};
-      headers.forEach((header, index) => {
-        row[header] = values[index] || '';
-      });
-      data.push(row);
-    }
-    
-    return data;
-  };
 
-  // File upload handler - now shows preview first
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
 
-    // Validate file type
-    const isCSV = file.name.endsWith('.csv') || file.type === 'text/csv';
-    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || 
-                    file.type === 'application/vnd.ms-excel' || 
-                    file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-
-    if (!isCSV && !isExcel) {
-      toast.error('Invalid file type. Please upload a CSV or Excel file.');
-      return;
-    }
-
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('File too large. Maximum size is 10MB.');
-      return;
-    }
-
-    setUploadStatus('idle');
-    setUploadMessage('');
-    setParseResult(null);
-
-    try {
-      let parsedData: Record<string, unknown>[] = [];
-
-      if (isCSV) {
-        // Parse CSV
-        const text = await file.text();
-        parsedData = parseCSV(text);
-      } else {
-        // Parse Excel
-        const arrayBuffer = await file.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        parsedData = XLSX.utils.sheet_to_json(worksheet);
-      }
-
-      if (parsedData.length === 0) {
-        throw new Error('No data found in the file');
-      }
-
-      // Validate the parsed data
-      const validationResult = validateParsedData(parsedData);
-      setParseResult(validationResult);
-      setPreviewFileName(file.name);
-      
-      // Show preview modal instead of directly uploading
-      setShowPreview(true);
-
-    } catch (error) {
-      console.error('Parse error:', error);
-      setUploadStatus('error');
-      setUploadMessage(error instanceof Error ? error.message : 'Failed to process file');
-      toast.error('Failed to parse file');
-    } finally {
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  // Confirm upload from preview modal
-  const handleConfirmUpload = async () => {
-    if (!parseResult || !parseResult.success) return;
-
-    setIsUploading(true);
-
-    try {
-      const uploadBatchId = `batch-${Date.now()}`;
-      const uploadResult = await uploadInspectionLots(parseResult.data, uploadBatchId);
-
-      if (uploadResult.success) {
-        setUploadStatus('success');
-        setUploadMessage(`Successfully uploaded ${uploadResult.insertedCount} records from ${previewFileName}.`);
-        toast.success(`${uploadResult.insertedCount} records uploaded successfully!`);
-        setShowPreview(false);
-      } else {
-        setUploadStatus('error');
-        setUploadMessage(`Partial upload: ${uploadResult.insertedCount} records inserted. Errors: ${uploadResult.errors.join('; ')}`);
-        toast.error('Some records failed to upload');
-      }
-    } catch (error) {
-      console.error('Upload error:', error);
-      setUploadStatus('error');
-      setUploadMessage(error instanceof Error ? error.message : 'Failed to upload data');
-      toast.error('Upload failed');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  // Close preview modal
-  const handleClosePreview = () => {
-    setShowPreview(false);
-    setParseResult(null);
-    setPreviewFileName('');
-  };
-
-  // Template download handler
-  const handleDownloadTemplate = () => {
-    downloadCSVTemplate();
-    toast.success('Template downloaded successfully!');
-  };
 
   // API sync handler
   const handleAPISync = async () => {
@@ -583,32 +442,11 @@ export default function InwardReport() {
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="sticky top-[73px] z-30 bg-background border-b border-border shadow-sm flex-shrink-0">
-        <div className="px-6 py-3">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-            <TabsList className="grid w-full max-w-md grid-cols-3">
-              <TabsTrigger value="search" className="flex items-center gap-2">
-                <Search className="h-4 w-4" />
-                Search
-              </TabsTrigger>
-              <TabsTrigger value="upload" className="flex items-center gap-2" disabled={!canUploadData}>
-                <Upload className="h-4 w-4" />
-                Upload Data
-              </TabsTrigger>
-              <TabsTrigger value="api" className="flex items-center gap-2">
-                <Database className="h-4 w-4" />
-                API Integration
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-      </div>
 
       {/* Content Area */}
       <div className="flex-1 overflow-auto bg-muted/30 min-h-0">
-        {/* Search Tab Content */}
-        {activeTab === 'search' && (
+        {/* Search Content */}
+        {true && (
           <>
             {/* Filter Section */}
             <div className="px-6 py-4 border-b border-border bg-background">
