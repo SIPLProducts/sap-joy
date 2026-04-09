@@ -1,23 +1,21 @@
 
 
-## Plan: Fix Sticky Header on Inward Materials Screen
+## Plan: Match User Management Scroll Pattern on Inward Materials Screen
 
-### Root Cause
-The `<main className="flex-1 overflow-auto">` in `AppLayout.tsx` is the scroll container. When `<main>` scrolls, the "sticky" header inside `InwardReport.tsx` scrolls away with it — `sticky` only works relative to its nearest scrolling ancestor.
+### What the User Management Screen Does
+The page body scrolls normally (header, stats cards, filters all scroll together). The **data table** sits inside a `max-h-[60vh] overflow-auto` container with `sticky top-0` on `TableHeader` — so column headers stay visible while table rows scroll.
 
-### Changes
+### What Inward Materials Currently Does
+The entire header + filters are locked in place (`flex-shrink-0 overflow-hidden`) and the content area below scrolls via `flex-1 overflow-auto`. This means the filters always consume screen space, leaving less room for data.
 
-**1. `src/components/layout/AppLayout.tsx` (line 28)**
-- Change `overflow-auto` → `overflow-hidden` on `<main>` so each page controls its own scrolling
+### Change — `src/pages/InwardReport.tsx`
 
-**2. `src/pages/InwardReport.tsx`**
-- Line 409: Add `overflow-hidden` to root div
-- Line 411: Remove `sticky top-0 z-40` (unnecessary with flex layout — `flex-shrink-0` already keeps it pinned)
-- Ensure the results table area below has `flex-1 overflow-auto min-h-0` so it scrolls independently
-
-**3. Other pages safeguard**
-- Add `overflow-auto` to the root wrapper of pages that currently rely on `<main>` scrolling: Dashboard, Worklist, ShopFloorStockSelection, UserManagement, and all other list/detail pages. This is a one-line className addition per file.
+1. **Remove the flex-column pinned-header layout**: Change the root div from `flex flex-col h-full overflow-hidden` to a simple `overflow-auto h-full` scrollable page (like User Management)
+2. **Remove `flex-shrink-0`** from the header/filter section — let it scroll with the page
+3. **Wrap the results Table** in `<div className="max-h-[60vh] overflow-auto">` and keep `<TableHeader className="sticky top-0 z-20 bg-muted/80 backdrop-blur-sm">` — this gives the table its own scroll with sticky column headers
+4. Remove the outer `flex-1 overflow-auto min-h-0` wrapper around the content area since the page itself now scrolls
 
 ### Result
-Title bar + Selection Criteria filters stay permanently fixed at the top. Only the data table scrolls beneath them.
+- Page scrolls normally: title, filters, bulk actions all scroll up naturally
+- Data table has its own scroll area (60vh) with column headers always visible — exactly like User Management
 
