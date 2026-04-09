@@ -567,11 +567,29 @@ async function fetchViaProxy(
     try { parsedBody = JSON.parse(body) } catch { parsedBody = body }
   }
 
-  const proxyPayload = {
+  // Extract raw credentials from Authorization header to avoid encoding issues
+  let authInfo: { username: string; password: string } | undefined
+  if (forwardHeaders['Authorization']?.startsWith('Basic ')) {
+    try {
+      const decoded = atob(forwardHeaders['Authorization'].replace('Basic ', ''))
+      const colonIdx = decoded.indexOf(':')
+      if (colonIdx > 0) {
+        authInfo = {
+          username: decoded.substring(0, colonIdx),
+          password: decoded.substring(colonIdx + 1),
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  const proxyPayload: Record<string, any> = {
     url: targetUrl,
     method,
     headers: forwardHeaders,
     body: parsedBody,
+  }
+  if (authInfo) {
+    proxyPayload.auth = authInfo
   }
 
   console.log(`[fetchViaProxy] POST ${proxyEndpoint} → ${method} ${targetUrl}`)
