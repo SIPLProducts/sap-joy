@@ -411,6 +411,7 @@ async function directSync(
   headers: Record<string, string>,
   config: any,
   body: Record<string, any>,
+  proxyBaseUrl: string,
 ): Promise<{ data: any; error: any }> {
   const method = (config.http_method || 'GET').toUpperCase();
   const debugLabel = `[SAP Sync Debug] ${config.config_name || config.endpoint_path || body.config_id || 'Unknown API'}`;
@@ -657,7 +658,7 @@ async function directSync(
       }
 
       console.log(`${debugLabel} Attempt: ${attempt.label}`);
-      const currentResponse = await fetch(attempt.requestUrl, attemptOpts);
+      const currentResponse = await proxyAwareFetch(proxyBaseUrl, attempt.requestUrl, attemptOpts, config);
       const currentBodyText = await currentResponse.text();
       const currentContentType = currentResponse.headers.get('content-type') || 'unknown';
       const currentPreview = currentBodyText.substring(0, 2000);
@@ -783,6 +784,7 @@ async function directUnblock(
   headers: Record<string, string>,
   config: any,
   body: Record<string, any>,
+  proxyBaseUrl: string,
 ): Promise<{ data: any; error: any }> {
   const { request_body } = body;
   if (!request_body) {
@@ -797,11 +799,11 @@ async function directUnblock(
   console.log(`[SAP Unblock API Request] Method: ${method}`);
   console.log(`[SAP Unblock API Request] Payload:`, payload);
 
-  const response = await fetch(url, {
+  const response = await proxyAwareFetch(proxyBaseUrl, url, {
     method,
     headers,
     body: JSON.stringify(payload),
-  });
+  }, config);
 
   const bodyText = await response.text();
   console.log(`[SAP Unblock API Response] Status: ${response.status}`);
@@ -846,6 +848,7 @@ async function directUpdateQty(
   headers: Record<string, string>,
   config: any,
   body: Record<string, any>,
+  proxyBaseUrl: string,
 ): Promise<{ data: any; error: any }> {
   const { lot_id, new_quantity, inspection_lot, material_code, plant, storage_location, batch } = body;
 
@@ -888,7 +891,7 @@ async function directUpdateQty(
       ACTION: 'UPDATE_QTY',
     };
 
-    const response = await fetch(url, { method, headers, body: JSON.stringify(sapPayload) });
+    const response = await proxyAwareFetch(proxyBaseUrl, url, { method, headers, body: JSON.stringify(sapPayload) }, config);
     const bodyText = await response.text();
 
     if (!response.ok) {
@@ -947,6 +950,7 @@ async function directFetchLive(
   headers: Record<string, string>,
   config: any,
   body: Record<string, any>,
+  proxyBaseUrl: string,
 ): Promise<{ data: any; error: any }> {
   const method = (config.http_method || 'POST').toUpperCase();
   const debugLabel = `[SAP Live Fetch] ${config.config_name || 'MB52'}`;
@@ -989,7 +993,7 @@ async function directFetchLive(
     }
 
     console.log(`${debugLabel} Fetching live data from SAP... URL: ${url}`);
-    const response = await fetch(url, fetchOpts);
+    const response = await proxyAwareFetch(proxyBaseUrl, url, fetchOpts, config);
     const bodyText = await response.text();
 
     if (!response.ok) {
