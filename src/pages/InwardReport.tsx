@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, RefreshCw, AlertCircle, CheckCircle2, Loader2, Layers, XCircle, Save, X } from 'lucide-react';
@@ -26,11 +26,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -42,8 +37,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { downloadCSVTemplate, validateParsedData, ParseResult } from '@/lib/csvTemplates';
-import * as XLSX from 'xlsx';
 import { Checkbox } from '@/components/ui/checkbox';
 
 import { useExtraDynamicFields } from '@/hooks/useDynamicFields';
