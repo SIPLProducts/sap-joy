@@ -303,6 +303,8 @@ export default function ShopFloorMaterialBlocking() {
         issue_description: `${blockReason}: ${defectDescription}`,
         impact_on_production: 'Material blocked for review',
         immediate_block_required: true,
+        storage_location: stockItem.storageLocation || null,
+        batch: stockItem.batch || null,
       } as any, nextReviewDepartments);
 
       if (mrbResult) {

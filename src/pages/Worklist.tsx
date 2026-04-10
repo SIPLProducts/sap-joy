@@ -91,6 +91,9 @@ interface UnifiedMRBRecord {
   finalApprovedBy: string | null;
   closureStatus: string | null;
   sapStockUpdateStatus: string | null;
+  // SAP unblock fields
+  storageLocation: string | null;
+  batch: string | null;
 }
 
 interface SAPSyncHistoryEntry {
@@ -220,6 +223,8 @@ export default function Worklist() {
     finalApprovedBy: mrb.final_approved_by,
     closureStatus: mrb.closure_status,
     sapStockUpdateStatus: mrb.sap_stock_update_status,
+    storageLocation: (mrb as any).storage_location || null,
+    batch: (mrb as any).batch || null,
   }));
 
   const filteredRecords = unifiedRecords.filter(mrb => {
@@ -445,11 +450,12 @@ export default function Worklist() {
 
   // Build SAP 343 request body from MRB data
   const buildUnblockRequestBody = async (mrb: UnifiedMRBRecord) => {
-    // Try to get storage_location and batch from inward_inspection_lots if inspection_lot is available
-    let storageLocation = '';
-    let batch = '';
+    // Prefer storage_location and batch directly from mrb_records (new columns)
+    let storageLocation = mrb.storageLocation || '';
+    let batch = mrb.batch || '';
 
-    if (mrb.inspectionLot) {
+    // Fallback: try inward_inspection_lots if inspection_lot is available
+    if ((!storageLocation || !batch) && mrb.inspectionLot) {
       const { data: lot } = await supabase
         .from('inward_inspection_lots')
         .select('storage_location, batch')
@@ -458,12 +464,12 @@ export default function Worklist() {
         .maybeSingle();
 
       if (lot) {
-        storageLocation = lot.storage_location || '';
-        batch = lot.batch || '';
+        storageLocation = storageLocation || lot.storage_location || '';
+        batch = batch || lot.batch || '';
       }
     }
 
-    // If no lot found, try shop_floor_stock
+    // Fallback: try shop_floor_stock
     if (!storageLocation || !batch) {
       const { data: stock } = await supabase
         .from('shop_floor_stock')
