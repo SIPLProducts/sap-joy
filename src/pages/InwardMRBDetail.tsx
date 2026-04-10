@@ -22,7 +22,7 @@ import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { getStatusDisplayName, getStatusColor, getRoleDisplayName } from '@/data/mockData';
-import { nextReviewDepartments } from '@/data/inwardReportData';
+import { useDepartmentMap } from '@/hooks/useDepartmentMap';
 import { WorkflowProgressIndicator } from '@/components/mrb/WorkflowProgressIndicator';
 import type { Database } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,6 +38,7 @@ export default function InwardMRBDetail() {
   const { getMRBById, updateMRBStatus, getApprovalHistory } = useMRBDatabase();
   const { currentRole, canEdit } = useRole();
   const { userRole, profile, user } = useAuth();
+  const { roleDisplayNames } = useDepartmentMap();
   
   const [mrb, setMRB] = useState<MRBRecord | null>(null);
   const [approvalHistory, setApprovalHistory] = useState<ApprovalHistory[]>([]);
@@ -506,39 +507,39 @@ export default function InwardMRBDetail() {
                   
                   {reviewData.forwardToNext && (
                     <div className="pl-6 space-y-3">
-                      <Label>Select Departments to Forward</Label>
+                       <Label>Select Departments to Forward</Label>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {nextReviewDepartments
-                          .filter(d => d.value !== currentRole)
+                        {(Array.isArray(mrb.workflow_routing) ? (mrb.workflow_routing as string[]) : [])
+                          .filter(d => d !== currentRole && d !== userRole)
                           .map((dept) => (
                             <label
-                              key={dept.value}
+                              key={dept}
                               className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                                reviewData.nextDepartments?.includes(dept.value)
+                                reviewData.nextDepartments?.includes(dept)
                                   ? 'border-primary bg-primary/5'
                                   : 'border-border hover:border-muted-foreground'
                               }`}
                             >
                               <input
                                 type="checkbox"
-                                checked={reviewData.nextDepartments?.includes(dept.value) || false}
+                                checked={reviewData.nextDepartments?.includes(dept) || false}
                                 onChange={(e) => {
                                   const current = reviewData.nextDepartments || [];
                                   if (e.target.checked) {
                                     setReviewData({ 
                                       ...reviewData, 
-                                      nextDepartments: [...current, dept.value] 
+                                      nextDepartments: [...current, dept] 
                                     });
                                   } else {
                                     setReviewData({ 
                                       ...reviewData, 
-                                      nextDepartments: current.filter(d => d !== dept.value) 
+                                      nextDepartments: current.filter(d => d !== dept) 
                                     });
                                   }
                                 }}
                                 className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
                               />
-                              <span className="text-sm font-medium">{dept.label}</span>
+                              <span className="text-sm font-medium">{roleDisplayNames[dept] || dept}</span>
                             </label>
                           ))
                         }
@@ -571,7 +572,7 @@ export default function InwardMRBDetail() {
                   {reviewData.forwardToNext && reviewData.nextDepartments.length > 0 && (
                     <span className="ml-2">
                       → Forward to: {reviewData.nextDepartments.map(d => 
-                        nextReviewDepartments.find(dept => dept.value === d)?.label
+                        roleDisplayNames[d] || d
                       ).join(', ')}
                     </span>
                   )}
@@ -602,7 +603,7 @@ export default function InwardMRBDetail() {
               You are about to submit your review with action: <strong>{getActionLabel(reviewData.action)}</strong>
               {reviewData.forwardToNext && reviewData.nextDepartments.length > 0 && (
                 <span> and forward to {reviewData.nextDepartments.map(d => 
-                  nextReviewDepartments.find(dept => dept.value === d)?.label
+                  roleDisplayNames[d] || d
                 ).join(', ')}</span>
               )}
             </DialogDescription>
