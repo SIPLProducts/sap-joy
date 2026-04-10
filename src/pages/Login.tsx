@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award, UserPlus, Eye, EyeOff, WifiOff, RefreshCw, Activity, Trash2, AlertTriangle } from 'lucide-react';
+import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award, Eye, EyeOff, WifiOff, RefreshCw, Trash2, AlertTriangle } from 'lucide-react';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHealthCheck, ConnectionStatus } from '@/hooks/useHealthCheck';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -309,7 +308,7 @@ export default function Login() {
             </div>
             <h2 className="text-3xl font-bold text-foreground">Welcome!</h2>
             <p className="text-muted-foreground">
-              Sign in or create an account to continue
+              Sign in to continue
             </p>
           </div>
 
@@ -339,32 +338,23 @@ export default function Login() {
           )}
 
           <Card className="shadow-xl border-0 bg-card/80 backdrop-blur">
-            <Tabs defaultValue="signin" className="w-full">
               <CardHeader className="pb-4">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="signin" className="flex items-center gap-2">
-                    <LogIn className="w-4 h-4" />
-                    Sign In
-                  </TabsTrigger>
-                  <TabsTrigger value="signup" className="flex items-center gap-2">
-                    <UserPlus className="w-4 h-4" />
-                    Sign Up
-                  </TabsTrigger>
-                </TabsList>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <LogIn className="w-5 h-5" />
+                  Sign In
+                </CardTitle>
               </CardHeader>
               
               <CardContent>
-                {/* Sign In Tab */}
-                <TabsContent value="signin" className="mt-0">
                   <form onSubmit={handleSignIn} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="signin-email">Email or Employee ID</Label>
+                      <Label htmlFor="signin-email">Employee ID</Label>
                       <Input
                         id="signin-email"
                         type="text"
                         value={signInEmail}
                         onChange={(e) => setSignInEmail(e.target.value)}
-                        placeholder="Enter email or employee ID"
+                        placeholder="Enter your Employee ID"
                         className="h-11"
                         required
                       />
@@ -415,116 +405,7 @@ export default function Login() {
                       )}
                     </Button>
                   </form>
-                </TabsContent>
-
-                {/* Sign Up Tab */}
-                <TabsContent value="signup" className="mt-0">
-                  <form onSubmit={handleSignUp} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-name">Full Name</Label>
-                      <Input
-                        id="signup-name"
-                        type="text"
-                        value={signUpFullName}
-                        onChange={(e) => setSignUpFullName(e.target.value)}
-                        placeholder="Enter your full name"
-                        className="h-11"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-email">Email Address</Label>
-                      <Input
-                        id="signup-email"
-                        type="email"
-                        value={signUpEmail}
-                        onChange={(e) => setSignUpEmail(e.target.value)}
-                        placeholder="Enter your email"
-                        className="h-11"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-password">Password</Label>
-                      <div className="relative">
-                        <Input
-                          id="signup-password"
-                          type={showSignUpPassword ? 'text' : 'password'}
-                          value={signUpPassword}
-                          onChange={(e) => setSignUpPassword(e.target.value.slice(0, 10))}
-                          placeholder="8-10 chars, letter + number"
-                          className="h-11 pr-10"
-                          minLength={8}
-                          maxLength={10}
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowSignUpPassword(!showSignUpPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        >
-                          {showSignUpPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                      <PasswordPolicyIndicator password={signUpPassword} />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-role">Select Your Role *</Label>
-                      <Select value={signUpRole} onValueChange={(val) => setSignUpRole(val as AppRole)}>
-                        <SelectTrigger id="signup-role" className="h-11">
-                          <SelectValue placeholder="Choose your role..." />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                          {roles.map((role) => (
-                            <SelectItem key={role.value} value={role.value} className="py-3">
-                              <div className="flex items-center gap-3">
-                                <role.icon className="w-4 h-4 text-primary" />
-                                <span className="font-medium">{role.label}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Role Permissions */}
-                    {signUpRole && (
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Permissions</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {getRolePermissions(signUpRole).map((permission, index) => (
-                            <span key={index} className="px-2.5 py-1 text-xs rounded-full bg-primary/10 text-primary font-medium">
-                              {permission}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <Button
-                      type="submit"
-                      disabled={isLoading || !signUpEmail || !signUpPassword || !signUpFullName || !signUpRole}
-                      className="w-full h-11 text-base font-medium"
-                    >
-                      {isLoading ? (
-                        <span className="flex items-center gap-2">
-                          <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                          Creating account...
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-2">
-                          <UserPlus className="w-4 h-4" />
-                          Create Account
-                        </span>
-                      )}
-                    </Button>
-                  </form>
-                </TabsContent>
               </CardContent>
-            </Tabs>
           </Card>
 
 

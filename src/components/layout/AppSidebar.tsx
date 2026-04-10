@@ -41,14 +41,14 @@ const dashboardItems = [
 ];
 
 const adminItems = [
-  { title: 'User & Role Management', url: '/admin/users', icon: UserCog, roles: ['admin'], masterOnly: false },
-  { title: 'Role Access Matrix', url: '/admin/matrix', icon: Shield, roles: ['admin'], masterOnly: false },
-  { title: 'Plant Management', url: '/admin/plants', icon: Building2, roles: ['admin'], masterOnly: false },
-  { title: 'Role Management', url: '/admin/roles', icon: Layers, roles: ['admin'], masterOnly: false },
-  { title: 'Workflow Routing', url: '/admin/workflow', icon: GitBranch, roles: ['admin'], masterOnly: false },
-  { title: 'SAP API Settings', url: '/admin/sap-api', icon: Settings, roles: ['admin'], masterOnly: true },
-  { title: 'SAP Sync Monitor', url: '/admin/sap-sync', icon: TrendingUp, roles: ['admin'], masterOnly: true },
-  { title: 'Email Configuration', url: '/admin/email-config', icon: Mail, roles: ['admin'], masterOnly: false },
+  { title: 'User & Role Management', url: '/admin/users', icon: UserCog, matrixKey: 'user_management', masterOnly: false },
+  { title: 'Role Access Matrix', url: '/admin/matrix', icon: Shield, matrixKey: 'role_access', masterOnly: false },
+  { title: 'Plant Management', url: '/admin/plants', icon: Building2, matrixKey: 'plant_management', masterOnly: false },
+  { title: 'Role Management', url: '/admin/roles', icon: Layers, matrixKey: 'role_management', masterOnly: false },
+  { title: 'Workflow Routing', url: '/admin/workflow', icon: GitBranch, matrixKey: 'workflow_config', masterOnly: false },
+  { title: 'SAP API Settings', url: '/admin/sap-api', icon: Settings, matrixKey: 'sap_api_settings', masterOnly: true },
+  { title: 'SAP Sync Monitor', url: '/admin/sap-sync', icon: TrendingUp, matrixKey: 'sap_sync_monitor', masterOnly: true },
+  { title: 'Email Configuration', url: '/admin/email-config', icon: Mail, matrixKey: 'email_config', masterOnly: false },
 ];
 
 const MASTER_ADMIN_EMAIL = 'masteradmin@sharviinfotech.com';
@@ -62,8 +62,12 @@ export function AppSidebar() {
   const { hasAccess } = useRoleMatrix();
   const isMasterAdmin = profile?.email === MASTER_ADMIN_EMAIL || user?.email === MASTER_ADMIN_EMAIL;
 
-  // Admin items filtered by master status
-  const visibleAdminItems = adminItems.filter(item => !item.masterOnly || isMasterAdmin);
+  // Admin items filtered by permission matrix + master status
+  const visibleAdminItems = adminItems.filter(item => {
+    if (item.masterOnly && !isMasterAdmin) return false;
+    if (userRole === 'admin') return true;
+    return hasAccess(item.matrixKey);
+  });
 
   // Filter items based on authenticated user's dynamic role matrix
   const filteredItems = menuItems.filter(item => hasAccess(item.matrixKey));
@@ -148,7 +152,7 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {userRole === 'admin' && (
+        {visibleAdminItems.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-sidebar-foreground/60">Administration</SidebarGroupLabel>
             <SidebarGroupContent>

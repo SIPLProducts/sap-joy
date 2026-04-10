@@ -29,6 +29,7 @@ const SCREENS = [
   { key: 'role_access', label: 'Role Access', group: 'Administration' },
   { key: 'plant_management', label: 'Plant Management', group: 'Administration' },
   { key: 'workflow_config', label: 'Workflow Config', group: 'Administration' },
+  { key: 'email_config', label: 'Email Configuration', group: 'Administration' },
 ];
 
 const ROLE_COLORS: Record<string, string> = {
