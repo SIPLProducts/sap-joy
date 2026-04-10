@@ -111,7 +111,7 @@ export default function CreateMRBShopFloor() {
         impact_on_production: formData.impactOnProduction || null,
         immediate_block_required: formData.immediateBlockRequired,
         deviation_requested: formData.deviationRequested,
-      });
+      } as any);
 
       if (newMRB) {
         toast({ title: "MRB Created", description: `${mrbNumber} has been created from shop floor.` });
