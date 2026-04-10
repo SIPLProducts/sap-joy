@@ -45,6 +45,7 @@ export default function InwardMRBDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [poItemNumber, setPOItemNumber] = useState<string | null>(null);
+  const [lotBatch, setLotBatch] = useState<string | null>(null);
   
   const [reviewData, setReviewData] = useState({
     reviewComments: '',
