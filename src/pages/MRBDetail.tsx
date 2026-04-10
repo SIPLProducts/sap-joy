@@ -260,10 +260,11 @@ export default function MRBDetail() {
           workflowRouting={Array.isArray(mrb.workflow_routing) ? (mrb.workflow_routing as string[]) : undefined}
         />
 
-        <div className="grid gap-4 md:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
           <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Material</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.material_number}</p></CardContent></Card>
           <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Vendor</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.vendor_name || 'N/A'}</p></CardContent></Card>
           <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Plant</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.plant}</p></CardContent></Card>
+          <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Batch No.</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.batch || 'N/A'}</p></CardContent></Card>
           <Card><CardHeader className="pb-2"><CardTitle className="text-sm">PO / Line Item</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.po_number || 'N/A'}{poItemNumber ? ` / ${poItemNumber}` : ''}</p></CardContent></Card>
           <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Pending With</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.pending_with ? getRoleDisplayName(mrb.pending_with as any) : 'N/A'}</p></CardContent></Card>
         </div>

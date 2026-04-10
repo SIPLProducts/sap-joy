@@ -305,6 +305,10 @@ export default function ShopFloorMRBDetail() {
                 <p className="font-medium font-mono">{mrb.po_number || '-'}</p>
               </div>
               <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Batch No.</Label>
+                <p className="font-medium font-mono">{mrb.batch || 'N/A'}</p>
+              </div>
+              <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Blocked Quantity</Label>
                 <p className="font-medium text-destructive">{mrb.blocked_quantity} {mrb.uom}</p>
               </div>
