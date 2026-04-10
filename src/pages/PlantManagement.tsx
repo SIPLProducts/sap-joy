@@ -31,7 +31,7 @@ export default function PlantManagement() {
   const [editingPlant, setEditingPlant] = useState<Plant | null>(null);
   const [form, setForm] = useState({ code: '', name: '', location: '' });
 
-  const { hasAccess } = useRoleMatrix();
+  const { hasAccess, loading: permLoading } = useRoleMatrix();
   const isAdmin = userRole === 'admin' || hasAccess('plant_management');
 
   const fetchPlants = async () => {

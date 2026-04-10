@@ -71,7 +71,7 @@ export default function UserManagement() {
   const [newUserEmployeeId, setNewUserEmployeeId] = useState('');
   const [editEmployeeId, setEditEmployeeId] = useState('');
 
-  const { hasAccess } = useRoleMatrix();
+  const { hasAccess, loading: permLoading } = useRoleMatrix();
   const isAdmin = userRole === 'admin' || hasAccess('user_management');
 
   // Build role options dynamically from Role Management (departments table)
@@ -414,6 +414,12 @@ export default function UserManagement() {
     (user.department?.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (user.role?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  if (permLoading) {
+    return (
+      <div className="flex justify-center py-20"><RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+    );
+  }
 
   if (!isAdmin) {
     return (
