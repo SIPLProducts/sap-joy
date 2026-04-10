@@ -184,7 +184,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
         });
       }
       
-      setInspectionLotRecords(lotRecords);
+      setInspectionLotRecords(lotRecords.filter(r => r.status !== 'mrb_created'));
     } catch (error) {
       console.error('Error fetching inward MRB data:', error);
     } finally {

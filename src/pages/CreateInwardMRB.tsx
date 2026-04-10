@@ -804,7 +804,10 @@ Quality Department`;
                 <Label className="text-muted-foreground">Transaction Quantity</Label>
                 <Input value={formData.transactionQuantity.toString()} readOnly className="bg-muted" />
               </div>
-              {/* Block Reason hidden from create form */}
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Block Reason</Label>
+                <Input value={formData.blockReason} readOnly className="bg-muted" />
+              </div>
               <div className="space-y-2">
                 <Label className="text-muted-foreground">Vendor Code</Label>
                 <Input value={formData.vendorCode} readOnly className="bg-muted" />

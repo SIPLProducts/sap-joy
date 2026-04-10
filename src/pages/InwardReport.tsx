@@ -242,7 +242,7 @@ export default function InwardReport() {
   );
 
   const handleSearch = () => {
-    const results = getFilteredRecords();
+    const results = getFilteredRecords().filter(r => r.status !== 'mrb_created');
     setSearchResults(results);
     setHasSearched(true);
     setCurrentPage(1);
@@ -252,7 +252,7 @@ export default function InwardReport() {
   // Auto-load all records on mount and when data refreshes
   useEffect(() => {
     if (!isLoading && inspectionLotRecords.length > 0) {
-      setSearchResults(inspectionLotRecords);
+      setSearchResults(inspectionLotRecords.filter(r => r.status !== 'mrb_created'));
       if (!hasSearched) setHasSearched(true);
     }
   }, [isLoading, inspectionLotRecords]);
