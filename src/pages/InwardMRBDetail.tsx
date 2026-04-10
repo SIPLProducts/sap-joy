@@ -22,7 +22,7 @@ import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { getStatusDisplayName, getStatusColor, getRoleDisplayName } from '@/data/mockData';
-import { nextReviewDepartments } from '@/data/inwardReportData';
+import { useDepartmentMap } from '@/hooks/useDepartmentMap';
 import { WorkflowProgressIndicator } from '@/components/mrb/WorkflowProgressIndicator';
 import type { Database } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';

@@ -21,7 +21,7 @@ import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { getStatusDisplayName, getStatusColor, getRoleDisplayName } from '@/data/mockData';
-import { shopFloorNextDepartments } from '@/data/shopFloorStockData';
+import { useDepartmentMap } from '@/hooks/useDepartmentMap';
 import { WorkflowProgressIndicator } from '@/components/mrb/WorkflowProgressIndicator';
 import type { Database } from '@/integrations/supabase/types';
 
