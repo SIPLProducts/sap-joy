@@ -1338,8 +1338,8 @@ Quality Department`;
       </div>
 
       {/* Sticky Footer with Submit Button */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border shadow-lg">
-        <div className="px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
+      <div className="fixed bottom-0 right-0 z-40 bg-background border-t border-border shadow-lg" style={{ left: 'var(--sidebar-width, 16rem)' }}>
+        <div className="px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="text-sm text-muted-foreground">
               {isFormValid ? (
