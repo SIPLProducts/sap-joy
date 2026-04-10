@@ -1,43 +1,47 @@
 
 
-## Fix: Employee ID Login Fails Due to RLS
+## Make Roles Fully Dynamic — Remove Hardcoded Enum Constraint
 
-### Root Cause
-The `profiles` table's RLS policy (`Authenticated users can view all profiles`) blocks SELECT for unauthenticated users. The employee ID → email lookup in `Login.tsx` runs **before** authentication, so the query returns no rows, causing "Employee ID not found."
+### Problem
+Roles are created dynamically through the app (via Role Management / departments table), but the database uses a fixed `app_role` enum. When a user creates a new role like "Stores", it can't be assigned because:
+1. The `user_roles.role` column is typed as `app_role` enum — only accepts the 10 hardcoded values
+2. `UserManagement.tsx` line 173 has a hardcoded `validRoles` array
+3. "Assign" button shows instead of "Edit"; Delete is hidden when no role
 
 ### Solution
-Create a `SECURITY DEFINER` database function that looks up the email by employee ID, bypassing RLS. Then call it from `Login.tsx` via `.rpc()`.
+Convert all `app_role` enum columns to `text` so any role created in the departments table can be used. Update the `has_role()` and `get_user_role()` functions accordingly. Fix the UI bugs.
 
-### Changes
+### Database Migration
 
-**1. Database migration — create `get_email_by_employee_id` function**
-```sql
-CREATE OR REPLACE FUNCTION public.get_email_by_employee_id(_employee_id text)
-RETURNS text
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-  SELECT email FROM public.profiles WHERE employee_id = _employee_id LIMIT 1;
-$$;
-```
-This runs with elevated privileges, bypassing RLS, so unauthenticated users can resolve employee ID → email.
+1. **Convert columns from `app_role` enum to `text`:**
+   - `user_roles.role`
+   - `mrb_records.pending_with`
+   - `mrb_approval_history.performed_by_role`
+   - `plant_workflow_config.department`
+   - `dashboard_config.role`
 
-**2. Update `src/pages/Login.tsx`**
-Replace the direct `supabase.from('profiles').select('email').eq('employee_id', ...)` query with:
-```typescript
-const { data: email } = await supabase.rpc('get_email_by_employee_id', {
-  _employee_id: loginEmail
-});
-if (!email) {
-  setLoginError('Employee ID not found.');
-  return;
-}
-loginEmail = email;
-```
+2. **Recreate functions** `has_role()` and `get_user_role()` to accept/return `text` instead of `app_role`
 
-### Files modified
-- Database migration (new RPC function)
-- `src/pages/Login.tsx` (use `.rpc()` instead of direct table query)
+3. **Drop and recreate affected RLS policies** — remove all `::app_role` casts (e.g. `'admin'::app_role` → `'admin'`)
+
+4. **Drop the `app_role` enum type** (no longer needed)
+
+### Frontend Changes (`src/pages/UserManagement.tsx`)
+
+1. **Line 173** — Replace hardcoded `validRoles` with dynamic check: `roleOptions.map(r => r.value)`
+2. **Lines 371-374** — Replace failing `upsert` with check-then-insert/update pattern for `user_roles`
+3. **Line 380** — Use `upsert` with `onConflict: 'user_id'` for `user_security`
+4. **Line 532** — Always show "Edit" button (remove "Assign" conditional)
+5. **Lines 534-539** — Always show Delete button
+6. **Lines 708-722** — Change "Remove Role" dialog to "Delete User", update handler to clean up `user_roles`, `user_plants`, `user_security`, and `profiles`
+
+### Frontend Changes (other files)
+- `src/contexts/AuthContext.tsx` — Change `AppRole` type from enum import to `string`
+- `src/contexts/RoleContext.tsx` — Update `AppRole` references
+- `src/pages/InwardMRBDetail.tsx`, `src/pages/PendingActions.tsx`, `src/pages/ShopFloorMaterialBlocking.tsx`, `src/components/mrb/WorkflowProgressIndicator.tsx`, `src/lib/workflowRouting.ts`, `src/contexts/InwardMRBContext.tsx` — Remove `Database['public']['Enums']['app_role']` references, use `string` type instead
+
+### Files Modified
+- 1 new database migration (convert enum → text, recreate functions + RLS policies)
+- `src/pages/UserManagement.tsx` (fix creation, validation, UI)
+- ~8 TypeScript files (update type references from enum to string)
 
