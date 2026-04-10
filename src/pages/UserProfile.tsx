@@ -60,8 +60,27 @@ export default function UserProfile() {
   const handleSave = async () => {
     if (!user) return;
 
+    if (!formData.employee_id.trim()) {
+      toast({ title: 'Validation Error', description: 'Employee ID is required.', variant: 'destructive' });
+      return;
+    }
+
     setSaving(true);
     try {
+      // Check employee_id uniqueness
+      const { data: existingEmp } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('employee_id', formData.employee_id.trim())
+        .neq('user_id', user.id)
+        .maybeSingle();
+
+      if (existingEmp) {
+        toast({ title: 'Duplicate Employee ID', description: 'This Employee ID is already assigned to another user.', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -69,7 +88,7 @@ export default function UserProfile() {
           phone: formData.phone,
           plant: formData.plant,
           department: formData.department,
-          employee_id: formData.employee_id,
+          employee_id: formData.employee_id.trim(),
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', user.id);

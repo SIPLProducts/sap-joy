@@ -110,6 +110,24 @@ export default function Login() {
     setIsLoading(true);
     setRetryCount(0);
 
+    // Resolve employee ID to email if needed
+    let loginEmail = signInEmail.trim();
+    if (!loginEmail.includes('@')) {
+      // Treat as employee ID — look up email
+      const { data: empProfile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('employee_id', loginEmail)
+        .maybeSingle();
+      
+      if (!empProfile) {
+        setLoginError('Employee ID not found. Please check and try again.');
+        setIsLoading(false);
+        return;
+      }
+      loginEmail = empProfile.email;
+    }
+
     let lastError: any = null;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       if (attempt > 0) {
@@ -117,7 +135,7 @@ export default function Login() {
         await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
       }
       
-      const { error } = await signIn(signInEmail, signInPassword);
+      const { error } = await signIn(loginEmail, signInPassword);
       
       if (!error) {
         // Reset failed login attempts on success
@@ -156,7 +174,7 @@ export default function Login() {
           const { data: profileData } = await supabase
             .from('profiles')
             .select('user_id')
-            .eq('email', signInEmail)
+            .eq('email', loginEmail)
             .maybeSingle();
           
           if (profileData?.user_id) {
@@ -342,13 +360,13 @@ export default function Login() {
                 <TabsContent value="signin" className="mt-0">
                   <form onSubmit={handleSignIn} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="signin-email">Email Address</Label>
+                      <Label htmlFor="signin-email">Email or Employee ID</Label>
                       <Input
                         id="signin-email"
-                        type="email"
+                        type="text"
                         value={signInEmail}
                         onChange={(e) => setSignInEmail(e.target.value)}
-                        placeholder="Enter your email"
+                        placeholder="Enter email or employee ID"
                         className="h-11"
                         required
                       />

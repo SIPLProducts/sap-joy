@@ -24,6 +24,7 @@ interface UserWithRole {
   user_id: string;
   full_name: string;
   email: string;
+  employee_id: string;
   plant: string | null;
   plants: string[];
   department: string | null;
@@ -66,6 +67,8 @@ export default function UserManagement() {
   const [newUserFullName, setNewUserFullName] = useState('');
   const [newUserRole, setNewUserRole] = useState<string>('');
   const [newUserPlants, setNewUserPlants] = useState<string[]>(['1300']);
+  const [newUserEmployeeId, setNewUserEmployeeId] = useState('');
+  const [editEmployeeId, setEditEmployeeId] = useState('');
 
   const isAdmin = userRole === 'admin';
 
@@ -115,6 +118,7 @@ export default function UserManagement() {
             user_id: profile.user_id,
             full_name: profile.full_name,
             email: profile.email,
+            employee_id: profile.employee_id || '',
             plant: profile.plant,
             plants: assignedPlants.length > 0 ? assignedPlants : (profile.plant ? [profile.plant] : []),
             department: roleDept?.name || profile.department,
@@ -156,6 +160,7 @@ export default function UserManagement() {
     setSelectedUser(user);
     setSelectedRole((user.role || '') as string);
     setSelectedPlants(user.plants || []);
+    setEditEmployeeId(user.employee_id || '');
     setResetPassword('');
     setPasswordHistory([]);
     setIsEditDialogOpen(true);
@@ -171,13 +176,29 @@ export default function UserManagement() {
       return;
     }
 
+    if (!editEmployeeId.trim()) {
+      toast({ title: 'Validation Error', description: 'Employee ID is required.', variant: 'destructive' });
+      return;
+    }
+
     setSaving(true);
     try {
+      // Check employee_id uniqueness
+      const { data: existingEmp } = await supabase.from('profiles')
+        .select('user_id').eq('employee_id', editEmployeeId.trim())
+        .neq('user_id', selectedUser.user_id).maybeSingle();
+      if (existingEmp) {
+        toast({ title: 'Duplicate Employee ID', description: 'This Employee ID is already assigned to another user.', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+
       // Update profile — set department from role's department name
       const roleDept = dbDepartments.find(d => d.role_key === selectedRole);
       await supabase.from('profiles').update({ 
         department: roleDept?.name || selectedUser.department,
-        plant: selectedPlants[0] || selectedUser.plant 
+        plant: selectedPlants[0] || selectedUser.plant,
+        employee_id: editEmployeeId.trim(),
       }).eq('user_id', selectedUser.user_id);
 
       // Update multi-plant assignments
@@ -285,8 +306,8 @@ export default function UserManagement() {
   };
 
   const handleCreateUser = async () => {
-    if (!newUserEmail || !newUserPassword || !newUserFullName || !newUserRole) {
-      toast({ title: 'Validation Error', description: 'Please fill all required fields (Name, Email, Password, Role)', variant: 'destructive' });
+    if (!newUserEmail || !newUserPassword || !newUserFullName || !newUserRole || !newUserEmployeeId.trim()) {
+      toast({ title: 'Validation Error', description: 'Please fill all required fields (Name, Employee ID, Email, Password, Role)', variant: 'destructive' });
       return;
     }
     
@@ -298,6 +319,15 @@ export default function UserManagement() {
 
     setSaving(true);
     try {
+      // Check employee_id uniqueness
+      const { data: existingEmp } = await supabase.from('profiles')
+        .select('user_id').eq('employee_id', newUserEmployeeId.trim()).maybeSingle();
+      if (existingEmp) {
+        toast({ title: 'Duplicate Employee ID', description: 'This Employee ID is already assigned to another user.', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
       const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
       
@@ -328,6 +358,7 @@ export default function UserManagement() {
         department: roleDept?.name || null,
         plant: newUserPlants[0] || '1300',
         full_name: newUserFullName.trim(),
+        employee_id: newUserEmployeeId.trim(),
       }).eq('user_id', newUserId);
 
       if (profileUpdateError) throw profileUpdateError;
@@ -355,6 +386,7 @@ export default function UserManagement() {
       setNewUserFullName('');
       setNewUserRole('');
       setNewUserPlants(['1300']);
+      setNewUserEmployeeId('');
       setIsCreateDialogOpen(false);
       fetchUsers();
     } catch (error: any) {
@@ -368,6 +400,7 @@ export default function UserManagement() {
   const filteredUsers = users.filter(user =>
     user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (user.employee_id?.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (user.plant?.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (user.department?.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (user.role?.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -463,6 +496,7 @@ export default function UserManagement() {
               <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                 <TableRow>
                   <TableHead>Name</TableHead>
+                  <TableHead>Employee ID</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Plants</TableHead>
                   <TableHead>Role</TableHead>
@@ -473,6 +507,7 @@ export default function UserManagement() {
                 {filteredUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.full_name}</TableCell>
+                    <TableCell><span className="font-mono text-sm">{user.employee_id || '-'}</span></TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
@@ -526,6 +561,10 @@ export default function UserManagement() {
               <Input placeholder="Enter full name" value={newUserFullName} onChange={(e) => setNewUserFullName(e.target.value)} />
             </div>
             <div className="space-y-2">
+              <Label>Employee ID *</Label>
+              <Input placeholder="Enter employee ID" value={newUserEmployeeId} onChange={(e) => setNewUserEmployeeId(e.target.value)} />
+            </div>
+            <div className="space-y-2">
               <Label>Email *</Label>
               <Input type="email" placeholder="user@example.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} />
             </div>
@@ -571,7 +610,7 @@ export default function UserManagement() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateUser} disabled={saving || !newUserEmail || !newUserPassword || !newUserFullName || !newUserRole}>
+            <Button onClick={handleCreateUser} disabled={saving || !newUserEmail || !newUserPassword || !newUserFullName || !newUserRole || !newUserEmployeeId.trim()}>
               {saving ? 'Creating...' : 'Create User'}
             </Button>
           </DialogFooter>
@@ -592,6 +631,10 @@ export default function UserManagement() {
                 <p className="font-medium">{selectedUser?.full_name}</p>
                 <p className="text-muted-foreground">{selectedUser?.email}</p>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Employee ID *</Label>
+              <Input placeholder="Enter employee ID" value={editEmployeeId} onChange={(e) => setEditEmployeeId(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Role *</Label>

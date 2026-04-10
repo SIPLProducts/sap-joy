@@ -797,7 +797,7 @@ export type Database = {
           department: string | null
           department_id: string | null
           email: string
-          employee_id: string | null
+          employee_id: string
           full_name: string
           id: string
           phone: string | null
@@ -811,7 +811,7 @@ export type Database = {
           department?: string | null
           department_id?: string | null
           email: string
-          employee_id?: string | null
+          employee_id: string
           full_name: string
           id?: string
           phone?: string | null
@@ -825,7 +825,7 @@ export type Database = {
           department?: string | null
           department_id?: string | null
           email?: string
-          employee_id?: string | null
+          employee_id?: string
           full_name?: string
           id?: string
           phone?: string | null
