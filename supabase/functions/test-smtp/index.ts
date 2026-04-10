@@ -39,11 +39,15 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Port 465 = implicit TLS (tls: true)
+    // Port 587/25 = STARTTLS (tls: false, denomailer auto-upgrades via STARTTLS)
+    const useImplicitTls = config.smtp_port === 465;
+
     const client = new SMTPClient({
       connection: {
         hostname: config.smtp_host,
         port: config.smtp_port,
-        tls: config.use_tls,
+        tls: useImplicitTls,
         auth: {
           username: config.smtp_username,
           password: config.smtp_password,
@@ -59,7 +63,7 @@ Deno.serve(async (req) => {
         : config.sender_email,
       to: to_email,
       subject: `SMTP Test from ${plantLabel} - Configuration Verified`,
-      content: `This is a test email from the MRB Email Configuration system.\n\nPlant: ${plantLabel}\nSMTP Host: ${config.smtp_host}\nPort: ${config.smtp_port}\nTLS: ${config.use_tls ? "Yes" : "No"}\n\nIf you received this email, the SMTP configuration is working correctly.`,
+      content: `This is a test email from the MRB Email Configuration system.\n\nPlant: ${plantLabel}\nSMTP Host: ${config.smtp_host}\nPort: ${config.smtp_port}\nTLS: ${useImplicitTls ? "Implicit TLS" : "STARTTLS"}\n\nIf you received this email, the SMTP configuration is working correctly.`,
     });
 
     await client.close();
