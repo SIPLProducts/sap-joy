@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import nodemailer from "npm:nodemailer@6.9.10";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,6 +11,11 @@ interface EmailRequest {
   event_type: 'mrb_created' | 'mrb_forwarded' | 'mrb_approved' | 'mrb_rejected' | 'sla_warning';
   triggered_by?: string;
 }
+
+const normalizeEmails = (arr: string[]): string[] =>
+  arr.flatMap(e => e.split(',')).map(e => e.trim()).filter(Boolean);
+
+const isValidEmail = (e: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -38,7 +43,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Extract workflow routing roles from MRB record
+    // Extract workflow routing roles
     const workflowRoles: string[] = Array.isArray(mrb.workflow_routing)
       ? mrb.workflow_routing.map((r: any) => typeof r === 'string' ? r : r?.role_key || r?.department).filter(Boolean)
       : [];
@@ -56,7 +61,7 @@ Deno.serve(async (req) => {
       if (lot) inspectionLot = lot;
     }
 
-    // Fetch ALL active email templates for this event type + plant
+    // Fetch active email templates for this event type + plant
     const { data: templates } = await supabase
       .from('email_templates')
       .select('*')
@@ -71,7 +76,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Build variable replacement map from MRB + inspection lot
+    // Build variable replacement map
     const varMap: Record<string, string> = {};
     for (const [key, value] of Object.entries(mrb)) {
       varMap[key] = value != null ? String(value) : 'N/A';
@@ -82,9 +87,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    const replacePlaceholders = (text: string) => {
-      return text.replace(/\{\{(\w+)\}\}/g, (_, key) => varMap[key] ?? '');
-    };
+    const replacePlaceholders = (text: string) =>
+      text.replace(/\{\{(\w+)\}\}/g, (_, key) => varMap[key] ?? '');
 
     // Fetch SMTP config for plant (fall back to global)
     const { data: smtpConfig } = await supabase
@@ -101,8 +105,7 @@ Deno.serve(async (req) => {
     for (const template of templates) {
       const templateRoles: string[] = template.to_roles || [];
 
-      // If template has roles configured, check if ANY of them exist in MRB workflow_routing
-      // If none match, skip this template
+      // If template has roles configured, check if ANY exist in MRB workflow_routing
       if (templateRoles.length > 0) {
         const hasMatchingRole = templateRoles.some(role => workflowRoles.includes(role));
         if (!hasMatchingRole) {
@@ -114,31 +117,47 @@ Deno.serve(async (req) => {
       const subject = replacePlaceholders(template.subject_template);
       const body = replacePlaceholders(template.body_template);
 
-      // Collect recipients: directly from to_emails and cc_emails (comma-separated stored as arrays)
-      const toEmails: string[] = (template.to_emails || []).filter(Boolean);
-      const ccEmails: string[] = (template.cc_emails || []).filter(Boolean);
+      // Normalize and validate To emails
+      const rawTo: string[] = template.to_emails || [];
+      const normalizedTo = normalizeEmails(rawTo);
+      const toEmails = normalizedTo.filter(e => {
+        if (!isValidEmail(e)) { console.warn(`Skipping invalid TO email: ${e}`); return false; }
+        return true;
+      });
 
-      // Also resolve role-based emails: find users with matching roles + plant
+      // Normalize and validate CC emails
+      const rawCc: string[] = template.cc_emails || [];
+      const normalizedCc = normalizeEmails(rawCc);
+      const ccEmails = normalizedCc.filter(e => {
+        if (!isValidEmail(e)) { console.warn(`Skipping invalid CC email: ${e}`); return false; }
+        return true;
+      });
+
+      // Also resolve role-based emails for matching roles
       if (templateRoles.length > 0) {
-        const { data: roleUsers } = await supabase
-          .from('user_roles')
-          .select('user_id, role')
-          .in('role', templateRoles);
+        const matchingRoles = templateRoles.filter(role => workflowRoles.includes(role));
+        if (matchingRoles.length > 0) {
+          const { data: roleUsers } = await supabase
+            .from('user_roles')
+            .select('user_id, role')
+            .in('role', matchingRoles);
 
-        if (roleUsers && roleUsers.length > 0) {
-          const userIds = roleUsers.map(r => r.user_id);
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('email, plant, user_id')
-            .in('user_id', userIds);
+          if (roleUsers && roleUsers.length > 0) {
+            const userIds = roleUsers.map(r => r.user_id);
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('email, plant, user_id')
+              .in('user_id', userIds);
 
-          if (profiles) {
-            const roleEmails = profiles
-              .filter(p => p.plant === mrb.plant || !p.plant)
-              .map(p => p.email);
-            roleEmails.forEach(e => {
-              if (!toEmails.includes(e)) toEmails.push(e);
-            });
+            if (profiles) {
+              profiles
+                .filter(p => p.plant === mrb.plant || !p.plant)
+                .forEach(p => {
+                  if (isValidEmail(p.email) && !toEmails.includes(p.email)) {
+                    toEmails.push(p.email);
+                  }
+                });
+            }
           }
         }
       }
@@ -147,39 +166,39 @@ Deno.serve(async (req) => {
       const finalCc = ccEmails.filter(e => !toEmails.includes(e));
 
       if (toEmails.length === 0 && finalCc.length === 0) {
-        results.push({ template_key: template.template_key, skipped: true, reason: 'No recipients' });
+        results.push({ template_key: template.template_key, skipped: true, reason: 'No valid recipients after filtering' });
         continue;
       }
 
       let sendStatus = 'logged';
       let errorMessage: string | null = null;
 
-      // Try sending via SMTP if config exists
+      // Send via SMTP using nodemailer
       if (smtpConfig) {
         try {
-          const client = new SMTPClient({
-            connection: {
-              hostname: smtpConfig.smtp_host,
-              port: smtpConfig.smtp_port,
-              tls: smtpConfig.use_tls,
-              auth: {
-                username: smtpConfig.smtp_username,
-                password: smtpConfig.smtp_password,
-              },
+          const transporter = nodemailer.createTransport({
+            host: smtpConfig.smtp_host,
+            port: smtpConfig.smtp_port,
+            secure: smtpConfig.smtp_port === 465,
+            auth: {
+              user: smtpConfig.smtp_username,
+              pass: smtpConfig.smtp_password,
+            },
+            tls: {
+              rejectUnauthorized: false,
             },
           });
 
-          await client.send({
+          await transporter.sendMail({
             from: smtpConfig.sender_name
-              ? `${smtpConfig.sender_name} <${smtpConfig.sender_email}>`
+              ? `"${smtpConfig.sender_name}" <${smtpConfig.sender_email}>`
               : smtpConfig.sender_email,
-            to: toEmails.join(', '),
-            cc: finalCc.length > 0 ? finalCc.join(', ') : undefined,
+            to: toEmails,
+            cc: finalCc.length > 0 ? finalCc : undefined,
             subject,
-            content: body,
+            text: body,
           });
 
-          await client.close();
           sendStatus = 'sent';
         } catch (smtpError) {
           console.error('SMTP send failed:', smtpError);
