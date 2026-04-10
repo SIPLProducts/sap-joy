@@ -114,6 +114,10 @@ Quality Department`;
 
 export default function EmailConfiguration() {
   const { toast } = useToast();
+  const { userRole } = useAuth();
+  const { hasAccess, loading: permLoading } = useRoleMatrix();
+  const isAdmin = userRole === 'admin' || hasAccess('email_config');
+
   const [plants, setPlants] = useState<{ code: string; name: string }[]>([]);
   const [departments, setDepartments] = useState<{ role_key: string; name: string }[]>([]);
 
