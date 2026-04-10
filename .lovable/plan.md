@@ -1,28 +1,35 @@
 
 
-## Fix: Make WorkflowProgressIndicator use the MRB's actual `workflow_routing`
+## Fix: Dynamic "Forward to Department" list from workflow_routing
 
 ### Problem
-The `WorkflowProgressIndicator` currently fetches **all** workflow steps from `plant_workflow_config` for the plant, showing every department (Quality, Purchase, Engineering, Quality Head, Final Approval, Completed) regardless of which departments were actually selected during MRB creation. It should only show the departments stored in the MRB record's `workflow_routing` array.
+The "Select Departments to Forward" checkboxes in `InwardMRBDetail.tsx` and `ShopFloorMRBDetail.tsx` use hardcoded arrays (`nextReviewDepartments` from `inwardReportData.ts` and `shopFloorNextDepartments` from `shopFloorStockData.ts`). These always show Engineering, Purchase, Quality Head, MRB Committee — regardless of which departments were selected during MRB creation.
+
+### Solution
+Replace the hardcoded department lists with departments derived from the MRB record's `workflow_routing` array, using `useDepartmentMap` to resolve display names.
 
 ### Changes
 
-**1. Update `WorkflowProgressIndicator` component** (`src/components/mrb/WorkflowProgressIndicator.tsx`)
-- Add a new optional prop: `workflowRouting?: string[]`
-- When `workflowRouting` is provided, use it to build the steps dynamically (lookup labels from the `departments` table via `useDepartmentMap`) instead of querying `plant_workflow_config`
-- Only fall back to `plant_workflow_config` if `workflowRouting` is not provided
-- Also make the status text summary dynamic (remove hardcoded switch for status descriptions — derive from current step label)
+**1. `src/pages/InwardMRBDetail.tsx`**
+- Import `useDepartmentMap` instead of `nextReviewDepartments` from `inwardReportData`
+- Build the forward department list from `mrb.workflow_routing`, filtering out the current user's role and any already-completed steps
+- Use `roleDisplayNames` from `useDepartmentMap` for labels
+- Update all references that resolve department labels (confirmation text, summary text)
 
-**2. Pass `workflow_routing` from all 4 caller pages:**
-- `src/pages/MRBDetail.tsx` — pass `workflowRouting={(mrb as any).workflow_routing as string[]}`
-- `src/pages/InwardMRBDetail.tsx` — same
-- `src/pages/ShopFloorMRBDetail.tsx` — same
-- `src/pages/MRBCommitteeReview.tsx` — same
+**2. `src/pages/ShopFloorMRBDetail.tsx`**
+- Same changes: replace `shopFloorNextDepartments` import with dynamic list from `mrb.workflow_routing` + `useDepartmentMap`
+- Update label resolution in confirmation and summary text
 
-### Technical approach
-- The component will map each entry in the `workflowRouting` array to a step using `useDepartmentMap` to resolve display names and statuses
-- Steps will be built as: `workflowRouting.map(dept => ({ id: dept, label: deptDisplayName, statuses: [deptToStatus[dept]] }))` + a final "Completed" step
-- Current step detection will match `pendingWith` against the routing array entries
-- The bottom path (Quality → Engineering → Done) will reflect only the selected departments
-- No hardcoded department lists will remain in the component
+### Logic
+```
+// Instead of hardcoded list:
+const forwardableDepts = (mrb.workflow_routing as string[] || [])
+  .filter(dept => dept !== currentRole)
+  .map(dept => ({
+    value: dept,
+    label: roleDisplayNames[dept] || dept
+  }));
+```
+
+This ensures only the departments selected during MRB creation appear as forwarding options.
 
