@@ -60,7 +60,7 @@ interface PermRow {
 export default function RoleMatrix() {
   const { userRole } = useAuth();
   const { departments } = useDepartments();
-  const { hasAccess } = useRoleMatrix();
+  const { hasAccess, loading: permLoading } = useRoleMatrix();
   const isAdmin = userRole === 'admin' || hasAccess('role_access');
   const [permissions, setPermissions] = useState<PermRow[]>([]);
   const [plants, setPlants] = useState<{ code: string; name: string }[]>([]);
@@ -198,6 +198,12 @@ export default function RoleMatrix() {
       setSaving(false);
     }
   };
+
+  if (permLoading) {
+    return (
+      <div className="flex justify-center py-20"><RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+    );
+  }
 
   if (!isAdmin) {
     return (

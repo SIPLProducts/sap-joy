@@ -110,6 +110,12 @@ export default function PlantManagement() {
     }
   };
 
+  if (permLoading) {
+    return (
+      <div className="flex justify-center py-20"><RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+    );
+  }
+
   if (!isAdmin) {
     return (
       <div className="container mx-auto p-6">
