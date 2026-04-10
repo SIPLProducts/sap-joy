@@ -68,24 +68,28 @@ else
 fi
 
 ###############################################################################
-# 2. Standalone Scheduler (port 3100)
+# 2. Deno Scheduler (port 3100)
 ###############################################################################
-SCHED_FILE="$BACKEND_DIR/scheduler.js"
+SCHED_FILE="$APP_DIR/supabase/functions/sap-sync-scheduler/index.ts"
 if [ -f "$SCHED_FILE" ]; then
-  echo "[2/2] Starting Standalone Scheduler..."
+  echo "[2/2] Starting Deno Scheduler..."
   pm2 describe mrb-scheduler >/dev/null 2>&1 && pm2 delete mrb-scheduler 2>/dev/null
+
+  SUPABASE_URL="${SUPABASE_URL:-$VITE_SUPABASE_URL}" \
+  SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-}" \
   pm2 start "$SCHED_FILE" \
     --name mrb-scheduler \
-    --cwd "$BACKEND_DIR" \
+    --interpreter deno \
+    --interpreter-args "run --allow-net --allow-env --allow-read" \
     --log "$LOG_DIR/scheduler.log" \
     --time \
     --env production \
     --max-restarts 10 \
     --restart-delay 10000 \
     --cron-restart "0 */6 * * *"
-  echo "  ✓ mrb-scheduler started on port ${SCHEDULER_PORT:-3100}"
+  echo "  ✓ Deno scheduler started on port ${SCHEDULER_PORT:-3100}"
 else
-  echo "[2/2] ⚠ No scheduler.js found at $BACKEND_DIR — skipping"
+  echo "[2/2] ⚠ Scheduler not found at $SCHED_FILE"
 fi
 
 ###############################################################################
