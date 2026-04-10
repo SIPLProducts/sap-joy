@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRoleMatrix } from '@/hooks/useRoleMatrix';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -114,6 +116,10 @@ Quality Department`;
 
 export default function EmailConfiguration() {
   const { toast } = useToast();
+  const { userRole } = useAuth();
+  const { hasAccess, loading: permLoading } = useRoleMatrix();
+  const isAdmin = userRole === 'admin' || hasAccess('email_config');
+
   const [plants, setPlants] = useState<{ code: string; name: string }[]>([]);
   const [departments, setDepartments] = useState<{ role_key: string; name: string }[]>([]);
 
@@ -336,6 +342,23 @@ export default function EmailConfiguration() {
     const p = plants.find(p => p.code === code);
     return p ? `${p.code} - ${p.name}` : code;
   };
+
+  if (permLoading) {
+    return (
+      <div className="flex justify-center py-20"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex flex-col items-center justify-center py-16">
+          <h2 className="text-xl font-semibold text-foreground mb-2">Access Denied</h2>
+          <p className="text-muted-foreground text-center">You do not have permission to manage email configuration.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -163,7 +163,7 @@ export default function DepartmentManagement() {
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Shield className="h-16 w-16 text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold text-foreground mb-2">Access Denied</h2>
-            <p className="text-muted-foreground text-center">Only administrators can manage roles.</p>
+            <p className="text-muted-foreground text-center">You do not have permission to manage roles.</p>
           </CardContent>
         </Card>
       </div>
