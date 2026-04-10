@@ -290,7 +290,7 @@ export default function EmailConfiguration() {
       to_emails: templateForm.to_emails ? templateForm.to_emails.split(',').map(e => e.trim()).filter(Boolean) : [],
       cc_emails: templateForm.cc_emails ? templateForm.cc_emails.split(',').map(e => e.trim()).filter(Boolean) : [],
       to_roles: templateForm.to_roles,
-      cc_roles: templateForm.cc_roles,
+      cc_roles: [],
     };
 
     if (editingTemplate) {
@@ -440,15 +440,14 @@ export default function EmailConfiguration() {
                     <TableHead>Plant</TableHead>
                     <TableHead>Event Type</TableHead>
                     <TableHead>Subject</TableHead>
-                    <TableHead>To Roles</TableHead>
-                    <TableHead>CC Roles</TableHead>
+                    <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {templates.length === 0 && (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No templates configured. Add one to get started.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No templates configured. Add one to get started.</TableCell></TableRow>
                   )}
                   {templates.map(tpl => (
                     <TableRow key={tpl.id}>
@@ -459,12 +458,6 @@ export default function EmailConfiguration() {
                         <div className="flex flex-wrap gap-1">
                           {(tpl.to_roles || []).map(r => <Badge key={r} variant="outline" className="text-xs">{r}</Badge>)}
                           {(!tpl.to_roles || tpl.to_roles.length === 0) && <span className="text-muted-foreground text-xs">—</span>}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {(tpl.cc_roles || []).map(r => <Badge key={r} variant="outline" className="text-xs">{r}</Badge>)}
-                          {(!tpl.cc_roles || tpl.cc_roles.length === 0) && <span className="text-muted-foreground text-xs">—</span>}
                         </div>
                       </TableCell>
                       <TableCell><Badge variant={tpl.is_active ? 'default' : 'secondary'}>{tpl.is_active ? 'Active' : 'Inactive'}</Badge></TableCell>
@@ -624,36 +617,19 @@ export default function EmailConfiguration() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>To Roles</Label>
-                  <div className="flex flex-wrap gap-1 mt-1 p-2 border rounded-md min-h-[40px]">
-                    {departments.map(d => (
-                      <Badge
-                        key={d.role_key}
-                        variant={templateForm.to_roles.includes(d.role_key!) ? 'default' : 'outline'}
-                        className="cursor-pointer"
-                        onClick={() => toggleRole(templateForm.to_roles, d.role_key!, 'to_roles')}
-                      >
-                        {d.name}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <Label>CC Roles</Label>
-                  <div className="flex flex-wrap gap-1 mt-1 p-2 border rounded-md min-h-[40px]">
-                    {departments.map(d => (
-                      <Badge
-                        key={d.role_key}
-                        variant={templateForm.cc_roles.includes(d.role_key!) ? 'default' : 'outline'}
-                        className="cursor-pointer"
-                        onClick={() => toggleRole(templateForm.cc_roles, d.role_key!, 'cc_roles')}
-                      >
-                        {d.name}
-                      </Badge>
-                    ))}
-                  </div>
+              <div>
+                <Label>Role (email sent only when this role is in MRB workflow routing)</Label>
+                <div className="flex flex-wrap gap-1 mt-1 p-2 border rounded-md min-h-[40px]">
+                  {departments.map(d => (
+                    <Badge
+                      key={d.role_key}
+                      variant={templateForm.to_roles.includes(d.role_key!) ? 'default' : 'outline'}
+                      className="cursor-pointer"
+                      onClick={() => toggleRole(templateForm.to_roles, d.role_key!, 'to_roles')}
+                    >
+                      {d.name}
+                    </Badge>
+                  ))}
                 </div>
               </div>
 
