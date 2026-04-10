@@ -45,6 +45,7 @@ export default function InwardMRBDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [poItemNumber, setPOItemNumber] = useState<string | null>(null);
+  const [lotBatch, setLotBatch] = useState<string | null>(null);
   
   const [reviewData, setReviewData] = useState({
     reviewComments: '',
@@ -71,12 +72,15 @@ export default function InwardMRBDetail() {
         if (mrbData.inspection_lot) {
           const { data: lotData } = await supabase
             .from('inward_inspection_lots')
-            .select('po_item_number')
+            .select('po_item_number, batch')
             .eq('inspection_lot', mrbData.inspection_lot)
             .limit(1)
             .maybeSingle();
           if (lotData?.po_item_number) {
             setPOItemNumber(lotData.po_item_number);
+          }
+          if (lotData?.batch) {
+            setLotBatch(lotData.batch);
           }
         }
       }
@@ -373,7 +377,7 @@ export default function InwardMRBDetail() {
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Batch</Label>
-                <p className="font-medium font-mono">{(mrb as any).batch || '-'}</p>
+                <p className="font-medium font-mono">{mrb.batch || lotBatch || '-'}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Blocked Quantity</Label>

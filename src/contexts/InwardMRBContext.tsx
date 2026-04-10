@@ -437,6 +437,8 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
             issue_description: record.poItemNumber ? `PO Item: ${record.poItemNumber}` : null,
             grn_number: record.grnNumber || null,
             inspection_lot: record.inspectionLot,
+            batch: record.batch || null,
+            storage_location: record.storageLocation || null,
             defect_description: record.blockReason || null,
             pending_with: initialPendingWith as string
           };
