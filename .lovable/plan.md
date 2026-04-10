@@ -1,46 +1,28 @@
 
 
-## Fix: Update deploy/start.sh to launch the Deno scheduler
+## Fix: Make WorkflowProgressIndicator use the MRB's actual `workflow_routing`
 
 ### Problem
-`deploy/start.sh` section [2/2] looks for `$BACKEND_DIR/scheduler.js` (a Node.js file) — but it doesn't exist. The real scheduler is a Deno TypeScript file at `supabase/functions/sap-sync-scheduler/index.ts`.
+The `WorkflowProgressIndicator` currently fetches **all** workflow steps from `plant_workflow_config` for the plant, showing every department (Quality, Purchase, Engineering, Quality Head, Final Approval, Completed) regardless of which departments were actually selected during MRB creation. It should only show the departments stored in the MRB record's `workflow_routing` array.
 
-### What changes
+### Changes
 
-**File: `deploy/start.sh`** — Replace section [2/2] (the scheduler block) so it:
-- Points to the correct Deno edge function path: `$APP_DIR/supabase/functions/sap-sync-scheduler/index.ts`
-- Uses `deno run --allow-net --allow-env --allow-read` instead of Node.js via PM2
-- Passes `SUPABASE_URL` (derived from `VITE_SUPABASE_URL`) and `SUPABASE_SERVICE_ROLE_KEY` as environment variables
-- Still uses PM2 for process management (PM2 can manage Deno processes via `--interpreter`)
-- Keeps the same PM2 process name `mrb-scheduler-new` and log path
+**1. Update `WorkflowProgressIndicator` component** (`src/components/mrb/WorkflowProgressIndicator.tsx`)
+- Add a new optional prop: `workflowRouting?: string[]`
+- When `workflowRouting` is provided, use it to build the steps dynamically (lookup labels from the `departments` table via `useDepartmentMap`) instead of querying `plant_workflow_config`
+- Only fall back to `plant_workflow_config` if `workflowRouting` is not provided
+- Also make the status text summary dynamic (remove hardcoded switch for status descriptions — derive from current step label)
 
-**Updated scheduler section will look like:**
-```text
-SCHED_FILE="$APP_DIR/supabase/functions/sap-sync-scheduler/index.ts"
+**2. Pass `workflow_routing` from all 4 caller pages:**
+- `src/pages/MRBDetail.tsx` — pass `workflowRouting={(mrb as any).workflow_routing as string[]}`
+- `src/pages/InwardMRBDetail.tsx` — same
+- `src/pages/ShopFloorMRBDetail.tsx` — same
+- `src/pages/MRBCommitteeReview.tsx` — same
 
-if [ -f "$SCHED_FILE" ]; then
-  echo "[2/2] Starting Deno Scheduler..."
-  pm2 delete mrb-scheduler-new 2>/dev/null || true
-
-  SUPABASE_URL="${SUPABASE_URL:-$VITE_SUPABASE_URL}" \
-  SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-}" \
-  pm2 start "$SCHED_FILE" \
-    --name mrb-scheduler-new \
-    --interpreter deno \
-    --interpreter-args "run --allow-net --allow-env --allow-read" \
-    --log "$LOG_DIR/scheduler.log" \
-    --time \
-    --env production \
-    --cron-restart "0 */6 * * *"
-
-  echo "  ✓ Deno scheduler started on port ${SCHEDULER_PORT:-3100}"
-else
-  echo "[2/2] ⚠ Scheduler not found at $SCHED_FILE"
-fi
-```
-
-### Key details
-- `SUPABASE_URL` is set from `VITE_SUPABASE_URL` if not already defined — this prevents the port mismatch (8001 vs 8100) that caused the original failure
-- The Deno function already reads `PORT` env (defaults to 3100) and `SUPABASE_SERVICE_ROLE_KEY`
-- No new files needed — just fixing the existing `deploy/start.sh`
+### Technical approach
+- The component will map each entry in the `workflowRouting` array to a step using `useDepartmentMap` to resolve display names and statuses
+- Steps will be built as: `workflowRouting.map(dept => ({ id: dept, label: deptDisplayName, statuses: [deptToStatus[dept]] }))` + a final "Completed" step
+- Current step detection will match `pendingWith` against the routing array entries
+- The bottom path (Quality → Engineering → Done) will reflect only the selected departments
+- No hardcoded department lists will remain in the component
 
