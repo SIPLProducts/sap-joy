@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRoleMatrix } from '@/hooks/useRoleMatrix';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,7 +44,8 @@ export default function DepartmentManagement() {
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [form, setForm] = useState({ name: '', description: '', is_workflow_enabled: false });
 
-  const isAdmin = userRole === 'admin';
+  const { hasAccess } = useRoleMatrix();
+  const isAdmin = userRole === 'admin' || hasAccess('role_management');
 
   const fetchDepartments = async () => {
     setLoading(true);

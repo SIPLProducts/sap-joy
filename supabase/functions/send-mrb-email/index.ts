@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
       ? mrb.workflow_routing.map((r: any) => typeof r === 'string' ? r : r?.role_key || r?.department).filter(Boolean)
       : [];
 
-    const toRoles = new Set<string>([...workflowRoles, ...(template.to_roles || [])]);
+    const toRoles = new Set<string>(template.to_roles || []);
     const ccRoles = new Set<string>(template.cc_roles || []);
 
     // Resolve role emails: find users with those roles + matching plant

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRoleMatrix } from '@/hooks/useRoleMatrix';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,7 +31,8 @@ export default function PlantManagement() {
   const [editingPlant, setEditingPlant] = useState<Plant | null>(null);
   const [form, setForm] = useState({ code: '', name: '', location: '' });
 
-  const isAdmin = userRole === 'admin';
+  const { hasAccess } = useRoleMatrix();
+  const isAdmin = userRole === 'admin' || hasAccess('plant_management');
 
   const fetchPlants = async () => {
     setLoading(true);

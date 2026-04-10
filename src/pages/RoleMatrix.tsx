@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
+import { useRoleMatrix } from '@/hooks/useRoleMatrix';
 import { useDepartments } from '@/hooks/useDepartments';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -59,7 +60,8 @@ interface PermRow {
 export default function RoleMatrix() {
   const { userRole } = useAuth();
   const { departments } = useDepartments();
-  const isAdmin = userRole === 'admin';
+  const { hasAccess } = useRoleMatrix();
+  const isAdmin = userRole === 'admin' || hasAccess('role_access');
   const [permissions, setPermissions] = useState<PermRow[]>([]);
   const [plants, setPlants] = useState<{ code: string; name: string }[]>([]);
   const [selectedPlant, setSelectedPlant] = useState('1300');

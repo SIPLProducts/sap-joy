@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
+import { useRoleMatrix } from '@/hooks/useRoleMatrix';
 import { supabase } from '@/integrations/supabase/client';
 import { createClient } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
@@ -70,7 +71,8 @@ export default function UserManagement() {
   const [newUserEmployeeId, setNewUserEmployeeId] = useState('');
   const [editEmployeeId, setEditEmployeeId] = useState('');
 
-  const isAdmin = userRole === 'admin';
+  const { hasAccess } = useRoleMatrix();
+  const isAdmin = userRole === 'admin' || hasAccess('user_management');
 
   // Build role options dynamically from Role Management (departments table)
   const roleOptions = useMemo(() => {
