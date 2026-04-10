@@ -72,12 +72,15 @@ export default function InwardMRBDetail() {
         if (mrbData.inspection_lot) {
           const { data: lotData } = await supabase
             .from('inward_inspection_lots')
-            .select('po_item_number')
+            .select('po_item_number, batch')
             .eq('inspection_lot', mrbData.inspection_lot)
             .limit(1)
             .maybeSingle();
           if (lotData?.po_item_number) {
             setPOItemNumber(lotData.po_item_number);
+          }
+          if (lotData?.batch) {
+            setLotBatch(lotData.batch);
           }
         }
       }
