@@ -212,7 +212,7 @@ export default function RoleMatrix() {
           <CardContent className="pt-6 text-center space-y-3">
             <Shield className="h-12 w-12 text-muted-foreground mx-auto" />
             <p className="text-lg font-semibold">Access Denied</p>
-            <p className="text-sm text-muted-foreground">Only administrators can manage role permissions.</p>
+            <p className="text-sm text-muted-foreground">You do not have permission to manage role permissions.</p>
           </CardContent>
         </Card>
       </div>
