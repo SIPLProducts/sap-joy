@@ -126,6 +126,11 @@ export function useMRBDatabase() {
         remarks: `MRB created from ${mrb.source}${workflowRouting ? ` — Routing: ${workflowRouting.join(' → ')}` : ''}`,
       });
 
+      // Fire-and-forget email notification
+      supabase.functions.invoke('send-mrb-email', {
+        body: { mrb_id: data.id, event_type: 'mrb_created', triggered_by: user?.id },
+      }).catch(err => console.error('Email trigger failed:', err));
+
       await fetchMRBRecords();
       return data;
     } catch (error) {
@@ -256,6 +261,14 @@ export function useMRBDatabase() {
         performed_by_role: userRole || 'quality',
         remarks: remarks,
       });
+
+      // Fire-and-forget email notification
+      const emailEvent = action === 'approved' ? 'mrb_approved'
+        : action === 'rejected' ? 'mrb_rejected'
+        : 'mrb_forwarded';
+      supabase.functions.invoke('send-mrb-email', {
+        body: { mrb_id: id, event_type: emailEvent, triggered_by: user?.id },
+      }).catch(err => console.error('Email trigger failed:', err));
 
       await fetchMRBRecords();
       return true;

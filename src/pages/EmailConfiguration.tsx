@@ -40,7 +40,6 @@ interface EmailTemplate {
   to_emails: string[];
   cc_emails: string[];
   to_roles: string[];
-  cc_roles: string[];
 }
 
 const EVENT_TYPES = [
