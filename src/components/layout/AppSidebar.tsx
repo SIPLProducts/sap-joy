@@ -48,6 +48,7 @@ const adminItems = [
   { title: 'Workflow Routing', url: '/admin/workflow', icon: GitBranch, roles: ['admin'], masterOnly: false },
   { title: 'SAP API Settings', url: '/admin/sap-api', icon: Settings, roles: ['admin'], masterOnly: true },
   { title: 'SAP Sync Monitor', url: '/admin/sap-sync', icon: TrendingUp, roles: ['admin'], masterOnly: true },
+  { title: 'Email Configuration', url: '/admin/email-config', icon: Mail, roles: ['admin'], masterOnly: false },
 ];
 
 const MASTER_ADMIN_EMAIL = 'masteradmin@sharviinfotech.com';

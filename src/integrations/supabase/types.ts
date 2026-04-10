@@ -157,32 +157,44 @@ export type Database = {
       email_templates: {
         Row: {
           body_template: string
+          cc_emails: string[] | null
+          cc_roles: string[] | null
           created_at: string
           id: string
           is_active: boolean
           plant: string | null
           subject_template: string
           template_key: string
+          to_emails: string[] | null
+          to_roles: string[] | null
           updated_at: string
         }
         Insert: {
           body_template: string
+          cc_emails?: string[] | null
+          cc_roles?: string[] | null
           created_at?: string
           id?: string
           is_active?: boolean
           plant?: string | null
           subject_template: string
           template_key: string
+          to_emails?: string[] | null
+          to_roles?: string[] | null
           updated_at?: string
         }
         Update: {
           body_template?: string
+          cc_emails?: string[] | null
+          cc_roles?: string[] | null
           created_at?: string
           id?: string
           is_active?: boolean
           plant?: string | null
           subject_template?: string
           template_key?: string
+          to_emails?: string[] | null
+          to_roles?: string[] | null
           updated_at?: string
         }
         Relationships: []
@@ -1304,6 +1316,51 @@ export type Database = {
           updated_at?: string
           upload_batch_id?: string | null
           uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      smtp_config: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          plant: string | null
+          sender_email: string
+          sender_name: string
+          smtp_host: string
+          smtp_password: string
+          smtp_port: number
+          smtp_username: string
+          updated_at: string
+          use_tls: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          plant?: string | null
+          sender_email: string
+          sender_name?: string
+          smtp_host: string
+          smtp_password: string
+          smtp_port?: number
+          smtp_username: string
+          updated_at?: string
+          use_tls?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          plant?: string | null
+          sender_email?: string
+          sender_name?: string
+          smtp_host?: string
+          smtp_password?: string
+          smtp_port?: number
+          smtp_username?: string
+          updated_at?: string
+          use_tls?: boolean
         }
         Relationships: []
       }
