@@ -146,7 +146,7 @@ export default function InwardMRBDetail() {
       let additionalUpdates: Partial<MRBRecord> = {};
 
       // Map department values to proper app_role enum values
-      const deptToAppRole: Record<string, Database['public']['Enums']['app_role']> = {
+      const deptToAppRole: Record<string, string> = {
         'engineering': 'engineering',
         'purchase': 'purchase',
         'plant_head': 'executive',

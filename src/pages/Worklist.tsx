@@ -43,7 +43,7 @@ type MRBStatus = Database['public']['Enums']['mrb_status'];
 type MRBSource = Database['public']['Enums']['mrb_source'];
 type SLAStatus = Database['public']['Enums']['sla_status'];
 type EscalationLevel = Database['public']['Enums']['escalation_level'];
-type AppRole = Database['public']['Enums']['app_role'];
+type AppRole = string;
 
 const statuses: MRBStatus[] = ['quality_review', 'purchase_review', 'engineering_review', 'final_approval', 'approved', 'rejected', 'closed'];
 

@@ -11,7 +11,7 @@ import { Search, Eye, Clock, AlertTriangle } from 'lucide-react';
 import { getStatusDisplayName, getStatusColor, getRoleDisplayName } from '@/data/mockData';
 import type { Database } from '@/integrations/supabase/types';
 
-type AppRole = Database['public']['Enums']['app_role'];
+type AppRole = string;
 
 export default function PendingActions() {
   const navigate = useNavigate();
