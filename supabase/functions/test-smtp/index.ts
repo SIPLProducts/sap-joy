@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import nodemailer from "npm:nodemailer@6.9.10";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,48 +35,43 @@ Deno.serve(async (req) => {
     if (cfgErr || !config) {
       return new Response(
         JSON.stringify({ error: "SMTP configuration not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Port 465 = implicit TLS (tls: true)
-    // Port 587/25 = STARTTLS (tls: false, denomailer auto-upgrades via STARTTLS)
-    const useImplicitTls = config.smtp_port === 465;
-
-    const client = new SMTPClient({
-      connection: {
-        hostname: config.smtp_host,
-        port: config.smtp_port,
-        tls: useImplicitTls,
-        auth: {
-          username: config.smtp_username,
-          password: config.smtp_password,
-        },
+    const transporter = nodemailer.createTransport({
+      host: config.smtp_host,
+      port: config.smtp_port,
+      secure: config.smtp_port === 465,
+      auth: {
+        user: config.smtp_username,
+        pass: config.smtp_password,
+      },
+      tls: {
+        rejectUnauthorized: false,
       },
     });
 
     const plantLabel = config.plant || "Global";
 
-    await client.send({
+    await transporter.sendMail({
       from: config.sender_name
-        ? `${config.sender_name} <${config.sender_email}>`
+        ? `"${config.sender_name}" <${config.sender_email}>`
         : config.sender_email,
       to: to_email,
       subject: `SMTP Test from ${plantLabel} - Configuration Verified`,
-      content: `This is a test email from the MRB Email Configuration system.\n\nPlant: ${plantLabel}\nSMTP Host: ${config.smtp_host}\nPort: ${config.smtp_port}\nTLS: ${useImplicitTls ? "Implicit TLS" : "STARTTLS"}\n\nIf you received this email, the SMTP configuration is working correctly.`,
+      text: `This is a test email from the MRB Email Configuration system.\n\nPlant: ${plantLabel}\nSMTP Host: ${config.smtp_host}\nPort: ${config.smtp_port}\n\nIf you received this email, the SMTP configuration is working correctly.`,
     });
-
-    await client.close();
 
     return new Response(
       JSON.stringify({ success: true, message: "Test email sent successfully" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (err) {
+  } catch (err: any) {
     console.error("Test SMTP error:", err);
     return new Response(
       JSON.stringify({ error: err.message || "Failed to send test email" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
