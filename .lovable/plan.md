@@ -1,38 +1,58 @@
 
 
-## Consolidated Migration File for Self-Hosted Linux Server
+## Fix Edge Functions for Self-Hosted Supabase
 
-### What this does
-Generates a single SQL file containing all 8 migrations from today (April 10), consolidated and made idempotent with `IF NOT EXISTS` / `IF EXISTS` guards so it's safe to run on your self-hosted Supabase.
+### Root Cause
 
-### Migration file contents (in order)
-1. Add `batch` and `storage_location` columns to `mrb_records`
-2. Enforce `employee_id` NOT NULL + unique index + updated `handle_new_user` trigger
-3. Create `get_email_by_employee_id` RPC function
-4. Convert `app_role` enum to `text` across all tables, drop/recreate ~25 RLS policies and functions (`has_role`, `get_user_role`, `admin_update_user_password`)
-5. Create `smtp_config` table + add `to_emails/cc_emails/to_roles/cc_roles` to `email_templates`
-6. Create `has_screen_access` function + permission-driven RLS policies on 10 tables
-7. Final `admin_update_user_password` with bcrypt cost factor 10
+The "InvalidWorkerCreation: could not find an appropriate entrypoint" error happens because:
 
-### Output
-- Single file: `/mnt/documents/migration_20260410_consolidated.sql`
-- Run on your server: `psql -U postgres -d postgres -f migration_20260410_consolidated.sql`
-  (adjust connection params for your self-hosted setup)
+1. **The main router uses dynamic `import()` to load each function** — but each function file calls `Deno.serve()` at the top level. When the router imports a function, that `Deno.serve()` call fires immediately, conflicting with the router's own `Deno.serve()`.
+2. **The `test-smtp` function was added after the last `deploy-edge-functions.sh` run** — so the main router file on your server doesn't include a route for it.
+3. **ZMRB01 (sap-sync) works** likely because it was the first function loaded or cached, but the router architecture is fundamentally broken for multi-function routing.
 
-### Frontend changes (not in migration)
-These are code-only — pull latest code and rebuild:
-- Block Reason display in Create MRB form
-- Hide `mrb_created` records from Inward Report
-- Submit bar width fix
-- Batch No. display + persistence in MRB creation/detail views
+### Fix
 
-### Steps
-1. Write the consolidated SQL to `/mnt/documents/migration_20260410_consolidated.sql`
-2. Verify the file content
-3. Provide deployment instructions
+**Rewrite the deploy script to create proper wrapper files** instead of importing raw function files that contain `Deno.serve()`.
 
-### Important
-- **Backup your database first** before running
-- The enum-to-text conversion (step 4) is the most impactful — it drops and recreates ~25 RLS policies
-- After running the migration, rebuild the frontend: `npm ci && npm run build`
+The approach:
+- For each function (`create-user`, `sap-sync`, `send-mrb-email`, `test-smtp`, `seed-demo-users`), the deploy script will create a **wrapper** version where `Deno.serve(handler)` is replaced with `export default handler` — so the main router can import and call the handler without conflicting `Deno.serve()` registrations.
+- The main router remains the single `Deno.serve()` entrypoint that dispatches to each function's exported handler.
+
+### Changes
+
+**1. Update `deploy/deploy-edge-functions.sh`**
+- In step 2 (copy functions), after copying each `index.ts`, also create a `handler.ts` wrapper by:
+  - Reading the original `index.ts`
+  - Using `sed` to replace `Deno.serve(async (req)` → `export default async (req: Request)` (and `Deno.serve({ port }, async (req)` variant)
+  - Also replacing the old `serve(async (req)` pattern used by `seed-demo-users`
+  - Writing the result as `handler.ts` alongside the original
+- In step 3 (main router), change imports from `'../{fn}/index.ts'` to `'../{fn}/handler.ts'` — these export a default handler function, no `Deno.serve()` conflict.
+
+**2. Output an updated deploy script + instructions**
+
+The deliverable will be:
+- Updated `deploy/deploy-edge-functions.sh` with the wrapper generation logic
+- A step-by-step guide to run on your server
+
+### Deployment Steps (for your server)
+
+```text
+1. Pull latest code:
+   cd /opt/MRB/frontend && git pull
+
+2. Rebuild frontend:
+   npm ci && npm run build
+
+3. Re-deploy edge functions:
+   sudo bash deploy/deploy-edge-functions.sh
+
+4. Verify all endpoints:
+   curl -X POST http://10.10.4.178:8000/functions/v1/test-smtp \
+     -H "Authorization: Bearer <anon_key>" \
+     -H "Content-Type: application/json" \
+     -d '{"test": true}'
+```
+
+### Files to Modify
+- `deploy/deploy-edge-functions.sh` — rewrite step 2 to generate `handler.ts` wrappers, update step 3 router to import handlers
 
