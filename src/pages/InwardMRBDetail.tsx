@@ -508,8 +508,7 @@ export default function InwardMRBDetail() {
                   />
                 </div>
 
-                {/* Forward to next - hidden for engineering (they have final acceptance) */}
-                {userRole !== 'engineering' && userRole !== 'engineering_head' && (
+                {/* Forward to next department */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <Checkbox
@@ -564,14 +563,6 @@ export default function InwardMRBDetail() {
                     </div>
                   )}
                 </div>
-                )}
-
-                {/* Engineering final acceptance notice */}
-                {(userRole === 'engineering' || userRole === 'engineering_head') && (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                    <strong>Engineering Final Acceptance:</strong> Your decision is final. No further department transfer is required.
-                  </div>
-                )}
               </CardContent>
             </Card>
           </>
