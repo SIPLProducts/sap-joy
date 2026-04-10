@@ -377,7 +377,7 @@ export default function InwardMRBDetail() {
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Batch</Label>
-                <p className="font-medium font-mono">{(mrb as any).batch || '-'}</p>
+                <p className="font-medium font-mono">{mrb.batch || lotBatch || '-'}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Blocked Quantity</Label>
