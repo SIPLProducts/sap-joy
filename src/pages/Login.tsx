@@ -114,18 +114,16 @@ export default function Login() {
     let loginEmail = signInEmail.trim();
     if (!loginEmail.includes('@')) {
       // Treat as employee ID — look up email
-      const { data: empProfile } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('employee_id', loginEmail)
-        .maybeSingle();
+      const { data: resolvedEmail } = await supabase.rpc('get_email_by_employee_id', {
+        _employee_id: loginEmail
+      });
       
-      if (!empProfile) {
+      if (!resolvedEmail) {
         setLoginError('Employee ID not found. Please check and try again.');
         setIsLoading(false);
         return;
       }
-      loginEmail = empProfile.email;
+      loginEmail = resolvedEmail;
     }
 
     let lastError: any = null;
