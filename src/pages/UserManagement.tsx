@@ -561,6 +561,10 @@ export default function UserManagement() {
               <Input placeholder="Enter full name" value={newUserFullName} onChange={(e) => setNewUserFullName(e.target.value)} />
             </div>
             <div className="space-y-2">
+              <Label>Employee ID *</Label>
+              <Input placeholder="Enter employee ID" value={newUserEmployeeId} onChange={(e) => setNewUserEmployeeId(e.target.value)} />
+            </div>
+            <div className="space-y-2">
               <Label>Email *</Label>
               <Input type="email" placeholder="user@example.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} />
             </div>
@@ -606,7 +610,7 @@ export default function UserManagement() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateUser} disabled={saving || !newUserEmail || !newUserPassword || !newUserFullName || !newUserRole}>
+            <Button onClick={handleCreateUser} disabled={saving || !newUserEmail || !newUserPassword || !newUserFullName || !newUserRole || !newUserEmployeeId.trim()}>
               {saving ? 'Creating...' : 'Create User'}
             </Button>
           </DialogFooter>
@@ -628,6 +632,9 @@ export default function UserManagement() {
                 <p className="text-muted-foreground">{selectedUser?.email}</p>
               </div>
             </div>
+            <div className="space-y-2">
+              <Label>Employee ID *</Label>
+              <Input placeholder="Enter employee ID" value={editEmployeeId} onChange={(e) => setEditEmployeeId(e.target.value)} />
             <div className="space-y-2">
               <Label>Role *</Label>
               <Select value={selectedRole} onValueChange={setSelectedRole}>
