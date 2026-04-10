@@ -36,7 +36,8 @@ export default function WorkflowRoutingConfig() {
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
-  const isAdmin = userRole === 'admin';
+  const { hasAccess } = useRoleMatrix();
+  const isAdmin = userRole === 'admin' || hasAccess('workflow_config');
 
   // Build steps list: all workflow-enabled roles, merged with saved config for this plant
   const buildSteps = async () => {

@@ -43,7 +43,8 @@ export default function DepartmentManagement() {
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [form, setForm] = useState({ name: '', description: '', is_workflow_enabled: false });
 
-  const isAdmin = userRole === 'admin';
+  const { hasAccess } = useRoleMatrix();
+  const isAdmin = userRole === 'admin' || hasAccess('role_management');
 
   const fetchDepartments = async () => {
     setLoading(true);
