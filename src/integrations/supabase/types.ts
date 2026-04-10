@@ -1447,6 +1447,10 @@ export type Database = {
         Args: { _new_password_hash: string; _user_id: string }
         Returns: boolean
       }
+      get_email_by_employee_id: {
+        Args: { _employee_id: string }
+        Returns: string
+      }
       get_table_columns: {
         Args: { _table_name: string }
         Returns: {
