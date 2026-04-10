@@ -42,6 +42,7 @@ import DepartmentManagement from "@/pages/DepartmentManagement";
 import WorkflowRoutingConfig from "@/pages/WorkflowRoutingConfig";
 import PendingActions from "@/pages/PendingActions";
 import RoleMatrix from "@/pages/RoleMatrix";
+import EmailConfiguration from "@/pages/EmailConfiguration";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -90,6 +91,7 @@ const App = () => (
                           <Route path="admin/roles" element={<DepartmentManagement />} />
                           <Route path="admin/workflow" element={<WorkflowRoutingConfig />} />
                           <Route path="admin/matrix" element={<RoleMatrix />} />
+                          <Route path="admin/email-config" element={<EmailConfiguration />} />
                           <Route path="profile" element={<UserProfile />} />
                           <Route path="help" element={<HelpSupport />} />
                           <Route path="admin/sap-api" element={<MasterAdminGuard><SAPApiSettings /></MasterAdminGuard>} />
