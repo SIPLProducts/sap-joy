@@ -82,46 +82,179 @@ dst = sys.argv[2]
 with open(src, 'r') as f:
     code = f.read()
 
-# Pattern 1: Deno.serve(async (req) => { ... });
-# Replace with: export default async (req: Request) => { ... }
-code = re.sub(
-    r'Deno\.serve\(\s*async\s*\(\s*req\s*(?::\s*Request)?\s*\)\s*=>\s*\{',
-    'export default async (req: Request) => {',
-    code
-)
+# --- Brace-matching algorithm to find the exact Deno.serve() / serve() block ---
 
-# Pattern 2: Deno.serve({ ... }, async (req) => { ... });
-# Replace with: export default async (req: Request) => { ... }
-code = re.sub(
-    r'Deno\.serve\(\s*\{[^}]*\}\s*,\s*async\s*\(\s*req\s*(?::\s*Request)?\s*\)\s*=>\s*\{',
-    'export default async (req: Request) => {',
-    code
-)
+# Find the serve call start
+serve_patterns = [
+    (r'Deno\.serve\(', 'Deno.serve('),
+    (r'(?<!\.)serve\(', 'serve('),
+]
 
-# Pattern 3: serve(async (req) => { ... });  (old std lib pattern)
-# Replace with: export default async (req: Request) => { ... }
-code = re.sub(
-    r'(?<!\.)serve\(\s*async\s*\(\s*req\s*(?::\s*Request)?\s*\)\s*=>\s*\{',
-    'export default async (req: Request) => {',
-    code
-)
+serve_start = -1
+serve_call_end = -1  # position right after the opening paren of serve(
+for pat, _ in serve_patterns:
+    m = re.search(pat, code)
+    if m:
+        serve_start = m.start()
+        serve_call_end = m.end()  # points right after '('
+        break
 
-# Remove the trailing ");' that closed the serve() call — find the LAST ");
-# We need to remove the closing paren+semicolon of the serve() wrapper
-# Strategy: remove the last occurrence of ");' in the file
-idx = code.rfind(');')
-if idx != -1:
-    code = code[:idx] + code[idx+2:]
+if serve_start == -1:
+    # No serve() found — just copy as-is with a default export wrapper
+    with open(dst, 'w') as f:
+        f.write(code + '\nexport default async (req: Request) => new Response("not implemented", {status:501});\n')
+    sys.exit(0)
+
+# Now find the matching closing ')' for the serve( call using brace/paren tracking
+# We start right after 'serve(' so paren_depth starts at 1
+pos = serve_call_end
+paren_depth = 1
+brace_depth = 0
+in_string = None  # None, '"', "'", '`'
+escape_next = False
+code_len = len(code)
+
+while pos < code_len and paren_depth > 0:
+    ch = code[pos]
+    
+    if escape_next:
+        escape_next = False
+        pos += 1
+        continue
+    
+    if ch == '\\' and in_string:
+        escape_next = True
+        pos += 1
+        continue
+    
+    if in_string:
+        if ch == in_string:
+            in_string = None
+        pos += 1
+        continue
+    
+    # Check for template literals, single/double quotes
+    if ch in ('"', "'", '`'):
+        in_string = ch
+        pos += 1
+        continue
+    
+    # Check for line comments
+    if ch == '/' and pos + 1 < code_len:
+        next_ch = code[pos + 1]
+        if next_ch == '/':
+            # Skip to end of line
+            nl = code.find('\n', pos)
+            pos = nl + 1 if nl != -1 else code_len
+            continue
+        elif next_ch == '*':
+            # Skip block comment
+            end_comment = code.find('*/', pos + 2)
+            pos = end_comment + 2 if end_comment != -1 else code_len
+            continue
+    
+    if ch == '(':
+        paren_depth += 1
+    elif ch == ')':
+        paren_depth -= 1
+    elif ch == '{':
+        brace_depth += 1
+    elif ch == '}':
+        brace_depth -= 1
+    
+    pos += 1
+
+# pos now points right after the closing ')' of serve(...)
+serve_end = pos
+
+# Also consume the trailing semicolon if present
+if serve_end < code_len and code[serve_end] == ';':
+    serve_end += 1
+
+# Extract parts
+before_serve = code[:serve_start]
+serve_block = code[serve_start:serve_end]
+after_serve = code[serve_end:]
+
+# Extract the handler from the serve block
+# The serve block looks like: Deno.serve(async (req) => { ... })  or  Deno.serve({opts}, async (req) => { ... })
+# We need to extract: async (req) => { ... }
+
+# Find 'async' inside the serve block arguments
+inner = code[serve_call_end:serve_end]  # content between serve( ... )
+async_match = re.search(r'async\s*\(\s*req\s*(?::\s*Request)?\s*\)\s*=>\s*\{', inner)
+
+if async_match:
+    handler_start_in_inner = async_match.start()
+    # The handler runs from async_match.start() to the end of the inner block minus the closing ')'
+    # We need to find the matching '}' for the opening '{'
+    handler_code_start = serve_call_end + async_match.end()  # position after the opening '{'
+    
+    # Find matching closing brace
+    hpos = handler_code_start
+    hdepth = 1
+    h_in_string = None
+    h_escape = False
+    
+    while hpos < code_len and hdepth > 0:
+        hch = code[hpos]
+        
+        if h_escape:
+            h_escape = False
+            hpos += 1
+            continue
+        if hch == '\\' and h_in_string:
+            h_escape = True
+            hpos += 1
+            continue
+        if h_in_string:
+            if hch == h_in_string:
+                h_in_string = None
+            hpos += 1
+            continue
+        if hch in ('"', "'", '`'):
+            h_in_string = hch
+            hpos += 1
+            continue
+        if hch == '/' and hpos + 1 < code_len:
+            nch = code[hpos + 1]
+            if nch == '/':
+                nl = code.find('\n', hpos)
+                hpos = nl + 1 if nl != -1 else code_len
+                continue
+            elif nch == '*':
+                ec = code.find('*/', hpos + 2)
+                hpos = ec + 2 if ec != -1 else code_len
+                continue
+        if hch == '{':
+            hdepth += 1
+        elif hch == '}':
+            hdepth -= 1
+        hpos += 1
+    
+    # hpos points right after the closing '}'
+    handler_body = code[handler_code_start:hpos - 1]  # content between { and }
+    
+    # Build the handler export
+    handler_export = f'export default async (req: Request) => {{\n{handler_body}\n}}'
+else:
+    # Fallback: couldn't parse handler, export stub
+    handler_export = 'export default async (req: Request) => new Response("parse error", {status:501})'
 
 # Remove old serve import if present (std lib)
-code = re.sub(
+before_serve = re.sub(
     r'import\s*\{\s*serve\s*\}\s*from\s*"https://deno\.land/std[^"]*";\s*\n?',
     '',
-    code
+    before_serve
 )
 
+# Combine: imports/constants + handler export + any trailing helper functions
+output = before_serve.rstrip('\n') + '\n\n' + handler_export + '\n'
+if after_serve.strip():
+    output += '\n' + after_serve.lstrip('\n')
+
 with open(dst, 'w') as f:
-    f.write(code)
+    f.write(output)
 PYHANDLER
 
     echo "  Copied + handler: $func_name/"
