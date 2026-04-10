@@ -151,6 +151,12 @@ export default function EmailConfiguration() {
 
   const bodyTextareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Test SMTP state
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
+  const [testSmtpId, setTestSmtpId] = useState<string | null>(null);
+  const [testEmail, setTestEmail] = useState('');
+  const [testSending, setTestSending] = useState(false);
+
   useEffect(() => {
     fetchPlants();
     fetchDepartments();
@@ -382,6 +388,12 @@ export default function EmailConfiguration() {
                       <TableCell>{smtp.use_tls ? 'Yes' : 'No'}</TableCell>
                       <TableCell><Badge variant={smtp.is_active ? 'default' : 'secondary'}>{smtp.is_active ? 'Active' : 'Inactive'}</Badge></TableCell>
                       <TableCell className="flex gap-1">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="icon" variant="ghost" onClick={() => { setTestSmtpId(smtp.id); setTestEmail(''); setTestDialogOpen(true); }}><Mail className="h-4 w-4" /></Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Send Test Email</TooltipContent>
+                        </Tooltip>
                         <Button size="icon" variant="ghost" onClick={() => openSmtpDialog(smtp)}><Pencil className="h-4 w-4" /></Button>
                         <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteSmtp(smtp.id)}><Trash2 className="h-4 w-4" /></Button>
                       </TableCell>
@@ -488,6 +500,50 @@ export default function EmailConfiguration() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setSmtpDialogOpen(false)}>Cancel</Button>
             <Button onClick={saveSmtp}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Test SMTP Dialog */}
+      <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Send Test Email</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label>Recipient Email Address</Label>
+              <Input
+                type="email"
+                value={testEmail}
+                onChange={e => setTestEmail(e.target.value)}
+                placeholder="test@example.com"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTestDialogOpen(false)}>Cancel</Button>
+            <Button
+              disabled={!testEmail || testSending}
+              onClick={async () => {
+                setTestSending(true);
+                try {
+                  const { data, error } = await supabase.functions.invoke('test-smtp', {
+                    body: { smtp_config_id: testSmtpId, to_email: testEmail },
+                  });
+                  if (error) throw error;
+                  if (data?.error) throw new Error(data.error);
+                  toast({ title: 'Success', description: 'Test email sent successfully!' });
+                  setTestDialogOpen(false);
+                } catch (err: any) {
+                  toast({ title: 'Failed', description: err.message || 'Could not send test email', variant: 'destructive' });
+                } finally {
+                  setTestSending(false);
+                }
+              }}
+            >
+              {testSending ? 'Sending...' : 'Send Test'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
