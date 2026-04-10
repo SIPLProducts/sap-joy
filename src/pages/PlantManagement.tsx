@@ -31,7 +31,7 @@ export default function PlantManagement() {
   const [editingPlant, setEditingPlant] = useState<Plant | null>(null);
   const [form, setForm] = useState({ code: '', name: '', location: '' });
 
-  const { hasAccess } = useRoleMatrix();
+  const { hasAccess, loading: permLoading } = useRoleMatrix();
   const isAdmin = userRole === 'admin' || hasAccess('plant_management');
 
   const fetchPlants = async () => {
@@ -109,6 +109,12 @@ export default function PlantManagement() {
       toast({ title: 'Error', description: 'Cannot delete: Plant may be in use by MRB records', variant: 'destructive' });
     }
   };
+
+  if (permLoading) {
+    return (
+      <div className="flex justify-center py-20"><RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+    );
+  }
 
   if (!isAdmin) {
     return (

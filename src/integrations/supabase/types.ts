@@ -1518,6 +1518,10 @@ export type Database = {
       get_user_plant: { Args: { _user_id: string }; Returns: string }
       get_user_role: { Args: { _user_id: string }; Returns: string }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
+      has_screen_access: {
+        Args: { _screen_key: string; _user_id: string }
+        Returns: boolean
+      }
       record_failed_login: { Args: { _user_id: string }; Returns: Json }
       record_password_change: {
         Args: { _password_hash: string; _user_id: string }

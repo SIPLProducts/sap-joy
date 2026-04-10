@@ -44,7 +44,7 @@ export default function DepartmentManagement() {
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [form, setForm] = useState({ name: '', description: '', is_workflow_enabled: false });
 
-  const { hasAccess } = useRoleMatrix();
+  const { hasAccess, loading: permLoading } = useRoleMatrix();
   const isAdmin = userRole === 'admin' || hasAccess('role_management');
 
   const fetchDepartments = async () => {
@@ -149,6 +149,12 @@ export default function DepartmentManagement() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
   };
+
+  if (permLoading) {
+    return (
+      <div className="flex justify-center py-20"><RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+    );
+  }
 
   if (!isAdmin) {
     return (

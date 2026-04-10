@@ -37,7 +37,7 @@ export default function WorkflowRoutingConfig() {
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
-  const { hasAccess } = useRoleMatrix();
+  const { hasAccess, loading: permLoading } = useRoleMatrix();
   const isAdmin = userRole === 'admin' || hasAccess('workflow_config');
 
   // Build steps list: all workflow-enabled roles, merged with saved config for this plant
@@ -148,6 +148,12 @@ export default function WorkflowRoutingConfig() {
       setSaving(false);
     }
   };
+
+  if (permLoading) {
+    return (
+      <div className="flex justify-center py-20"><RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+    );
+  }
 
   if (!isAdmin) {
     return (
