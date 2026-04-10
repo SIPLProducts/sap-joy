@@ -174,7 +174,7 @@ export default function Login() {
           const { data: profileData } = await supabase
             .from('profiles')
             .select('user_id')
-            .eq('email', signInEmail)
+            .eq('email', loginEmail)
             .maybeSingle();
           
           if (profileData?.user_id) {
