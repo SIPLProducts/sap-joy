@@ -307,6 +307,7 @@ export default function InwardMRBDetail() {
         <WorkflowProgressIndicator 
           currentStatus={mrb.status} 
           pendingWith={mrb.pending_with}
+          workflowRouting={Array.isArray(mrb.workflow_routing) ? (mrb.workflow_routing as string[]) : undefined}
         />
 
         {/* MRB Details (Read-Only) */}

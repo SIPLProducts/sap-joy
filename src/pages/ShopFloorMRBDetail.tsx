@@ -270,6 +270,7 @@ export default function ShopFloorMRBDetail() {
         <WorkflowProgressIndicator 
           currentStatus={mrb.status} 
           pendingWith={mrb.pending_with}
+          workflowRouting={Array.isArray(mrb.workflow_routing) ? (mrb.workflow_routing as string[]) : undefined}
         />
 
         {/* Material & Stock Information */}

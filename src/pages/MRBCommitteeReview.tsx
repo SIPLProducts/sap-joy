@@ -577,6 +577,7 @@ export default function MRBCommitteeReview() {
             <WorkflowProgressIndicator 
               currentStatus={mrb.status} 
               pendingWith={mrb.pending_with}
+              workflowRouting={Array.isArray(mrb.workflow_routing) ? (mrb.workflow_routing as string[]) : undefined}
             />
 
             {/* MRB Details Summary */}
