@@ -151,7 +151,6 @@ export default function EmailConfiguration() {
     to_emails: '',
     cc_emails: '',
     to_roles: [] as string[],
-    cc_roles: [] as string[],
   });
 
   const bodyTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -191,7 +190,6 @@ export default function EmailConfiguration() {
       to_emails: (t as any).to_emails || [],
       cc_emails: (t as any).cc_emails || [],
       to_roles: (t as any).to_roles || [],
-      cc_roles: (t as any).cc_roles || [],
     })));
   };
 
@@ -265,7 +263,6 @@ export default function EmailConfiguration() {
         to_emails: (template.to_emails || []).join(', '),
         cc_emails: (template.cc_emails || []).join(', '),
         to_roles: template.to_roles || [],
-        cc_roles: template.cc_roles || [],
       });
     } else {
       setEditingTemplate(null);
@@ -278,7 +275,6 @@ export default function EmailConfiguration() {
         to_emails: '',
         cc_emails: '',
         to_roles: [],
-        cc_roles: [],
       });
     }
     setTemplateDialogOpen(true);
