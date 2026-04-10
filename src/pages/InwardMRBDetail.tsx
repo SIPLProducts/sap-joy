@@ -162,32 +162,49 @@ export default function InwardMRBDetail() {
         'mrb_committee': 'quality_review',
       };
       
-      // Determine next status based on action and forward settings
-      if (userRole === 'engineering' || userRole === 'engineering_head') {
-        // Engineering has final acceptance - no forwarding
-        if (reviewData.action === 'approve' || reviewData.action === 'approve_with_deviation') {
-          newStatus = 'approved';
-          additionalUpdates.closure_status = 'completed';
-          additionalUpdates.closed_at = new Date().toISOString();
-          additionalUpdates.closed_by = user?.id || null;
-          additionalUpdates.final_decision = reviewData.action === 'approve' ? 'approved' : 'approved_with_deviation';
-          additionalUpdates.final_approved_by = user?.id || null;
-          additionalUpdates.final_approved_at = new Date().toISOString();
-        } else if (reviewData.action === 'return_to_vendor') {
-          newStatus = 'rejected';
-          additionalUpdates.final_decision = 'return_to_vendor';
-          additionalUpdates.closure_status = 'return_to_vendor';
-          additionalUpdates.closed_at = new Date().toISOString();
-          additionalUpdates.closed_by = user?.id || null;
-        }
-      } else if (reviewData.forwardToNext && reviewData.nextDepartments.length > 0) {
+      // Determine next status based on workflow routing
+      const workflowRouting = Array.isArray(mrb.workflow_routing) ? (mrb.workflow_routing as string[]) : [];
+      
+      if (reviewData.forwardToNext && reviewData.nextDepartments.length > 0) {
         const firstDept = reviewData.nextDepartments[0];
         newStatus = deptToStatus[firstDept] || 'quality_review';
         const nextPendingWith = deptToAppRole[firstDept] || 'quality';
         additionalUpdates.pending_with = nextPendingWith;
       } else if (reviewData.action === 'approve' || reviewData.action === 'approve_with_deviation' || reviewData.action === 'return_to_vendor') {
-        newStatus = 'final_approval';
-        additionalUpdates.pending_with = 'executive';
+        // Check if current role is the last in the workflow routing
+        const currentDept = Object.entries(deptToAppRole).find(([, role]) => role === userRole)?.[0] || userRole;
+        const currentIdx = workflowRouting.findIndex(d => d === currentDept || d === userRole || deptToAppRole[d] === userRole);
+        const isLastStep = currentIdx >= 0 && currentIdx === workflowRouting.length - 1;
+        
+        if (isLastStep || workflowRouting.length === 0) {
+          // Final step — approve/reject
+          if (reviewData.action === 'return_to_vendor') {
+            newStatus = 'rejected';
+            additionalUpdates.final_decision = 'return_to_vendor';
+            additionalUpdates.closure_status = 'return_to_vendor';
+            additionalUpdates.closed_at = new Date().toISOString();
+            additionalUpdates.closed_by = user?.id || null;
+          } else {
+            newStatus = 'approved';
+            additionalUpdates.closure_status = 'completed';
+            additionalUpdates.closed_at = new Date().toISOString();
+            additionalUpdates.closed_by = user?.id || null;
+            additionalUpdates.final_decision = reviewData.action === 'approve' ? 'approved' : 'approved_with_deviation';
+            additionalUpdates.final_approved_by = user?.id || null;
+            additionalUpdates.final_approved_at = new Date().toISOString();
+          }
+        } else {
+          // Not the last step — forward to next in routing
+          const nextIdx = currentIdx + 1;
+          if (nextIdx < workflowRouting.length) {
+            const nextDept = workflowRouting[nextIdx];
+            newStatus = deptToStatus[nextDept] || 'quality_review';
+            additionalUpdates.pending_with = deptToAppRole[nextDept] || nextDept;
+          } else {
+            newStatus = 'final_approval';
+            additionalUpdates.pending_with = 'executive';
+          }
+        }
       }
       
       // Set additional updates based on current reviewing role
