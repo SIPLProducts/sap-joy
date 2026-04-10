@@ -2,7 +2,7 @@
 ###############################################################################
 # HBL MRB – Deploy Edge Functions to Self-Hosted Supabase
 # Run as root or with sudo: sudo bash deploy/deploy-edge-functions.sh
-# Updated: 2026-04-07 (reviewed & fixed)
+# Updated: 2026-04-10 (handler wrapper pattern for multi-function routing)
 ###############################################################################
 set -euo pipefail
 
@@ -50,52 +50,116 @@ fi
 echo "  ✓ ${#FUNCTIONS[@]} function(s) discovered"
 
 ###############################################################################
-# 2. Copy functions to Supabase volumes directory
+# 2. Copy functions + generate handler.ts wrappers
 ###############################################################################
-echo "[2/4] Copying functions to Supabase..."
+echo "[2/4] Copying functions and generating handlers..."
 
-# Determine the correct functions volume path
 FUNC_VOLUME_DIR="$SUPABASE_DIR/volumes/functions"
 mkdir -p "$FUNC_VOLUME_DIR"
 
 for func_name in "${FUNCTIONS[@]}"; do
   mkdir -p "$FUNC_VOLUME_DIR/$func_name"
-  cp "$FUNCTIONS_SRC/$func_name/index.ts" "$FUNC_VOLUME_DIR/$func_name/index.ts"
-  # Copy any additional files in the function directory
-  for extra_file in "$FUNCTIONS_SRC/$func_name"/*; do
-    [ -f "$extra_file" ] || continue
-    cp "$extra_file" "$FUNC_VOLUME_DIR/$func_name/"
+
+  # Copy all files in the function directory
+  for src_file in "$FUNCTIONS_SRC/$func_name"/*; do
+    [ -f "$src_file" ] || continue
+    cp "$src_file" "$FUNC_VOLUME_DIR/$func_name/"
   done
-  echo "  Copied: $func_name/"
+
+  # Generate handler.ts — strip Deno.serve / serve wrapper, export handler
+  # This converts the function into an importable module (no top-level server)
+  SRC_INDEX="$FUNC_VOLUME_DIR/$func_name/index.ts"
+  HANDLER_FILE="$FUNC_VOLUME_DIR/$func_name/handler.ts"
+
+  if [ -f "$SRC_INDEX" ]; then
+    # Use Python for reliable multi-pattern transformation
+    python3 - "$SRC_INDEX" "$HANDLER_FILE" <<'PYHANDLER'
+import sys, re
+
+src = sys.argv[1]
+dst = sys.argv[2]
+
+with open(src, 'r') as f:
+    code = f.read()
+
+# Pattern 1: Deno.serve(async (req) => { ... });
+# Replace with: export default async (req: Request) => { ... }
+code = re.sub(
+    r'Deno\.serve\(\s*async\s*\(\s*req\s*(?::\s*Request)?\s*\)\s*=>\s*\{',
+    'export default async (req: Request) => {',
+    code
+)
+
+# Pattern 2: Deno.serve({ ... }, async (req) => { ... });
+# Replace with: export default async (req: Request) => { ... }
+code = re.sub(
+    r'Deno\.serve\(\s*\{[^}]*\}\s*,\s*async\s*\(\s*req\s*(?::\s*Request)?\s*\)\s*=>\s*\{',
+    'export default async (req: Request) => {',
+    code
+)
+
+# Pattern 3: serve(async (req) => { ... });  (old std lib pattern)
+# Replace with: export default async (req: Request) => { ... }
+code = re.sub(
+    r'(?<!\.)serve\(\s*async\s*\(\s*req\s*(?::\s*Request)?\s*\)\s*=>\s*\{',
+    'export default async (req: Request) => {',
+    code
+)
+
+# Remove the trailing ");' that closed the serve() call — find the LAST ");
+# We need to remove the closing paren+semicolon of the serve() wrapper
+# Strategy: remove the last occurrence of ");' in the file
+idx = code.rfind(');')
+if idx != -1:
+    code = code[:idx] + code[idx+2:]
+
+# Remove old serve import if present (std lib)
+code = re.sub(
+    r'import\s*\{\s*serve\s*\}\s*from\s*"https://deno\.land/std[^"]*";\s*\n?',
+    '',
+    code
+)
+
+with open(dst, 'w') as f:
+    f.write(code)
+PYHANDLER
+
+    echo "  Copied + handler: $func_name/"
+  else
+    echo "  Copied (no index.ts to wrap): $func_name/"
+  fi
 done
 
-echo "  ✓ Functions copied"
+echo "  ✓ Functions copied with handler wrappers"
 
 ###############################################################################
-# 3. Create/update the main router (self-hosted edge runtime)
+# 3. Create main router (imports handler.ts, single Deno.serve)
 ###############################################################################
 echo "[3/4] Creating main router for edge runtime..."
 
 MAIN_DIR="$FUNC_VOLUME_DIR/main"
 mkdir -p "$MAIN_DIR"
 
-# Build the available functions list for the 404 response
-AVAILABLE_LIST=$(printf '"%s", ' "${FUNCTIONS[@]}" | sed 's/, $//')
-
-# Generate router using Python for clean output (no escaping issues)
 python3 - "$MAIN_DIR/index.ts" "${FUNCTIONS[@]}" <<'PYSCRIPT'
 import sys, datetime
 
 output_file = sys.argv[1]
 functions = sys.argv[2:]
 
+# Build static imports
+imports = ""
+for fn in functions:
+    safe_name = fn.replace("-", "_")
+    imports += f"import {safe_name}_handler from '../{fn}/handler.ts';\n"
+
+# Build switch cases
 cases = ""
 for fn in functions:
+    safe_name = fn.replace("-", "_")
     cases += f"""
     case '/{fn}':
     case '/functions/v1/{fn}': {{
-      const mod = await import('../{fn}/index.ts');
-      return mod.default ? mod.default(req) : new Response('Function loaded but no default export', {{ status: 500 }});
+      return {safe_name}_handler(req);
     }}"""
 
 available = ", ".join(f'"{fn}"' for fn in functions)
@@ -105,6 +169,7 @@ content = f'''// Auto-generated main router for self-hosted Supabase Edge Functi
 // Generated: {date_str}
 // Functions: {", ".join(functions)}
 
+{imports}
 const corsHeaders = {{
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-proxy-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -121,7 +186,6 @@ Deno.serve(async (req: Request) => {{
   }}
 
   try {{
-    // Extract function name from path
     const funcPath = path.replace(/^\\/functions\\/v1/, '').replace(/\\/$/, '') || '/';
     
     switch (funcPath) {{{cases}
@@ -148,7 +212,7 @@ Deno.serve(async (req: Request) => {{
 with open(output_file, 'w') as f:
     f.write(content)
 
-print(f"  ✓ Main router created with {len(functions)} routes")
+print(f"  ✓ Main router created with {len(functions)} routes (static imports)")
 PYSCRIPT
 
 ###############################################################################
@@ -167,8 +231,6 @@ cd "$SUPABASE_DIR"
 if docker compose ps 2>/dev/null | grep -q "functions"; then
   docker compose restart functions
   echo "  ✓ Functions container restarted"
-  
-  # Wait for container to be ready
   sleep 5
 else
   echo "  ⚠ Functions container not found — start Supabase first"
@@ -176,7 +238,7 @@ else
   exit 0
 fi
 
-# Test endpoints if we have the anon key
+# Test endpoints
 SUPA_URL="${VITE_SUPABASE_URL:-http://localhost:8000}"
 ANON_KEY="${VITE_SUPABASE_PUBLISHABLE_KEY:-}"
 
@@ -202,7 +264,7 @@ fi
 
 echo ""
 echo "============================================"
-echo "  Edge functions deployed"
+echo "  Edge functions deployed successfully"
 echo "============================================"
 echo ""
 echo "  Functions dir: $FUNC_VOLUME_DIR"
