@@ -1,33 +1,38 @@
 
-Fix Batch No. not showing for inward MRBs
 
-What I found
-- I checked the live data for the record in your screenshot: `MRB-2026-0025` / inspection lot `10000754630`.
-- In the database, `mrb_records.batch` is empty for that MRB, but the linked inward lot still has `batch = 434803`.
-- So the UI change was correct, but it is reading from an empty MRB field.
-- Root cause: inward MRB creation is not persisting `batch` into `mrb_records` even though the form already has the value. The same gap also exists in the batch-create inward MRB flow.
+## Consolidated Migration File for Self-Hosted Linux Server
 
-Plan
-1. Fix single inward MRB creation
-   - Update `src/pages/CreateInwardMRB.tsx` so the submit payload also saves:
-     - `batch: formData.batch || null`
-     - `storage_location: formData.storageLocation || null`
+### What this does
+Generates a single SQL file containing all 8 migrations from today (April 10), consolidated and made idempotent with `IF NOT EXISTS` / `IF EXISTS` guards so it's safe to run on your self-hosted Supabase.
 
-2. Fix batch inward MRB creation
-   - Update `src/contexts/InwardMRBContext.tsx` inside `createBatchMRBs()` to also save:
-     - `batch: record.batch || null`
-     - `storage_location: record.storageLocation || null`
+### Migration file contents (in order)
+1. Add `batch` and `storage_location` columns to `mrb_records`
+2. Enforce `employee_id` NOT NULL + unique index + updated `handle_new_user` trigger
+3. Create `get_email_by_employee_id` RPC function
+4. Convert `app_role` enum to `text` across all tables, drop/recreate ~25 RLS policies and functions (`has_role`, `get_user_role`, `admin_update_user_password`)
+5. Create `smtp_config` table + add `to_emails/cc_emails/to_roles/cc_roles` to `email_templates`
+6. Create `has_screen_access` function + permission-driven RLS policies on 10 tables
+7. Final `admin_update_user_password` with bcrypt cost factor 10
 
-3. Make existing MRBs show Batch No. immediately
-   - Update `src/pages/InwardMRBDetail.tsx` to fetch `batch` from `inward_inspection_lots` along with the existing PO item lookup.
-   - Display batch using fallback logic:
-     - `mrb.batch || lotBatch || '-'`
-   - This will fix already-created records like `MRB-2026-0025` without needing a database migration.
+### Output
+- Single file: `/mnt/documents/migration_20260410_consolidated.sql`
+- Run on your server: `psql -U postgres -d postgres -f migration_20260410_consolidated.sql`
+  (adjust connection params for your self-hosted setup)
 
-4. Verify
-   - Open the same MRB from the worklist and confirm Batch No. appears.
-   - Create a new inward MRB and confirm batch is saved and visible on first view.
+### Frontend changes (not in migration)
+These are code-only — pull latest code and rebuild:
+- Block Reason display in Create MRB form
+- Hide `mrb_created` records from Inward Report
+- Submit bar width fix
+- Batch No. display + persistence in MRB creation/detail views
 
-Technical note
-- No schema change is needed; the `batch` column already exists on `mrb_records`.
-- The issue is data persistence plus missing fallback for old records.
+### Steps
+1. Write the consolidated SQL to `/mnt/documents/migration_20260410_consolidated.sql`
+2. Verify the file content
+3. Provide deployment instructions
+
+### Important
+- **Backup your database first** before running
+- The enum-to-text conversion (step 4) is the most impactful — it drops and recreates ~25 RLS policies
+- After running the migration, rebuild the frontend: `npm ci && npm run build`
+
