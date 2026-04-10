@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award, Eye, EyeOff, WifiOff, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Shield, Building2, Users, LogIn, Factory, CheckCircle, ClipboardCheck, Award, Eye, EyeOff, WifiOff, RefreshCw, Trash2, AlertTriangle } from 'lucide-react';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHealthCheck, ConnectionStatus } from '@/hooks/useHealthCheck';
 import { Alert, AlertDescription } from '@/components/ui/alert';
