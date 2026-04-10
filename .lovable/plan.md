@@ -1,32 +1,46 @@
 
 
-## Plan: Make "Unblock & SAP Sync" Reliable for Shop Floor MRBs
+## Fix: Update deploy/start.sh to launch the Deno scheduler
 
 ### Problem
-The "Unblock & SAP Sync" button already appears for all approved MRBs (both Inward and Shop Floor), but for Shop Floor MRBs, the SAP 343 unblock call often fails because:
+`deploy/start.sh` section [2/2] looks for `$BACKEND_DIR/scheduler.js` (a Node.js file) — but it doesn't exist. The real scheduler is a Deno TypeScript file at `supabase/functions/sap-sync-scheduler/index.ts`.
 
-1. **Missing storage_location/batch on mrb_records** — Shop Floor MRB creation (`ShopFloorMaterialBlocking.tsx`) does not save `storage_location` or `batch` to the MRB record
-2. **Fragile fallback lookup** — The `buildUnblockRequestBody` function tries to find this data from `shop_floor_stock`, but the query uses only `material_code` + `plant` (no batch filter), may return wrong row, or return nothing if the stock record was deleted/changed
+### What changes
 
-### Solution
+**File: `deploy/start.sh`** — Replace section [2/2] (the scheduler block) so it:
+- Points to the correct Deno edge function path: `$APP_DIR/supabase/functions/sap-sync-scheduler/index.ts`
+- Uses `deno run --allow-net --allow-env --allow-read` instead of Node.js via PM2
+- Passes `SUPABASE_URL` (derived from `VITE_SUPABASE_URL`) and `SUPABASE_SERVICE_ROLE_KEY` as environment variables
+- Still uses PM2 for process management (PM2 can manage Deno processes via `--interpreter`)
+- Keeps the same PM2 process name `mrb-scheduler-new` and log path
 
-**Step 1: Add `storage_location` and `batch` columns to `mrb_records`**
-- Add two new nullable text columns to store the original blocking parameters
-- This ensures the unblock request always has the correct SAP values regardless of what happens to other tables
+**Updated scheduler section will look like:**
+```text
+SCHED_FILE="$APP_DIR/supabase/functions/sap-sync-scheduler/index.ts"
 
-**Step 2: Save storage_location and batch during Shop Floor MRB creation**
-- In `ShopFloorMaterialBlocking.tsx`, include `storage_location` and `batch` from the selected stock item when calling `createMRB()`
-- In `ShopFloorStockSelection.tsx` (the bulk block flow), same change if MRBs are created there
+if [ -f "$SCHED_FILE" ]; then
+  echo "[2/2] Starting Deno Scheduler..."
+  pm2 delete mrb-scheduler-new 2>/dev/null || true
 
-**Step 3: Update `buildUnblockRequestBody` in Worklist.tsx**
-- Read `storage_location` and `batch` directly from the MRB record first (new columns)
-- Only fall back to `inward_inspection_lots` or `shop_floor_stock` if the MRB record doesn't have them (backward compatibility for existing records)
+  SUPABASE_URL="${SUPABASE_URL:-$VITE_SUPABASE_URL}" \
+  SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-}" \
+  pm2 start "$SCHED_FILE" \
+    --name mrb-scheduler-new \
+    --interpreter deno \
+    --interpreter-args "run --allow-net --allow-env --allow-read" \
+    --log "$LOG_DIR/scheduler.log" \
+    --time \
+    --env production \
+    --cron-restart "0 */6 * * *"
 
-### Files Changed
-1. **Database migration** — Add `storage_location` and `batch` columns to `mrb_records`
-2. `src/pages/ShopFloorMaterialBlocking.tsx` — Pass `storage_location` and `batch` in `createMRB()` call
-3. `src/pages/Worklist.tsx` — Update `buildUnblockRequestBody` to prefer MRB record fields first; update `UnifiedMRBRecord` interface to include new fields
+  echo "  ✓ Deno scheduler started on port ${SCHEDULER_PORT:-3100}"
+else
+  echo "[2/2] ⚠ Scheduler not found at $SCHED_FILE"
+fi
+```
 
-### Backward Compatibility
-Existing approved MRBs without these columns will continue using the current fallback lookup logic — no data loss or breakage.
+### Key details
+- `SUPABASE_URL` is set from `VITE_SUPABASE_URL` if not already defined — this prevents the port mismatch (8001 vs 8100) that caused the original failure
+- The Deno function already reads `PORT` env (defaults to 3100) and `SUPABASE_SERVICE_ROLE_KEY`
+- No new files needed — just fixing the existing `deploy/start.sh`
 
