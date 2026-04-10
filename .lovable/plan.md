@@ -1,46 +1,32 @@
 
 
-## Plan: Add Deployment Mode Selector with Auto-Port Configuration
+## Plan: Make "Unblock & SAP Sync" Reliable for Shop Floor MRBs
 
-### What Changes
+### Problem
+The "Unblock & SAP Sync" button already appears for all approved MRBs (both Inward and Shop Floor), but for Shop Floor MRBs, the SAP 343 unblock call often fails because:
 
-**Single file: `src/components/sapApi/SAPApiEditForm.tsx`**
+1. **Missing storage_location/batch on mrb_records** — Shop Floor MRB creation (`ShopFloorMaterialBlocking.tsx`) does not save `storage_location` or `batch` to the MRB record
+2. **Fragile fallback lookup** — The `buildUnblockRequestBody` function tries to find this data from `shop_floor_stock`, but the query uses only `material_code` + `plant` (no batch filter), may return wrong row, or return nothing if the stock record was deleted/changed
 
-1. **Add a "Deployment Mode" dropdown** above the Connection Mode field with two options:
-   - **Cloud (Lovable Preview)** — sets default port to `3000`, shows ngrok URL guidance
-   - **Self-Hosted (Client Server)** — sets default port to `3002`, shows LAN IP guidance
+### Solution
 
-2. **Add a "Middleware Port" input field** next to the deployment mode selector, pre-filled based on the selected mode (3000 for Cloud, 3002 for Self-Hosted), but editable so the user can override.
+**Step 1: Add `storage_location` and `batch` columns to `mrb_records`**
+- Add two new nullable text columns to store the original blocking parameters
+- This ensures the unblock request always has the correct SAP values regardless of what happens to other tables
 
-3. **Auto-build the middleware URL** when the user changes deployment mode or port:
-   - Cloud: placeholder shows `https://abc.ngrok-free.app` (port is embedded in ngrok URL, so port field is hidden)
-   - Self-Hosted: placeholder shows `http://10.10.4.178:{port}` and `http://host.docker.internal:{port}`
+**Step 2: Save storage_location and batch during Shop Floor MRB creation**
+- In `ShopFloorMaterialBlocking.tsx`, include `storage_location` and `batch` from the selected stock item when calling `createMRB()`
+- In `ShopFloorStockSelection.tsx` (the bulk block flow), same change if MRBs are created there
 
-4. **Update help text** dynamically based on the selected deployment mode — Cloud shows ngrok instructions, Self-Hosted shows LAN IP / Docker instructions with the correct port.
+**Step 3: Update `buildUnblockRequestBody` in Worklist.tsx**
+- Read `storage_location` and `batch` directly from the MRB record first (new columns)
+- Only fall back to `inward_inspection_lots` or `shop_floor_stock` if the MRB record doesn't have them (backward compatibility for existing records)
 
-5. **Store deployment mode** — save it as part of the connection_mode or as a new state variable used only for UI guidance (no DB schema change needed since the final `proxy_tunnel_url` already captures the full URL with port).
+### Files Changed
+1. **Database migration** — Add `storage_location` and `batch` columns to `mrb_records`
+2. `src/pages/ShopFloorMaterialBlocking.tsx` — Pass `storage_location` and `batch` in `createMRB()` call
+3. `src/pages/Worklist.tsx` — Update `buildUnblockRequestBody` to prefer MRB record fields first; update `UnifiedMRBRecord` interface to include new fields
 
-### UI Layout
-
-```text
-┌─────────────────────────────────────────────┐
-│ Connection Mode    │ Via VPN Tunnel  ▼       │
-├─────────────────────────────────────────────┤
-│ Deployment Mode    │ ○ Cloud (Preview)       │
-│                    │ ● Self-Hosted (Client)  │
-├─────────────────────────────────────────────┤
-│ Middleware Port    │ [ 3002 ]                │
-│                    │ Cloud=3000, Self=3002   │
-├─────────────────────────────────────────────┤
-│ Node.js Middleware │ [ http://10.10.4.178:3002 ] │
-│ URL                │ Base URL only, no /proxy│
-└─────────────────────────────────────────────┘
-```
-
-### Technical Detail
-- New local state: `deploymentMode` (`'cloud' | 'selfhosted'`), initialized by detecting if existing `proxy_tunnel_url` contains `ngrok` or a private IP
-- When deployment mode changes, auto-update the port field and placeholder text
-- The middleware URL input remains fully editable — the deployment mode just provides smart defaults
-- No database migration needed — the final saved value is still `proxy_tunnel_url`
-- Also update the info card in `src/pages/SAPApiSettings.tsx` to show port `3002` for self-hosted examples
+### Backward Compatibility
+Existing approved MRBs without these columns will continue using the current fallback lookup logic — no data loss or breakage.
 
