@@ -383,6 +383,7 @@ export type Database = {
       mrb_records: {
         Row: {
           accepted_quantity: number | null
+          batch: string | null
           blocked_quantity: number | null
           closed_at: string | null
           closed_by: string | null
@@ -453,6 +454,7 @@ export type Database = {
           sla_status: Database["public"]["Enums"]["sla_status"] | null
           source: Database["public"]["Enums"]["mrb_source"]
           status: Database["public"]["Enums"]["mrb_status"]
+          storage_location: string | null
           technical_reference_number: string | null
           total_quantity: number
           uom: string | null
@@ -466,6 +468,7 @@ export type Database = {
         }
         Insert: {
           accepted_quantity?: number | null
+          batch?: string | null
           blocked_quantity?: number | null
           closed_at?: string | null
           closed_by?: string | null
@@ -538,6 +541,7 @@ export type Database = {
           sla_status?: Database["public"]["Enums"]["sla_status"] | null
           source: Database["public"]["Enums"]["mrb_source"]
           status?: Database["public"]["Enums"]["mrb_status"]
+          storage_location?: string | null
           technical_reference_number?: string | null
           total_quantity?: number
           uom?: string | null
@@ -551,6 +555,7 @@ export type Database = {
         }
         Update: {
           accepted_quantity?: number | null
+          batch?: string | null
           blocked_quantity?: number | null
           closed_at?: string | null
           closed_by?: string | null
@@ -623,6 +628,7 @@ export type Database = {
           sla_status?: Database["public"]["Enums"]["sla_status"] | null
           source?: Database["public"]["Enums"]["mrb_source"]
           status?: Database["public"]["Enums"]["mrb_status"]
+          storage_location?: string | null
           technical_reference_number?: string | null
           total_quantity?: number
           uom?: string | null
