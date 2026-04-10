@@ -6,7 +6,7 @@ import { useDepartmentMap } from '@/hooks/useDepartmentMap';
 import type { Database } from '@/integrations/supabase/types';
 
 type MRBStatus = Database['public']['Enums']['mrb_status'];
-type AppRole = Database['public']['Enums']['app_role'];
+type AppRole = string;
 
 interface WorkflowStep {
   id: string;

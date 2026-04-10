@@ -11,7 +11,7 @@ type MRBInsert = Database['public']['Tables']['mrb_records']['Insert'];
 type MRBUpdate = Database['public']['Tables']['mrb_records']['Update'];
 type ApprovalHistoryInsert = Database['public']['Tables']['mrb_approval_history']['Insert'];
 type MRBStatus = Database['public']['Enums']['mrb_status'];
-type AppRole = Database['public']['Enums']['app_role'];
+type AppRole = string;
 
 export function useMRBDatabase() {
   const [mrbRecords, setMRBRecords] = useState<MRBRecord[]>([]);

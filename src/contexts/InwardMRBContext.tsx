@@ -438,7 +438,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
             grn_number: record.grnNumber || null,
             inspection_lot: record.inspectionLot,
             defect_description: record.blockReason || null,
-            pending_with: initialPendingWith as Database['public']['Enums']['app_role']
+            pending_with: initialPendingWith as string
           };
 
           const { data: createdMRB, error } = await supabase
@@ -461,7 +461,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
             stage: 'Creation',
             action: 'created',
             performed_by: user.id,
-            performed_by_role: actualRole as Database['public']['Enums']['app_role'],
+            performed_by_role: actualRole as string,
             remarks: `MRB created from inspection lot ${record.inspectionLot} by ${actualRole}`,
           });
 

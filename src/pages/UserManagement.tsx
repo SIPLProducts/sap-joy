@@ -170,8 +170,8 @@ export default function UserManagement() {
   const handleSaveEdit = async () => {
     if (!selectedUser) return;
 
-    const validRoles: AppRole[] = ['admin', 'quality', 'quality_head', 'purchase', 'purchase_head', 'engineering', 'engineering_head', 'shop_floor', 'executive', 'mrb_committee'];
-    if (!selectedRole || !validRoles.includes(selectedRole as AppRole)) {
+    const validRoleKeys = roleOptions.map(r => r.value);
+    if (!selectedRole || !validRoleKeys.includes(selectedRole)) {
       toast({ title: 'Validation Error', description: 'Please select a valid role before saving.', variant: 'destructive' });
       return;
     }
@@ -288,18 +288,20 @@ export default function UserManagement() {
     }
   };
 
-  const handleDeleteRole = async () => {
+  const handleDeleteUser = async () => {
     if (!selectedUser) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from('user_roles').delete().eq('user_id', selectedUser.user_id);
-      if (error) throw error;
-      toast({ title: 'Success', description: `Role removed for ${selectedUser.full_name}` });
+      await supabase.from('user_roles').delete().eq('user_id', selectedUser.user_id);
+      await supabase.from('user_plants').delete().eq('user_id', selectedUser.user_id);
+      await supabase.from('user_security').delete().eq('user_id', selectedUser.user_id);
+      await supabase.from('profiles').delete().eq('user_id', selectedUser.user_id);
+      toast({ title: 'Success', description: `User ${selectedUser.full_name} deleted successfully` });
       setIsDeleteDialogOpen(false);
       fetchUsers();
     } catch (error) {
-      console.error('Error deleting role:', error);
-      toast({ title: 'Error', description: 'Failed to remove role', variant: 'destructive' });
+      console.error('Error deleting user:', error);
+      toast({ title: 'Error', description: 'Failed to delete user', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -368,16 +370,21 @@ export default function UserManagement() {
         await supabase.from('user_plants').upsert(plantRows, { onConflict: 'user_id,plant_code' });
       }
 
-      const { error: roleInsertError } = await supabase.from('user_roles').upsert({
-        user_id: newUserId,
-        role: newUserRole as AppRole,
-      }, { onConflict: 'user_id' });
-
-      if (roleInsertError) throw roleInsertError;
+      const { data: existingRole } = await supabase.from('user_roles').select('id').eq('user_id', newUserId).maybeSingle();
+      if (existingRole) {
+        const { error: roleUpdateError } = await supabase.from('user_roles').update({ role: newUserRole as any }).eq('user_id', newUserId);
+        if (roleUpdateError) throw roleUpdateError;
+      } else {
+        const { error: roleInsertError } = await supabase.from('user_roles').insert({ user_id: newUserId, role: newUserRole as any });
+        if (roleInsertError) throw roleInsertError;
+      }
 
       const pwHash = await hashPasswordForHistory(newUserPassword);
       await supabase.from('password_history').insert({ user_id: newUserId, password_hash: pwHash });
-      await supabase.from('user_security').insert({ user_id: newUserId, last_password_change: new Date().toISOString() });
+      const { data: existingSec } = await supabase.from('user_security').select('id').eq('user_id', newUserId).maybeSingle();
+      if (!existingSec) {
+        await supabase.from('user_security').insert({ user_id: newUserId, last_password_change: new Date().toISOString() });
+      }
 
       const roleLabel = roleOptions.find(r => r.value === newUserRole)?.label || newUserRole;
       toast({ title: 'User Created', description: `${newUserEmail} created with role ${roleLabel}` });
@@ -529,14 +536,12 @@ export default function UserManagement() {
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button size="sm" variant="outline" onClick={() => handleEditRole(user)}>
-                          {user.role ? (<><Edit className="h-3 w-3 mr-1" />Edit</>) : (<><Plus className="h-3 w-3 mr-1" />Assign</>)}
+                          <><Edit className="h-3 w-3 mr-1" />Edit</>
                         </Button>
-                        {user.role && (
-                          <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive"
-                            onClick={() => { setSelectedUser(user); setIsDeleteDialogOpen(true); }}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        )}
+                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive"
+                          onClick={() => { setSelectedUser(user); setIsDeleteDialogOpen(true); }}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -705,17 +710,17 @@ export default function UserManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Role Dialog */}
+      {/* Delete User Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Remove Role</DialogTitle>
-            <DialogDescription>Are you sure you want to remove the role from {selectedUser?.full_name}?</DialogDescription>
+            <DialogTitle>Delete User</DialogTitle>
+            <DialogDescription>Are you sure you want to delete {selectedUser?.full_name}? This will remove their role, plant assignments, and profile.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDeleteRole} disabled={saving}>
-              {saving ? 'Removing...' : 'Remove Role'}
+            <Button variant="destructive" onClick={handleDeleteUser} disabled={saving}>
+              {saving ? 'Deleting...' : 'Delete User'}
             </Button>
           </DialogFooter>
         </DialogContent>

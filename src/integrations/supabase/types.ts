@@ -21,7 +21,7 @@ export type Database = {
           id: string
           is_enabled: boolean
           plant: string
-          role: Database["public"]["Enums"]["app_role"]
+          role: string
         }
         Insert: {
           created_at?: string
@@ -29,7 +29,7 @@ export type Database = {
           id?: string
           is_enabled?: boolean
           plant: string
-          role: Database["public"]["Enums"]["app_role"]
+          role: string
         }
         Update: {
           created_at?: string
@@ -37,7 +37,7 @@ export type Database = {
           id?: string
           is_enabled?: boolean
           plant?: string
-          role?: Database["public"]["Enums"]["app_role"]
+          role?: string
         }
         Relationships: []
       }
@@ -302,7 +302,7 @@ export type Database = {
           mrb_id: string
           performed_at: string
           performed_by: string
-          performed_by_role: Database["public"]["Enums"]["app_role"]
+          performed_by_role: string
           remarks: string | null
           stage: string
         }
@@ -312,7 +312,7 @@ export type Database = {
           mrb_id: string
           performed_at?: string
           performed_by: string
-          performed_by_role: Database["public"]["Enums"]["app_role"]
+          performed_by_role: string
           remarks?: string | null
           stage: string
         }
@@ -322,7 +322,7 @@ export type Database = {
           mrb_id?: string
           performed_at?: string
           performed_by?: string
-          performed_by_role?: Database["public"]["Enums"]["app_role"]
+          performed_by_role?: string
           remarks?: string | null
           stage?: string
         }
@@ -431,7 +431,7 @@ export type Database = {
           mrb_committee_required: boolean | null
           mrb_number: string
           pending_days: number | null
-          pending_with: Database["public"]["Enums"]["app_role"] | null
+          pending_with: string | null
           plant: string
           plant_id: string | null
           po_number: string | null
@@ -518,7 +518,7 @@ export type Database = {
           mrb_committee_required?: boolean | null
           mrb_number: string
           pending_days?: number | null
-          pending_with?: Database["public"]["Enums"]["app_role"] | null
+          pending_with?: string | null
           plant: string
           plant_id?: string | null
           po_number?: string | null
@@ -605,7 +605,7 @@ export type Database = {
           mrb_committee_required?: boolean | null
           mrb_number?: string
           pending_days?: number | null
-          pending_with?: Database["public"]["Enums"]["app_role"] | null
+          pending_with?: string | null
           plant?: string
           plant_id?: string | null
           po_number?: string | null
@@ -736,7 +736,7 @@ export type Database = {
       plant_workflow_config: {
         Row: {
           created_at: string
-          department: Database["public"]["Enums"]["app_role"]
+          department: string
           id: string
           is_active: boolean
           is_required: boolean
@@ -746,7 +746,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          department: Database["public"]["Enums"]["app_role"]
+          department: string
           id?: string
           is_active?: boolean
           is_required?: boolean
@@ -756,7 +756,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          department?: Database["public"]["Enums"]["app_role"]
+          department?: string
           id?: string
           is_active?: boolean
           is_required?: boolean
@@ -1332,19 +1332,19 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          role: Database["public"]["Enums"]["app_role"]
+          role: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
-          role: Database["public"]["Enums"]["app_role"]
+          role: string
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
+          role?: string
           user_id?: string
         }
         Relationships: []
@@ -1459,17 +1459,8 @@ export type Database = {
         }[]
       }
       get_user_plant: { Args: { _user_id: string }; Returns: string }
-      get_user_role: {
-        Args: { _user_id: string }
-        Returns: Database["public"]["Enums"]["app_role"]
-      }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      get_user_role: { Args: { _user_id: string }; Returns: string }
+      has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
       record_failed_login: { Args: { _user_id: string }; Returns: Json }
       record_password_change: {
         Args: { _password_hash: string; _user_id: string }
@@ -1482,17 +1473,6 @@ export type Database = {
       reset_failed_login: { Args: { _user_id: string }; Returns: undefined }
     }
     Enums: {
-      app_role:
-        | "quality"
-        | "quality_head"
-        | "purchase"
-        | "purchase_head"
-        | "engineering"
-        | "engineering_head"
-        | "shop_floor"
-        | "executive"
-        | "admin"
-        | "mrb_committee"
       defect_category:
         | "dimensional"
         | "surface"
@@ -1647,18 +1627,6 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: [
-        "quality",
-        "quality_head",
-        "purchase",
-        "purchase_head",
-        "engineering",
-        "engineering_head",
-        "shop_floor",
-        "executive",
-        "admin",
-        "mrb_committee",
-      ],
       defect_category: [
         "dimensional",
         "surface",

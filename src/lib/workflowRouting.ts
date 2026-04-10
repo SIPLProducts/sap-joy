@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { fetchDepartmentMaps } from '@/hooks/useDepartmentMap';
 
-type AppRole = Database['public']['Enums']['app_role'];
+type AppRole = string;
 type MRBStatus = Database['public']['Enums']['mrb_status'];
 
 export interface WorkflowStep {
