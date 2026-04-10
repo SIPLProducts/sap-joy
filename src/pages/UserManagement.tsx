@@ -381,7 +381,10 @@ export default function UserManagement() {
 
       const pwHash = await hashPasswordForHistory(newUserPassword);
       await supabase.from('password_history').insert({ user_id: newUserId, password_hash: pwHash });
-      await supabase.from('user_security').insert({ user_id: newUserId, last_password_change: new Date().toISOString() });
+      const { data: existingSec } = await supabase.from('user_security').select('id').eq('user_id', newUserId).maybeSingle();
+      if (!existingSec) {
+        await supabase.from('user_security').insert({ user_id: newUserId, last_password_change: new Date().toISOString() });
+      }
 
       const roleLabel = roleOptions.find(r => r.value === newUserRole)?.label || newUserRole;
       toast({ title: 'User Created', description: `${newUserEmail} created with role ${roleLabel}` });
