@@ -1,42 +1,39 @@
 
 
-## Plan: Three Fixes
+## Fix: Admin Pages Access & Email Recipient Logic
 
-### 1. Add "Email Configuration" to Role Access Matrix & Make Admin Tabs Permission-Driven
+### Problem 1: Admin Tabs Show "Access Denied" for Non-Admin Roles
+All five admin pages hardcode `isAdmin = userRole === 'admin'`. When a non-admin role (e.g., quality_head) is granted access to User Management via the Role Access Matrix, they can see the sidebar link but get "Access Denied" on the page.
 
-**Problem:** The `SCREENS` array in `RoleMatrix.tsx` doesn't include `email_config`. Also, the sidebar's Administration section (line 151) only shows for `userRole === 'admin'` — it ignores per-role permissions from the matrix.
+**Fix**: In each of the 5 admin pages, replace the hardcoded admin check with a permission-based check using `useRoleMatrix().hasAccess(screenKey)`. Admin role will still pass (since `hasAccess` returns true for admin).
 
-**Changes:**
-- **`src/pages/RoleMatrix.tsx`** — Add `{ key: 'email_config', label: 'Email Configuration', group: 'Administration' }` to the `SCREENS` array.
-- **`src/components/layout/AppSidebar.tsx`** — Refactor the Administration section:
-  - Add `matrixKey` to each admin item (e.g., `user_management`, `role_management`, `role_access`, `plant_management`, `workflow_config`, `email_config`).
-  - Replace the `userRole === 'admin'` guard with permission-based filtering via `hasAccess(item.matrixKey)`. Master-only items (SAP) still require `isMasterAdmin`.
-  - Show the Administration group if any admin item passes the access check.
+**Files to modify:**
+- `src/pages/UserManagement.tsx` — change `isAdmin` from `userRole === 'admin'` to `userRole === 'admin' || hasAccess('user_management')`
+- `src/pages/DepartmentManagement.tsx` — same pattern with `'role_management'`
+- `src/pages/RoleMatrix.tsx` — same pattern with `'role_access'`
+- `src/pages/PlantManagement.tsx` — same pattern with `'plant_management'`
+- `src/pages/WorkflowRoutingConfig.tsx` — same pattern with `'workflow_config'`
 
-### 2. Login Page — Employee ID Only (Email for MasterAdmin Only)
+Each page will import `useRoleMatrix` and use `hasAccess` alongside the existing admin check so that roles granted access in the matrix can use the page.
 
-**Problem:** Login label says "Email or Employee ID" and accepts both. Only masteradmin should log in with email.
+### Problem 2: Emails Going to Entire MRB Board Instead of Configured Recipients
+In `send-mrb-email/index.ts` line 110, all `workflowRoles` from the MRB's `workflow_routing` array are merged into `toRoles`. This means every role in the workflow gets emailed, regardless of what's configured in the email template.
 
-**Changes in `src/pages/Login.tsx`:**
-- Change label from "Email or Employee ID" to "Employee ID"
-- Change placeholder to "Enter your Employee ID"
-- Keep the existing logic that resolves employee ID to email (line 115: `if (!loginEmail.includes('@'))`) — this still works. If someone types an email (masteradmin), it will pass through directly.
-- Remove the Sign Up tab entirely (users are created by admin only via User Management). Only show Sign In.
+**Fix**: Remove the `workflowRoles` merge. The `toRoles` should only contain roles explicitly configured in the template's `to_roles` field. The `to_emails` field already handles explicit email addresses.
 
-### 3. Remove Engineering "Final Decision" Override — Follow Workflow Routing
+**File to modify:**
+- `supabase/functions/send-mrb-email/index.ts` — change line 110 from:
+  ```
+  const toRoles = new Set<string>([...workflowRoles, ...(template.to_roles || [])]);
+  ```
+  to:
+  ```
+  const toRoles = new Set<string>(template.to_roles || []);
+  ```
+  This ensures emails only go to the roles and addresses configured in the template, not the entire workflow chain.
 
-**Problem:** In `InwardMRBDetail.tsx` (lines 166-182), engineering roles are hardcoded as final decision-makers, bypassing the workflow routing sequence. The forwarding UI is hidden for engineering (line 494-550), and a "final acceptance" notice is shown (line 552-556).
-
-**Changes in `src/pages/InwardMRBDetail.tsx`:**
-- Remove the special `if (userRole === 'engineering' || userRole === 'engineering_head')` block (lines 166-182) that forces `approved`/`rejected` status.
-- Instead, use the same workflow routing logic as other roles: use `getNextWorkflowStep()` from `workflowRouting.ts` to determine the next step based on the MRB's `workflow_routing` array.
-- Remove the condition hiding the "Forward to department" UI for engineering (line 494-495).
-- Remove the "Engineering Final Acceptance" notice (lines 552-556).
-- Engineering will now follow the exact same flow as all other departments — if there are more steps in the routing after engineering, it forwards; if engineering is last, then it becomes the final approver.
-
-### Files Modified
-1. `src/pages/RoleMatrix.tsx` — add `email_config` screen
-2. `src/components/layout/AppSidebar.tsx` — permission-driven admin section
-3. `src/pages/Login.tsx` — Employee ID only label, remove Sign Up tab
-4. `src/pages/InwardMRBDetail.tsx` — remove engineering final decision override
+### Technical Details
+- The `useRoleMatrix` hook is already available and returns `hasAccess(screenKey)` which checks `role_permissions` table
+- `hasAccess` already returns `true` for `admin` role, so existing admin access is preserved
+- The `send-mrb-email` edge function will need redeployment after the fix
 
