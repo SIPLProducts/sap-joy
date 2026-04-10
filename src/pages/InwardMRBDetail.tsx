@@ -38,6 +38,7 @@ export default function InwardMRBDetail() {
   const { getMRBById, updateMRBStatus, getApprovalHistory } = useMRBDatabase();
   const { currentRole, canEdit } = useRole();
   const { userRole, profile, user } = useAuth();
+  const { roleDisplayNames } = useDepartmentMap();
   
   const [mrb, setMRB] = useState<MRBRecord | null>(null);
   const [approvalHistory, setApprovalHistory] = useState<ApprovalHistory[]>([]);
