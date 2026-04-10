@@ -309,7 +309,7 @@ export default function Login() {
             </div>
             <h2 className="text-3xl font-bold text-foreground">Welcome!</h2>
             <p className="text-muted-foreground">
-              Sign in or create an account to continue
+              Sign in to continue
             </p>
           </div>
 
@@ -339,32 +339,23 @@ export default function Login() {
           )}
 
           <Card className="shadow-xl border-0 bg-card/80 backdrop-blur">
-            <Tabs defaultValue="signin" className="w-full">
               <CardHeader className="pb-4">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="signin" className="flex items-center gap-2">
-                    <LogIn className="w-4 h-4" />
-                    Sign In
-                  </TabsTrigger>
-                  <TabsTrigger value="signup" className="flex items-center gap-2">
-                    <UserPlus className="w-4 h-4" />
-                    Sign Up
-                  </TabsTrigger>
-                </TabsList>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <LogIn className="w-5 h-5" />
+                  Sign In
+                </CardTitle>
               </CardHeader>
               
               <CardContent>
-                {/* Sign In Tab */}
-                <TabsContent value="signin" className="mt-0">
                   <form onSubmit={handleSignIn} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="signin-email">Email or Employee ID</Label>
+                      <Label htmlFor="signin-email">Employee ID</Label>
                       <Input
                         id="signin-email"
                         type="text"
                         value={signInEmail}
                         onChange={(e) => setSignInEmail(e.target.value)}
-                        placeholder="Enter email or employee ID"
+                        placeholder="Enter your Employee ID"
                         className="h-11"
                         required
                       />
