@@ -1,39 +1,52 @@
 
 
-## Fix: Admin Pages Access & Email Recipient Logic
+## Fix: Non-Admin Users with User Management Access See Empty Data
 
-### Problem 1: Admin Tabs Show "Access Denied" for Non-Admin Roles
-All five admin pages hardcode `isAdmin = userRole === 'admin'`. When a non-admin role (e.g., quality_head) is granted access to User Management via the Role Access Matrix, they can see the sidebar link but get "Access Denied" on the page.
+### Root Cause
+The RLS (Row Level Security) policies on `user_roles`, `user_plants`, `user_security`, and `password_history` tables only allow full access to users with the `admin` role. Non-admin users (e.g., Quality) who are granted `user_management` via the Role Access Matrix can see the page but can only read their own data — so all other users appear with "No Role" and missing plant info.
 
-**Fix**: In each of the 5 admin pages, replace the hardcoded admin check with a permission-based check using `useRoleMatrix().hasAccess(screenKey)`. Admin role will still pass (since `hasAccess` returns true for admin).
+### Solution
+Add RLS policies that check if the current user has `user_management` permission in the `role_permissions` table, granting them the same data access as admins on these tables.
 
-**Files to modify:**
-- `src/pages/UserManagement.tsx` — change `isAdmin` from `userRole === 'admin'` to `userRole === 'admin' || hasAccess('user_management')`
-- `src/pages/DepartmentManagement.tsx` — same pattern with `'role_management'`
-- `src/pages/RoleMatrix.tsx` — same pattern with `'role_access'`
-- `src/pages/PlantManagement.tsx` — same pattern with `'plant_management'`
-- `src/pages/WorkflowRoutingConfig.tsx` — same pattern with `'workflow_config'`
+**Step 1: Create a helper function** to check if a user has a specific screen permission:
+```sql
+CREATE OR REPLACE FUNCTION public.has_screen_access(
+  _user_id uuid, _screen_key text
+) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.role_permissions rp
+    JOIN public.user_roles ur ON ur.role = rp.role
+    WHERE ur.user_id = _user_id
+      AND rp.module_key = _screen_key
+      AND rp.can_view = true
+  )
+$$;
+```
 
-Each page will import `useRoleMatrix` and use `hasAccess` alongside the existing admin check so that roles granted access in the matrix can use the page.
+**Step 2: Add new RLS policies** on four tables:
 
-### Problem 2: Emails Going to Entire MRB Board Instead of Configured Recipients
-In `send-mrb-email/index.ts` line 110, all `workflowRoles` from the MRB's `workflow_routing` array are merged into `toRoles`. This means every role in the workflow gets emailed, regardless of what's configured in the email template.
+- **`user_roles`**: SELECT + ALL for users with `has_screen_access(auth.uid(), 'user_management')`
+- **`user_plants`**: SELECT + ALL for users with `has_screen_access(auth.uid(), 'user_management')`
+- **`user_security`**: SELECT + ALL for users with `has_screen_access(auth.uid(), 'user_management')`
+- **`password_history`**: SELECT for users with `has_screen_access(auth.uid(), 'user_management')`
 
-**Fix**: Remove the `workflowRoles` merge. The `toRoles` should only contain roles explicitly configured in the template's `to_roles` field. The `to_emails` field already handles explicit email addresses.
+**Step 3: Add loading guard** in `UserManagement.tsx` — check `useRoleMatrix().loading` before rendering the "Access Denied" block, showing a spinner while permissions load.
 
-**File to modify:**
-- `supabase/functions/send-mrb-email/index.ts` — change line 110 from:
-  ```
-  const toRoles = new Set<string>([...workflowRoles, ...(template.to_roles || [])]);
-  ```
-  to:
-  ```
-  const toRoles = new Set<string>(template.to_roles || []);
-  ```
-  This ensures emails only go to the roles and addresses configured in the template, not the entire workflow chain.
+Also apply the same loading guard pattern to the other 4 admin pages (`DepartmentManagement`, `RoleMatrix`, `PlantManagement`, `WorkflowRoutingConfig`).
+
+### Files Modified
+1. **Database migration** — new `has_screen_access` function + new RLS policies on 4 tables
+2. `src/pages/UserManagement.tsx` — add loading guard
+3. `src/pages/DepartmentManagement.tsx` — add loading guard
+4. `src/pages/RoleMatrix.tsx` — add loading guard
+5. `src/pages/PlantManagement.tsx` — add loading guard
+6. `src/pages/WorkflowRoutingConfig.tsx` — add loading guard
 
 ### Technical Details
-- The `useRoleMatrix` hook is already available and returns `hasAccess(screenKey)` which checks `role_permissions` table
-- `hasAccess` already returns `true` for `admin` role, so existing admin access is preserved
-- The `send-mrb-email` edge function will need redeployment after the fix
+- The `SECURITY DEFINER` function avoids recursive RLS issues when checking `role_permissions` and `user_roles`
+- Existing admin policies remain unchanged — this only adds additional access paths
+- The `profiles` table already has a permissive SELECT policy for all authenticated users, so no change needed there
 
