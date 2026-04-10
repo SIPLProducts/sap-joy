@@ -635,6 +635,7 @@ export default function UserManagement() {
             <div className="space-y-2">
               <Label>Employee ID *</Label>
               <Input placeholder="Enter employee ID" value={editEmployeeId} onChange={(e) => setEditEmployeeId(e.target.value)} />
+            </div>
             <div className="space-y-2">
               <Label>Role *</Label>
               <Select value={selectedRole} onValueChange={setSelectedRole}>
