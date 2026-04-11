@@ -20,7 +20,7 @@ import hblLogo from '@/assets/hbl-logo.png';
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, signUp, isAuthenticated } = useAuth();
+  const { signIn, isAuthenticated } = useAuth();
   const isOnline = useNetworkStatus();
   const { status: backendStatus, latency, recheck } = useHealthCheck({ interval: 15000 });
   const hasAutoCleared = useRef(false);
@@ -64,12 +64,6 @@ export default function Login() {
   const [signInPassword, setSignInPassword] = useState('');
   const [showSignInPassword, setShowSignInPassword] = useState(false);
   
-  // Sign Up state
-  const [signUpEmail, setSignUpEmail] = useState('');
-  const [signUpPassword, setSignUpPassword] = useState('');
-  const [signUpFullName, setSignUpFullName] = useState('');
-  const [signUpRole, setSignUpRole] = useState<AppRole | ''>('');
-  const [showSignUpPassword, setShowSignUpPassword] = useState(false);
   
   const [isLoading, setIsLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -200,26 +194,6 @@ export default function Login() {
     setRetryCount(0);
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!signUpEmail || !signUpPassword || !signUpFullName || !signUpRole) return;
-    
-    // Validate password policy
-    const validation = validatePassword(signUpPassword);
-    if (!validation.isValid) {
-      setLoginError(validation.errors.join('. '));
-      return;
-    }
-    
-    setLoginError(null);
-    setIsLoading(true);
-    const { error } = await signUp(signUpEmail, signUpPassword, signUpFullName, signUpRole);
-    setIsLoading(false);
-    
-    if (!error) {
-      navigate('/', { replace: true });
-    }
-  };
 
   const features = [
     { icon: ClipboardCheck, text: 'Streamlined Quality Reviews' },

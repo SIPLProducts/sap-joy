@@ -24,7 +24,7 @@ interface AuthContextType {
   userRole: AppRole | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, fullName: string, role: AppRole) => Promise<{ error: Error | null }>;
+  
   signOut: () => Promise<void>;
   updatePlant: (newPlant: string) => Promise<{ error: Error | null }>;
   isAuthenticated: boolean;
@@ -258,7 +258,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userRole,
         isLoading,
         signIn,
-        signUp,
         signOut,
         updatePlant,
         isAuthenticated: !!session,
