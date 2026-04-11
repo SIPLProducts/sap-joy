@@ -348,7 +348,7 @@ export default function UserManagement() {
       });
 
       if (createError) throw new Error(createError.message || 'Failed to create user');
-      if (createData?.error) throw new Error(createData.error);
+      if (!createData?.ok) throw new Error(createData?.error || 'User creation failed');
       if (!createData?.user_id) throw new Error('User creation failed — no user ID returned');
 
       const newUserId = createData.user_id;
