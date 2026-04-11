@@ -66,13 +66,18 @@ for func_name in "${FUNCTIONS[@]}"; do
     cp "$src_file" "$FUNC_VOLUME_DIR/$func_name/"
   done
 
-  # Generate handler.ts — strip Deno.serve / serve wrapper, export handler
-  # This converts the function into an importable module (no top-level server)
+  # If a manually-authored handler.ts already exists in the source, use it as-is.
+  # Otherwise auto-generate one by extracting the Deno.serve() handler body.
   SRC_INDEX="$FUNC_VOLUME_DIR/$func_name/index.ts"
+  SRC_HANDLER="$FUNCTIONS_SRC/$func_name/handler.ts"
   HANDLER_FILE="$FUNC_VOLUME_DIR/$func_name/handler.ts"
 
-  if [ -f "$SRC_INDEX" ]; then
-    # Use Python for reliable multi-pattern transformation
+  if [ -f "$SRC_HANDLER" ]; then
+    # Manual handler checked in — copy it directly (skip auto-generation)
+    cp "$SRC_HANDLER" "$HANDLER_FILE"
+    echo "  Copied manual handler: $func_name/"
+  elif [ -f "$SRC_INDEX" ]; then
+    # Auto-generate handler.ts from index.ts using brace-matching
     python3 - "$SRC_INDEX" "$HANDLER_FILE" <<'PYHANDLER'
 import sys, re
 
@@ -82,77 +87,67 @@ dst = sys.argv[2]
 with open(src, 'r') as f:
     code = f.read()
 
-# --- Brace-matching algorithm to find the exact Deno.serve() / serve() block ---
+# Check if index.ts just imports from handler.ts — if so, skip generation
+if "import handler from './handler.ts'" in code or 'import handler from "./handler.ts"' in code:
+    print(f"  Skipping auto-gen (index.ts imports handler.ts)")
+    sys.exit(0)
 
-# Find the serve call start
+# --- Brace-matching algorithm to find the exact Deno.serve() / serve() block ---
 serve_patterns = [
     (r'Deno\.serve\(', 'Deno.serve('),
     (r'(?<!\.)serve\(', 'serve('),
 ]
 
 serve_start = -1
-serve_call_end = -1  # position right after the opening paren of serve(
+serve_call_end = -1
 for pat, _ in serve_patterns:
     m = re.search(pat, code)
     if m:
         serve_start = m.start()
-        serve_call_end = m.end()  # points right after '('
+        serve_call_end = m.end()
         break
 
 if serve_start == -1:
-    # No serve() found — just copy as-is with a default export wrapper
     with open(dst, 'w') as f:
         f.write(code + '\nexport default async (req: Request) => new Response("not implemented", {status:501});\n')
     sys.exit(0)
 
-# Now find the matching closing ')' for the serve( call using brace/paren tracking
-# We start right after 'serve(' so paren_depth starts at 1
 pos = serve_call_end
 paren_depth = 1
 brace_depth = 0
-in_string = None  # None, '"', "'", '`'
+in_string = None
 escape_next = False
 code_len = len(code)
 
 while pos < code_len and paren_depth > 0:
     ch = code[pos]
-    
     if escape_next:
         escape_next = False
         pos += 1
         continue
-    
     if ch == '\\' and in_string:
         escape_next = True
         pos += 1
         continue
-    
     if in_string:
         if ch == in_string:
             in_string = None
         pos += 1
         continue
-    
-    # Check for template literals, single/double quotes
     if ch in ('"', "'", '`'):
         in_string = ch
         pos += 1
         continue
-    
-    # Check for line comments
     if ch == '/' and pos + 1 < code_len:
         next_ch = code[pos + 1]
         if next_ch == '/':
-            # Skip to end of line
             nl = code.find('\n', pos)
             pos = nl + 1 if nl != -1 else code_len
             continue
         elif next_ch == '*':
-            # Skip block comment
             end_comment = code.find('*/', pos + 2)
             pos = end_comment + 2 if end_comment != -1 else code_len
             continue
-    
     if ch == '(':
         paren_depth += 1
     elif ch == ')':
@@ -161,44 +156,26 @@ while pos < code_len and paren_depth > 0:
         brace_depth += 1
     elif ch == '}':
         brace_depth -= 1
-    
     pos += 1
 
-# pos now points right after the closing ')' of serve(...)
 serve_end = pos
-
-# Also consume the trailing semicolon if present
 if serve_end < code_len and code[serve_end] == ';':
     serve_end += 1
 
-# Extract parts
 before_serve = code[:serve_start]
-serve_block = code[serve_start:serve_end]
 after_serve = code[serve_end:]
 
-# Extract the handler from the serve block
-# The serve block looks like: Deno.serve(async (req) => { ... })  or  Deno.serve({opts}, async (req) => { ... })
-# We need to extract: async (req) => { ... }
-
-# Find 'async' inside the serve block arguments
-inner = code[serve_call_end:serve_end]  # content between serve( ... )
+inner = code[serve_call_end:serve_end]
 async_match = re.search(r'async\s*\(\s*req\s*(?::\s*Request)?\s*\)\s*=>\s*\{', inner)
 
 if async_match:
-    handler_start_in_inner = async_match.start()
-    # The handler runs from async_match.start() to the end of the inner block minus the closing ')'
-    # We need to find the matching '}' for the opening '{'
-    handler_code_start = serve_call_end + async_match.end()  # position after the opening '{'
-    
-    # Find matching closing brace
+    handler_code_start = serve_call_end + async_match.end()
     hpos = handler_code_start
     hdepth = 1
     h_in_string = None
     h_escape = False
-    
     while hpos < code_len and hdepth > 0:
         hch = code[hpos]
-        
         if h_escape:
             h_escape = False
             hpos += 1
@@ -231,24 +208,17 @@ if async_match:
         elif hch == '}':
             hdepth -= 1
         hpos += 1
-    
-    # hpos points right after the closing '}'
-    handler_body = code[handler_code_start:hpos - 1]  # content between { and }
-    
-    # Build the handler export
+    handler_body = code[handler_code_start:hpos - 1]
     handler_export = f'export default async (req: Request) => {{\n{handler_body}\n}}'
 else:
-    # Fallback: couldn't parse handler, export stub
     handler_export = 'export default async (req: Request) => new Response("parse error", {status:501})'
 
-# Remove old serve import if present (std lib)
 before_serve = re.sub(
     r'import\s*\{\s*serve\s*\}\s*from\s*"https://deno\.land/std[^"]*";\s*\n?',
     '',
     before_serve
 )
 
-# Combine: imports/constants + handler export + any trailing helper functions
 output = before_serve.rstrip('\n') + '\n\n' + handler_export + '\n'
 if after_serve.strip():
     output += '\n' + after_serve.lstrip('\n')
@@ -257,7 +227,7 @@ with open(dst, 'w') as f:
     f.write(output)
 PYHANDLER
 
-    echo "  Copied + handler: $func_name/"
+    echo "  Copied + auto-handler: $func_name/"
   else
     echo "  Copied (no index.ts to wrap): $func_name/"
   fi
