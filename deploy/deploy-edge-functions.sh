@@ -60,6 +60,12 @@ echo "  ✓ ${#FUNCTIONS[@]} function(s) discovered"
 echo "[2/4] Copying functions and generating handlers..."
 
 FUNC_VOLUME_DIR="$SUPABASE_DIR/volumes/functions"
+
+# Clean previous deployment to remove stale/deleted functions
+if [ -d "$FUNC_VOLUME_DIR" ]; then
+  echo "  Cleaning previous deployment..."
+  rm -rf "$FUNC_VOLUME_DIR"/*
+fi
 mkdir -p "$FUNC_VOLUME_DIR"
 
 for func_name in "${FUNCTIONS[@]}"; do
