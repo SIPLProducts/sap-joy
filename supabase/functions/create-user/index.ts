@@ -6,6 +6,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// All responses use HTTP 200 to prevent Supabase JS SDK from swallowing error details.
+function jsonResponse(body: Record<string, unknown>) {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 // Password policy validation
 function validatePasswordPolicy(password: string): { valid: boolean; error?: string } {
   if (password.length < 8) return { valid: false, error: "Password must be at least 8 characters" };
@@ -36,10 +44,7 @@ Deno.serve(async (req) => {
     // Verify the calling user is an admin
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "No authorization header" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ ok: false, error: "No authorization header" });
     }
 
     const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
@@ -48,19 +53,13 @@ Deno.serve(async (req) => {
 
     const { data: { user: callingUser }, error: authError } = await anonClient.auth.getUser();
     if (authError || !callingUser) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ ok: false, error: "Unauthorized" });
     }
 
     // Check if calling user is admin
     const { data: roleData } = await anonClient.from("user_roles").select("role").eq("user_id", callingUser.id).maybeSingle();
     if (roleData?.role !== "admin") {
-      return new Response(JSON.stringify({ error: "Only admins can manage users" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ ok: false, error: "Only admins can manage users" });
     }
 
     const body = await req.json();
@@ -75,21 +74,14 @@ Deno.serve(async (req) => {
       const { user_id, role, department, plant, new_password } = body;
 
       if (!user_id) {
-        return new Response(JSON.stringify({ error: "Missing user_id" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResponse({ ok: false, error: "Missing user_id" });
       }
 
       // Update password if provided
       if (new_password) {
-        // Validate password policy
         const policyCheck = validatePasswordPolicy(new_password);
         if (!policyCheck.valid) {
-          return new Response(JSON.stringify({ error: policyCheck.error }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return jsonResponse({ ok: false, error: policyCheck.error });
         }
 
         // Check password reuse (last 4 passwords)
@@ -102,29 +94,17 @@ Deno.serve(async (req) => {
           .limit(4);
 
         if (historyRecords?.some(h => h.password_hash === pwHash)) {
-          return new Response(JSON.stringify({ error: "Cannot reuse any of your last 4 passwords. Please choose a different password." }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return jsonResponse({ ok: false, error: "Cannot reuse any of your last 4 passwords. Please choose a different password." });
         }
 
         const { error: pwError } = await adminClient.auth.admin.updateUserById(user_id, {
           password: new_password,
         });
         if (pwError) {
-          return new Response(JSON.stringify({ error: `Password update failed: ${pwError.message}` }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return jsonResponse({ ok: false, error: `Password update failed: ${pwError.message}` });
         }
 
-        // Record password in history
-        await adminClient.from("password_history").insert({
-          user_id,
-          password_hash: pwHash,
-        });
-
-        // Update last password change date in user_security
+        await adminClient.from("password_history").insert({ user_id, password_hash: pwHash });
         await adminClient.from("user_security").upsert({
           user_id,
           last_password_change: new Date().toISOString(),
@@ -138,7 +118,6 @@ Deno.serve(async (req) => {
         const updates: Record<string, string | null> = {};
         if (department !== undefined) updates.department = department || null;
         if (plant !== undefined) updates.plant = plant || null;
-
         await adminClient.from("profiles").update(updates).eq("user_id", user_id);
       }
 
@@ -157,29 +136,19 @@ Deno.serve(async (req) => {
         }
       }
 
-      return new Response(
-        JSON.stringify({ success: true, message: "User updated successfully" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ ok: true, message: "User updated successfully" });
     }
 
     // ─── CREATE USER (default action) ───
     const { email, password, full_name, role, department, plant, employee_id } = body;
 
     if (!email || !password || !full_name || !role) {
-      return new Response(JSON.stringify({ error: "Missing required fields: email, password, full_name, role" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ ok: false, error: "Missing required fields: email, password, full_name, role" });
     }
 
-    // Validate password policy
     const policyCheck = validatePasswordPolicy(password);
     if (!policyCheck.valid) {
-      return new Response(JSON.stringify({ error: policyCheck.error }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ ok: false, error: policyCheck.error });
     }
 
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
@@ -190,10 +159,7 @@ Deno.serve(async (req) => {
     });
 
     if (createError) {
-      return new Response(JSON.stringify({ error: createError.message }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ ok: false, error: createError.message });
     }
 
     const userId = newUser.user.id;
@@ -213,28 +179,13 @@ Deno.serve(async (req) => {
       console.error("Role assignment error:", roleError);
     }
 
-    // Record initial password in history
     const pwHash = await hashPassword(password);
-    await adminClient.from("password_history").insert({
-      user_id: userId,
-      password_hash: pwHash,
-    });
+    await adminClient.from("password_history").insert({ user_id: userId, password_hash: pwHash });
+    await adminClient.from("user_security").insert({ user_id: userId, last_password_change: new Date().toISOString() });
 
-    // Create user_security record
-    await adminClient.from("user_security").insert({
-      user_id: userId,
-      last_password_change: new Date().toISOString(),
-    });
-
-    return new Response(
-      JSON.stringify({ success: true, user_id: userId, message: `User ${email} created successfully` }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResponse({ ok: true, user_id: userId, message: `User ${email} created successfully` });
   } catch (error) {
     console.error("Error:", error);
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ ok: false, error: (error as Error).message });
   }
 });
