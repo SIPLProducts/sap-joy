@@ -1,47 +1,22 @@
 
-Goal
 
-Get admin user creation working without any confirmation email.
+## Fix: Edge Function "non-2xx status code" error on user creation
 
-What I confirmed
+### Problem
+The `create-user` edge function returns HTTP 400/401/403/500 for errors. The Supabase JS SDK throws a generic "Edge Function returned a non-2xx status code" exception for any non-200 response, swallowing the actual error message. This is exactly the pattern described in the project's own memory (`edge-function-response-protocol`): the `sap-sync` function already solved this by always returning HTTP 200.
 
-- `src/pages/UserManagement.tsx` already creates users through `supabase.functions.invoke('create-user')`.
-- `supabase/functions/create-user/index.ts` already uses `auth.admin.createUser({ email_confirm: true })`, which is the correct no-email path.
-- Your latest server log shows the immediate blocker is different: the self-hosted edge runtime is crashing because the generated `sap-sync/handler.ts` is invalid (`Expected ';', got ')'` at line 570).
-- Because the main edge router statically imports every function handler, one broken `sap-sync` handler prevents all edge functions from starting, including `create-user`.
-- If the browser still shows “failed to send confirmation email”, production is also likely serving an older frontend bundle that still hits signup.
+### Fix
+Change `create-user/index.ts` to **always return HTTP 200**, with the error details in the JSON body using an `{ ok, error, data }` pattern. The frontend already handles `createData?.error` on line 351, so it will display the real error message.
 
-Plan
+### Changes
 
-1. Fix the self-hosted edge router
-- Update `deploy/deploy-edge-functions.sh` so it prefers a checked-in `handler.ts` when present.
-- Keep auto-generated wrappers only as a fallback for simple functions.
+**File: `supabase/functions/create-user/index.ts`**
+- Replace all `status: 401/400/403/500` responses with `status: 200`
+- Wrap all responses in `{ ok: true/false, error?, user_id?, message? }` format
+- Keep CORS headers on all responses
 
-2. Stop auto-parsing `sap-sync`
-- Add `supabase/functions/sap-sync/handler.ts` with an explicit exported request handler.
-- Refactor `supabase/functions/sap-sync/index.ts` to share the same logic cleanly, instead of relying on the brittle wrapper extraction.
+**File: `src/pages/UserManagement.tsx`** (minor)
+- Update error check to use `createData?.ok === false` pattern for clearer error extraction
 
-3. Restore the real user-creation path
-- Re-deploy edge functions after the router fix so `create-user` is reachable again.
-- Keep `create-user` as the only admin provisioning path; no confirmation email flow will be used.
+### No database or migration changes needed.
 
-4. Refresh production frontend
-- Rebuild and redeploy the frontend bundle from `/opt/MRB_NEW`.
-- Make sure the live site serves the updated bundle instead of cached/stale JS.
-
-5. Verify end to end
-- From User Management, confirm the request goes to `/functions/v1/create-user`.
-- Confirm there is no request to `/auth/v1/signup`.
-- Confirm the user is created successfully with no email-confirmation error.
-
-Files to change
-
-- `deploy/deploy-edge-functions.sh`
-- `supabase/functions/sap-sync/index.ts`
-- `supabase/functions/sap-sync/handler.ts`
-
-Expected result
-
-- Edge functions boot successfully again.
-- `create-user` works in production.
-- Admin-created users are created immediately without sending any confirmation email.
