@@ -6,9 +6,9 @@
 ###############################################################################
 set -euo pipefail
 
-APP_DIR="/opt/MRB"
-FRONTEND_DIR="$APP_DIR/frontend"
-SUPABASE_DIR="/opt/supabase/docker"
+APP_DIR="/opt/MRB_NEW"
+FRONTEND_DIR="$APP_DIR"
+SUPABASE_DIR="/opt/supabase_new/docker"
 ENV_FILE="$APP_DIR/.env"
 
 if [ -f "$ENV_FILE" ]; then
