@@ -35,8 +35,13 @@ echo "[1/4] Discovering edge functions..."
 FUNCTIONS=()
 for func_dir in "$FUNCTIONS_SRC"/*/; do
   [ -d "$func_dir" ] || continue
+  func_name=$(basename "$func_dir")
+  # Skip dated backup folders like sap-sync_20260411
+  if [[ "$func_name" =~ _20[0-9]{6} ]]; then
+    echo "  Skipping backup folder: $func_name"
+    continue
+  fi
   if [ -f "$func_dir/index.ts" ]; then
-    func_name=$(basename "$func_dir")
     FUNCTIONS+=("$func_name")
     echo "  Found: $func_name"
   fi
