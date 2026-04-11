@@ -24,7 +24,6 @@ interface AuthContextType {
   userRole: AppRole | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, fullName: string, role: AppRole) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   updatePlant: (newPlant: string) => Promise<{ error: Error | null }>;
   isAuthenticated: boolean;
@@ -75,7 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
@@ -84,7 +82,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Use setTimeout to avoid potential race conditions with Supabase internals
           setTimeout(() => {
             if (mounted) {
               fetchProfile(session.user.id);
@@ -100,7 +97,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return;
       
@@ -114,7 +110,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       setIsLoading(false);
     }).catch((error) => {
-      // Handle AbortError and network errors gracefully
       console.warn('Session fetch error (will retry on next auth event):', error?.message);
       if (mounted) {
         setIsLoading(false);
@@ -165,53 +160,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string, role: AppRole) => {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: {
-            full_name: fullName,
-          },
-        },
-      });
-      
-      if (error) {
-        toast({
-          title: "Sign up failed",
-          description: error.message,
-          variant: "destructive",
-        });
-        return { error };
-      }
-
-      // If signup successful and we have a user, assign the role
-      if (data.user) {
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: data.user.id,
-            role: role,
-          });
-        
-        if (roleError) {
-          console.error('Error assigning role:', roleError);
-        }
-      }
-      
-      toast({
-        title: "Account created!",
-        description: "You have successfully signed up.",
-      });
-      
-      return { error: null };
-    } catch (error) {
-      return { error: error as Error };
-    }
-  };
-
   const updatePlant = async (newPlant: string) => {
     if (!user) return { error: new Error("No user logged in") };
     try {
@@ -258,7 +206,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userRole,
         isLoading,
         signIn,
-        signUp,
         signOut,
         updatePlant,
         isAuthenticated: !!session,

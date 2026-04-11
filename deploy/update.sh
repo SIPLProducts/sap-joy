@@ -5,8 +5,8 @@
 ###############################################################################
 set -euo pipefail
 
-APP_DIR="/opt/MRB"
-FRONTEND_DIR="$APP_DIR/frontend"
+APP_DIR="/opt/MRB_NEW"
+FRONTEND_DIR="$APP_DIR"
 ENV_FILE="$APP_DIR/.env"
 BACKUP_DIR="$APP_DIR/backups/$(date +%Y%m%d_%H%M%S)"
 

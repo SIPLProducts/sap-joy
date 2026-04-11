@@ -8,8 +8,8 @@
 set -euo pipefail
 
 APP_USER="iml"
-APP_DIR="/opt/MRB"
-FRONTEND_DIR="$APP_DIR/frontend"
+APP_DIR="/opt/MRB_NEW"
+FRONTEND_DIR="$APP_DIR"
 BACKEND_DIR="$APP_DIR/sap-proxy/mrb-backend"
 LOG_DIR="/var/log/mrb"
 ENV_FILE="$APP_DIR/.env"
@@ -180,7 +180,7 @@ cat > /etc/nginx/sites-available/mrb <<'NGINX'
 server {
     listen 3000;
     server_name _;
-    root /opt/MRB/frontend/dist;
+    root /opt/MRB_NEW/dist;
     index index.html;
 
     # SPA fallback — React Router deep links
@@ -304,19 +304,22 @@ echo "  Supabase API:      http://$SERVER_IP:8000"
 echo "  SAP Middleware:     http://$SERVER_IP:3002"
 echo ""
 echo "  Credentials:       $ENV_FILE"
-echo "  Supabase config:   /opt/supabase/docker/.env"
+echo "  Supabase config:   /opt/supabase_new/docker/.env"
 echo ""
 echo "  ─── Next Steps ─────────────────────────────"
-echo "  1. Create admin user:"
-echo "     Access http://$SERVER_IP:3000 and sign up, then:"
+echo "  1. Create admin user via the create-user edge function"
+echo "     (or use the User Management page after first admin is set up):"
 echo ""
 echo "     source $ENV_FILE"
+echo "     curl -X POST \$VITE_SUPABASE_URL/functions/v1/create-user \\"
+echo "       -H 'Authorization: Bearer \$VITE_SUPABASE_PUBLISHABLE_KEY' \\"
+echo "       -H 'Content-Type: application/json' \\"
+echo "       -d '{\"email\":\"admin@example.com\",\"password\":\"Admin1234\",\"full_name\":\"Admin\",\"role\":\"admin\"}'"
+echo ""
+echo "     Then assign plant:"
 echo "     psql \"\$SUPABASE_DB_URL\" -c \\"
-echo "       \"SELECT user_id, email FROM profiles;\""
-echo "     psql \"\$SUPABASE_DB_URL\" -c \\"
-echo "       \"INSERT INTO user_roles (user_id, role) VALUES ('<uuid>', 'admin');\""
-echo "     psql \"\$SUPABASE_DB_URL\" -c \\"
-echo "       \"INSERT INTO user_plants (user_id, plant_code) VALUES ('<uuid>', '1300');\""
+echo "       \"INSERT INTO user_plants (user_id, plant_code) \\"
+echo "        SELECT id, '1300' FROM auth.users WHERE email='admin@example.com';\""
 echo ""
 echo "  2. Configure roles (after logging in as admin):"
 echo "     → Role Management page"

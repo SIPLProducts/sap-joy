@@ -40,7 +40,7 @@ The HBL MRB system is a fully self-contained deployment:
 
 ┌─────────────────────────────────────────────────────────────────────┐
 │  Browser (React SPA)                                                │
-│  └──> Nginx (port 3000) ──> static files from /opt/MRB/frontend/dist│
+│  └──> Nginx (port 3000) ──> static files from /opt/MRB_NEW/dist           │
 │  └──> Direct fetch to SAP middleware (port 3002)                    │
 │  └──> Self-Hosted Supabase API (port 8000) for auth, DB, realtime  │
 ├─────────────────────────────────────────────────────────────────────┤
@@ -96,41 +96,30 @@ Everything is installed and configured automatically by the install script.
 3. FOLDER STRUCTURE
 ================================================================================
 
-/opt/MRB/                         # Main application directory
+/opt/MRB_NEW/                      # Main application directory (flat layout)
 ├── .env                          # Master environment (auto-generated)
 ├── backups/                      # Automatic backups during updates
-├── frontend/                     # React application source
-│   ├── dist/                     # Built static files (served by Nginx)
-│   ├── src/
-│   ├── supabase/
-│   │   ├── config.toml
-│   │   ├── functions/            # Edge function source
-│   │   │   ├── create-user/
-│   │   │   ├── sap-sync/
-│   │   │   ├── sap-sync-scheduler/
-│   │   │   ├── seed-demo-users/
-│   │   │   └── send-mrb-email/
-│   │   └── migrations/           # 41 SQL migration files
-│   ├── deploy/                   # Deployment scripts (source)
-│   └── package.json
+├── dist/                         # Built static files (served by Nginx)
+├── src/
+├── supabase/
+│   ├── config.toml
+│   ├── functions/                # Edge function source
+│   │   ├── create-user/
+│   │   ├── sap-sync/
+│   │   ├── sap-sync-scheduler/
+│   │   ├── seed-demo-users/
+│   │   └── send-mrb-email/
+│   └── migrations/               # SQL migration files
+├── deploy/                       # Deployment scripts (source)
+├── package.json
 ├── sap-proxy/
 │   └── mrb-backend/              # Node.js SAP middleware
-│       ├── server.js
+│       ├── index.js
 │       ├── scheduler.js
 │       └── package.json
 └── scripts/                      # Executable deploy scripts (copies)
-    ├── install.sh
-    ├── setup-supabase.sh         # NEW: Install & configure Supabase
-    ├── setup-db.sh               # NEW: Migration tracking & verification
-    ├── deploy-edge-functions.sh  # NEW: Deploy edge functions to Docker
-    ├── start.sh
-    ├── stop.sh
-    ├── restart.sh
-    ├── update.sh
-    ├── setup-scheduler.sh
-    └── health-check.sh
 
-/opt/supabase/                    # Self-hosted Supabase
+/opt/supabase_new/                # Self-hosted Supabase
 └── docker/
     ├── .env                      # Supabase Docker config (auto-generated)
     ├── docker-compose.yml
@@ -138,7 +127,6 @@ Everything is installed and configured automatically by the install script.
         └── functions/            # Edge functions deployed here
             ├── main/index.ts     # Auto-generated router
             ├── create-user/
-            ├── sap-sync/
             └── ...
 
 /var/log/mrb/                     # Application logs
@@ -205,19 +193,22 @@ Step 2: Run master installer
 
 Step 3-7: (All automated by install.sh)
 
-Step 8: Create admin user
-─────────────────────────
-  a. Access http://<SERVER_IP>:3000 and sign up with email/password
-  
-  b. Get your user ID:
-     source /opt/MRB/.env
-     psql "$SUPABASE_DB_URL" -c "SELECT user_id, email FROM profiles;"
+Step 8: Create admin user (via edge function — no signup needed)
+─────────────────────────────────────────────────────────────────
+  Users are provisioned through the create-user edge function.
+  Self-registration / signup is disabled.
 
-  c. Assign admin role and plant:
+  a. Create admin via curl:
+     source /opt/MRB_NEW/.env
+     curl -X POST $VITE_SUPABASE_URL/functions/v1/create-user \
+       -H "Authorization: Bearer $VITE_SUPABASE_PUBLISHABLE_KEY" \
+       -H "Content-Type: application/json" \
+       -d '{"email":"admin@hbl.in","password":"Admin1234","full_name":"Admin","role":"admin","plant":"1300"}'
+
+  b. Assign plant:
      psql "$SUPABASE_DB_URL" -c \
-       "INSERT INTO user_roles (user_id, role) VALUES ('<uuid>', 'admin');"
-     psql "$SUPABASE_DB_URL" -c \
-       "INSERT INTO user_plants (user_id, plant_code) VALUES ('<uuid>', '1300');"
+       "INSERT INTO user_plants (user_id, plant_code)
+        SELECT id, '1300' FROM auth.users WHERE email='admin@hbl.in';"
 
 Step 9: Configure Roles & Workflow
 ────────────────────────────────────
@@ -250,7 +241,7 @@ Only edit if you need to change defaults.
 │ FRONTEND_PORT                    │ 3000 (default)                           │
 └──────────────────────────────────┴──────────────────────────────────────────┘
 
-Supabase Docker .env: /opt/supabase/docker/.env
+Supabase Docker .env: /opt/supabase_new/docker/.env
   Contains POSTGRES_PASSWORD, JWT_SECRET, ANON_KEY, SERVICE_ROLE_KEY, etc.
 
 ================================================================================
@@ -286,7 +277,7 @@ Key tables:
 8. BUILDING & STARTING THE APPLICATION
 ================================================================================
 
-  Build:     cd /opt/MRB/frontend && cp /opt/MRB/.env .env && npm ci && npm run build
+  Build:     cd /opt/MRB_NEW && cp .env .env && npm ci && npm run build
   Start:     sudo -u iml bash /opt/MRB/scripts/start.sh
   Stop:      sudo -u iml bash /opt/MRB/scripts/stop.sh
   Restart:   sudo -u iml bash /opt/MRB/scripts/restart.sh
