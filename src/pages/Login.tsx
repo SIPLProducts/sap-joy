@@ -67,16 +67,6 @@ export default function Login() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const MAX_RETRIES = 3;
 
-  const roles: { value: AppRole; label: string; description: string; icon: typeof Shield }[] = [
-    { value: 'quality', label: 'Quality Inspector', description: 'Create and review MRBs from quality inspection', icon: Shield },
-    { value: 'quality_head', label: 'Quality Head', description: 'Oversee quality operations and approvals', icon: Award },
-    { value: 'purchase', label: 'Purchase Team', description: 'Handle vendor communications and replacements', icon: Building2 },
-    { value: 'purchase_head', label: 'Purchase Head', description: 'Manage purchase operations and vendor relations', icon: Building2 },
-    { value: 'engineering', label: 'Engineering', description: 'Technical evaluation and deviation decisions', icon: Users },
-    { value: 'engineering_head', label: 'Engineering Head', description: 'Oversee engineering reviews and approvals', icon: Users },
-    { value: 'shop_floor', label: 'Shop Floor', description: 'Report production issues and material defects', icon: Factory },
-    { value: 'executive', label: 'Executive', description: 'View executive summaries and final approvals', icon: Award },
-  ];
 
   // Redirect if already authenticated
   if (isAuthenticated) {
@@ -199,21 +189,6 @@ export default function Login() {
     { icon: Award, text: 'Audit-Ready Documentation' },
   ];
 
-  const getRolePermissions = (role: AppRole) => {
-    const permissions: Record<AppRole, string[]> = {
-      quality: ['Create MRB', 'Quality Review', 'Inward Report'],
-      quality_head: ['Quality Oversight', 'Final Approval', 'All Quality MRBs'],
-      purchase: ['Purchase Review', 'Vendor Action'],
-      purchase_head: ['Purchase Oversight', 'Vendor Management'],
-      engineering: ['Engineering Review', 'Deviation Approval'],
-      engineering_head: ['Engineering Oversight', 'Technical Decisions'],
-      shop_floor: ['Shop Floor MRB', 'Report Issues'],
-      executive: ['Executive Dashboard', 'Final Approvals', 'All MRBs'],
-      admin: ['Full Access', 'User Management', 'System Config'],
-      mrb_committee: ['MRB Committee Review', 'Cross-functional Decisions'],
-    };
-    return permissions[role] || [];
-  };
 
   return (
     <div className="min-h-screen w-full flex">
