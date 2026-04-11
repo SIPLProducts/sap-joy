@@ -1,46 +1,47 @@
 
-Diagnosis:
-- The message “failed to send email confirmation” can only come from `supabase.auth.signUp()`, not from your `create-user` backend function.
-- In the codebase, admin user creation is already switched to `supabase.functions.invoke('create-user')` in `src/pages/UserManagement.tsx`, and that function creates users with `email_confirm: true`.
-- Your latest server log only shows edge-function redeploy + service restarts. That does not update the browser bundle. So the production UI is very likely still serving an older frontend that still calls signup.
-- There is also still leftover signup code in `src/contexts/AuthContext.tsx` and `src/pages/Login.tsx`.
-- Separately, the self-hosted deploy scripts in the repo still assume the old layout (`/opt/MRB/frontend`, `/opt/supabase/docker`), while your real server uses `/opt/MRB_NEW` and `/opt/supabase_new/docker`. That mismatch can cause rebuilds/deploys to target the wrong place.
+Goal
 
-Plan:
-1. Fix the deployment path assumptions
-   - Update the deploy/install/update scripts to match your real flat app structure (`/opt/MRB_NEW` root with `src`, `supabase`, `dist`) and the correct backend path (`/opt/supabase_new/docker`).
-   - Ensure the build output folder and Nginx root point to the same `dist`.
+Get admin user creation working without any confirmation email.
 
-2. Remove the email-based signup path completely
-   - Keep admin creation on `create-user` in `src/pages/UserManagement.tsx`.
-   - Remove or disable the remaining `supabase.auth.signUp()` flow in `src/contexts/AuthContext.tsx`.
-   - Remove the unused signup handler/state from `src/pages/Login.tsx` so the app is sign-in only, if self-registration is not needed.
+What I confirmed
 
-3. Rebuild the actual production frontend
-   - Rebuild from the real app root that contains `package.json`.
-   - Replace the served `dist` with the new bundle and reload the site so the stale JS is gone.
+- `src/pages/UserManagement.tsx` already creates users through `supabase.functions.invoke('create-user')`.
+- `supabase/functions/create-user/index.ts` already uses `auth.admin.createUser({ email_confirm: true })`, which is the correct no-email path.
+- Your latest server log shows the immediate blocker is different: the self-hosted edge runtime is crashing because the generated `sap-sync/handler.ts` is invalid (`Expected ';', got ')'` at line 570).
+- Because the main edge router statically imports every function handler, one broken `sap-sync` handler prevents all edge functions from starting, including `create-user`.
+- If the browser still shows “failed to send confirmation email”, production is also likely serving an older frontend bundle that still hits signup.
 
-4. Verify the real request path end-to-end
-   - In User Management, create a user and confirm the browser calls `functions/v1/create-user`.
-   - Confirm there is no call to `auth/v1/signup`.
-   - Confirm the user is created without any confirmation-email error.
+Plan
 
-5. Clean up operator guidance
-   - Update `deploy/install.sh` and `deployment_guide.txt` so they no longer instruct admins to “sign up” for account creation.
-   - Document that admin-created users must be provisioned through the backend function, not through auth signup.
+1. Fix the self-hosted edge router
+- Update `deploy/deploy-edge-functions.sh` so it prefers a checked-in `handler.ts` when present.
+- Keep auto-generated wrappers only as a fallback for simple functions.
 
-Technical details:
-- Already correct for no-email admin creation:
-  - `src/pages/UserManagement.tsx`
-  - `supabase/functions/create-user/index.ts`
-- Still needs cleanup:
-  - `src/contexts/AuthContext.tsx`
-  - `src/pages/Login.tsx`
-  - `deploy/install.sh`
-  - `deploy/update.sh`
-  - `deploy/deploy-edge-functions.sh`
-  - `deployment_guide.txt`
+2. Stop auto-parsing `sap-sync`
+- Add `supabase/functions/sap-sync/handler.ts` with an explicit exported request handler.
+- Refactor `supabase/functions/sap-sync/index.ts` to share the same logic cleanly, instead of relying on the brittle wrapper extraction.
 
-Expected result:
-- Creating users from User Management will no longer try to send any confirmation email.
-- Production will serve the updated frontend instead of the stale signup-based bundle.
+3. Restore the real user-creation path
+- Re-deploy edge functions after the router fix so `create-user` is reachable again.
+- Keep `create-user` as the only admin provisioning path; no confirmation email flow will be used.
+
+4. Refresh production frontend
+- Rebuild and redeploy the frontend bundle from `/opt/MRB_NEW`.
+- Make sure the live site serves the updated bundle instead of cached/stale JS.
+
+5. Verify end to end
+- From User Management, confirm the request goes to `/functions/v1/create-user`.
+- Confirm there is no request to `/auth/v1/signup`.
+- Confirm the user is created successfully with no email-confirmation error.
+
+Files to change
+
+- `deploy/deploy-edge-functions.sh`
+- `supabase/functions/sap-sync/index.ts`
+- `supabase/functions/sap-sync/handler.ts`
+
+Expected result
+
+- Edge functions boot successfully again.
+- `create-user` works in production.
+- Admin-created users are created immediately without sending any confirmation email.
