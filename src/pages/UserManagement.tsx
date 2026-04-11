@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
 import { useRoleMatrix } from '@/hooks/useRoleMatrix';
 import { supabase } from '@/integrations/supabase/client';
-import { createClient } from '@supabase/supabase-js';
+
 import { useToast } from '@/hooks/use-toast';
 import { useDepartments } from '@/hooks/useDepartments';
 import { usePlants } from '@/hooks/usePlantConfig';
@@ -332,60 +332,31 @@ export default function UserManagement() {
         return;
       }
 
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
-      
-      const tempClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false,
-          storageKey: 'temp-create-user-token'
+      const roleDept = dbDepartments.find(d => d.role_key === newUserRole);
+      const primaryPlant = newUserPlants[0] || '1300';
+
+      const { data: createData, error: createError } = await supabase.functions.invoke('create-user', {
+        body: {
+          email: newUserEmail.trim(),
+          password: newUserPassword,
+          full_name: newUserFullName.trim(),
+          role: newUserRole,
+          department: roleDept?.name || null,
+          plant: primaryPlant,
+          employee_id: newUserEmployeeId.trim(),
         }
       });
 
-      const { data: signUpData, error: signUpError } = await tempClient.auth.signUp({
-        email: newUserEmail.trim(),
-        password: newUserPassword,
-        options: { data: { full_name: newUserFullName.trim() } }
-      });
+      if (createError) throw new Error(createError.message || 'Failed to create user');
+      if (createData?.error) throw new Error(createData.error);
+      if (!createData?.user_id) throw new Error('User creation failed — no user ID returned');
 
-      if (signUpError) throw signUpError;
-      if (!signUpData.user) throw new Error('User creation failed silently.');
-      
-      const newUserId = signUpData.user.id;
+      const newUserId = createData.user_id;
 
-      // Set department from role's department name
-      const roleDept = dbDepartments.find(d => d.role_key === newUserRole);
-
-      const { error: profileUpdateError } = await supabase.from('profiles').update({
-        department: roleDept?.name || null,
-        plant: newUserPlants[0] || '1300',
-        full_name: newUserFullName.trim(),
-        employee_id: newUserEmployeeId.trim(),
-      }).eq('user_id', newUserId);
-
-      if (profileUpdateError) throw profileUpdateError;
-
+      // Handle multi-plant assignment (not handled by edge function)
       if (newUserPlants.length > 0) {
         const plantRows = newUserPlants.map(pc => ({ user_id: newUserId, plant_code: pc }));
         await supabase.from('user_plants').upsert(plantRows, { onConflict: 'user_id,plant_code' });
-      }
-
-      const { data: existingRole } = await supabase.from('user_roles').select('id').eq('user_id', newUserId).maybeSingle();
-      if (existingRole) {
-        const { error: roleUpdateError } = await supabase.from('user_roles').update({ role: newUserRole as any }).eq('user_id', newUserId);
-        if (roleUpdateError) throw roleUpdateError;
-      } else {
-        const { error: roleInsertError } = await supabase.from('user_roles').insert({ user_id: newUserId, role: newUserRole as any });
-        if (roleInsertError) throw roleInsertError;
-      }
-
-      const pwHash = await hashPasswordForHistory(newUserPassword);
-      await supabase.from('password_history').insert({ user_id: newUserId, password_hash: pwHash });
-      const { data: existingSec } = await supabase.from('user_security').select('id').eq('user_id', newUserId).maybeSingle();
-      if (!existingSec) {
-        await supabase.from('user_security').insert({ user_id: newUserId, last_password_change: new Date().toISOString() });
       }
 
       const roleLabel = roleOptions.find(r => r.value === newUserRole)?.label || newUserRole;

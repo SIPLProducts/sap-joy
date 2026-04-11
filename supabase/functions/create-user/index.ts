@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
     }
 
     // ─── CREATE USER (default action) ───
-    const { email, password, full_name, role, department, plant } = body;
+    const { email, password, full_name, role, department, plant, employee_id } = body;
 
     if (!email || !password || !full_name || !role) {
       return new Response(JSON.stringify({ error: "Missing required fields: email, password, full_name, role" }), {
@@ -186,7 +186,7 @@ Deno.serve(async (req) => {
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name },
+      user_metadata: { full_name, employee_id: employee_id || email.split('@')[0] },
     });
 
     if (createError) {
@@ -201,6 +201,7 @@ Deno.serve(async (req) => {
     await adminClient.from("profiles").update({
       department: department || null,
       plant: plant || null,
+      employee_id: employee_id || email.split('@')[0],
     }).eq("user_id", userId);
 
     const { error: roleError } = await adminClient.from("user_roles").insert({
