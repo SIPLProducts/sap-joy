@@ -1,57 +1,29 @@
 
 
-## Fix: Edge Function Handler Wrapper for Self-Hosted Supabase
+## Fix: "Error sending confirmation email" on User Creation
 
-### Root Cause
+### Problem
+The app creates users via `supabase.auth.signUp()`, which triggers Supabase's built-in email confirmation flow. On your self-hosted server, if the Auth SMTP isn't configured (or GoTrue can't send mail), this fails with "Error sending confirmation email."
 
-The Python handler-generation logic in `deploy-edge-functions.sh` has a fundamental flaw: it uses `rfind(');')` to remove the closing of `Deno.serve()`, but this targets the **last** `);` in the file — which is wrong for functions that have helper code **after** the `Deno.serve()` block.
-
-**Affected functions and why:**
-
-| Function | Structure | Result |
-|---|---|---|
-| `create-user` | `Deno.serve` closes on last line | Works (correct `);` removed) |
-| `sap-sync-scheduler` | Similar simple structure | Works |
-| `sap-sync` | ~700 lines of helper functions AFTER `Deno.serve()` closes at line 570 | **Broken** — wrong `);` removed, corrupts a helper function |
-| `send-mrb-email` | `Deno.serve` closes on last line BUT uses `npm:nodemailer` | **Broken** — `npm:` imports may fail in bundled router context |
-| `test-smtp` | Same `npm:nodemailer` issue | **Broken** — same import issue |
-| `seed-demo-users` | Uses old `serve()` from `deno.land/std` | **Broken** — pattern works but `);` removal may be wrong |
-
-### Fix: Rewrite the Python handler generator
-
-Instead of the fragile `rfind(');')` approach, use a **proper brace-matching algorithm**:
-
-1. Find the position where `Deno.serve(` or `serve(` starts
-2. Track opening/closing braces and parens to find the exact closing `)`
-3. Extract the handler function body (the arrow function inside serve)
-4. Keep all code before and after the serve block (imports, helpers) intact
-5. Replace the `Deno.serve(handler)` call with `export default handler`
+### Solution
+Replace `signUp()` with the `create-user` edge function that already exists in your project. That function uses `admin.createUser({ email_confirm: true })` — which **skips email verification entirely** and creates the user as already confirmed. No email is sent.
 
 ### Changes
 
-**File: `deploy/deploy-edge-functions.sh`** — Replace the Python handler generator (lines 76-124) with a more robust algorithm that:
+**File: `src/pages/UserManagement.tsx`** — In `handleCreateUser()`:
 
-1. Finds the `Deno.serve(` or `serve(` call position
-2. Extracts the `async (req) => { ... }` handler by matching balanced braces/parens
-3. Outputs: all imports + constants + `export default async (req: Request) => { ... }` + all helper functions that were defined outside serve
-4. For `npm:` imports (nodemailer): keeps them as-is since the Deno edge runtime supports `npm:` specifiers natively when each handler file is imported
+1. **Remove** the `tempClient` creation and `tempClient.auth.signUp()` call (lines 335-354)
+2. **Replace** with a `supabase.functions.invoke('create-user', ...)` call that sends: `email`, `password`, `full_name`, `role`, `department`, `plant`
+3. The edge function already handles: user creation (no email), profile update, role assignment, password history, and user_security record
+4. After the edge function returns the `user_id`, continue with the existing `user_plants` upsert logic (lines 370-373) since the edge function doesn't handle multi-plant assignment
+5. Remove the now-redundant profile update, role insert, password history, and user_security insert code (lines 361-389) since the edge function handles all of that
 
-### Deployment steps (on your server)
+### What stays the same
+- All validation logic (duplicate email/employee ID checks)
+- Plant assignment via `user_plants` table
+- UI, dialog, form fields — no visual changes
+- The `create-user` edge function already exists and works on your server
 
-```text
-1. Pull latest code:
-   cd /opt/MRB_NEW/sap-joy && git pull
-
-2. Run the updated deploy script:
-   sudo bash deploy/deploy-edge-functions.sh
-
-3. Check container logs if any function still fails:
-   docker logs supabase-new-edge-functions --tail 50
-
-4. Test each endpoint:
-   curl -X POST http://10.10.4.178:8100/functions/v1/test-smtp \
-     -H "Authorization: Bearer <anon_key>" \
-     -H "Content-Type: application/json" \
-     -d '{"test": true}'
-```
+### Deployment
+After this change: `git pull && npm ci && npm run build` on your server. No edge function redeployment needed — `create-user` is already deployed.
 
