@@ -2,17 +2,20 @@
 ###############################################################################
 # HBL MRB – Deploy Edge Functions to Self-Hosted Supabase
 # Run as root or with sudo: sudo bash deploy/deploy-edge-functions.sh
-# Updated: 2026-04-10 (handler wrapper pattern for multi-function routing)
+# Updated: 2026-04-13 (paths: APP=/opt/MRB, Supabase=/opt/supabase/docker)
 ###############################################################################
 set -euo pipefail
 
-APP_DIR="/opt/MRB_NEW"
+APP_DIR="/opt/MRB"
 FRONTEND_DIR="$APP_DIR"
-SUPABASE_DIR="/opt/supabase_new/docker"
+SUPABASE_DIR="/opt/supabase/docker"
 ENV_FILE="$APP_DIR/.env"
 
 if [ -f "$ENV_FILE" ]; then
-  set -a; source "$ENV_FILE"; set +a
+  while IFS='=' read -r key value; do
+    [[ "$key" =~ ^#.*$ || -z "$key" ]] && continue
+    export "$key=$value" 2>/dev/null || true
+  done < "$ENV_FILE"
 fi
 
 echo "============================================"
@@ -353,7 +356,7 @@ else
 fi
 
 # Test endpoints
-SUPA_URL="${VITE_SUPABASE_URL:-http://localhost:8000}"
+SUPA_URL="${VITE_SUPABASE_URL:-http://localhost:8100}"
 ANON_KEY="${VITE_SUPABASE_PUBLISHABLE_KEY:-}"
 
 if [ -n "$ANON_KEY" ]; then

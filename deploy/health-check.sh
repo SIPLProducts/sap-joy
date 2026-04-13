@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 ###############################################################################
 # HBL MRB – Health Check (reviewed & fixed)
-# Updated: 2026-04-07
+# Updated: 2026-04-13 (ports: API=8100, PG=5433, Frontend=3200, Middleware=3202)
 ###############################################################################
 set -euo pipefail
 
@@ -9,7 +9,10 @@ APP_DIR="/opt/MRB"
 ENV_FILE="$APP_DIR/.env"
 
 if [ -f "$ENV_FILE" ]; then
-  set -a; source "$ENV_FILE"; set +a
+  while IFS='=' read -r key value; do
+    [[ "$key" =~ ^#.*$ || -z "$key" ]] && continue
+    export "$key=$value" 2>/dev/null || true
+  done < "$ENV_FILE"
 fi
 
 echo "============================================"
@@ -28,16 +31,16 @@ else
   echo "✗ NOT running"; ERRORS=$((ERRORS+1))
 fi
 
-# 2. Frontend (port 3000)
-printf "  %-22s" "Frontend (3000):"
-if curl -sf --max-time 5 http://localhost:3000 >/dev/null 2>&1; then
+# 2. Frontend (port 3200)
+printf "  %-22s" "Frontend (3200):"
+if curl -sf --max-time 5 http://localhost:3200 >/dev/null 2>&1; then
   echo "✓ responding"
 else
   echo "✗ NOT responding"; ERRORS=$((ERRORS+1))
 fi
 
-# 3. SAP Middleware (port 3002)
-printf "  %-22s" "Middleware (3002):"
+# 3. SAP Middleware (port 3202)
+printf "  %-22s" "Middleware (3202):"
 if pm2 describe mrb-app 2>/dev/null | grep -q "online"; then
   echo "✓ online"
 else
@@ -65,9 +68,9 @@ else
   echo "– SUPABASE_DB_URL not set"; WARNINGS=$((WARNINGS+1))
 fi
 
-# 6. Self-hosted Supabase API Gateway
-printf "  %-22s" "Supabase API (8000):"
-SUPA_URL="${VITE_SUPABASE_URL:-http://localhost:8000}"
+# 6. Self-hosted Supabase API Gateway (port 8100)
+printf "  %-22s" "Supabase API (8100):"
+SUPA_URL="${VITE_SUPABASE_URL:-http://localhost:8100}"
 ANON_KEY="${VITE_SUPABASE_PUBLISHABLE_KEY:-}"
 SUPA_HEADERS=""
 [ -n "$ANON_KEY" ] && SUPA_HEADERS="-H apikey:$ANON_KEY"
