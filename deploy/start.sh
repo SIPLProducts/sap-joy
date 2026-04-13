@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 ###############################################################################
 # HBL MRB – Start all services via PM2
-# Updated: 2026-04-07 (reviewed & fixed)
+# Updated: 2026-04-13 (ports: Middleware=3202, Supabase=8100)
 ###############################################################################
 set -euo pipefail
 
@@ -11,7 +11,10 @@ LOG_DIR="/var/log/mrb"
 ENV_FILE="$APP_DIR/.env"
 
 if [ -f "$ENV_FILE" ]; then
-  set -a; source "$ENV_FILE"; set +a
+  while IFS='=' read -r key value; do
+    [[ "$key" =~ ^#.*$ || -z "$key" ]] && continue
+    export "$key=$value" 2>/dev/null || true
+  done < "$ENV_FILE"
 fi
 
 echo "============================================"
@@ -46,7 +49,7 @@ else
 fi
 
 ###############################################################################
-# 1. SAP Proxy Middleware (port 3002)
+# 1. SAP Proxy Middleware (port 3202)
 ###############################################################################
 if [ -f "$BACKEND_DIR/server.js" ] || [ -f "$BACKEND_DIR/index.js" ]; then
   ENTRY="index.js"
@@ -62,7 +65,7 @@ if [ -f "$BACKEND_DIR/server.js" ] || [ -f "$BACKEND_DIR/index.js" ]; then
     --env production \
     --max-restarts 10 \
     --restart-delay 5000
-  echo "  ✓ mrb-app started on port ${SAP_PROXY_PORT:-3002}"
+  echo "  ✓ mrb-app started on port ${SAP_PROXY_PORT:-3202}"
 else
   echo "[1/2] ⚠ No middleware entry point found at $BACKEND_DIR — skipping"
 fi
