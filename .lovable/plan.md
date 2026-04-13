@@ -1,43 +1,64 @@
 
 
-## Fix: Allow non-admin roles with User Management permission to create users
+## Fix: Scheduler showing all inward records as "updated" instead of "inserted"
 
 ### Problem
-The `create-user` edge function on line 61 hardcodes `roleData?.role !== "admin"` as the authorization check. Users granted the "User Management" screen permission in the Role Access Matrix still get "Only admins can manage users" because the edge function ignores screen-level permissions.
+In the `mapAndInsertData` function (line 927-956 of `sap-sync-scheduler/index.ts`), the insert-vs-update counting uses arithmetic: `newInserts = totalProcessed - existingCount`. This is unreliable because:
+- If SAP returns duplicate `inspection_lot` values, upsert deduplicates them, reducing `totalProcessed`
+- The `count` query with `.in()` can return a value >= `totalProcessed`, making `newInserts = 0`
+- Result: all records appear as "updated" even when genuinely new ones exist
 
 ### Fix
-Update the edge function to also check the `role_permissions` table for `user_management` screen access, matching the pattern already used by `has_screen_access()` DB function and the frontend `hasAccess('user_management')` check.
+Replace the arithmetic-based counting with explicit key-set comparison:
 
-### Changes
+**File: `supabase/functions/sap-sync-scheduler/index.ts`** (lines 927-956)
 
-**File: `supabase/functions/create-user/index.ts`**
-- Replace the simple `role !== "admin"` check (lines 59-63) with a two-step check:
-  1. Check if user has role `admin` (existing check)
-  2. OR check if user has `can_view = true` for `module_key = 'user_management'` in `role_permissions` table
-- Use the `adminClient` (service role) for the permission query to avoid RLS recursion
+Replace the inward_inspection_lots upsert block with:
 
 ```typescript
-// Check if calling user is admin OR has user_management screen access
-const { data: roleData } = await anonClient.from("user_roles").select("role").eq("user_id", callingUser.id).maybeSingle();
-const isAdmin = roleData?.role === "admin";
+} else if (tableName === 'inward_inspection_lots') {
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const batch = rows.slice(i, i + batchSize)
 
-let hasUserMgmtAccess = false;
-if (!isAdmin && roleData?.role) {
-  const { data: permData } = await adminClient.from("role_permissions")
-    .select("can_view")
-    .eq("role", roleData.role)
-    .eq("module_key", "user_management")
-    .eq("can_view", true)
-    .maybeSingle();
-  hasUserMgmtAccess = !!permData;
-}
+    // Pre-fetch existing inspection_lot keys as a Set
+    const lotKeys = batch.map((r: any) => r.inspection_lot).filter(Boolean)
+    const existingKeys = new Set<string>()
+    if (lotKeys.length > 0) {
+      const { data: existingRows } = await supabase
+        .from(tableName)
+        .select('inspection_lot')
+        .in('inspection_lot', lotKeys)
+      for (const row of existingRows || []) {
+        existingKeys.add(row.inspection_lot)
+      }
+    }
 
-if (!isAdmin && !hasUserMgmtAccess) {
-  return jsonResponse({ ok: false, error: "Only admins can manage users" });
+    // Count genuinely new keys before upsert
+    const newKeyCount = lotKeys.filter(k => !existingKeys.has(k)).length
+
+    const { data, error } = await supabase
+      .from(tableName)
+      .upsert(batch, { onConflict: 'inspection_lot', ignoreDuplicates: false })
+      .select()
+    if (error) {
+      console.log(`[scheduler] Upsert error for ${tableName}:`, error.message)
+      result.errors.push(`Error upserting into ${tableName}: ${error.message}`)
+      break
+    }
+    const totalProcessed = data?.length || 0
+    result.inserted += newKeyCount
+    result.updated += Math.max(0, totalProcessed - newKeyCount)
+
+    console.log(`[scheduler] ${tableName} batch: ${newKeyCount} new, ${totalProcessed - newKeyCount} updated`)
+  }
 }
 ```
 
-Note: The `adminClient` initialization must be moved before this check since we need it for the permission query.
+### What changes
+- Instead of `SELECT count(*)`, we `SELECT inspection_lot` to build a Set of existing keys
+- We count new keys by checking which batch keys are NOT in the existing Set
+- This gives accurate insert/update counts regardless of SAP duplicates or upsert deduplication
+- Added a per-batch log line for easier debugging on the production server
 
 ### No database or migration changes needed.
 
