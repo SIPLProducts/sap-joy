@@ -56,18 +56,31 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: false, error: "Unauthorized" });
     }
 
-    // Check if calling user is admin
+    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    // Check if calling user is admin OR has user_management screen access
     const { data: roleData } = await anonClient.from("user_roles").select("role").eq("user_id", callingUser.id).maybeSingle();
-    if (roleData?.role !== "admin") {
+    const isAdmin = roleData?.role === "admin";
+
+    let hasUserMgmtAccess = false;
+    if (!isAdmin && roleData?.role) {
+      const { data: permData } = await adminClient.from("role_permissions")
+        .select("can_view")
+        .eq("role", roleData.role)
+        .eq("module_key", "user_management")
+        .eq("can_view", true)
+        .maybeSingle();
+      hasUserMgmtAccess = !!permData;
+    }
+
+    if (!isAdmin && !hasUserMgmtAccess) {
       return jsonResponse({ ok: false, error: "Only admins can manage users" });
     }
 
     const body = await req.json();
     const { action } = body;
-
-    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
 
     // ─── UPDATE USER (role, department, password) ───
     if (action === "update_user") {
