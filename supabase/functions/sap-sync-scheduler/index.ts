@@ -929,16 +929,21 @@ async function mapAndInsertData(
       for (let i = 0; i < rows.length; i += batchSize) {
         const batch = rows.slice(i, i + batchSize)
 
-        // Get existing inspection_lot keys to accurately count inserts vs updates
+        // Pre-fetch existing inspection_lot keys as a Set for accurate counting
         const lotKeys = batch.map((r: any) => r.inspection_lot).filter(Boolean)
-        let existingCount = 0
+        const existingKeys = new Set<string>()
         if (lotKeys.length > 0) {
-          const { count } = await supabase
+          const { data: existingRows } = await supabase
             .from(tableName)
-            .select('id', { count: 'exact', head: true })
+            .select('inspection_lot')
             .in('inspection_lot', lotKeys)
-          existingCount = count || 0
+          for (const row of existingRows || []) {
+            existingKeys.add(row.inspection_lot)
+          }
         }
+
+        // Count genuinely new keys before upsert
+        const newKeyCount = lotKeys.filter(k => !existingKeys.has(k)).length
 
         const { data, error } = await supabase
           .from(tableName)
@@ -950,9 +955,10 @@ async function mapAndInsertData(
           break
         }
         const totalProcessed = data?.length || 0
-        const newInserts = Math.max(0, totalProcessed - existingCount)
-        result.inserted += newInserts
-        result.updated += totalProcessed - newInserts
+        result.inserted += newKeyCount
+        result.updated += Math.max(0, totalProcessed - newKeyCount)
+
+        console.log(`[scheduler] ${tableName} batch: ${newKeyCount} new, ${totalProcessed - newKeyCount} updated`)
       }
     } else {
       // Generic insert for other tables (materials, vendors)
