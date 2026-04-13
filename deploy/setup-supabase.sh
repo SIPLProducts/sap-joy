@@ -148,11 +148,18 @@ echo "  ✓ Secrets ready"
 echo "[4/7] Configuring Supabase environment..."
 
 # Only write if not already configured (or force with env var)
-if [ ! -f ".env" ] || [ "${FORCE_RECONFIGURE:-}" = "true" ] || ! grep -q "^JWT_SECRET=" .env 2>/dev/null; then
+# Also rewrite if critical variables like DOCKER_SOCKET_LOCATION are missing
+if [ ! -f ".env" ] || [ "${FORCE_RECONFIGURE:-}" = "true" ] || ! grep -q "^JWT_SECRET=" .env 2>/dev/null || ! grep -q "^DOCKER_SOCKET_LOCATION=" .env 2>/dev/null; then
   # Copy template .env if available (for reference vars we might miss)
   if [ -f ".env.example" ] && [ ! -f ".env" ]; then
     cp .env.example .env
   fi
+
+  # Generate additional security keys
+  SECRET_KEY_BASE=$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 64)
+  VAULT_ENC_KEY=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 32)
+  PG_META_CRYPTO_KEY=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 32)
+  LOGFLARE_API_KEY=$(openssl rand -hex 16)
 
   # Write our values
   cat > .env <<SUPAENV
@@ -182,7 +189,7 @@ API_EXTERNAL_URL=http://${SERVER_IP}:8100
 SUPABASE_PUBLIC_URL=http://${SERVER_IP}:8100
 
 ############
-# Auth
+# Auth (GoTrue)
 ############
 GOTRUE_SITE_URL=http://${SERVER_IP}:3200
 GOTRUE_EXTERNAL_EMAIL_ENABLED=true
@@ -192,6 +199,11 @@ GOTRUE_DISABLE_SIGNUP=false
 GOTRUE_URI_ALLOW_LIST=http://${SERVER_IP}:3200
 GOTRUE_JWT_EXP=3600
 GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated
+
+############
+# JWT
+############
+JWT_EXPIRY=3600
 
 ############
 # Studio
@@ -206,10 +218,81 @@ STUDIO_PORT=3001
 FUNCTIONS_VERIFY_JWT=false
 
 ############
-# Misc
+# Kong
 ############
+KONG_HTTP_PORT=8000
+KONG_HTTPS_PORT=8443
+
+############
+# PostgREST
+############
+PGRST_DB_SCHEMAS=public,storage,graphql_public
+
+############
+# Pooler (Supavisor)
+############
+POOLER_PROXY_PORT_TRANSACTION=6543
+POOLER_DEFAULT_POOL_SIZE=20
+POOLER_MAX_CLIENT_CONN=100
+POOLER_TENANT_ID=default-tenant
+POOLER_DB_POOL_SIZE=20
+
+############
+# Security Keys
+############
+SECRET_KEY_BASE=${SECRET_KEY_BASE}
+VAULT_ENC_KEY=${VAULT_ENC_KEY}
+PG_META_CRYPTO_KEY=${PG_META_CRYPTO_KEY}
+
+############
+# Docker
+############
+DOCKER_SOCKET_LOCATION=/var/run/docker.sock
+
+############
+# Storage
+############
+GLOBAL_S3_BUCKET=stub
+S3_PROTOCOL_ACCESS_KEY_ID=stub
+S3_PROTOCOL_ACCESS_KEY_SECRET=stub
+STORAGE_TENANT_ID=stub
+REGION=local
+IMGPROXY_AUTO_WEBP=true
+
+############
+# Logflare (Analytics)
+############
+LOGFLARE_PUBLIC_ACCESS_TOKEN=${LOGFLARE_API_KEY}
+LOGFLARE_PRIVATE_ACCESS_TOKEN=${LOGFLARE_API_KEY}
+
+############
+# SMTP
+############
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+SMTP_SENDER_NAME=MRB
+SMTP_ADMIN_EMAIL=admin@hbl.com
+
+############
+# Auth Toggles
+############
+ENABLE_EMAIL_SIGNUP=true
+ENABLE_EMAIL_AUTOCONFIRM=false
+ENABLE_ANONYMOUS_USERS=false
+DISABLE_SIGNUP=false
+ADDITIONAL_REDIRECT_URLS=
 ENABLE_PHONE_SIGNUP=false
 ENABLE_PHONE_AUTOCONFIRM=false
+
+############
+# Mailer URL Paths
+############
+MAILER_URLPATHS_CONFIRMATION=/auth/v1/verify
+MAILER_URLPATHS_INVITE=/auth/v1/verify
+MAILER_URLPATHS_RECOVERY=/auth/v1/verify
+MAILER_URLPATHS_EMAIL_CHANGE=/auth/v1/verify
 SUPAENV
 
   echo "  ✓ Supabase .env written"
