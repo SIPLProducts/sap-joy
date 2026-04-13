@@ -1,64 +1,68 @@
 
 
-## Fix: Scheduler showing all inward records as "updated" instead of "inserted"
+## Fix: `setup-supabase.sh` for new server deployment
 
 ### Problem
-In the `mapAndInsertData` function (line 927-956 of `sap-sync-scheduler/index.ts`), the insert-vs-update counting uses arithmetic: `newInserts = totalProcessed - existingCount`. This is unreliable because:
-- If SAP returns duplicate `inspection_lot` values, upsert deduplicates them, reducing `totalProcessed`
-- The `count` query with `.in()` can return a value >= `totalProcessed`, making `newInserts = 0`
-- Result: all records appear as "updated" even when genuinely new ones exist
+Line 194: `STUDIO_DEFAULT_ORGANIZATION=HBL MRB` — the unquoted space causes `source .env` to interpret `MRB` as a command, producing `.env: line 41: MRB: command not found`.
 
-### Fix
-Replace the arithmetic-based counting with explicit key-set comparison:
+### Your target config
+- App: `/opt/MRB`
+- Supabase API (Kong): port `8100`
+- PostgreSQL: port `5433`
+- SAP Middleware: port `3202`
+- Frontend (Nginx): port `3200`
 
-**File: `supabase/functions/sap-sync-scheduler/index.ts`** (lines 927-956)
+### Changes
 
-Replace the inward_inspection_lots upsert block with:
+**File: `deploy/setup-supabase.sh`**
 
-```typescript
-} else if (tableName === 'inward_inspection_lots') {
-  for (let i = 0; i < rows.length; i += batchSize) {
-    const batch = rows.slice(i, i + batchSize)
+1. **Fix the quoting bug** (line 194): Change `STUDIO_DEFAULT_ORGANIZATION=HBL MRB` to `STUDIO_DEFAULT_ORGANIZATION="HBL MRB"` and same for line 195
+2. **Update ports throughout the generated `.env`**:
+   - `API_EXTERNAL_URL` and `SUPABASE_PUBLIC_URL`: change `8000` → `8100`
+   - `GOTRUE_SITE_URL` and `GOTRUE_URI_ALLOW_LIST`: change `3000` → `3200`
+   - `SUPABASE_DB_URL` in app env: change `5432` → `5433`
+   - `SAP_PROXY_PORT`: change `3002` → `3202`
+   - `FRONTEND_PORT`: change `3000` → `3200`
+3. **Add docker-compose.override.yml creation** after Supabase `.env` is written (step 4.5), to remap container ports:
+   ```yaml
+   services:
+     kong:
+       ports:
+         - "8100:8000"
+     db:
+       ports:
+         - "5433:5432"
+   ```
+4. **Update health check curl** in step 6 from port `8000` to `8100`
 
-    // Pre-fetch existing inspection_lot keys as a Set
-    const lotKeys = batch.map((r: any) => r.inspection_lot).filter(Boolean)
-    const existingKeys = new Set<string>()
-    if (lotKeys.length > 0) {
-      const { data: existingRows } = await supabase
-        .from(tableName)
-        .select('inspection_lot')
-        .in('inspection_lot', lotKeys)
-      for (const row of existingRows || []) {
-        existingKeys.add(row.inspection_lot)
-      }
-    }
+**File: `deploy/health-check.sh`**
+- Update default Supabase API port reference from `8000` to `8100`
+- Update middleware port check from `3002` to `3202`
+- Update frontend port check from `3000` to `3200`
 
-    // Count genuinely new keys before upsert
-    const newKeyCount = lotKeys.filter(k => !existingKeys.has(k)).length
+**File: `deploy/start.sh`**
+- Update `SAP_PROXY_PORT` from `3002` to `3202`
+- Update `SUPABASE_URL` from port `8000` to `8100`
 
-    const { data, error } = await supabase
-      .from(tableName)
-      .upsert(batch, { onConflict: 'inspection_lot', ignoreDuplicates: false })
-      .select()
-    if (error) {
-      console.log(`[scheduler] Upsert error for ${tableName}:`, error.message)
-      result.errors.push(`Error upserting into ${tableName}: ${error.message}`)
-      break
-    }
-    const totalProcessed = data?.length || 0
-    result.inserted += newKeyCount
-    result.updated += Math.max(0, totalProcessed - newKeyCount)
+**File: `deploy/deploy-edge-functions.sh`**
+- Update `APP_DIR` to `/opt/MRB`
+- Update `SUPABASE_DIR` to `/opt/supabase/docker`
 
-    console.log(`[scheduler] ${tableName} batch: ${newKeyCount} new, ${totalProcessed - newKeyCount} updated`)
-  }
-}
+### Manual deployment steps (after scripts are fixed)
+
+```text
+1. sudo bash deploy/setup-supabase.sh     # Docker + Supabase on 8100/5433
+2. Run migrations against postgres on 5433
+3. Deploy edge functions to /opt/supabase/docker/volumes/functions/
+4. Build frontend: npm run build (with VITE_SUPABASE_URL=http://<IP>:8100)
+5. Serve dist/ via Nginx on port 3200
+6. Start SAP middleware on port 3202
+7. Verify: sudo bash deploy/health-check.sh
 ```
 
-### What changes
-- Instead of `SELECT count(*)`, we `SELECT inspection_lot` to build a Set of existing keys
-- We count new keys by checking which batch keys are NOT in the existing Set
-- This gives accurate insert/update counts regardless of SAP duplicates or upsert deduplication
-- Added a per-batch log line for easier debugging on the production server
-
-### No database or migration changes needed.
+### Files to modify
+1. `deploy/setup-supabase.sh` — fix quoting bug + port/path updates
+2. `deploy/health-check.sh` — port updates
+3. `deploy/start.sh` — port updates
+4. `deploy/deploy-edge-functions.sh` — path updates
 
