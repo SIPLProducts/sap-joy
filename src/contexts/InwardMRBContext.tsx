@@ -179,6 +179,8 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
             inspectionDate: lot.inspection_date || lot.created_at,
             postingDate: lot.posting_date || lot.created_at,
             grnNumber: lot.grn_number || '',
+            grnItemNo: (lot as any).grn_item_no || '',
+            grnDate: (lot as any).grn_date || '',
             status: effectiveStatus,
             source: lot.upload_batch_id ? 'upload' : 'api',
             _raw: lot as unknown as Record<string, unknown>,
