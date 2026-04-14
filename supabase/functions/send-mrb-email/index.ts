@@ -17,13 +17,99 @@ const normalizeEmails = (arr: string[]): string[] =>
 
 const isValidEmail = (e: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function generateHtmlEmail(subject: string, body: string, mrbNumber?: string): string {
-  const bodyHtml = body
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\n\n/g, '</p><p style="margin:0 0 12px 0;line-height:1.6;">')
-    .replace(/\n/g, '<br/>');
+  const lines = body.split('\n');
+  let html = '';
+  let inCard = false;
+  let isActionCard = false;
+
+  const closeCard = () => {
+    if (inCard) {
+      html += '</td></tr></table>';
+      inCard = false;
+      isActionCard = false;
+    }
+  };
+
+  const renderKeyValue = (label: string, value: string) =>
+    `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:4px;">
+      <tr>
+        <td style="width:40%;padding:6px 10px;font-size:13px;color:#5d6d7e;font-weight:600;">${esc(label)}</td>
+        <td style="padding:6px 10px;font-size:13px;color:#1a252f;font-weight:400;">${esc(value)}</td>
+      </tr>
+    </table>`;
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+
+    if (!trimmed) {
+      if (!inCard) html += '<div style="height:8px;"></div>';
+      continue;
+    }
+
+    // Greeting line
+    if (/^Dear\s/i.test(trimmed)) {
+      closeCard();
+      html += `<p style="margin:0 0 14px 0;font-size:15px;color:#2c3e50;line-height:1.5;">${esc(trimmed)}</p>`;
+      continue;
+    }
+
+    // Sign-off
+    if (/^(Best regards|Kind regards|Regards|Thank you|Sincerely)/i.test(trimmed)) {
+      closeCard();
+      html += '<div style="height:16px;"></div>';
+      // collect remaining sign-off lines
+      const signoff = [trimmed];
+      while (i + 1 < lines.length) {
+        const next = lines[i + 1].trim();
+        if (!next && signoff.length > 1) break;
+        if (!next) { i++; continue; }
+        signoff.push(next);
+        i++;
+      }
+      html += `<p style="margin:0;font-size:13px;color:#5d6d7e;font-style:italic;line-height:1.7;">${signoff.map(esc).join('<br/>')}</p>`;
+      continue;
+    }
+
+    // Numbered section header
+    const numMatch = trimmed.match(/^(\d+)\.\s+(.+)/);
+    if (numMatch) {
+      closeCard();
+      const sectionTitle = numMatch[2];
+      isActionCard = /action\s*required|required\s*action/i.test(sectionTitle);
+      const borderColor = isActionCard ? '#e67e22' : '#2471a3';
+      const bgColor = isActionCard ? '#fef9f3' : '#f0f4f8';
+      inCard = true;
+      html += `<table width="100%" cellpadding="0" cellspacing="0" style="margin:12px 0 4px 0;background-color:${bgColor};border-radius:6px;border-left:4px solid ${borderColor};overflow:hidden;">
+        <tr><td style="padding:14px 16px;">
+          <p style="margin:0 0 10px 0;font-size:14px;font-weight:700;color:#1a5276;border-bottom:1px solid ${isActionCard ? '#f5cba7' : '#d4e6f1'};padding-bottom:8px;">${esc(numMatch[1])}. ${esc(sectionTitle)}</p>`;
+      continue;
+    }
+
+    // Key: Value pair
+    const kvMatch = trimmed.match(/^([^:]{2,40}):\s+(.+)$/);
+    if (kvMatch && inCard) {
+      html += renderKeyValue(kvMatch[1], kvMatch[2]);
+      continue;
+    }
+
+    // Regular text line
+    if (inCard) {
+      html += `<p style="margin:4px 0;font-size:13px;color:#2c3e50;line-height:1.6;">${esc(trimmed)}</p>`;
+    } else {
+      html += `<p style="margin:0 0 10px 0;font-size:14px;color:#2c3e50;line-height:1.6;">${esc(trimmed)}</p>`;
+    }
+  }
+  closeCard();
+
+  const mrbBadge = mrbNumber
+    ? `<span style="display:inline-block;background-color:#2471a3;color:#ffffff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;margin-left:8px;vertical-align:middle;">${esc(mrbNumber)}</span>`
+    : '';
 
   return `<!DOCTYPE html>
 <html>
@@ -32,27 +118,22 @@ function generateHtmlEmail(subject: string, body: string, mrbNumber?: string): s
 <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f6f9;padding:24px 0;">
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-  <!-- Header -->
   <tr>
     <td style="background:linear-gradient(135deg,#1a5276,#2471a3);padding:20px 32px;">
       <h1 style="margin:0;color:#ffffff;font-size:18px;font-weight:600;">HBL Power Systems</h1>
       <p style="margin:4px 0 0;color:#d4e6f1;font-size:12px;">Material Review Board — Automated Notification</p>
     </td>
   </tr>
-  <!-- Subject bar -->
   <tr>
     <td style="background-color:#eaf2f8;padding:12px 32px;border-bottom:1px solid #d4e6f1;">
-      <p style="margin:0;font-size:14px;font-weight:600;color:#1a5276;">${subject.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
-      ${mrbNumber ? `<p style="margin:4px 0 0;font-size:12px;color:#5d6d7e;">MRB Reference: <strong>${mrbNumber}</strong></p>` : ''}
+      <p style="margin:0;font-size:14px;font-weight:600;color:#1a5276;">${esc(subject)} ${mrbBadge}</p>
     </td>
   </tr>
-  <!-- Body -->
   <tr>
     <td style="padding:24px 32px;color:#2c3e50;font-size:14px;">
-      <p style="margin:0 0 12px 0;line-height:1.6;">${bodyHtml}</p>
+      ${html}
     </td>
   </tr>
-  <!-- Footer -->
   <tr>
     <td style="background-color:#f8f9fa;padding:16px 32px;border-top:1px solid #e9ecef;">
       <p style="margin:0;font-size:11px;color:#95a5a6;text-align:center;">
