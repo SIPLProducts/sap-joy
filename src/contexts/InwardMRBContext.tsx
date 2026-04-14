@@ -27,6 +27,8 @@ export interface InspectionLotRecord {
   inspectionDate: string;
   postingDate: string;
   grnNumber: string;
+  grnItemNo: string;
+  grnDate: string;
   status: 'pending' | 'mrb_created' | 'cleared';
   source: 'upload' | 'api' | 'mrb';
   /** Raw DB row — carries any dynamic columns added via SAP field config */
