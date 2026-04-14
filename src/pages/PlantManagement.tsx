@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Building2, Plus, Edit, Trash2, RefreshCw, MapPin } from 'lucide-react';
 
@@ -30,6 +31,7 @@ export default function PlantManagement() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingPlant, setEditingPlant] = useState<Plant | null>(null);
   const [form, setForm] = useState({ code: '', name: '', location: '' });
+  const [deleteTarget, setDeleteTarget] = useState<Plant | null>(null);
 
   const { hasAccess, loading: permLoading } = useRoleMatrix();
   const isAdmin = userRole === 'admin' || hasAccess('plant_management');
@@ -99,7 +101,6 @@ export default function PlantManagement() {
   };
 
   const handleDelete = async (plant: Plant) => {
-    if (!confirm(`Are you sure you want to delete plant ${plant.code} (${plant.name})?`)) return;
     try {
       const { error } = await supabase.from('plants').delete().eq('id', plant.id);
       if (error) throw error;
@@ -107,6 +108,8 @@ export default function PlantManagement() {
       fetchPlants();
     } catch (error: any) {
       toast({ title: 'Error', description: 'Cannot delete: Plant may be in use by MRB records', variant: 'destructive' });
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -199,7 +202,7 @@ export default function PlantManagement() {
                         <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(plant)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDelete(plant)}>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setDeleteTarget(plant)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -259,6 +262,26 @@ export default function PlantManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Plant</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete plant {deleteTarget?.code} ({deleteTarget?.name})? This may affect MRB records linked to this plant.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && handleDelete(deleteTarget)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
