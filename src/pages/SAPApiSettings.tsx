@@ -147,7 +147,7 @@ export default function SAPApiSettings() {
   // If editing or creating, show the form
   if (editingConfig || isCreating) {
     return (
-      <div className="space-y-6 overflow-auto h-full">
+      <div className="space-y-6 overflow-y-auto h-full">
         <SAPApiEditForm
           config={editingConfig}
           onSave={handleSave}
@@ -158,10 +158,10 @@ export default function SAPApiSettings() {
   }
 
   return (
-    <div className="space-y-6 overflow-auto h-full">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 overflow-y-auto h-full">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">SAP API Settings</h1>
+          <h1 className="text-lg md:text-2xl font-bold tracking-tight">SAP API Settings</h1>
           <p className="text-muted-foreground">Configure SAP API connections with dynamic field mappings</p>
         </div>
         <div className="flex items-center gap-2">

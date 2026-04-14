@@ -407,10 +407,10 @@ export default function UserManagement() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6 overflow-auto h-full">
+    <div className="container mx-auto space-y-6 overflow-y-auto h-full">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <h1 className="text-lg md:text-2xl font-bold text-foreground flex items-center gap-2">
             <UserCog className="h-7 w-7" />
             User & Role Management
           </h1>
@@ -534,7 +534,7 @@ export default function UserManagement() {
 
       {/* Create User Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5" /> Create New User</DialogTitle>
             <DialogDescription>Create a new user account with role assignment</DialogDescription>
@@ -603,7 +603,7 @@ export default function UserManagement() {
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Edit className="h-5 w-5" /> Edit User</DialogTitle>
             <DialogDescription>Update role or reset password for {selectedUser?.full_name}</DialogDescription>
