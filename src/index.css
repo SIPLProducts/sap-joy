@@ -115,7 +115,7 @@
   }
 
   html {
-    font-size: clamp(14px, 1.2vw + 4px, 16px);
+    font-size: clamp(14.5px, 1vw + 6px, 17px);
   }
 
   body {
@@ -124,11 +124,11 @@
   }
 
   h1 {
-    @apply text-xl md:text-2xl;
+    @apply text-2xl md:text-3xl;
   }
 
   h2 {
-    @apply text-lg md:text-xl;
+    @apply text-xl md:text-2xl;
   }
 }
 

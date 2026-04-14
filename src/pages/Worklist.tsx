@@ -955,10 +955,10 @@ export default function Worklist() {
       </div>
 
       {/* Scrollable Table Container */}
-      <div className="flex-1 overflow-hidden px-6 py-4">
-        <div className="h-full rounded-md border bg-background overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 overflow-auto px-6 py-4">
+        <div className="max-h-full rounded-md border bg-background overflow-hidden flex flex-col">
           {/* Table with sticky header */}
-          <div className="flex-1 overflow-auto">
+          <div className="overflow-auto">
             <table className="w-full caption-bottom text-sm">
               <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm border-b">
                 <tr>
