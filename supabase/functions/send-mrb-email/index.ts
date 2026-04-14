@@ -247,7 +247,7 @@ Deno.serve(async (req) => {
             to: toEmails,
             cc: finalCc.length > 0 ? finalCc : undefined,
             subject,
-            text: body,
+            html: generateHtmlEmail(subject, body, mrb.mrb_number),
           });
 
           sendStatus = 'sent';
