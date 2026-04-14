@@ -1,52 +1,70 @@
 
 
-## UI/UX Improvement Plan: Responsive Layout, Scrolling, Font, and Email HTML
+## Improve HTML Email Template Styling
 
-### Problem
-1. Pages like User Management, SAP API Settings, SAP Sync Monitor, and Email Configuration lack proper padding/scroll containers — they appear "stuck" to the sidebar edge.
-2. No responsive font scaling or consistent typography system.
-3. Email notifications are sent as plain text (`text: body`) instead of styled HTML.
-4. Dialog modals (Create/Edit User, SMTP config, Email Template) lack internal scroll for small screens.
+### What's happening now
+The `generateHtmlEmail` function in `send-mrb-email/index.ts` does basic text-to-HTML conversion — replacing newlines with `<br/>` tags. This produces a plain wall of text as seen in your screenshot, where numbered sections, key-value pairs, and headings all look the same.
 
-### Changes
+### What we'll change
 
-**1. Global Layout Fix — `AppLayout.tsx`**
-- Add proper padding to `<main>` so content doesn't hug the sidebar: `p-4 md:p-6 overflow-y-auto`
+**Single file:** `supabase/functions/send-mrb-email/index.ts` — rewrite the `generateHtmlEmail` function with smart formatting logic.
 
-**2. Page-level scroll & padding fixes** (4 files)
-- `EmailConfiguration.tsx` (line 358-359): Wrap in `overflow-y-auto h-full p-4 md:p-6` container
-- `SAPApiSettings.tsx` (lines 150, 160-161): Add `p-4 md:p-6` padding to root container
-- `SAPSyncMonitor.tsx` (line 214): Add `p-4 md:p-6` padding
-- `UserManagement.tsx` (line 410): Already has `container mx-auto p-6` — good, but adjust for consistency
+### New formatting rules
 
-**3. Responsive font sizing — `index.css`**
-- Add responsive base font-size using `clamp()` on `html` element
-- Scale headings with `text-lg md:text-2xl` pattern across all 4 pages
-- Ensure tables use `text-xs md:text-sm` for readability on smaller screens
+1. **Numbered sections** (lines starting with `1.`, `2.`, `3.` etc.) → rendered as **cards** with light background (`#f0f4f8`), rounded corners, and a colored left border
+2. **Key: Value pairs** (lines containing `:`) → **label** in bold dark color, **value** in normal weight — displayed in a clean two-tone row layout
+3. **Greeting lines** ("Dear Material Review Board") → styled as a proper salutation with slightly larger font
+4. **Section headings** within cards (e.g., "Defect Overview", "Material & Vendor Details") → bold with a subtle bottom border
+5. **MRB Reference badge** in the subject bar → pill-shaped badge with blue background
+6. **Action required section** → highlighted with an amber/orange left-border card to draw attention
+7. **Sign-off** ("Best regards, Quality Department") → italic, separated styling
 
-**4. Dialog scroll fixes**
-- All `DialogContent` in User Management, Email Config: add `max-h-[85vh] overflow-y-auto`
-- Email Template dialog already has this — verify consistency
+### Visual structure (approximate)
 
-**5. Table responsiveness**
-- Wrap all `<Table>` sections in `overflow-x-auto` containers where not already present (SMTP table, Templates table in EmailConfiguration)
+```text
+┌─────────────────────────────────┐
+│  HBL Power Systems (blue bar)   │
+├─────────────────────────────────┤
+│  Subject   │ MRB-2026-0026 pill │
+├─────────────────────────────────┤
+│  Dear Material Review Board,    │
+│                                 │
+│  Intro paragraph text...        │
+│                                 │
+│  ┌── Card (light bg) ─────────┐│
+│  │ 1. Defect Overview          ││
+│  │  Total Qty:  0 NOS          ││
+│  │  Blocked:    10 NOS         ││
+│  │  Primary:    reject         ││
+│  └─────────────────────────────┘│
+│                                 │
+│  ┌── Card (light bg) ─────────┐│
+│  │ 2. Material & Vendor       ││
+│  │  Material:  1003094256      ││
+│  │  Plant:     1300            ││
+│  │  Vendor:    2051394         ││
+│  └─────────────────────────────┘│
+│                                 │
+│  ┌── Card (amber border) ─────┐│
+│  │ 4. Required Action          ││
+│  │  Please review the NCR...   ││
+│  └─────────────────────────────┘│
+│                                 │
+│  Best regards,                  │
+│  Quality Department             │
+├─────────────────────────────────┤
+│  Footer (gray)                  │
+└─────────────────────────────────┘
+```
 
-**6. HTML Email Templates — `send-mrb-email/index.ts`**
-- Replace `text: body` with `html: generateHtmlEmail(subject, body)` 
-- Add a `generateHtmlEmail()` function that wraps the template body in a styled HTML layout with:
-  - HBL branding header (blue bar with company name)
-  - Proper paragraph formatting (convert newlines to `<br>` and sections to styled blocks)
-  - Footer with "This is an automated email from HBL MRB System"
-  - Responsive email CSS (inline styles for email client compatibility)
+### Technical approach
+- Parse the body text line-by-line
+- Detect numbered sections via regex `/^\d+\.\s/`
+- Detect key:value pairs via regex `/^([^:]+):\s*(.+)$/`
+- Detect "Required Action" or "Action Required" sections and apply amber styling
+- All styling uses inline CSS (required for email client compatibility)
+- No changes to any other functionality — only the HTML generation
 
-### Files to modify
-1. `src/components/layout/AppLayout.tsx` — main content padding + scroll
-2. `src/pages/UserManagement.tsx` — responsive fonts, dialog scroll
-3. `src/pages/SAPApiSettings.tsx` — padding, responsive fonts
-4. `src/pages/SAPSyncMonitor.tsx` — padding, responsive fonts  
-5. `src/pages/EmailConfiguration.tsx` — padding, scroll, responsive fonts, dialog scroll
-6. `src/index.css` — responsive base font, clamp sizing
-7. `supabase/functions/send-mrb-email/index.ts` — HTML email template
-
-### No database or migration changes needed.
+### Deployment
+- Redeploy the `send-mrb-email` edge function after the update
 
