@@ -97,7 +97,7 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/60">Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase text-[0.7rem] tracking-widest font-semibold">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {filteredItems.map((item) => {
@@ -112,8 +112,8 @@ export function AppSidebar() {
                       )}
                     >
                       <Link to={item.url}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
+                        <item.icon className="h-[18px] w-[18px]" />
+                        <span className="text-[0.9rem] font-medium tracking-wide">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -125,7 +125,7 @@ export function AppSidebar() {
 
         {filteredDashboards.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-sidebar-foreground/60">Role Dashboards</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase text-[0.7rem] tracking-widest font-semibold">Role Dashboards</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {filteredDashboards.map((item) => {
@@ -140,8 +140,8 @@ export function AppSidebar() {
                         )}
                       >
                         <Link to={item.url}>
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.title}</span>
+                          <item.icon className="h-[18px] w-[18px]" />
+                          <span className="text-[0.9rem] font-medium tracking-wide">{item.title}</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -154,7 +154,7 @@ export function AppSidebar() {
 
         {visibleAdminItems.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-sidebar-foreground/60">Administration</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-sidebar-foreground/60 uppercase text-[0.7rem] tracking-widest font-semibold">Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {visibleAdminItems.map((item) => {
@@ -169,8 +169,8 @@ export function AppSidebar() {
                         )}
                       >
                         <Link to={item.url}>
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.title}</span>
+                          <item.icon className="h-[18px] w-[18px]" />
+                          <span className="text-[0.9rem] font-medium tracking-wide">{item.title}</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -191,7 +191,7 @@ export function AppSidebar() {
             {roleDisplayName.charAt(0)}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">{roleDisplayName}</p>
+            <p className="text-sm font-semibold text-sidebar-foreground truncate">{roleDisplayName}</p>
             <p className="text-xs text-sidebar-foreground/60">View Profile</p>
           </div>
         </Link>

@@ -31,7 +31,7 @@ export function AppHeader() {
     <header className="sticky top-0 z-50 flex h-12 items-center justify-between border-b bg-background px-4 shadow-sm">
       <div className="flex items-center">
         <SidebarTrigger className="-ml-2 mr-4" />
-        <h2 className="text-sm font-semibold truncate hidden sm:block text-muted-foreground mr-4">
+        <h2 className="text-sm md:text-base font-semibold truncate hidden sm:block text-muted-foreground mr-4">
           Material Review Board
         </h2>
       </div>
