@@ -205,6 +205,8 @@ export type Database = {
           block_reason: string | null
           blocked_quantity: number
           created_at: string
+          grn_date: string | null
+          grn_item_no: string | null
           grn_number: string | null
           id: string
           inspection_date: string | null
@@ -230,6 +232,8 @@ export type Database = {
           block_reason?: string | null
           blocked_quantity?: number
           created_at?: string
+          grn_date?: string | null
+          grn_item_no?: string | null
           grn_number?: string | null
           id?: string
           inspection_date?: string | null
@@ -255,6 +259,8 @@ export type Database = {
           block_reason?: string | null
           blocked_quantity?: number
           created_at?: string
+          grn_date?: string | null
+          grn_item_no?: string | null
           grn_number?: string | null
           id?: string
           inspection_date?: string | null
@@ -424,6 +430,8 @@ export type Database = {
           final_decision: string | null
           final_rejected_quantity: number | null
           final_remarks: string | null
+          grn_date: string | null
+          grn_item_number: string | null
           grn_number: string | null
           id: string
           immediate_block_required: boolean | null
@@ -511,6 +519,8 @@ export type Database = {
           final_decision?: string | null
           final_rejected_quantity?: number | null
           final_remarks?: string | null
+          grn_date?: string | null
+          grn_item_number?: string | null
           grn_number?: string | null
           id?: string
           immediate_block_required?: boolean | null
@@ -598,6 +608,8 @@ export type Database = {
           final_decision?: string | null
           final_rejected_quantity?: number | null
           final_remarks?: string | null
+          grn_date?: string | null
+          grn_item_number?: string | null
           grn_number?: string | null
           id?: string
           immediate_block_required?: boolean | null
