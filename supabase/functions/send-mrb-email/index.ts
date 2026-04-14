@@ -17,6 +17,57 @@ const normalizeEmails = (arr: string[]): string[] =>
 
 const isValidEmail = (e: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
+function generateHtmlEmail(subject: string, body: string, mrbNumber?: string): string {
+  const bodyHtml = body
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n\n/g, '</p><p style="margin:0 0 12px 0;line-height:1.6;">')
+    .replace(/\n/g, '<br/>');
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f4f6f9;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f6f9;padding:24px 0;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+  <!-- Header -->
+  <tr>
+    <td style="background:linear-gradient(135deg,#1a5276,#2471a3);padding:20px 32px;">
+      <h1 style="margin:0;color:#ffffff;font-size:18px;font-weight:600;">HBL Power Systems</h1>
+      <p style="margin:4px 0 0;color:#d4e6f1;font-size:12px;">Material Review Board — Automated Notification</p>
+    </td>
+  </tr>
+  <!-- Subject bar -->
+  <tr>
+    <td style="background-color:#eaf2f8;padding:12px 32px;border-bottom:1px solid #d4e6f1;">
+      <p style="margin:0;font-size:14px;font-weight:600;color:#1a5276;">${subject.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+      ${mrbNumber ? `<p style="margin:4px 0 0;font-size:12px;color:#5d6d7e;">MRB Reference: <strong>${mrbNumber}</strong></p>` : ''}
+    </td>
+  </tr>
+  <!-- Body -->
+  <tr>
+    <td style="padding:24px 32px;color:#2c3e50;font-size:14px;">
+      <p style="margin:0 0 12px 0;line-height:1.6;">${bodyHtml}</p>
+    </td>
+  </tr>
+  <!-- Footer -->
+  <tr>
+    <td style="background-color:#f8f9fa;padding:16px 32px;border-top:1px solid #e9ecef;">
+      <p style="margin:0;font-size:11px;color:#95a5a6;text-align:center;">
+        This is an automated email from the HBL MRB System. Please do not reply directly to this message.<br/>
+        &copy; HBL Power Systems Ltd. — Material Review Board
+      </p>
+    </td>
+  </tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
