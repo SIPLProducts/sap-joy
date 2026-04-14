@@ -114,9 +114,21 @@
     @apply border-border;
   }
 
+  html {
+    font-size: clamp(13px, 1.4vw, 16px);
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  h1 {
+    @apply text-xl md:text-2xl;
+  }
+
+  h2 {
+    @apply text-lg md:text-xl;
   }
 }
 

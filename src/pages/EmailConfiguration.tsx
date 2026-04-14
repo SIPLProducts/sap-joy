@@ -356,9 +356,9 @@ export default function EmailConfiguration() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-y-auto h-full">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Email Configuration</h1>
+        <h1 className="text-lg md:text-2xl font-bold text-foreground">Email Configuration</h1>
         <p className="text-muted-foreground">Configure SMTP settings and email templates per plant</p>
       </div>
 
@@ -379,6 +379,7 @@ export default function EmailConfiguration() {
               <Button onClick={() => openSmtpDialog()} className="gap-2"><Plus className="h-4 w-4" /> Add SMTP</Button>
             </CardHeader>
             <CardContent>
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -419,6 +420,7 @@ export default function EmailConfiguration() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -434,6 +436,7 @@ export default function EmailConfiguration() {
               <Button onClick={() => openTemplateDialog()} className="gap-2"><Plus className="h-4 w-4" /> Add Template</Button>
             </CardHeader>
             <CardContent>
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -469,6 +472,7 @@ export default function EmailConfiguration() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -476,7 +480,7 @@ export default function EmailConfiguration() {
 
       {/* SMTP Dialog */}
       <Dialog open={smtpDialogOpen} onOpenChange={setSmtpDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingSmtp ? 'Edit SMTP Configuration' : 'Add SMTP Configuration'}</DialogTitle>
           </DialogHeader>
