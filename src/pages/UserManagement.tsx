@@ -294,10 +294,16 @@ export default function UserManagement() {
     if (!selectedUser) return;
     setSaving(true);
     try {
-      await supabase.from('user_roles').delete().eq('user_id', selectedUser.user_id);
-      await supabase.from('user_plants').delete().eq('user_id', selectedUser.user_id);
-      await supabase.from('user_security').delete().eq('user_id', selectedUser.user_id);
-      await supabase.from('profiles').delete().eq('user_id', selectedUser.user_id);
+      const { data, error: fnError } = await supabase.functions.invoke('create-user', {
+        body: { action: 'delete_user', user_id: selectedUser.user_id },
+      });
+
+      if (fnError || !data?.ok) {
+        const errMsg = data?.error || fnError?.message || 'Failed to delete user';
+        toast({ title: 'Error', description: errMsg, variant: 'destructive' });
+        return;
+      }
+
       toast({ title: 'Success', description: `User ${selectedUser.full_name} deleted successfully` });
       setIsDeleteDialogOpen(false);
       fetchUsers();

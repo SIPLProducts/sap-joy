@@ -82,6 +82,29 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action } = body;
 
+    // ─── DELETE USER ───
+    if (action === "delete_user") {
+      const { user_id } = body;
+      if (!user_id) {
+        return jsonResponse({ ok: false, error: "Missing user_id" });
+      }
+
+      // Clean up related tables first (using admin client to bypass RLS)
+      await adminClient.from("password_history").delete().eq("user_id", user_id);
+      await adminClient.from("user_security").delete().eq("user_id", user_id);
+      await adminClient.from("user_plants").delete().eq("user_id", user_id);
+      await adminClient.from("user_roles").delete().eq("user_id", user_id);
+      await adminClient.from("profiles").delete().eq("user_id", user_id);
+
+      // Delete the auth user
+      const { error: deleteError } = await adminClient.auth.admin.deleteUser(user_id);
+      if (deleteError) {
+        return jsonResponse({ ok: false, error: `Failed to delete user: ${deleteError.message}` });
+      }
+
+      return jsonResponse({ ok: true, message: "User deleted successfully" });
+    }
+
     // ─── UPDATE USER (role, department, password) ───
     if (action === "update_user") {
       const { user_id, role, department, plant, new_password } = body;
