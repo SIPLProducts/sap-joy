@@ -44,6 +44,8 @@ interface InspectionLotRecord {
   poNumber: string;
   poItemNumber: string;
   grnNumber: string;
+  grnItemNo?: string;
+  grnDate?: string;
   transactionQuantity: number;
   uom: string;
   blockedQuantity: number;
@@ -51,6 +53,7 @@ interface InspectionLotRecord {
   inspectionDate: string;
   status: 'pending' | 'mrb_created' | 'cleared';
   purchaseOrderNumber?: string;
+  _raw?: Record<string, any>;
 }
 
 interface Attachment {
@@ -80,6 +83,8 @@ interface FormData {
   purchaseOrderNumber: string;
   poItemNumber: string;
   grnNumber: string;
+  grnItemNumber: string;
+  grnDate: string;
   qualityDecision: string;
   defectCategory: string;
   defectDescription: string;
@@ -171,6 +176,8 @@ export default function CreateInwardMRB() {
     purchaseOrderNumber: inspectionLot.purchaseOrderNumber || inspectionLot.poNumber || '',
     poItemNumber: inspectionLot.poItemNumber || '',
     grnNumber: inspectionLot.grnNumber || '',
+    grnItemNumber: inspectionLot.grnItemNo || inspectionLot._raw?.grn_item_no || '',
+    grnDate: inspectionLot.grnDate || inspectionLot._raw?.grn_date || '',
     
     // Quality inspection input - restore from draft or empty
     qualityDecision: savedDraft?.qualityDecision || '',
@@ -519,6 +526,8 @@ export default function CreateInwardMRB() {
         inspection_lot: formData.inspectionLot,
         po_number: formData.purchaseOrderNumber,
         grn_number: formData.grnNumber || null,
+        grn_item_number: formData.grnItemNumber || null,
+        grn_date: formData.grnDate || null,
         batch: formData.batch || null,
         storage_location: formData.storageLocation || null,
         total_quantity: formData.transactionQuantity,
@@ -817,6 +826,14 @@ Quality Department`;
               <div className="space-y-2">
                 <Label className="text-muted-foreground">GRN Number</Label>
                 <Input value={formData.grnNumber} readOnly className="bg-muted" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">GRN Item No</Label>
+                <Input value={formData.grnItemNumber} readOnly className="bg-muted" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">GRN Date</Label>
+                <Input value={formData.grnDate} readOnly className="bg-muted" />
               </div>
               <div className="space-y-2 lg:col-span-2">
                 <Label className="text-muted-foreground">Vendor Name</Label>

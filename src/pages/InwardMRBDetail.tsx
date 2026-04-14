@@ -46,6 +46,8 @@ export default function InwardMRBDetail() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [poItemNumber, setPOItemNumber] = useState<string | null>(null);
   const [lotBatch, setLotBatch] = useState<string | null>(null);
+  const [grnItemNo, setGrnItemNo] = useState<string | null>(null);
+  const [grnDate, setGrnDate] = useState<string | null>(null);
   
   const [reviewData, setReviewData] = useState({
     reviewComments: '',
@@ -68,11 +70,15 @@ export default function InwardMRBDetail() {
       
       if (mrbData) {
         setMRB(mrbData);
-        // Fetch PO item number from inward_inspection_lots
+        // Set GRN Item No and GRN Date from mrb_records first
+        if ((mrbData as any).grn_item_number) setGrnItemNo((mrbData as any).grn_item_number);
+        if ((mrbData as any).grn_date) setGrnDate((mrbData as any).grn_date);
+        
+        // Fetch additional fields from inward_inspection_lots as fallback
         if (mrbData.inspection_lot) {
           const { data: lotData } = await supabase
             .from('inward_inspection_lots')
-            .select('po_item_number, batch')
+            .select('po_item_number, batch, grn_item_no, grn_date')
             .eq('inspection_lot', mrbData.inspection_lot)
             .limit(1)
             .maybeSingle();
@@ -81,6 +87,12 @@ export default function InwardMRBDetail() {
           }
           if (lotData?.batch) {
             setLotBatch(lotData.batch);
+          }
+          if (!grnItemNo && (lotData as any)?.grn_item_no) {
+            setGrnItemNo((lotData as any).grn_item_no);
+          }
+          if (!grnDate && (lotData as any)?.grn_date) {
+            setGrnDate((lotData as any).grn_date);
           }
         }
       }
@@ -374,6 +386,14 @@ export default function InwardMRBDetail() {
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">GRN Number</Label>
                 <p className="font-medium font-mono">{mrb.grn_number || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">GRN Item No</Label>
+                <p className="font-medium font-mono">{grnItemNo || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">GRN Date</Label>
+                <p className="font-medium font-mono">{grnDate || '-'}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Batch</Label>
