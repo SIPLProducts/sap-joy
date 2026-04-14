@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Plus, Pencil, Settings2, Play, Trash2, FileText, Link2, Server, Timer, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { SAPApiEditForm } from '@/components/sapApi/SAPApiEditForm';
@@ -44,6 +45,7 @@ export default function SAPApiSettings() {
   const [isCreating, setIsCreating] = useState(false);
   const [fieldsConfig, setFieldsConfig] = useState<SAPConfig | null>(null);
   const [activeTab, setActiveTab] = useState('configurations');
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const { userRole } = useAuth();
   const autoSync = useAutoSyncContext();
 
@@ -64,7 +66,6 @@ export default function SAPApiSettings() {
   useEffect(() => { fetchConfigs(); }, []);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this configuration?')) return;
     const { error } = await supabase.from('sap_api_config').delete().eq('id', id);
     if (error) {
       toast({ title: 'Error', description: 'Failed to delete', variant: 'destructive' });
@@ -72,6 +73,7 @@ export default function SAPApiSettings() {
       toast({ title: 'Deleted', description: 'Configuration removed' });
       fetchConfigs();
     }
+    setDeleteTargetId(null);
   };
 
   const handleTest = async (config: SAPConfig) => {
@@ -356,7 +358,7 @@ export default function SAPApiSettings() {
                               <Play className="h-3.5 w-3.5" /> Test
                             </Button>
                             <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive"
-                              onClick={() => handleDelete(config.id)}>
+                              onClick={() => setDeleteTargetId(config.id)}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
@@ -375,6 +377,26 @@ export default function SAPApiSettings() {
           <SAPConnectivityGuide />
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={!!deleteTargetId} onOpenChange={(open) => { if (!open) setDeleteTargetId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Configuration</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this API configuration? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTargetId && handleDelete(deleteTargetId)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {fieldsConfig && (
         <SAPApiFieldsDialog

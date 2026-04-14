@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Layers, Plus, Edit, Trash2, RefreshCw, Shield } from 'lucide-react';
@@ -43,6 +44,7 @@ export default function DepartmentManagement() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [form, setForm] = useState({ name: '', description: '', is_workflow_enabled: false });
+  const [deleteTarget, setDeleteTarget] = useState<Department | null>(null);
 
   const { hasAccess, loading: permLoading } = useRoleMatrix();
   const isAdmin = userRole === 'admin' || hasAccess('role_management');
@@ -126,7 +128,6 @@ export default function DepartmentManagement() {
   };
 
   const handleDelete = async (dept: Department) => {
-    if (!confirm(`Are you sure you want to delete role "${dept.name}"? This may affect users assigned to this role.`)) return;
     try {
       const { error } = await supabase.from('departments').delete().eq('id', dept.id);
       if (error) throw error;
@@ -134,6 +135,8 @@ export default function DepartmentManagement() {
       fetchDepartments();
     } catch (error: any) {
       toast({ title: 'Error', description: 'Cannot delete: Role may be in use', variant: 'destructive' });
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -238,7 +241,7 @@ export default function DepartmentManagement() {
                         <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(dept)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDelete(dept)}>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setDeleteTarget(dept)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -295,6 +298,26 @@ export default function DepartmentManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Role</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete role "{deleteTarget?.name}"? This may affect users assigned to this role.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && handleDelete(deleteTarget)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
