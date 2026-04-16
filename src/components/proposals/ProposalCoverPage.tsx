@@ -25,7 +25,7 @@ const ProposalCoverPage: React.FC<ProposalCoverPageProps> = ({
 
         <div className="cover-details">
           <div><strong>Proposal Type:</strong> {proposalType}</div>
-          <div><strong>Prepared For:</strong> HBL Power Systems Ltd.</div>
+          <div><strong>Prepared For:</strong> <div><strong>Prepared For:</strong> HBL Engineering Limited</div></div>
           <div><strong>Prepared By:</strong> Sharvi Infotech Pvt. Ltd.</div>
           <div><strong>Date:</strong> {date}</div>
           <div><strong>Version:</strong> {version}</div>

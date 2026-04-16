@@ -83,7 +83,7 @@ export function usePrintConfig(plant: string) {
         // Fallback defaults
         setConfig({
           plant,
-          company_name: 'HBL Power Systems Ltd.',
+          company_name: 'HBL Engineering Limited',
           division_name: 'Electronics Group',
           logo_url: null,
           ncr_doc_number: 'HBL/QA/NCR/001',

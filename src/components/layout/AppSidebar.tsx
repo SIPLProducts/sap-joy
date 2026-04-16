@@ -196,7 +196,7 @@ export function AppSidebar() {
           </div>
         </Link>
         <div className="flex items-center justify-between">
-          <p className="text-xs text-sidebar-foreground/50">© 2025 HBL Power Systems</p>
+          <p className="text-xs text-sidebar-foreground/50"><p className="text-xs text-sidebar-foreground/50">© 2025 HBL Engineering Limited</p></p>
           <Button 
             variant="ghost" 
             size="icon" 

@@ -354,7 +354,7 @@ export default function ShopFloorMaterialBlocking() {
         </head>
         <body>
           <div class="header">
-            <div class="logo">HBL Power Systems</div>
+            <div class="logo"><div class="logo">HBL Engineering Limited</div></div>
             <div class="title">Material Blocking Confirmation</div>
           </div>
           
