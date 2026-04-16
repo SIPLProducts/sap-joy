@@ -120,7 +120,7 @@ function generateHtmlEmail(subject: string, body: string, mrbNumber?: string): s
 <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
   <tr>
     <td style="background:linear-gradient(135deg,#1a5276,#2471a3);padding:20px 32px;">
-      <h1 style="margin:0;color:#ffffff;font-size:18px;font-weight:600;">HBL Power Systems</h1>
+      <h1 style="margin:0;color:#ffffff;font-size:18px;font-weight:600;">HBL Engineering Limited</h1>
       <p style="margin:4px 0 0;color:#d4e6f1;font-size:12px;">Material Review Board — Automated Notification</p>
     </td>
   </tr>
@@ -138,7 +138,7 @@ function generateHtmlEmail(subject: string, body: string, mrbNumber?: string): s
     <td style="background-color:#f8f9fa;padding:16px 32px;border-top:1px solid #e9ecef;">
       <p style="margin:0;font-size:11px;color:#95a5a6;text-align:center;">
         This is an automated email from the HBL MRB System. Please do not reply directly to this message.<br/>
-        &copy; HBL Power Systems Ltd. — Material Review Board
+        &copy; HBL Engineering Limited — Material Review Board
       </p>
     </td>
   </tr>

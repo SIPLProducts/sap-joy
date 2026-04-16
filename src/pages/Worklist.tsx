@@ -971,6 +971,7 @@ export default function Worklist() {
                   {/* Inward Material Columns */}
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Insp. Lot</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Material</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Created</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Vendor</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Plant</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">GRN</th>
@@ -986,7 +987,6 @@ export default function Worklist() {
                   {/* Status Columns */}
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Pending With</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">SLA</th>
-                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Created</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Escalation</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Closure</th>
                   <th className="h-12 px-3 text-right align-middle font-medium text-muted-foreground whitespace-nowrap sticky right-0 bg-muted/80">Actions</th>
@@ -1034,6 +1034,9 @@ export default function Worklist() {
                           <p className="font-medium text-sm">{mrb.materialNumber}</p>
                           <p className="text-xs text-muted-foreground truncate">{mrb.materialDescription}</p>
                         </div>
+                      </td>
+                      <td className="p-3 align-middle whitespace-nowrap">
+                        {formatDate(mrb.createdAt)}
                       </td>
                       <td className="p-3 align-middle">
                         <div className="max-w-[120px]">
@@ -1132,9 +1135,6 @@ export default function Worklist() {
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
-                      </td>
-                      <td className="p-3 align-middle whitespace-nowrap">
-                        {formatDate(mrb.createdAt)}
                       </td>
                       <td className="p-3 align-middle">
                         {mrb.escalationLevel && mrb.escalationLevel !== 'none' && (

@@ -94,9 +94,14 @@ export function useExtraDynamicFields(targetTable: string) {
   const { dynamicFields, isLoading, refetch } = useDynamicFields(targetTable);
   const baseSet = BASE_COLUMNS[targetTable] || new Set();
 
-  const extraFields = dynamicFields.filter(
-    (f) => f.map_to_column && !baseSet.has(f.map_to_column)
-  );
+  const extraFields = dynamicFields.filter((f) => {
+    if (!f.map_to_column) return false;
+    if (baseSet.has(f.map_to_column)) return false;
+    // Also exclude by field_name (case-insensitive) matching a base column
+    const fnLower = f.field_name?.toLowerCase();
+    if (fnLower && baseSet.has(fnLower)) return false;
+    return true;
+  });
 
   return { extraFields, allDynamicFields: dynamicFields, isLoading, refetch };
 }
