@@ -16,7 +16,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             <div className="cover-divider" />
             <div className="cover-details">
               <div><strong>Proposal Type:</strong> Techno-Commercial Proposal</div>
-              <div><strong>Prepared For:</strong> HBL Power Systems Ltd.</div>
+              <div><strong>Prepared For:</strong> HBL Engineering Limited</div>
               <div><strong>Prepared By:</strong> Sharvi Infotech Pvt. Ltd.</div>
               <div><strong>Date:</strong> {new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
               <div><strong>Version:</strong> 0.1</div>
@@ -28,7 +28,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         <div className="confidential-box" style={{ marginTop: '16px' }}>
           <div className="confidential-title">CONFIDENTIALITY STATEMENT</div>
           <div className="confidential-text">
-            <p>This document contains proprietary and confidential information of Sharvi Infotech Pvt. Ltd. (SIPL). This document is submitted to HBL Power Systems Ltd. solely for the purpose of evaluating the commercial terms for the Material Review Board (MRB) Web Application development project.</p>
+            <p>This document contains proprietary and confidential information of Sharvi Infotech Pvt. Ltd. (SIPL). This document is submitted to HBL Engineering Limited solely for the purpose of evaluating the commercial terms for the Material Review Board (MRB) Web Application development project.</p>
             <p style={{ marginTop: '8px' }}>The recipient agrees not to disclose, reproduce, or distribute this document or any of its contents to any third party without the prior written consent of SIPL.</p>
           </div>
         </div>
@@ -46,7 +46,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             Executive Summary
           </div>
           <div className="proposal-text">
-            Sharvi Infotech Pvt. Ltd. (SIPL) presents this Techno-Commercial Proposal for the complete development, deployment, and maintenance of the <strong>Material Review Board (MRB) Web Application</strong> for HBL Power Systems Ltd. This proposal outlines the commercial terms, service level agreements, and engagement model for the project.
+            Sharvi Infotech Pvt. Ltd. (SIPL) presents this Techno-Commercial Proposal for the complete development, deployment, and maintenance of the <strong>Material Review Board (MRB) Web Application</strong> for HBL Engineering Limited This proposal outlines the commercial terms, service level agreements, and engagement model for the project.
           </div>
         </div>
 
@@ -388,7 +388,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
           <div className="highlight-box" style={{ marginTop: '20px' }}>
             <p style={{ textAlign: 'center', fontSize: '12px' }}>
-              <strong>We look forward to partnering with HBL Power Systems Ltd. on this strategic initiative to digitize and optimize the Material Review Board process across all plants.</strong>
+              <strong>We look forward to partnering with HBL Engineering Limited on this strategic initiative to digitize and optimize the Material Review Board process across all plants.</strong>
             </p>
           </div>
         </div>
@@ -407,7 +407,7 @@ const TechnoCommercialProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
         <div className="proposal-footer">
           <p>Sharvi Infotech Pvt. Ltd. | www.sharviinfotech.com</p>
-          <p>This document is confidential and intended solely for the use of HBL Power Systems Ltd.</p>
+          <p>This document is confidential and intended solely for the use of HBL Engineering Limited</p>
         </div>
       </div>
     </div>
