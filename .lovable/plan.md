@@ -1,36 +1,30 @@
 
 
-## Add GRN Item No (ZEILE) and GRN Date (BLDAT) to MRB Flow
+## Fix: ZEILE and BLDAT values not persisting during SAP sync
 
-### Problem
-The SAP fields ZEILE (GRN Item No) and BLDAT (GRN Date) are configured in the SAP API response fields but:
-1. The columns `grn_item_no` and `grn_date` don't exist in the `inward_inspection_lots` table — so SAP sync can't store them
-2. The columns don't exist in `mrb_records` — so they can't be persisted with MRB creation
-3. No UI displays them in the MRB creation form or MRB detail page
+### Root Cause
 
-These are **not** the same as `po_item_number` (EBELP) and `posting_date` — they are separate SAP fields.
+Both SAP sync edge functions (`sap-sync/handler.ts` and `sap-sync-scheduler/index.ts`) have two problems preventing ZEILE and BLDAT from being stored:
+
+1. **Missing from allowed columns whitelist** — `grn_item_no` and `grn_date` are not in the `allowedColumnsByTable.inward_inspection_lots` Set, so even when the field mapping resolves correctly, the values are silently dropped at the whitelist check.
+
+2. **Missing from alias map** — `zeile` → `grn_item_no` and `bldat` → `grn_date` are not in the `aliasMapByTable.inward_inspection_lots` dictionary, so even if the user configured `map_to_column` as `grn_item_no`, the SAP key aliases aren't recognized.
 
 ### Changes
 
-**1. Database migration — Add columns to both tables**
-- Add `grn_item_no TEXT` to `inward_inspection_lots` (so SAP sync via the dynamic column mechanism can populate it)
-- Add `grn_date TEXT` to `inward_inspection_lots`
-- Add `grn_item_number TEXT` to `mrb_records`
-- Add `grn_date DATE` to `mrb_records`
+**1. `supabase/functions/sap-sync/handler.ts`**
+- Add `'grn_item_no', 'grn_date'` to the `allowedColumnsByTable.inward_inspection_lots` Set (line ~1049)
+- Add `zeile: 'grn_item_no', bldat: 'grn_date'` to the `aliasMapByTable.inward_inspection_lots` object (line ~1077)
 
-**2. `src/pages/CreateInwardMRB.tsx` — Add fields to form and save logic**
-- Add `grnItemNumber` and `grnDate` to `FormData` interface and `InspectionLotRecord` interface
-- Populate from inspection lot data (fetched from `grn_item_no` and `grn_date` columns, or via `_raw` dynamic field data)
-- Add two read-only fields after GRN Number: "GRN Item No" and "GRN Date"
-- Save to `mrb_records` as `grn_item_number` and `grn_date`
+**2. `supabase/functions/sap-sync-scheduler/index.ts`**
+- Add `'grn_item_no', 'grn_date'` to the `allowedColumnsByTable.inward_inspection_lots` Set (line ~748)
+- Add `zeile: 'grn_item_no', bldat: 'grn_date'` to the `aliasMapByTable.inward_inspection_lots` object (line ~774)
 
-**3. `src/pages/InwardMRBDetail.tsx` — Display GRN Item No and GRN Date**
-- Add state for `grnItemNo` and `grnDate`
-- Fetch from `mrb_records` columns first, with fallback to `inward_inspection_lots.grn_item_no` / `grn_date`
-- Display after GRN Number in the material info grid
+Both edge functions will be redeployed after the changes.
 
 ### Files to modify
-1. Database migration (2 tables, 4 new columns)
-2. `src/pages/CreateInwardMRB.tsx`
-3. `src/pages/InwardMRBDetail.tsx`
+1. `supabase/functions/sap-sync/handler.ts`
+2. `supabase/functions/sap-sync-scheduler/index.ts`
+
+No database changes needed — columns already exist from the previous migration.
 
