@@ -71,7 +71,7 @@ export const BASE_COLUMNS: Record<string, Set<string>> = {
     'vendor_code', 'vendor_name', 'storage_location', 'batch',
     'po_number', 'po_item_number', 'transaction_quantity', 'uom',
     'blocked_quantity', 'block_reason', 'inspection_date', 'posting_date',
-    'grn_number', 'status', 'source', 'upload_batch_id', 'uploaded_by',
+    'grn_number', 'grn_item_no', 'grn_date', 'status', 'source', 'upload_batch_id', 'uploaded_by',
     'created_at', 'updated_at',
   ]),
   shop_floor_stock: new Set([
