@@ -734,6 +734,8 @@ export default function InwardReport() {
                             <TableHead className="font-semibold whitespace-nowrap">PO Number</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">PO Item Number</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">GRN Number</TableHead>
+                            <TableHead className="font-semibold whitespace-nowrap">GRN Item No</TableHead>
+                            <TableHead className="font-semibold whitespace-nowrap">GRN Date</TableHead>
                             {extraFields.map((df) => (
                               <TableHead key={df.id} className="font-semibold whitespace-nowrap">
                                 {df.description || df.field_name}
@@ -891,6 +893,12 @@ export default function InwardReport() {
                                 </TableCell>
                                 <TableCell className="font-mono text-sm">
                                   {record.grnNumber || '-'}
+                                </TableCell>
+                                <TableCell className="font-mono text-sm">
+                                  {record.grnItemNo || '-'}
+                                </TableCell>
+                                <TableCell className="font-mono text-sm">
+                                  {record.grnDate || '-'}
                                 </TableCell>
                                 {extraFields.map((df) => (
                                   <TableCell key={df.id} className="text-sm">
