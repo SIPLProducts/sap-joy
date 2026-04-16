@@ -1,30 +1,20 @@
 
 
-## Fix: ZEILE and BLDAT values not persisting during SAP sync
+## Add GRN Item No and GRN Date Columns to Inward Report Table
 
-### Root Cause
-
-Both SAP sync edge functions (`sap-sync/handler.ts` and `sap-sync-scheduler/index.ts`) have two problems preventing ZEILE and BLDAT from being stored:
-
-1. **Missing from allowed columns whitelist** — `grn_item_no` and `grn_date` are not in the `allowedColumnsByTable.inward_inspection_lots` Set, so even when the field mapping resolves correctly, the values are silently dropped at the whitelist check.
-
-2. **Missing from alias map** — `zeile` → `grn_item_no` and `bldat` → `grn_date` are not in the `aliasMapByTable.inward_inspection_lots` dictionary, so even if the user configured `map_to_column` as `grn_item_no`, the SAP key aliases aren't recognized.
+### Problem
+The Inward Report screen (`/inward/report`) table doesn't display "GRN Item No" and "GRN Date" columns. The data is stored in the database and shows in the MRB creation form and detail pages, but the report table is missing these columns.
 
 ### Changes
 
-**1. `supabase/functions/sap-sync/handler.ts`**
-- Add `'grn_item_no', 'grn_date'` to the `allowedColumnsByTable.inward_inspection_lots` Set (line ~1049)
-- Add `zeile: 'grn_item_no', bldat: 'grn_date'` to the `aliasMapByTable.inward_inspection_lots` object (line ~1077)
+**1. `src/pages/InwardReport.tsx`**
+- Add two table headers "GRN Item No" and "GRN Date" after the existing "GRN Number" column (around line 736)
+- Add two table cells to display `record.grnItemNo` and `record.grnDate` after the GRN Number cell (around line 893)
 
-**2. `supabase/functions/sap-sync-scheduler/index.ts`**
-- Add `'grn_item_no', 'grn_date'` to the `allowedColumnsByTable.inward_inspection_lots` Set (line ~748)
-- Add `zeile: 'grn_item_no', bldat: 'grn_date'` to the `aliasMapByTable.inward_inspection_lots` object (line ~774)
-
-Both edge functions will be redeployed after the changes.
+**2. `src/hooks/useDynamicFields.ts`**
+- Add `'grn_item_no'` and `'grn_date'` to the `BASE_COLUMNS.inward_inspection_lots` Set to prevent them from duplicating as dynamic extra fields
 
 ### Files to modify
-1. `supabase/functions/sap-sync/handler.ts`
-2. `supabase/functions/sap-sync-scheduler/index.ts`
-
-No database changes needed — columns already exist from the previous migration.
+1. `src/pages/InwardReport.tsx` — 2 headers + 2 cells
+2. `src/hooks/useDynamicFields.ts` — 2 entries in BASE_COLUMNS
 
