@@ -107,7 +107,13 @@ export default function ShopFloorMRBDetail() {
     );
   }
 
-  const canReview = mrb.pending_with === userRole || userRole === 'admin' || userRole === 'executive';
+  const MASTER_ADMIN_EMAIL = 'masteradmin@sharviinfotech.com';
+  const isMasterAdmin = profile?.email === MASTER_ADMIN_EMAIL;
+  const canReview = !!userRole && (
+    mrb.pending_with === userRole ||
+    userRole === 'admin' ||
+    isMasterAdmin
+  );
 
   const handleOpenApprovalDialog = () => {
     if (!reviewData.action) {
