@@ -328,8 +328,8 @@ export default function MRBCommitteeReview() {
       {/* Header */}
       <div className="flex justify-between items-center mb-2">
         <div className="text-center flex-1">
-          <h1 className="text-base font-bold"><h1 className="text-base font-bold">HBL Engineering Limited</h1></h1>
-          <p className="text-[10px] text-gray-600">Electronics Group</p>
+          <h1 className="text-base font-bold">HBL Engineering Limited</h1>
+          <p className="text-[10px] text-gray-600">Rail Signaling Division</p>
         </div>
         <img src={hblLogo} alt="HBL Logo" className="h-8" />
       </div>

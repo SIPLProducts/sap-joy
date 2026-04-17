@@ -84,7 +84,7 @@ export function usePrintConfig(plant: string) {
         setConfig({
           plant,
           company_name: 'HBL Engineering Limited',
-          division_name: 'Electronics Group',
+          division_name: 'Rail Signaling Division',
           logo_url: null,
           ncr_doc_number: 'HBL/QA/NCR/001',
           ncr_revision: '01',
