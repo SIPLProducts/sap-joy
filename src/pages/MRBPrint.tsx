@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Printer, Download, FileText, ClipboardCheck, Eye, Settings } from 'lucide-react';
+import { Search, Printer, Download, FileText, Eye, Settings } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
 import { PrinterSettingsModal, loadPrinterSettings, type PrinterSettings } from '@/components/print/PrinterSettingsModal';
