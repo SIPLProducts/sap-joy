@@ -185,6 +185,7 @@ export default function ShopFloorMRBDetail() {
             additionalUpdates.pending_with = null;
             additionalUpdates.closure_status = 'closed';
             additionalUpdates.closed_at = new Date().toISOString();
+            additionalUpdates.closed_by = (profile as any)?.user_id || null;
             additionalUpdates.final_decision = action;
             historyAction = 'returned';
           }
