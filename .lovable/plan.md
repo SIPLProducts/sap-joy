@@ -1,21 +1,19 @@
 
 
-User wants: when the LAST routing step's action is "Return to Vendor", the MRB closure_status should be set to "closed" (in addition to status='closed').
+## Uncomment "Pending With" Column in MRB Worklist
 
-Looking at prior changes in `useMRBDatabase.ts` and `InwardMRBDetail.tsx`/`ShopFloorMRBDetail.tsx`, the last-step return-to-vendor path sets `status='closed'` but I need to confirm `closure_status='closed'` and `closed_at`/`closed_by` are also set.
+### Changes needed in `src/pages/Worklist.tsx`:
 
-## Plan
+1. **Uncomment header column** (line 1000):
+   - Change `{/* <th>Pending With</th> */}` to active `<th>Pending With</th>`
 
-Update the last-step `return_to_vendor` branch in both detail pages to also pass:
-- `closure_status: 'closed'`
-- `closed_at: new Date().toISOString()`
-- `closed_by: user.id`
-- `final_decision: 'returned_to_vendor'`
+2. **Add data cell** after line 1084 (after the "Pending With column hidden per requirement" comment):
+   - Insert `<td>` that displays `mrb.pendingWith` using `roleDisplayNames` for formatting
+   - Show "-" when null
 
-### Files to update
-1. `src/pages/InwardMRBDetail.tsx` — in the last-step `return_to_vendor` branch, include closure fields in `additionalUpdates`.
-2. `src/pages/ShopFloorMRBDetail.tsx` — same change.
+3. **Update colSpan** (line 1010):
+   - Change from `colSpan={22}` to `colSpan={19}` (accounting for the now-visible Pending With column)
 
 ### Result
-When the final routing department selects "Return to Vendor", the MRB is finalized with `status='closed'` AND `closure_status='closed'`, so it appears as Closed everywhere in the UI (Worklist, Dashboards, Pending Actions).
+The "Pending With" column will display in the MRB worklist table showing which department/role the MRB is currently waiting on.
 
