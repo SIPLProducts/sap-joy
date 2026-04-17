@@ -334,10 +334,9 @@ export default function RoleMatrix() {
                             key={screen.key}
                             className={`
                               flex items-center justify-between px-4 py-3 
-                              hover:bg-muted/20 transition-colors cursor-pointer
+                              hover:bg-muted/20 transition-colors
                               ${idx < groupScreens.length - 1 ? 'border-b border-border/50' : ''}
                             `}
-                            onClick={() => togglePermission(selectedRole, screen.key)}
                           >
                             <div className="flex items-center gap-3">
                               <div className={`
