@@ -36,7 +36,7 @@ export default function ShopFloorMRBDetail() {
   const { getMRBById, updateMRBStatus, getApprovalHistory } = useMRBDatabase();
   const { currentRole, canEdit } = useRole();
   const { userRole, profile } = useAuth();
-  const { roleDisplayNames } = useDepartmentMap();
+  const { roleDisplayNames, deptToStatus, deptToRole } = useDepartmentMap();
   
   const [mrb, setMRB] = useState<MRBRecord | null>(null);
   const [approvalHistory, setApprovalHistory] = useState<ApprovalHistory[]>([]);
@@ -107,7 +107,13 @@ export default function ShopFloorMRBDetail() {
     );
   }
 
-  const canReview = mrb.pending_with === userRole || userRole === 'admin' || userRole === 'executive';
+  const MASTER_ADMIN_EMAIL = 'masteradmin@sharviinfotech.com';
+  const isMasterAdmin = profile?.email === MASTER_ADMIN_EMAIL;
+  const canReview = !!userRole && (
+    mrb.pending_with === userRole ||
+    userRole === 'admin' ||
+    isMasterAdmin
+  );
 
   const handleOpenApprovalDialog = () => {
     if (!reviewData.action) {
@@ -139,44 +145,47 @@ export default function ShopFloorMRBDetail() {
     try {
       let newStatus: MRBStatus = mrb.status;
       let additionalUpdates: Partial<MRBRecord> = {};
-      
-      // Determine next status based on action and forward settings
+      const workflowRouting = Array.isArray(mrb.workflow_routing) ? (mrb.workflow_routing as string[]) : [];
+
+      const isApprovalAction = reviewData.action === 'approve' || reviewData.action === 'approve_with_deviation' || reviewData.action === 'use_as_is';
+      const isReturnAction = reviewData.action === 'return_for_clarification' || reviewData.action === 'rework_required' || reviewData.action === 'scrap_material';
+
       if (reviewData.forwardToNext && reviewData.nextDepartments.length > 0) {
         const firstDept = reviewData.nextDepartments[0];
-        switch (firstDept) {
-          case 'engineering':
-            newStatus = 'engineering_review';
-            break;
-          case 'purchase':
-            newStatus = 'purchase_review';
-            break;
-          case 'plant_head':
-            newStatus = 'final_approval';
-            break;
-          default:
-            newStatus = 'quality_review';
-        }
-      } else if (reviewData.action === 'approve' || reviewData.action === 'approve_with_deviation' || reviewData.action === 'rework_required') {
-        newStatus = 'final_approval';
-      }
-      
-      // Set additional updates based on current stage
-      if (userRole?.includes('quality')) {
-        additionalUpdates = { quality_remarks: reviewData.reviewComments };
-      } else if (userRole?.includes('purchase')) {
-        additionalUpdates = { purchase_remarks: reviewData.reviewComments };
-      } else if (userRole?.includes('engineering')) {
-        additionalUpdates = { engineering_remarks: reviewData.reviewComments };
-      } else if (userRole === 'executive' || userRole === 'admin') {
-        additionalUpdates = { 
-          final_remarks: reviewData.reviewComments,
-          final_decision: reviewData.action === 'approve' ? 'approved' : reviewData.action,
-        };
-        if (reviewData.action === 'approve') {
-          newStatus = 'approved';
-          additionalUpdates.closure_status = 'completed';
+        newStatus = (deptToStatus[firstDept] as MRBStatus) || 'quality_review';
+        additionalUpdates.pending_with = deptToRole[firstDept] || firstDept;
+      } else if (isApprovalAction) {
+        // Approval at any step → final approval, ready for SAP sync, skip remaining routing.
+        newStatus = 'approved';
+        additionalUpdates.pending_with = null;
+        additionalUpdates.final_decision = reviewData.action === 'approve' ? 'approved' : reviewData.action;
+        additionalUpdates.final_approved_by = (profile as any)?.user_id || null;
+        additionalUpdates.final_approved_at = new Date().toISOString();
+      } else if (isReturnAction) {
+        const currentIdx = workflowRouting.findIndex(d => d === userRole || deptToRole[d] === userRole);
+        const isLastStep = currentIdx >= 0 && currentIdx === workflowRouting.length - 1;
+        if (isLastStep || workflowRouting.length === 0) {
+          newStatus = 'closed';
+          additionalUpdates.pending_with = null;
+          additionalUpdates.closure_status = 'closed';
           additionalUpdates.closed_at = new Date().toISOString();
+          additionalUpdates.final_decision = reviewData.action;
+        } else {
+          const nextDept = workflowRouting[currentIdx + 1];
+          newStatus = (deptToStatus[nextDept] as MRBStatus) || 'quality_review';
+          additionalUpdates.pending_with = deptToRole[nextDept] || nextDept;
         }
+      }
+
+      // Department-specific remarks
+      if (userRole?.includes('quality')) {
+        additionalUpdates.quality_remarks = reviewData.reviewComments;
+      } else if (userRole?.includes('purchase')) {
+        additionalUpdates.purchase_remarks = reviewData.reviewComments;
+      } else if (userRole?.includes('engineering')) {
+        additionalUpdates.engineering_remarks = reviewData.reviewComments;
+      } else if (userRole === 'executive') {
+        additionalUpdates.final_remarks = reviewData.reviewComments;
       }
       
       const actionLabel = getActionLabel(reviewData.action);
@@ -272,6 +281,8 @@ export default function ShopFloorMRBDetail() {
           currentStatus={mrb.status} 
           pendingWith={mrb.pending_with}
           workflowRouting={Array.isArray(mrb.workflow_routing) ? (mrb.workflow_routing as string[]) : undefined}
+          approvalHistory={approvalHistory.map(h => ({ performed_by_role: h.performed_by_role, action: h.action }))}
+          sapSyncStatus={mrb.sap_stock_update_status}
         />
 
         {/* Material & Stock Information */}
@@ -314,7 +325,7 @@ export default function ShopFloorMRBDetail() {
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Pending With</Label>
-                <p className="font-medium">{mrb.pending_with ? getRoleDisplayName(mrb.pending_with as any) : 'N/A'}</p>
+                <p className="font-medium">{mrb.pending_with ? (roleDisplayNames[mrb.pending_with] || getRoleDisplayName(mrb.pending_with as any)) : 'N/A'}</p>
               </div>
             </div>
           </CardContent>
@@ -435,7 +446,7 @@ export default function ShopFloorMRBDetail() {
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
                         by <span className="font-medium text-foreground">{(item as any).performer_name || 'Unknown'}</span>
-                        {' '}({getRoleDisplayName(item.performed_by_role as any)})
+                        {' '}({roleDisplayNames[item.performed_by_role] || getRoleDisplayName(item.performed_by_role as any)})
                         {' • '}{formatDate(item.performed_at)}
                       </p>
                       {item.remarks && (
@@ -456,7 +467,7 @@ export default function ShopFloorMRBDetail() {
             <Card className="border-border shadow-sm border-primary/20">
               <CardHeader className="border-b border-border bg-primary/5 py-3">
                 <CardTitle className="text-base font-semibold">
-                  Your Review ({getRoleDisplayName((userRole || 'quality') as any)})
+                  Your Review ({roleDisplayNames[userRole || ''] || getRoleDisplayName((userRole || 'quality') as any)})
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-6">

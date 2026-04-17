@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2, Circle, Clock, XCircle, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, XCircle, ArrowRight, Award } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useDepartmentMap } from '@/hooks/useDepartmentMap';
 import type { Database } from '@/integrations/supabase/types';
 
 type MRBStatus = Database['public']['Enums']['mrb_status'];
-type AppRole = string;
+
+interface ApprovalHistoryEntry {
+  performed_by_role: string;
+  action: string;
+}
 
 interface WorkflowStep {
   id: string;
@@ -21,6 +25,8 @@ interface WorkflowProgressIndicatorProps {
   pendingWith?: string | null;
   plant?: string;
   workflowRouting?: string[] | null;
+  approvalHistory?: ApprovalHistoryEntry[];
+  sapSyncStatus?: string | null;
   className?: string;
 }
 
@@ -29,6 +35,8 @@ export function WorkflowProgressIndicator({
   pendingWith,
   plant = '1300',
   workflowRouting,
+  approvalHistory = [],
+  sapSyncStatus,
   className 
 }: WorkflowProgressIndicatorProps) {
   const [dynamicSteps, setDynamicSteps] = useState<WorkflowStep[]>([]);
@@ -38,7 +46,6 @@ export function WorkflowProgressIndicator({
   useEffect(() => {
     if (deptLoading) return;
 
-    // If workflowRouting is provided, build steps from it
     if (workflowRouting && workflowRouting.length > 0) {
       const steps: WorkflowStep[] = workflowRouting.map(dept => {
         const label = roleDisplayNames[dept] || dept.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -50,7 +57,6 @@ export function WorkflowProgressIndicator({
           statuses: [(deptToStatus[dept] || 'quality_review') as MRBStatus],
         };
       });
-      // Add completed step
       steps.push({
         id: 'completed',
         label: 'Completed',
@@ -63,7 +69,6 @@ export function WorkflowProgressIndicator({
       return;
     }
 
-    // Fallback: fetch from plant_workflow_config
     const fetchWorkflow = async () => {
       const { data } = await supabase
         .from('plant_workflow_config')
@@ -106,13 +111,28 @@ export function WorkflowProgressIndicator({
 
   const workflowSteps = dynamicSteps;
 
+  // Determine which step contains the approval action
+  const approverIdx = (() => {
+    if (!approvalHistory || approvalHistory.length === 0) return -1;
+    for (let i = workflowSteps.length - 1; i >= 0; i--) {
+      const step = workflowSteps[i];
+      if (step.id === 'completed') continue;
+      const matched = approvalHistory.find(
+        h => h.performed_by_role === step.id && (h.action === 'approve' || h.action === 'approved')
+      );
+      if (matched) return i;
+    }
+    return -1;
+  })();
+
+  // Set of role keys that participated (took any action)
+  const participatedRoles = new Set(approvalHistory.map(h => h.performed_by_role));
+
   const getCurrentStepIndex = () => {
-    // If we have pendingWith, match against routing entries
     if (pendingWith && workflowRouting && workflowRouting.length > 0) {
       const idx = workflowSteps.findIndex(step => step.id === pendingWith);
       if (idx !== -1) return idx;
     }
-    // Fallback: match by status
     const statusToCheck = currentStatus === 'draft' ? 'quality_review' : currentStatus;
     return workflowSteps.findIndex(step => step.statuses.includes(statusToCheck as MRBStatus));
   };
@@ -120,26 +140,43 @@ export function WorkflowProgressIndicator({
   const currentStepIndex = getCurrentStepIndex();
   const isCompleted = ['approved', 'rejected', 'closed'].includes(currentStatus);
   const isRejected = currentStatus === 'rejected';
+  const isSapSynced = sapSyncStatus === 'synced' || sapSyncStatus === 'success';
+  const isFullyDone = isCompleted && (currentStatus !== 'approved' || isSapSynced);
 
-  const getStepStatus = (stepIndex: number): 'completed' | 'current' | 'pending' => {
-    if (stepIndex < currentStepIndex) return 'completed';
-    if (stepIndex === currentStepIndex) return 'current';
+  // Per-step state for color coding
+  const getStepState = (idx: number): 'approved' | 'participated' | 'current' | 'skipped' | 'pending' => {
+    const step = workflowSteps[idx];
+    if (step.id === 'completed') {
+      return isFullyDone ? 'approved' : (isCompleted ? 'participated' : 'pending');
+    }
+    // If there's an approver step, anything after it (and not the completed node) is skipped
+    if (approverIdx >= 0) {
+      if (idx === approverIdx) return 'approved';
+      if (idx < approverIdx) return participatedRoles.has(step.id) ? 'participated' : 'participated';
+      // idx > approverIdx (and not completed)
+      return 'skipped';
+    }
+    if (participatedRoles.has(step.id)) return 'participated';
+    if (idx === currentStepIndex && !isCompleted) return 'current';
+    if (idx < currentStepIndex) return 'participated';
     return 'pending';
   };
 
-  // Dynamic status text based on current step
   const getStatusDetails = () => {
     if (isCompleted) {
-      if (currentStatus === 'approved') return { text: 'Approved & Completed', color: 'text-green-600' };
+      if (currentStatus === 'approved') {
+        return isSapSynced
+          ? { text: 'Approved & SAP Synced', color: 'text-green-600' }
+          : { text: 'Approved — Pending SAP Sync', color: 'text-amber-600' };
+      }
       if (currentStatus === 'rejected') return { text: 'Rejected', color: 'text-red-600' };
       return { text: 'Closed', color: 'text-muted-foreground' };
     }
-    // Find current step and use its label
     if (currentStepIndex >= 0 && currentStepIndex < workflowSteps.length) {
       const step = workflowSteps[currentStepIndex];
       return { text: `Awaiting ${step.label}`, color: 'text-amber-600' };
     }
-    return { text: 'Unknown Status', color: 'text-muted-foreground' };
+    return { text: 'In Progress', color: 'text-muted-foreground' };
   };
 
   const statusDetails = getStatusDetails();
@@ -147,6 +184,12 @@ export function WorkflowProgressIndicator({
   if (!loaded || workflowSteps.length === 0) {
     return <div className="p-4 text-sm text-muted-foreground">Loading workflow...</div>;
   }
+
+  // Progress line width — fills up to approver (if any) or current step
+  const progressEnd = approverIdx >= 0 ? approverIdx : currentStepIndex;
+  const progressWidth = workflowSteps.length > 1
+    ? `${Math.max(0, (progressEnd / (workflowSteps.length - 1)) * 100)}%`
+    : '0%';
 
   return (
     <div className={cn("bg-background rounded-lg border border-border p-4", className)}>
@@ -179,18 +222,15 @@ export function WorkflowProgressIndicator({
         <div 
           className={cn(
             "absolute top-5 left-0 h-0.5 transition-all duration-500",
-            isRejected ? "bg-red-500" : "bg-primary"
+            isRejected ? "bg-red-500" : isFullyDone ? "bg-green-600" : "bg-primary"
           )}
-          style={{ 
-            width: `${Math.max(0, (currentStepIndex / (workflowSteps.length - 1)) * 100)}%` 
-          }}
+          style={{ width: progressWidth }}
         />
 
         <div className="relative flex justify-between">
           {workflowSteps.map((step, index) => {
-            const stepStatus = getStepStatus(index);
-            const isActive = stepStatus === 'current';
-            const isDone = stepStatus === 'completed';
+            const state = getStepState(index);
+            const isApprover = state === 'approved' && step.id !== 'completed';
 
             return (
               <div 
@@ -201,20 +241,32 @@ export function WorkflowProgressIndicator({
                 <div 
                   className={cn(
                     "relative z-10 flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-300",
-                    isDone && "bg-primary border-primary",
-                    isActive && !isRejected && "bg-primary/10 border-primary ring-4 ring-primary/20",
-                    isActive && isRejected && "bg-red-100 border-red-500 ring-4 ring-red-200",
-                    stepStatus === 'pending' && "bg-background border-border"
+                    state === 'approved' && "bg-green-600 border-green-600",
+                    state === 'participated' && "bg-blue-500 border-blue-500",
+                    state === 'current' && !isRejected && "bg-primary/10 border-primary ring-4 ring-primary/20",
+                    state === 'current' && isRejected && "bg-red-100 border-red-500 ring-4 ring-red-200",
+                    state === 'skipped' && "bg-muted border-muted-foreground/30",
+                    state === 'pending' && "bg-background border-border"
                   )}
+                  title={
+                    state === 'approved' ? 'Approved here' :
+                    state === 'participated' ? 'Participated' :
+                    state === 'skipped' ? 'Skipped (approved earlier)' :
+                    state === 'current' ? 'Current step' : 'Pending'
+                  }
                 >
-                  {isDone ? (
-                    <CheckCircle2 className="h-5 w-5 text-primary-foreground" />
-                  ) : isActive ? (
+                  {state === 'approved' ? (
+                    isApprover ? <Award className="h-5 w-5 text-white" /> : <CheckCircle2 className="h-5 w-5 text-white" />
+                  ) : state === 'participated' ? (
+                    <CheckCircle2 className="h-5 w-5 text-white" />
+                  ) : state === 'current' ? (
                     isRejected ? (
                       <XCircle className="h-5 w-5 text-red-600" />
                     ) : (
                       <div className="w-3 h-3 bg-primary rounded-full animate-pulse" />
                     )
+                  ) : state === 'skipped' ? (
+                    <Circle className="h-5 w-5 text-muted-foreground/40" />
                   ) : (
                     <Circle className="h-5 w-5 text-muted-foreground/50" />
                   )}
@@ -223,14 +275,19 @@ export function WorkflowProgressIndicator({
                 <div className="mt-2 text-center">
                   <p className={cn(
                     "text-xs font-medium transition-colors",
-                    isDone && "text-primary",
-                    isActive && !isRejected && "text-primary",
-                    isActive && isRejected && "text-red-600",
-                    stepStatus === 'pending' && "text-muted-foreground"
+                    state === 'approved' && "text-green-700",
+                    state === 'participated' && "text-blue-700",
+                    state === 'current' && !isRejected && "text-primary",
+                    state === 'current' && isRejected && "text-red-600",
+                    state === 'skipped' && "text-muted-foreground/70 line-through",
+                    state === 'pending' && "text-muted-foreground"
                   )}>
                     <span className="hidden sm:inline">{step.label}</span>
                     <span className="sm:hidden">{step.shortLabel}</span>
                   </p>
+                  {isApprover && (
+                    <p className="text-[10px] text-green-700 font-semibold mt-0.5">Approved here</p>
+                  )}
                 </div>
               </div>
             );
@@ -238,16 +295,13 @@ export function WorkflowProgressIndicator({
         </div>
       </div>
 
-      {/* Dynamic Workflow Path */}
-      <div className="mt-4 pt-3 border-t border-border">
-        <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground flex-wrap">
-          {workflowSteps.map((step, i, arr) => (
-            <span key={step.id} className="flex items-center gap-1">
-              <span>{step.shortLabel}</span>
-              {i < arr.length - 1 && <ArrowRight className="h-3 w-3" />}
-            </span>
-          ))}
-        </div>
+      {/* Legend */}
+      <div className="mt-4 pt-3 border-t border-border flex items-center justify-center gap-4 text-[10px] text-muted-foreground flex-wrap">
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-green-600" /> Approved</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Participated</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-primary/40 ring-2 ring-primary/20" /> Current</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-muted border border-muted-foreground/30" /> Skipped</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-background border border-border" /> Pending</span>
       </div>
     </div>
   );

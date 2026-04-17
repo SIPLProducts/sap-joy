@@ -94,7 +94,9 @@ export default function MRBCommitteeReview() {
     loadData();
   }, [id, getMRBById, getApprovalHistory]);
 
-  const canReview = userRole === 'mrb_committee' || userRole === 'admin' || userRole === 'executive';
+  const MASTER_ADMIN_EMAIL = 'masteradmin@sharviinfotech.com';
+  const isMasterAdmin = profile?.email === MASTER_ADMIN_EMAIL;
+  const canReview = userRole === 'mrb_committee' || userRole === 'admin' || isMasterAdmin;
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
@@ -152,19 +154,20 @@ export default function MRBCommitteeReview() {
     
     try {
       let newStatus: MRBStatus = 'final_approval';
-      
+
       const additionalUpdates: Partial<MRBRecord> = {
         mrb_committee_decision: reviewData.decision,
         mrb_committee_remarks: reviewData.remarks,
         mrb_committee_approved_by: profile?.full_name || profile?.email || 'Unknown',
         mrb_committee_approved_at: new Date().toISOString(),
       };
-      
-      if (reviewData.decision === 'approve') {
+
+      if (reviewData.decision === 'approve' || reviewData.decision === 'approved' || reviewData.decision === 'accept') {
+        // Approve at any step → final approval, ready for SAP sync. No closure until SAP sync completes.
         newStatus = 'approved';
+        additionalUpdates.pending_with = null;
         additionalUpdates.final_decision = 'approved';
-        additionalUpdates.closure_status = 'completed';
-        additionalUpdates.closed_at = new Date().toISOString();
+        additionalUpdates.final_approved_at = new Date().toISOString();
       }
       
       const success = await updateMRBStatus(
