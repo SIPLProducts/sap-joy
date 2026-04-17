@@ -997,7 +997,7 @@ export default function Worklist() {
                   {/* <th className="h-12 px-3 text-center align-middle font-medium text-muted-foreground whitespace-nowrap bg-amber-50/50">Engg. Review</th> */}
                   {/* <th className="h-12 px-3 text-center align-middle font-medium text-muted-foreground whitespace-nowrap bg-green-50/50">Final Approval</th> */}
                   {/* Status Columns */}
-                  {/* <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Pending With</th> */}
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Pending With</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">SLA</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Escalation</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Closure</th>
@@ -1007,7 +1007,7 @@ export default function Worklist() {
               <tbody className="[&_tr:last-child]:border-0">
                 {sortedRecords.length === 0 ? (
                   <tr className="border-b">
-                    <td colSpan={22} className="p-4 text-center py-12 text-muted-foreground">
+                    <td colSpan={19} className="p-4 text-center py-12 text-muted-foreground">
                       No MRB records found matching your criteria
                     </td>
                   </tr>
@@ -1080,7 +1080,9 @@ export default function Worklist() {
                       {/* <td className="p-3 align-middle bg-amber-50/30 min-w-[150px]">...Engg...</td> */}
                       {/* <td className="p-3 align-middle bg-green-50/30 min-w-[150px]">...Final...</td> */}
                       {/* Status Columns */}
-                      {/* Pending With column hidden per requirement */}
+                      <td className="p-3 align-middle whitespace-nowrap">
+                        {mrb.pendingWith ? (roleDisplayNames[mrb.pendingWith as keyof typeof roleDisplayNames] || mrb.pendingWith) : '-'}
+                      </td>
                       <td className="p-3 align-middle">
                         {mrb.slaStatus ? (
                           <Badge className={getSLAColor(mrb.slaStatus as any)}>
