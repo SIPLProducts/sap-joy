@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { getStatusDisplayName, getStatusColor, getSLAColor, getRoleDisplayName } from '@/data/mockData';
+import { useDepartmentMap } from '@/hooks/useDepartmentMap';
 import { useToast } from '@/hooks/use-toast';
 import { WorkflowProgressIndicator } from '@/components/mrb/WorkflowProgressIndicator';
 import type { Database as DB } from '@/integrations/supabase/types';
@@ -28,6 +29,7 @@ export default function MRBDetail() {
   const { canEdit } = useRole();
   const { userRole, profile } = useAuth();
   const { toast } = useToast();
+  const { roleDisplayNames } = useDepartmentMap();
 
   const [mrb, setMRB] = useState<MRBRecord | null>(null);
   const [approvalHistory, setApprovalHistory] = useState<ApprovalHistory[]>([]);
@@ -258,6 +260,8 @@ export default function MRBDetail() {
           currentStatus={mrb.status} 
           pendingWith={mrb.pending_with}
           workflowRouting={Array.isArray(mrb.workflow_routing) ? (mrb.workflow_routing as string[]) : undefined}
+          approvalHistory={approvalHistory.map(h => ({ performed_by_role: h.performed_by_role, action: h.action }))}
+          sapSyncStatus={mrb.sap_stock_update_status}
         />
 
         <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
@@ -266,7 +270,7 @@ export default function MRBDetail() {
           <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Plant</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.plant}</p></CardContent></Card>
           <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Batch No.</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.batch || 'N/A'}</p></CardContent></Card>
           <Card><CardHeader className="pb-2"><CardTitle className="text-sm">PO / Line Item</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.po_number || 'N/A'}{poItemNumber ? ` / ${poItemNumber}` : ''}</p></CardContent></Card>
-          <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Pending With</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.pending_with ? getRoleDisplayName(mrb.pending_with as any) : 'N/A'}</p></CardContent></Card>
+          <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Pending With</CardTitle></CardHeader><CardContent><p className="font-medium">{mrb.pending_with ? (roleDisplayNames[mrb.pending_with] || getRoleDisplayName(mrb.pending_with as any)) : 'N/A'}</p></CardContent></Card>
         </div>
 
         <Tabs defaultValue="quality" className="w-full">
@@ -477,7 +481,7 @@ export default function MRBDetail() {
                               {item.action}
                             </Badge>
                             <Badge variant="secondary" className="text-xs">
-                              {getRoleDisplayName(item.performed_by_role as any)}
+                              {roleDisplayNames[item.performed_by_role] || getRoleDisplayName(item.performed_by_role as any)}
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground">
