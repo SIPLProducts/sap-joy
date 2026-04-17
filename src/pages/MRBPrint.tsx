@@ -658,46 +658,38 @@ const MRBPrint = () => {
             <CardTitle>Print Forms - {selectedMRB.mrb_number}</CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs value={activeForm} onValueChange={(v) => setActiveForm(v as 'ncr' | 'mrb')}>
-              <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-                <TabsList>
-                  <TabsTrigger value="ncr" className="flex items-center gap-1.5 text-xs sm:text-sm">
-                    <FileText className="h-3.5 w-3.5" />
-                    NCR Report
-                  </TabsTrigger>
-                  <TabsTrigger value="mrb" className="flex items-center gap-1.5 text-xs sm:text-sm">
-                    <ClipboardCheck className="h-3.5 w-3.5" />
-                    MRB Form
-                  </TabsTrigger>
-                </TabsList>
-
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <Button onClick={() => handlePreview(activeForm)} variant="outline" size="sm" className="gap-1.5">
-                    <Eye className="h-3.5 w-3.5" />
-                    Preview
-                  </Button>
-                  <Button onClick={() => setShowSettings(true)} variant="outline" size="sm" className="h-8 w-8 p-0" title="Printer Settings">
-                    <Settings className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button onClick={() => handlePrint(activeForm, printerSettings.orientation)} size="sm" className="gap-1.5">
-                    <Printer className="h-3.5 w-3.5" />
-                    Print
-                  </Button>
-                  <Button onClick={() => handleDownloadPDF(activeForm, printerSettings.orientation)} variant="secondary" size="sm" className="gap-1.5">
-                    <Download className="h-3.5 w-3.5" />
-                    PDF
-                  </Button>
-                </div>
+            <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Format:</span>
+                <Badge variant="secondary">{formLabel}</Badge>
+                <span className="text-xs text-muted-foreground">
+                  (auto-selected from MRB source: {selectedMRB.source === 'shop_floor' ? 'Shop Floor' : 'Inward'})
+                </span>
               </div>
 
-              <TabsContent value="ncr" className="overflow-auto rounded-lg border bg-card p-4 sm:p-8">
-                <NCRReport />
-              </TabsContent>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Button onClick={handlePreview} variant="outline" size="sm" className="gap-1.5">
+                  <Eye className="h-3.5 w-3.5" />
+                  Preview
+                </Button>
+                <Button onClick={() => setShowSettings(true)} variant="outline" size="sm" className="h-8 w-8 p-0" title="Printer Settings">
+                  <Settings className="h-3.5 w-3.5" />
+                </Button>
+                <Button onClick={() => handlePrint(printerSettings.orientation)} size="sm" className="gap-1.5">
+                  <Printer className="h-3.5 w-3.5" />
+                  Print
+                </Button>
+                <Button onClick={() => handleDownloadPDF(printerSettings.orientation)} variant="secondary" size="sm" className="gap-1.5">
+                  <Download className="h-3.5 w-3.5" />
+                  PDF
+                </Button>
+              </div>
+            </div>
 
-              <TabsContent value="mrb" className="overflow-auto rounded-lg border bg-card p-4 sm:p-8">
-                <MRBCommitteeForm />
-              </TabsContent>
-            </Tabs>
+            <div className="overflow-auto rounded-lg border bg-card p-4 sm:p-8">
+              {formType === 'shop_floor_ncr' ? <ShopFloorNCRReport /> : <InwardNCRReport />}
+            </div>
           </CardContent>
         </Card>
       ) : (
@@ -723,11 +715,11 @@ const MRBPrint = () => {
         title={previewTitle}
         orientation={printerSettings.orientation}
         onPrint={() => {
-          handlePrint(activeForm, printerSettings.orientation);
+          handlePrint(printerSettings.orientation);
           setShowPreview(false);
         }}
         onDownloadPDF={() => {
-          handleDownloadPDF(activeForm, printerSettings.orientation);
+          handleDownloadPDF(printerSettings.orientation);
           setShowPreview(false);
         }}
       />
