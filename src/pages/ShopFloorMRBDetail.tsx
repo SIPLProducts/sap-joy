@@ -36,7 +36,7 @@ export default function ShopFloorMRBDetail() {
   const { getMRBById, updateMRBStatus, getApprovalHistory } = useMRBDatabase();
   const { currentRole, canEdit } = useRole();
   const { userRole, profile } = useAuth();
-  const { roleDisplayNames, deptToStatus, deptToRole } = useDepartmentMap();
+  const { roleDisplayNames, deptToStatus, deptToRole, roleToDept } = useDepartmentMap();
   
   const [mrb, setMRB] = useState<MRBRecord | null>(null);
   const [approvalHistory, setApprovalHistory] = useState<ApprovalHistory[]>([]);
@@ -139,41 +139,60 @@ export default function ShopFloorMRBDetail() {
 
   const handleSubmitReview = async () => {
     if (!mrb) return;
-    
+
     setIsSubmitting(true);
-    
+
     try {
-      let newStatus: MRBStatus = mrb.status;
-      let additionalUpdates: Partial<MRBRecord> = {};
+      const action = reviewData.action;
       const workflowRouting = Array.isArray(mrb.workflow_routing) ? (mrb.workflow_routing as string[]) : [];
 
-      const isApprovalAction = reviewData.action === 'approve' || reviewData.action === 'approve_with_deviation' || reviewData.action === 'use_as_is';
-      const isReturnAction = reviewData.action === 'return_for_clarification' || reviewData.action === 'rework_required' || reviewData.action === 'scrap_material';
+      const currentDept = (userRole && (roleToDept[userRole] || userRole)) || '';
+      const currentIdx = workflowRouting.findIndex(
+        (d) => d === currentDept || d === userRole || deptToRole[d] === userRole
+      );
+      const isLastStep = workflowRouting.length === 0 || currentIdx === workflowRouting.length - 1;
 
-      if (reviewData.forwardToNext && reviewData.nextDepartments.length > 0) {
-        const firstDept = reviewData.nextDepartments[0];
-        newStatus = (deptToStatus[firstDept] as MRBStatus) || 'quality_review';
-        additionalUpdates.pending_with = deptToRole[firstDept] || firstDept;
-      } else if (isApprovalAction) {
-        // Approval at any step → final approval, ready for SAP sync, skip remaining routing.
+      let newStatus: MRBStatus = mrb.status;
+      let additionalUpdates: Partial<MRBRecord> = {};
+      let historyAction: 'approved' | 'forwarded' | 'returned' | 'returned_for_clarification' = 'forwarded';
+
+      if (action === 'approve' || action === 'use_as_is') {
         newStatus = 'approved';
         additionalUpdates.pending_with = null;
-        additionalUpdates.final_decision = reviewData.action === 'approve' ? 'approved' : reviewData.action;
+        additionalUpdates.final_decision = action === 'approve' ? 'approved' : action;
         additionalUpdates.final_approved_by = (profile as any)?.user_id || null;
         additionalUpdates.final_approved_at = new Date().toISOString();
-      } else if (isReturnAction) {
-        const currentIdx = workflowRouting.findIndex(d => d === userRole || deptToRole[d] === userRole);
-        const isLastStep = currentIdx >= 0 && currentIdx === workflowRouting.length - 1;
-        if (isLastStep || workflowRouting.length === 0) {
-          newStatus = 'closed';
-          additionalUpdates.pending_with = null;
-          additionalUpdates.closure_status = 'closed';
-          additionalUpdates.closed_at = new Date().toISOString();
-          additionalUpdates.final_decision = reviewData.action;
+        historyAction = 'approved';
+      } else if (action === 'return_for_clarification') {
+        newStatus = mrb.status;
+        additionalUpdates.pending_with = mrb.pending_with;
+        historyAction = 'returned_for_clarification';
+      } else if (
+        action === 'approve_with_deviation' ||
+        action === 'rework_required' ||
+        action === 'scrap_material'
+      ) {
+        if (isLastStep) {
+          if (action === 'approve_with_deviation') {
+            newStatus = 'approved';
+            additionalUpdates.pending_with = null;
+            additionalUpdates.final_decision = 'approved_with_deviation';
+            additionalUpdates.final_approved_by = (profile as any)?.user_id || null;
+            additionalUpdates.final_approved_at = new Date().toISOString();
+            historyAction = 'approved';
+          } else {
+            newStatus = 'closed';
+            additionalUpdates.pending_with = null;
+            additionalUpdates.closure_status = 'closed';
+            additionalUpdates.closed_at = new Date().toISOString();
+            additionalUpdates.final_decision = action;
+            historyAction = 'returned';
+          }
         } else {
           const nextDept = workflowRouting[currentIdx + 1];
           newStatus = (deptToStatus[nextDept] as MRBStatus) || 'quality_review';
           additionalUpdates.pending_with = deptToRole[nextDept] || nextDept;
+          historyAction = action === 'approve_with_deviation' ? 'forwarded' : 'returned';
         }
       }
 
@@ -187,12 +206,12 @@ export default function ShopFloorMRBDetail() {
       } else if (userRole === 'executive') {
         additionalUpdates.final_remarks = reviewData.reviewComments;
       }
-      
-      const actionLabel = getActionLabel(reviewData.action);
+
+      const actionLabel = getActionLabel(action);
       const success = await updateMRBStatus(
         mrb.id,
         newStatus,
-        reviewData.action === 'approve' || reviewData.action === 'approve_with_deviation' ? 'approved' : 'forwarded',
+        historyAction,
         `${actionLabel}: ${reviewData.reviewComments || 'No comments'}`,
         additionalUpdates as any
       );

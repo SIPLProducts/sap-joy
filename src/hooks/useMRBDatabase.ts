@@ -161,6 +161,27 @@ export function useMRBDatabase() {
         .single();
 
       const currentStage = currentMRB?.status || 'quality_review';
+
+      // SPECIAL CASE: Return for clarification — do NOT mutate status/pending_with.
+      // Only log history + send notification.
+      if (action === 'returned_for_clarification') {
+        await supabase.from('mrb_approval_history').insert({
+          mrb_id: id,
+          stage: getStageFromStatus(currentStage as MRBStatus),
+          action: action,
+          performed_by: user?.id || '',
+          performed_by_role: userRole || 'quality',
+          remarks: remarks,
+        });
+
+        supabase.functions.invoke('send-mrb-email', {
+          body: { mrb_id: id, event_type: 'mrb_returned_for_clarification', triggered_by: user?.id },
+        }).catch(err => console.error('Email trigger failed:', err));
+
+        await fetchMRBRecords();
+        return true;
+      }
+
       const workflowRouting = (currentMRB as any)?.workflow_routing as string[] | null;
 
       // If the action is 'approved' (not reject) and there's a workflow_routing,
@@ -177,7 +198,6 @@ export function useMRBDatabase() {
         newStatus !== 'closed'
       ) {
         const currentRole = currentMRB?.pending_with || userRole || 'quality';
-        // Fetch dynamic department maps for workflow resolution
         const deptMaps = await fetchDepartmentMaps();
         const nextStep = getNextWorkflowStep(workflowRouting, currentRole, deptMaps);
 
@@ -198,51 +218,59 @@ export function useMRBDatabase() {
         ...additionalUpdates,
       };
 
-      // Set pending_with — prefer the routing-derived value, fallback to status-based
-      if (effectivePendingWith !== null) {
-        updates.pending_with = effectivePendingWith;
-      } else {
-        const statusToPendingWith: Record<MRBStatus, AppRole | null> = {
-          draft: null,
-          quality_review: 'quality',
-          purchase_review: 'purchase',
-          engineering_review: 'engineering',
-          final_approval: 'executive',
-          approved: null,
-          rejected: null,
-          closed: null,
-        };
-        if (statusToPendingWith[effectiveStatus] !== undefined) {
-          updates.pending_with = statusToPendingWith[effectiveStatus];
+      // pending_with precedence:
+      // 1. If caller explicitly passed pending_with in additionalUpdates → respect it.
+      // 2. Else if routing-derived value exists → use it.
+      // 3. Else fall back to status-based default.
+      const callerSetPendingWith =
+        additionalUpdates && Object.prototype.hasOwnProperty.call(additionalUpdates, 'pending_with');
+
+      if (!callerSetPendingWith) {
+        if (effectivePendingWith !== null) {
+          updates.pending_with = effectivePendingWith;
+        } else {
+          const statusToPendingWith: Record<MRBStatus, AppRole | null> = {
+            draft: null,
+            quality_review: 'quality',
+            purchase_review: 'purchase',
+            engineering_review: 'engineering',
+            final_approval: 'executive',
+            approved: null,
+            rejected: null,
+            closed: null,
+          };
+          if (statusToPendingWith[effectiveStatus] !== undefined) {
+            updates.pending_with = statusToPendingWith[effectiveStatus];
+          }
         }
       }
 
       // Set approval timestamps based on the CURRENT role (who is taking action)
       if (userRole?.includes('quality')) {
-        updates.quality_approved_at = new Date().toISOString();
-        updates.quality_approved_by = user?.id;
+        updates.quality_approved_at = updates.quality_approved_at || new Date().toISOString();
+        updates.quality_approved_by = updates.quality_approved_by || user?.id;
       } else if (userRole?.includes('purchase')) {
-        updates.purchase_approved_at = new Date().toISOString();
-        updates.purchase_approved_by = user?.id;
+        updates.purchase_approved_at = updates.purchase_approved_at || new Date().toISOString();
+        updates.purchase_approved_by = updates.purchase_approved_by || user?.id;
       } else if (userRole?.includes('engineering')) {
-        updates.engineering_approved_at = new Date().toISOString();
-        updates.engineering_approved_by = user?.id;
+        updates.engineering_approved_at = updates.engineering_approved_at || new Date().toISOString();
+        updates.engineering_approved_by = updates.engineering_approved_by || user?.id;
       } else if (userRole === 'executive' || userRole === 'admin') {
-        updates.final_approved_at = new Date().toISOString();
-        updates.final_approved_by = user?.id;
+        updates.final_approved_at = updates.final_approved_at || new Date().toISOString();
+        updates.final_approved_by = updates.final_approved_by || user?.id;
         if (effectiveStatus === 'approved' || effectiveStatus === 'rejected') {
-          updates.final_decision = effectiveStatus === 'approved' ? 'approved' : 'rejected';
+          updates.final_decision = updates.final_decision || (effectiveStatus === 'approved' ? 'approved' : 'rejected');
         }
       }
 
       // If approved, set closure fields
       if (effectiveStatus === 'approved') {
-        updates.closure_status = 'completed';
-        updates.closed_at = new Date().toISOString();
-        updates.closed_by = user?.id;
+        updates.closure_status = updates.closure_status || 'completed';
+        updates.closed_at = updates.closed_at || new Date().toISOString();
+        updates.closed_by = updates.closed_by || user?.id;
         updates.final_approved_at = updates.final_approved_at || new Date().toISOString();
         updates.final_approved_by = updates.final_approved_by || user?.id;
-        updates.final_decision = 'approved';
+        updates.final_decision = updates.final_decision || 'approved';
       }
 
       const { error } = await supabase
@@ -265,6 +293,7 @@ export function useMRBDatabase() {
       // Fire-and-forget email notification
       const emailEvent = action === 'approved' ? 'mrb_approved'
         : action === 'rejected' ? 'mrb_rejected'
+        : action === 'returned' ? 'mrb_returned'
         : 'mrb_forwarded';
       supabase.functions.invoke('send-mrb-email', {
         body: { mrb_id: id, event_type: emailEvent, triggered_by: user?.id },
