@@ -978,12 +978,12 @@ export default function Worklist() {
                     {/* Checkbox header for approved items */}
                   </th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">MRB Number</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Created</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Source</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Status</th>
                   {/* Inward Material Columns */}
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Insp. Lot</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Material</th>
-                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Created</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Vendor</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Plant</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">GRN</th>
@@ -991,13 +991,13 @@ export default function Worklist() {
                   <th className="h-12 px-3 text-right align-middle font-medium text-muted-foreground whitespace-nowrap">Blocked Qty</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">UoM</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Defect</th>
-                  {/* Department Reviews */}
-                  <th className="h-12 px-3 text-center align-middle font-medium text-muted-foreground whitespace-nowrap bg-blue-50/50">Quality Review</th>
-                  <th className="h-12 px-3 text-center align-middle font-medium text-muted-foreground whitespace-nowrap bg-purple-50/50">Purchase Review</th>
-                  <th className="h-12 px-3 text-center align-middle font-medium text-muted-foreground whitespace-nowrap bg-amber-50/50">Engg. Review</th>
-                  <th className="h-12 px-3 text-center align-middle font-medium text-muted-foreground whitespace-nowrap bg-green-50/50">Final Approval</th>
+                  {/* Department Reviews — hidden per requirement */}
+                  {/* <th className="h-12 px-3 text-center align-middle font-medium text-muted-foreground whitespace-nowrap bg-blue-50/50">Quality Review</th> */}
+                  {/* <th className="h-12 px-3 text-center align-middle font-medium text-muted-foreground whitespace-nowrap bg-purple-50/50">Purchase Review</th> */}
+                  {/* <th className="h-12 px-3 text-center align-middle font-medium text-muted-foreground whitespace-nowrap bg-amber-50/50">Engg. Review</th> */}
+                  {/* <th className="h-12 px-3 text-center align-middle font-medium text-muted-foreground whitespace-nowrap bg-green-50/50">Final Approval</th> */}
                   {/* Status Columns */}
-                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Pending With</th>
+                  {/* <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Pending With</th> */}
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">SLA</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Escalation</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Closure</th>
