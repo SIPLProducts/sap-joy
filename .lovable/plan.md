@@ -1,81 +1,52 @@
 
-I inspected the current MRB print code and the uploaded templates. The main gap is that `MRBPrint.tsx` still renders approximate report layouts, while the uploaded PDFs are fixed-format regulated forms. Also, preview, browser print, and PDF are not guaranteed to match right now because they do not all use the same styling path.
 
-## Plan
+## Fix MRB Action → Status Mapping (Inward + Shop Floor)
 
-### 1. Rebuild the Inward print as the exact IQC template
-Update `src/pages/MRBPrint.tsx` so `source === 'inward'` renders a true 2-page A4 portrait form matching `NON_Conformance_Report_IQC-2.pdf`:
-- Header with logo + red rule
-- Title: `NON-CONFORMANCE REPORT (IQC)`
-- Exact page 1 structure:
-  - GRN No / NC Report No
-  - GRN Date / NC Report Date
-  - DC / INV No / DC / INV Date
-  - Supplier Name
-  - PO No / Item Code
-  - Item Desc. & Make
-  - Received / Accepted / Rejected Qty
-  - Large Non-Conformance Details box
-  - Initiator Name / Sign
-  - MRB Yes / No row
-  - Detailed Instructions of MRB table
-- Exact page 2 structure:
-  - Material/Product Disposition checkbox layout
-  - Material Review Board Approvals table with the same department rows as the PDF
-  - NCR Status comments area
-  - Open / Close boxes
-  - Quality Control sign/date line
-- Use the exact footer metadata from the uploaded template, including page numbering.
+### Required semantics (action drives routing automatically)
 
-### 2. Rebuild the Shop Floor print as the exact EG-QC template
-Update `src/pages/MRBPrint.tsx` so `source === 'shop_floor'` renders a true 1-page A4 portrait form matching `EG-QC-FT-502_Rev0_Non_conformity_Report-2.pdf`:
-- Header with logo + red rule
-- Title: `NON-CONFORMITY REPORT`
-- Exact section layout:
-  - INITIATOR grid
-  - Initiator Name / Date row
-  - Material / Product Description row
-  - Deviation Summary box
-  - MRB section
-  - Material/Product Disposition block with matching checkbox placement/order
-  - Justification for acceptance area
-  - Material Review Board Approvals signature lines
-  - Quality Assurance closure section
-- Use the exact footer metadata from the uploaded template.
+| Action | Behavior | Status / Pending With |
+|---|---|---|
+| **Approve** | Final approval. SAP Sync becomes available. | `status='approved'`, `pending_with=null`, `final_decision='approved'` |
+| **Return for Clarification** | Stays at the SAME department (waiting on initiator/prior dept response). No routing forward. | status unchanged, `pending_with` unchanged |
+| **Approve with Deviation** | Forward to NEXT dept in `workflow_routing`. NOT final approve. If at last step, finalize as `approved` (deviation noted). | next dept's status & pending_with |
+| **Return to Vendor** | Forward to NEXT dept in `workflow_routing`. NOT final approve. If at last step, close MRB. | next dept's status & pending_with |
 
-### 3. Apply the requested branding in the print forms
-Replace template text in both print layouts with:
-- `HBL Engineering Limited`
-- `Rail Signaling Division`
+SAP Sync (Worklist `Unblock & SAP Sync` button) stays gated on `status === 'approved'` — so it correctly appears ONLY after a true Approve (or a deviation-approve at the final step).
 
-To keep output consistent, these two regulated print layouts should use the required fixed labels directly instead of depending on old configurable plant header/footer values.
+### Root cause of screenshot bug
+1. `Approve with Deviation` currently sets `status='approved'` for any role → SAP sync incorrectly available mid-routing.
+2. `Return to Vendor` only forwards if the user also ticks the manual "Forward to another department" checkbox; otherwise falls into the return-action branch but the UI label/badge stayed at "Engineering Review" because the previous action was Return for Clarification (kept at engineering) and the second action's auto-forward only triggers when `nextDepartments` is empty — fine in code, but the manual `forwardToNext` checkbox path overrides intent.
 
-### 4. Make print, preview, and PDF render identically
-The current implementation mixes Tailwind-rendered DOM with separately injected print CSS, which can cause alignment drift. I’ll fix that by:
-- Converting the print templates to self-contained layout styling using fixed A4 dimensions and exact positioning/spacing
-- Using the same template stylesheet for:
-  - on-screen preview
-  - browser print window
-  - PDF export
-- Preserving exact page breaks for the 2-page inward form
+### Code changes
 
-### 5. Lock the format to stable print settings
-To keep the output identical to the uploaded documents:
-- Force A4 portrait for both layouts
-- Prevent layout-breaking overrides from printer settings on this screen
-- Keep automatic format selection only by MRB type:
-  - `inward` → IQC form
-  - `shop_floor` → EG-QC form
+**1. `src/pages/InwardMRBDetail.tsx`** (lines ~190–265)
+- Replace the action-handling block with strict, action-driven routing:
+  - `approve` → finalize as approved.
+  - `return_for_clarification` → keep current `status` + `pending_with`; only log history entry; **do not** call status transition that changes pending_with.
+  - `approve_with_deviation` / `return_to_vendor` → look up current dept index in `workflow_routing`; advance to next; if last step:
+    - `approve_with_deviation` → finalize as `approved` (with `final_decision='approved_with_deviation'`)
+    - `return_to_vendor` → close MRB (`status='closed'`, `closure_status='closed'`)
+- Remove dependence on the manual `forwardToNext`/`nextDepartments` UI for these four actions (auto-routed). Hide the "Forward to another department" checkbox when one of the four standard actions is selected (keep it only as a fallback for unusual flows, or remove entirely).
+- Fix `currentIdx` lookup to use `useDepartmentMap` so role variants (`engineering` vs `engineering_head`) resolve correctly via `deptMaps.roleToDept` / `deptToRole` (consistent with `workflowRouting.ts`).
+- History action label: use `'returned'` for both return actions, `'forwarded'` for deviation, `'approved'` for approve — so Approval History reads correctly.
 
-### 6. Populate only real data, leave template blanks where needed
-Some fields/signature areas in the PDFs do not exist exactly in `mrb_records`. I’ll map available MRB data into the matching template fields and leave the remaining handwritten/signature-style areas blank so the form still matches the source document exactly.
+**2. `src/pages/MRBDetail.tsx` / `ShopFloorMRBDetail.tsx`**
+Apply the same action→status mapping for shop floor MRBs (same four actions, same rules).
 
-## Files to update
-- `src/pages/MRBPrint.tsx`
-- `src/components/print/PrintPreviewModal.tsx` (if needed so preview uses the same exact template stylesheet)
+**3. `src/hooks/useMRBDatabase.ts` — `updateMRBStatus`**
+- Add support for a "no-status-change" path when caller passes `action='returned_for_clarification'`: skip status/pending_with mutation, only insert history row + send email (event `mrb_returned_for_clarification`).
+- Ensure when caller explicitly passes `pending_with` in `additionalUpdates`, the status→pending_with auto-mapping does NOT overwrite it.
 
-## Result
-- Inward MRBs print as the exact 2-page IQC form
-- Shop Floor MRBs print as the exact 1-page EG-QC form
-- Branding shows `HBL Engineering Limited` and `Rail Signaling Division`
-- Preview, printed output, and downloaded PDF remain visually consistent
+**4. `src/pages/Worklist.tsx`**
+No change — `mrb.status === 'approved'` gating already correctly hides SAP sync until a true final approval.
+
+**5. `supabase/functions/send-mrb-email/index.ts`** (optional)
+- Add `mrb_returned_for_clarification` event template (same recipients as forwarded, addressed to current department).
+
+### Result
+- Engineer picks **Approve** → MRB becomes Approved → "Unblock & SAP Sync" appears in Worklist.
+- Engineer picks **Approve with Deviation** → MRB moves to next routing dept (e.g., Executive), status reflects that. SAP Sync NOT shown.
+- Engineer picks **Return for Clarification** → MRB stays at Engineering Review, only logged in history.
+- Engineer picks **Return to Vendor** → MRB moves to next routing dept; if engineer is the last step, MRB closes.
+- Approval History badges (`Approved` / `Forwarded` / `Returned`) correctly reflect the action taken.
+
