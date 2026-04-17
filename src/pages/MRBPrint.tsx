@@ -35,8 +35,7 @@ interface ApprovalHistoryEntry {
 
 const MRBPrint = () => {
   const { toast } = useToast();
-  const ncrPrintRef = useRef<HTMLDivElement>(null);
-  const mrbPrintRef = useRef<HTMLDivElement>(null);
+  const printRef = useRef<HTMLDivElement>(null);
 
   const [mrbList, setMrbList] = useState<{ id: string; mrb_number: string; material_description: string }[]>([]);
   const [searchNumber, setSearchNumber] = useState('');
@@ -44,13 +43,19 @@ const MRBPrint = () => {
   const [selectedMRB, setSelectedMRB] = useState<MRBRecord | null>(null);
   const [approverNames, setApproverNames] = useState<ApproverInfo>({});
   const [approvalHistory, setApprovalHistory] = useState<ApprovalHistoryEntry[]>([]);
-  const [activeForm, setActiveForm] = useState<'ncr' | 'mrb'>('ncr');
 
   const [showPreview, setShowPreview] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [printerSettings, setPrinterSettings] = useState<PrinterSettings>(loadPrinterSettings);
   const [previewContent, setPreviewContent] = useState('');
   const [previewTitle, setPreviewTitle] = useState('');
+
+  // Auto-resolve format from MRB source
+  const formType: 'inward_ncr' | 'shop_floor_ncr' =
+    selectedMRB?.source === 'shop_floor' ? 'shop_floor_ncr' : 'inward_ncr';
+  const formLabel = formType === 'shop_floor_ncr'
+    ? 'Non-Conformity Report (EG-QC-FT-502)'
+    : 'Non-Conformance Report (IQC)';
 
   // Load MRB list for dropdown
   useEffect(() => {
