@@ -1029,6 +1029,9 @@ export default function Worklist() {
                       <td className="p-3 align-middle font-medium text-primary whitespace-nowrap">
                         {mrb.mrbNumber}
                       </td>
+                      <td className="p-3 align-middle whitespace-nowrap">
+                        {formatDate(mrb.createdAt)}
+                      </td>
                       <td className="p-3 align-middle">
                         {getSourceBadge(mrb.source)}
                       </td>
@@ -1046,9 +1049,6 @@ export default function Worklist() {
                           <p className="font-medium text-sm">{mrb.materialNumber}</p>
                           <p className="text-xs text-muted-foreground truncate">{mrb.materialDescription}</p>
                         </div>
-                      </td>
-                      <td className="p-3 align-middle whitespace-nowrap">
-                        {formatDate(mrb.createdAt)}
                       </td>
                       <td className="p-3 align-middle">
                         <div className="max-w-[120px]">
@@ -1074,71 +1074,13 @@ export default function Worklist() {
                           {mrb.defectDescription || '-'}
                         </p>
                       </td>
-                      {/* Department Reviews */}
-                      <td className="p-3 align-middle bg-blue-50/30 min-w-[150px]">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center justify-center">
-                            {getDeptReviewBadge(mrb.qualityDecision, mrb.qualityApprovedAt, mrb.qualityRemarks)}
-                          </div>
-                          {mrb.qualityApprovedAt && (
-                            <span className="text-[10px] text-muted-foreground text-center">{formatDate(mrb.qualityApprovedAt)}</span>
-                          )}
-                          {mrb.qualityRemarks && (
-                            <p className="text-[10px] text-muted-foreground italic line-clamp-2 text-center" title={mrb.qualityRemarks}>
-                              "{mrb.qualityRemarks}"
-                            </p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-3 align-middle bg-purple-50/30 min-w-[150px]">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center justify-center">
-                            {getDeptReviewBadge(mrb.purchaseAction, mrb.purchaseApprovedAt, mrb.purchaseRemarks)}
-                          </div>
-                          {mrb.purchaseApprovedAt && (
-                            <span className="text-[10px] text-muted-foreground text-center">{formatDate(mrb.purchaseApprovedAt)}</span>
-                          )}
-                          {mrb.purchaseRemarks && (
-                            <p className="text-[10px] text-muted-foreground italic line-clamp-2 text-center" title={mrb.purchaseRemarks}>
-                              "{mrb.purchaseRemarks}"
-                            </p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-3 align-middle bg-amber-50/30 min-w-[150px]">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center justify-center">
-                            {getDeptReviewBadge(mrb.engineeringDecision, mrb.engineeringApprovedAt, mrb.engineeringRemarks)}
-                          </div>
-                          {mrb.engineeringApprovedAt && (
-                            <span className="text-[10px] text-muted-foreground text-center">{formatDate(mrb.engineeringApprovedAt)}</span>
-                          )}
-                          {mrb.engineeringRemarks && (
-                            <p className="text-[10px] text-muted-foreground italic line-clamp-2 text-center" title={mrb.engineeringRemarks}>
-                              "{mrb.engineeringRemarks}"
-                            </p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-3 align-middle bg-green-50/30 min-w-[150px]">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center justify-center">
-                            {getDeptReviewBadge(mrb.finalDecision, mrb.finalApprovedAt, mrb.finalRemarks)}
-                          </div>
-                          {mrb.finalApprovedAt && (
-                            <span className="text-[10px] text-muted-foreground text-center">{formatDate(mrb.finalApprovedAt)}</span>
-                          )}
-                          {mrb.finalRemarks && (
-                            <p className="text-[10px] text-muted-foreground italic line-clamp-2 text-center" title={mrb.finalRemarks}>
-                              "{mrb.finalRemarks}"
-                            </p>
-                          )}
-                        </div>
-                      </td>
+                      {/* Department Reviews — hidden per requirement */}
+                      {/* <td className="p-3 align-middle bg-blue-50/30 min-w-[150px]">...Quality...</td> */}
+                      {/* <td className="p-3 align-middle bg-purple-50/30 min-w-[150px]">...Purchase...</td> */}
+                      {/* <td className="p-3 align-middle bg-amber-50/30 min-w-[150px]">...Engg...</td> */}
+                      {/* <td className="p-3 align-middle bg-green-50/30 min-w-[150px]">...Final...</td> */}
                       {/* Status Columns */}
-                      <td className="p-3 align-middle whitespace-nowrap">
-                        {mrb.pendingWith ? getRoleDisplayName(mrb.pendingWith as any) : '-'}
-                      </td>
+                      {/* Pending With column hidden per requirement */}
                       <td className="p-3 align-middle">
                         {mrb.slaStatus ? (
                           <Badge className={getSLAColor(mrb.slaStatus as any)}>
@@ -1157,7 +1099,7 @@ export default function Worklist() {
                         )}
                       </td>
                       <td className="p-3 align-middle">
-                        {getClosureStatusBadge(mrb.closureStatus)}
+                        {getClosureStatusBadge(mrb.closureStatus, mrb.sapStockUpdateStatus, mrb.status)}
                       </td>
                       <td className="p-3 align-middle text-right sticky right-0 bg-background border-l">
                         <div className="flex items-center justify-end gap-2">
