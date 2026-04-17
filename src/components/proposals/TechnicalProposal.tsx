@@ -17,7 +17,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             <div className="cover-divider" />
             <div className="cover-details">
               <div><strong>Proposal Type:</strong> Technical Proposal</div>
-              <div><strong>Prepared For:</strong> HBL Power Systems Ltd.</div>
+              <div><strong>Prepared For:</strong> HBL Engineering Limited</div>
               <div><strong>Prepared By:</strong> Sharvi Infotech Pvt. Ltd.</div>
               <div><strong>Date:</strong> {new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
               <div><strong>Version:</strong> 0.1</div>
@@ -29,7 +29,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
         <div className="confidential-box" style={{ marginTop: '16px' }}>
           <div className="confidential-title">CONFIDENTIALITY STATEMENT</div>
           <div className="confidential-text">
-            <p>This document contains proprietary and confidential information of Sharvi Infotech Pvt. Ltd. (SIPL). This document is submitted to HBL Power Systems Ltd. solely for the purpose of evaluating the proposed solution for the Material Review Board (MRB) Web Application development project.</p>
+            <p>This document contains proprietary and confidential information of Sharvi Infotech Pvt. Ltd. (SIPL). This document is submitted to HBL Engineering Limited solely for the purpose of evaluating the proposed solution for the Material Review Board (MRB) Web Application development project.</p>
             <p style={{ marginTop: '8px' }}>The recipient agrees not to disclose, reproduce, or distribute this document or any of its contents to any third party without the prior written consent of SIPL. All intellectual property rights in this document remain with SIPL.</p>
             <p style={{ marginTop: '8px' }}>Any unauthorized use, disclosure, or copying of this document, in whole or in part, is strictly prohibited and may be unlawful.</p>
           </div>
@@ -48,7 +48,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
             Executive Summary
           </div>
           <div className="proposal-text">
-            Sharvi Infotech Pvt. Ltd. (SIPL) is pleased to present this Technical Proposal for the development and implementation of a comprehensive <strong>Material Review Board (MRB) Web Application</strong> for HBL Power Systems Ltd.
+            Sharvi Infotech Pvt. Ltd. (SIPL) is pleased to present this Technical Proposal for the development and implementation of a comprehensive <strong>Material Review Board (MRB) Web Application</strong> for HBL Engineering Limited.
           </div>
           <div className="proposal-text">
             The MRB system is designed to digitize and streamline the entire non-conforming material management process — from inward inspection and material blocking to multi-stage quality review, purchase evaluation, engineering disposition, and final approval. The system replaces manual, paper-based MRB processes with a real-time, role-based digital workflow that ensures traceability, accountability, and compliance.
@@ -305,7 +305,7 @@ const TechnicalProposal = React.forwardRef<HTMLDivElement>((_, ref) => {
 
         <div className="proposal-footer">
           <p>Sharvi Infotech Pvt. Ltd. | www.sharviinfotech.com</p>
-          <p>This document is confidential and intended solely for the use of HBL Power Systems Ltd.</p>
+          <p>This document is confidential and intended solely for the use of HBL Engineering Limited.</p>
         </div>
       </div>
     </div>

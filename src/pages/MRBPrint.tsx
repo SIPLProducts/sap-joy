@@ -276,7 +276,7 @@ const MRBPrint = () => {
       <div className="flex justify-between items-center mb-2">
         <div className="text-center flex-1">
           <h1 className="text-base font-bold">{printConfig?.company_name || 'HBL Engineering Limited'}</h1>
-          <p className="text-[10px] text-gray-600">{printConfig?.division_name || 'Electronics Group'}</p>
+          <p className="text-[10px] text-gray-600">{printConfig?.division_name || 'Rail Signaling Division'}</p>
         </div>
         <img src={hblLogo} alt="HBL Logo" className="h-8" />
       </div>
