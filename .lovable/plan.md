@@ -1,34 +1,32 @@
 
 
-## Fix: Role Access Matrix — per-tab screen toggles not working
+## Replace Branding Labels: Company & Division Names
 
-### Issue
-On the Role Access Matrix page, inside each module tab (Dashboards, Operations, Tools), individual screen checkboxes/toggles are unresponsive. Only the table-level toggle and "Select All" work.
+### Changes
+- "HBL Power Systems" → **"HBL Engineering Limited"**
+- "Electronics" / "Electronics Group" → **"Rail Signaling Division"**
 
-### Investigation needed
-I need to read the actual Role Access Matrix page to confirm the exact handler wiring. Likely candidates: `src/pages/RoleMatrix.tsx` (and possibly `UserPermissionMatrix.tsx`).
+### Scope
+Replace across all UI, print templates, email templates, and config defaults.
 
-### Likely root cause (based on pattern)
-The per-row `onCheckedChange` handler is either:
-- bound to the wrong key (using a stale tab/module key, so the toggled row never matches in `setPermissions`),
-- mutating state without spreading (no re-render),
-- or the Switch/Checkbox is wrapped in a label/button that swallows the click.
+### Files to update (based on prior scan + current branding usage)
+1. `src/components/layout/AppSidebar.tsx` — header label
+2. `src/components/proposals/ProposalCoverPage.tsx` — cover page
+3. `src/components/proposals/TechnicalProposal.tsx` — proposal headers
+4. `src/components/proposals/TechnoCommercialProposal.tsx` — proposal headers
+5. `src/hooks/usePlantConfig.ts` — fallback defaults (`company_name`, `division_name`)
+6. `src/pages/MRBPrint.tsx` — print header fallbacks (both Inward NCR + Shop Floor NCR)
+7. `src/pages/MRBCommitteeReview.tsx` — header label
+8. `src/pages/ShopFloorMaterialBlocking.tsx` — header label
+9. `src/pages/Login.tsx` — if branding present
+10. `index.html` — title/meta if present
+11. `supabase/functions/send-mrb-email/index.ts` — email template branding (redeploy)
 
-### Plan
-1. Read `src/pages/RoleMatrix.tsx` (and the tabbed module group component if separate) to inspect:
-   - the per-screen toggle handler
-   - how `screen_key` / `module_key` is matched against state
-   - whether `setDirty(true)` and state update fire
-2. Fix the handler so toggling a single screen inside any tab updates `permissions` correctly using the composite key (`role + module_key + plant`), marks dirty, and re-renders.
-3. Ensure the Save button picks up these changes (already uses `upsert` on `role,module_key,plant`).
-4. Verify "Select All" and tab-level toggle still work after the fix.
-
-### Files to modify
-1. `src/pages/RoleMatrix.tsx` — fix per-screen toggle handler inside each tab
-2. (If applicable) the child tab/group component rendering the screen rows
+### Approach
+- Run a project-wide search for both old strings to catch any additional occurrences before edits.
+- Replace each match preserving surrounding markup/casing.
+- Redeploy `send-mrb-email` edge function after edit.
 
 ### Result
-- Each individual screen checkbox inside Dashboards / Operations / Tools tabs becomes toggleable.
-- Save persists the change.
-- Tab-level "Select All" continues to work.
+All user-facing surfaces (UI, sidebar, prints, proposals, emails, plant config defaults) display **"HBL Engineering Limited"** and **"Rail Signaling Division"** consistently.
 
