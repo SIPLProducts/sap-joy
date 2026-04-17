@@ -246,17 +246,8 @@ export default function InwardMRBDetail() {
         additionalUpdates.engineering_remarks = reviewData.reviewComments;
         additionalUpdates.engineering_approved_by = user?.id || null;
         additionalUpdates.engineering_approved_at = new Date().toISOString();
-      } else if (userRole === 'executive' || userRole === 'admin') {
+      } else if (userRole === 'executive') {
         additionalUpdates.final_remarks = reviewData.reviewComments;
-        additionalUpdates.final_decision = reviewData.action === 'approve' ? 'approved' : reviewData.action;
-        additionalUpdates.final_approved_by = user?.id || null;
-        additionalUpdates.final_approved_at = new Date().toISOString();
-        if (reviewData.action === 'approve') {
-          newStatus = 'approved';
-          additionalUpdates.closure_status = 'completed';
-          additionalUpdates.closed_at = new Date().toISOString();
-          additionalUpdates.closed_by = user?.id || null;
-        }
       } else if (userRole === 'mrb_committee') {
         additionalUpdates.mrb_committee_remarks = reviewData.reviewComments;
         additionalUpdates.mrb_committee_decision = reviewData.action;
@@ -349,6 +340,8 @@ export default function InwardMRBDetail() {
           currentStatus={mrb.status} 
           pendingWith={mrb.pending_with}
           workflowRouting={Array.isArray(mrb.workflow_routing) ? (mrb.workflow_routing as string[]) : undefined}
+          approvalHistory={approvalHistory.map(h => ({ performed_by_role: h.performed_by_role, action: h.action }))}
+          sapSyncStatus={mrb.sap_stock_update_status}
         />
 
         {/* MRB Details (Read-Only) */}
@@ -416,7 +409,7 @@ export default function InwardMRBDetail() {
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Pending With</Label>
-                <p className="font-medium">{mrb.pending_with ? getRoleDisplayName(mrb.pending_with as any) : 'N/A'}</p>
+                <p className="font-medium">{mrb.pending_with ? (roleDisplayNames[mrb.pending_with] || getRoleDisplayName(mrb.pending_with as any)) : 'N/A'}</p>
               </div>
             </div>
           </CardContent>
@@ -481,7 +474,7 @@ export default function InwardMRBDetail() {
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
                         by <span className="font-medium text-foreground">{(item as any).performer_name || 'Unknown'}</span>
-                        {' '}({getRoleDisplayName(item.performed_by_role as any)})
+                        {' '}({roleDisplayNames[item.performed_by_role] || getRoleDisplayName(item.performed_by_role as any)})
                         {' • '}{formatDate(item.performed_at)}
                       </p>
                       {item.remarks && (
@@ -502,7 +495,7 @@ export default function InwardMRBDetail() {
             <Card className="border-border shadow-sm border-primary/20">
               <CardHeader className="border-b border-border bg-primary/5 py-3">
                 <CardTitle className="text-base font-semibold">
-                  Your Review ({getRoleDisplayName((userRole || 'quality') as any)})
+                  Your Review ({roleDisplayNames[userRole || ''] || getRoleDisplayName((userRole || 'quality') as any)})
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
