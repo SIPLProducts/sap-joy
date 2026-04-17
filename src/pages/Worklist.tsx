@@ -308,17 +308,27 @@ export default function Worklist() {
     return badge;
   };
 
-  const getClosureStatusBadge = (status: string | null) => {
-    if (!status) return <span className="text-muted-foreground">-</span>;
-    const colorMap: Record<string, string> = {
-      'open': 'bg-gray-100 text-gray-600 border-gray-300',
-      'pending_sap_sync': 'bg-yellow-50 text-yellow-700 border-yellow-300',
-      'completed': 'bg-green-50 text-green-700 border-green-300',
-      'synced': 'bg-green-50 text-green-700 border-green-300',
-    };
+  const getClosureStatusBadge = (closureStatus: string | null, sapSyncStatus: string | null, mrbStatus: MRBStatus) => {
+    // "Completed" only when SAP synced; otherwise show "Pending SAP Sync" for approved MRBs.
+    const isSynced = sapSyncStatus === 'synced' || sapSyncStatus === 'success';
+    if (mrbStatus === 'approved') {
+      if (isSynced) {
+        return <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">Completed</Badge>;
+      }
+      return <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">Pending SAP Sync</Badge>;
+    }
+    if (mrbStatus === 'closed' || closureStatus === 'closed') {
+      return <Badge variant="outline" className="text-xs bg-gray-100 text-gray-700 border-gray-300">Closed</Badge>;
+    }
+    if (mrbStatus === 'rejected') {
+      return <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-300">Rejected</Badge>;
+    }
+    if (!closureStatus || closureStatus === 'open') {
+      return <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-300">Open</Badge>;
+    }
     return (
-      <Badge variant="outline" className={`text-xs ${colorMap[status] || 'bg-gray-100 text-gray-600'}`}>
-        {status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+      <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-300">
+        {closureStatus.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
       </Badge>
     );
   };
