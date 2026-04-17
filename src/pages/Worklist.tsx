@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, AlertTriangle, Eye, Loader2, Unlock, RefreshCw, CheckSquare, Square, History, Clock, CheckCircle2, XCircle, Download, CalendarDays } from 'lucide-react';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { useDepartments } from '@/hooks/useDepartments';
+import { useDepartmentMap } from '@/hooks/useDepartmentMap';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -114,6 +115,7 @@ export default function Worklist() {
   const { toast } = useToast();
   const { userRole, user, profile } = useAuth();
   const { departments } = useDepartments();
+  const { roleDisplayNames } = useDepartmentMap();
   const workflowRoles = useMemo(() =>
     departments
       .filter(d => d.is_active && d.is_workflow_enabled && d.role_key)
