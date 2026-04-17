@@ -184,28 +184,33 @@ const MRBPrint = () => {
     .doc-footer { display: flex; justify-content: space-between; font-size: 9px; margin-top: 16px; padding-top: 8px; border-top: 1px solid #ccc; }
   `;
 
-  const handlePrint = (formType: 'ncr' | 'mrb', orientation: 'portrait' | 'landscape' = 'portrait') => {
-    const printRef = formType === 'ncr' ? ncrPrintRef : mrbPrintRef;
+  const getPdfFilename = () =>
+    formType === 'shop_floor_ncr'
+      ? `NCR_EGQC_${selectedMRB?.mrb_number || 'MRB'}.pdf`
+      : `NCR_IQC_${selectedMRB?.mrb_number || 'MRB'}.pdf`;
+
+  const getReportTitle = () =>
+    formType === 'shop_floor_ncr'
+      ? `Non-Conformity Report - ${selectedMRB?.mrb_number}`
+      : `NCR (IQC) - ${selectedMRB?.mrb_number}`;
+
+  const handlePrint = (orientation: 'portrait' | 'landscape' = 'portrait') => {
     if (!printRef.current) return;
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) {
       toast({ title: 'Print Blocked', description: 'Please allow popups to print.', variant: 'destructive' });
       return;
     }
-    const title = formType === 'ncr' ? `NCR Report - ${selectedMRB?.mrb_number}` : `MRB Form - ${selectedMRB?.mrb_number}`;
+    const title = getReportTitle();
     printWindow.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>${getPrintStyles()}@page{size:A4 ${orientation};margin:10mm;}@media print{body{margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}}body{font-family:Arial,sans-serif;margin:0;padding:10px;background:white;}</style></head><body>${printRef.current.innerHTML}</body></html>`);
     printWindow.document.close();
     printWindow.onload = () => { setTimeout(() => { printWindow.focus(); printWindow.print(); printWindow.close(); }, 250); };
     setTimeout(() => { if (!printWindow.closed) { printWindow.focus(); printWindow.print(); printWindow.close(); } }, 1000);
   };
 
-  const handleDownloadPDF = async (formType: 'ncr' | 'mrb', orientation: 'portrait' | 'landscape' = 'portrait') => {
-    const printRef = formType === 'ncr' ? ncrPrintRef : mrbPrintRef;
+  const handleDownloadPDF = async (orientation: 'portrait' | 'landscape' = 'portrait') => {
     if (!printRef.current) return;
-
-    const filename = formType === 'ncr'
-      ? `NCR_Report_${selectedMRB?.mrb_number || 'MRB'}.pdf`
-      : `MRB_Form_${selectedMRB?.mrb_number || 'MRB'}.pdf`;
+    const filename = getPdfFilename();
 
     toast({ title: 'Generating PDF', description: 'Please wait...' });
 
@@ -230,13 +235,10 @@ const MRBPrint = () => {
     }
   };
 
-  const handlePreview = (formType: 'ncr' | 'mrb') => {
-    const printRef = formType === 'ncr' ? ncrPrintRef : mrbPrintRef;
+  const handlePreview = () => {
     if (!printRef.current) return;
-
-    const title = formType === 'ncr' ? `NCR Report - ${selectedMRB?.mrb_number}` : `MRB Form - ${selectedMRB?.mrb_number}`;
     setPreviewContent(buildPreviewHTML(printRef.current));
-    setPreviewTitle(title);
+    setPreviewTitle(getReportTitle());
     setShowPreview(true);
   };
 
