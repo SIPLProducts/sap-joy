@@ -469,164 +469,140 @@ const MRBPrint = () => {
     </div>
   );
 
-  // MRB Committee Form
-  const MRBCommitteeForm = () => (
-    <div ref={mrbPrintRef} className="max-w-[210mm] mx-auto bg-white text-black" style={{ fontFamily: 'Arial, sans-serif', fontSize: '10px' }}>
-      <div className="text-center py-2 border border-black mb-2 font-bold">
-        Material Review Board (If applicable) <span className="underline">{selectedMRB?.mrb_committee_required ? 'Yes' : 'No'}</span>
-        <div className="text-[9px] font-normal mt-1">MRB Number: {selectedMRB?.mrb_number}</div>
-      </div>
+  // Shop Floor MRB - Non-Conformity Report — matches EG-QC-FT-502_Rev0_Non_conformity_Report.pdf
+  const ShopFloorNCRReport = () => {
+    const checked = getDispositionChecked(selectedMRB?.final_decision || selectedMRB?.engineering_decision);
+    const initiator = approverNames.quality || selectedMRB?.issue_identified_by || selectedMRB?.created_by || '—';
+    const initiatorDate = formatDate(selectedMRB?.issue_identified_date || selectedMRB?.created_at);
+    const isClosed = selectedMRB?.status === 'closed' || selectedMRB?.status === 'approved';
 
-      {/* Material Summary */}
-      <div className="border border-black mb-2">
-        <div className="px-2 py-1 border-b border-black font-bold bg-gray-50 text-[10px]">Material Summary</div>
-        <div className="flex border-b border-black">
-          <div className="w-28 px-2 py-1 border-r border-black text-[9px]">Material:</div>
-          <div className="flex-1 px-2 py-1 font-medium">{selectedMRB?.material_number} - {selectedMRB?.material_description}</div>
-        </div>
-        <div className="flex border-b border-black">
-          <div className="w-28 px-2 py-1 border-r border-black text-[9px]">Vendor:</div>
-          <div className="flex-1 px-2 py-1">{selectedMRB?.vendor_name || '—'} ({selectedMRB?.vendor_code || '—'})</div>
-          <div className="w-28 px-2 py-1 border-r border-black text-[9px]">Plant:</div>
-          <div className="flex-1 px-2 py-1">{selectedMRB?.plant}</div>
-        </div>
-        <div className="flex">
-          <div className="w-28 px-2 py-1 border-r border-black text-[9px]">Total Qty:</div>
-          <div className="flex-1 px-2 py-1">{selectedMRB?.total_quantity} {selectedMRB?.uom}</div>
-          <div className="w-28 px-2 py-1 border-r border-black text-[9px]">Blocked Qty:</div>
-          <div className="flex-1 px-2 py-1">{selectedMRB?.blocked_quantity ?? 0}</div>
-          <div className="w-28 px-2 py-1 border-r border-black text-[9px]">P.O.:</div>
-          <div className="flex-1 px-2 py-1">{selectedMRB?.po_number || '—'}</div>
-        </div>
-      </div>
+    const approvalRows = [
+      { dept: 'Quality', name: approverNames.quality, date: selectedMRB?.quality_approved_at },
+      { dept: 'Purchase', name: approverNames.purchase, date: selectedMRB?.purchase_approved_at },
+      { dept: 'Engineering', name: approverNames.engineering, date: selectedMRB?.engineering_approved_at },
+      { dept: 'MRB Committee', name: approverNames.committee, date: selectedMRB?.mrb_committee_approved_at },
+      { dept: 'Final Approval', name: approverNames.final, date: selectedMRB?.final_approved_at },
+    ];
 
-      {/* Detailed Instructions */}
-      <div className="border border-black mb-2">
-        <div className="text-center font-bold py-1 border-b border-black bg-gray-100 text-[10px]">
-          DETAILED INSTRUCTIONS OF MRB
+    return (
+      <div ref={printRef} className="max-w-[210mm] mx-auto bg-white text-black" style={{ fontFamily: 'Arial, sans-serif', fontSize: '10px' }}>
+        {/* Header */}
+        <div className="flex justify-between items-center mb-2">
+          <div className="text-center flex-1">
+            <h1 className="text-base font-bold">{printConfig?.company_name || 'HBL Engineering Limited'}</h1>
+            <p className="text-[10px] text-gray-600">{printConfig?.division_name || 'Rail Signaling Division'}</p>
+          </div>
+          <img src={hblLogo} alt="HBL Logo" className="h-8" />
         </div>
-        <table className="w-full" style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th className="border border-black px-2 py-1 bg-gray-50 w-10 text-center text-[9px]">S.No.</th>
-              <th className="border border-black px-2 py-1 bg-gray-50 text-[9px]">Department</th>
-              <th className="border border-black px-2 py-1 bg-gray-50 text-[9px]">Decision / Remarks</th>
-              <th className="border border-black px-2 py-1 bg-gray-50 w-28 text-center text-[9px]">Name</th>
-              <th className="border border-black px-2 py-1 bg-gray-50 w-24 text-center text-[9px]">Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td className="border border-black px-2 py-2 text-center">1</td>
-              <td className="border border-black px-2 py-2">Quality</td>
-              <td className="border border-black px-2 py-2">{getDecisionDisplayName(selectedMRB?.quality_decision)}{selectedMRB?.quality_remarks ? ` — ${selectedMRB.quality_remarks}` : ''}</td>
-              <td className="border border-black px-2 py-2 text-center">{approverNames.quality || ''}</td>
-              <td className="border border-black px-2 py-2 text-center">{formatDate(selectedMRB?.quality_approved_at)}</td>
-            </tr>
-            <tr>
-              <td className="border border-black px-2 py-2 text-center">2</td>
-              <td className="border border-black px-2 py-2">Engineering</td>
-              <td className="border border-black px-2 py-2">{getDecisionDisplayName(selectedMRB?.engineering_decision)}{selectedMRB?.engineering_remarks ? ` — ${selectedMRB.engineering_remarks}` : ''}</td>
-              <td className="border border-black px-2 py-2 text-center">{approverNames.engineering || ''}</td>
-              <td className="border border-black px-2 py-2 text-center">{formatDate(selectedMRB?.engineering_approved_at)}</td>
-            </tr>
-            <tr>
-              <td className="border border-black px-2 py-2 text-center">3</td>
-              <td className="border border-black px-2 py-2">Purchase</td>
-              <td className="border border-black px-2 py-2">{selectedMRB?.purchase_action || ''}{selectedMRB?.purchase_remarks ? ` — ${selectedMRB.purchase_remarks}` : ''}</td>
-              <td className="border border-black px-2 py-2 text-center">{approverNames.purchase || ''}</td>
-              <td className="border border-black px-2 py-2 text-center">{formatDate(selectedMRB?.purchase_approved_at)}</td>
-            </tr>
-            <tr>
-              <td className="border border-black px-2 py-2 text-center">4</td>
-              <td className="border border-black px-2 py-2">Final Approval</td>
-              <td className="border border-black px-2 py-2">{getDecisionDisplayName(selectedMRB?.final_decision)}{selectedMRB?.final_remarks ? ` — ${selectedMRB.final_remarks}` : ''}</td>
-              <td className="border border-black px-2 py-2 text-center">{approverNames.final || ''}</td>
-              <td className="border border-black px-2 py-2 text-center">{formatDate(selectedMRB?.final_approved_at)}</td>
-            </tr>
-            {selectedMRB?.mrb_committee_decision && (
-              <tr>
-                <td className="border border-black px-2 py-2 text-center">5</td>
-                <td className="border border-black px-2 py-2">MRB Committee</td>
-                <td className="border border-black px-2 py-2">{selectedMRB.mrb_committee_decision}{selectedMRB?.mrb_committee_remarks ? ` — ${selectedMRB.mrb_committee_remarks}` : ''}</td>
-                <td className="border border-black px-2 py-2 text-center">{approverNames.committee || ''}</td>
-                <td className="border border-black px-2 py-2 text-center">{formatDate(selectedMRB?.mrb_committee_approved_at)}</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
 
-      {/* Disposition */}
-      <div className="border border-black mb-2">
-        <div className="px-2 py-1 border-b border-black font-bold bg-gray-50 text-[10px]">Disposition of NC Material</div>
-        <div className="grid grid-cols-3 gap-4 p-2">
-          {(() => {
-            const checked = getDispositionChecked(selectedMRB?.final_decision || selectedMRB?.engineering_decision);
-            return (
-              <>
-                <div className="flex items-center gap-2"><div className={`w-3 h-3 border border-black ${checked.use_as_is ? 'bg-black' : ''}`} /><span>Use As Is</span></div>
-                <div className="flex items-center gap-2"><div className={`w-3 h-3 border border-black ${checked.sort ? 'bg-black' : ''}`} /><span>Sort</span></div>
-                <div className="flex items-center gap-2"><div className={`w-3 h-3 border border-black ${checked.return_to_vendor ? 'bg-black' : ''}`} /><span>Return to Vendor</span></div>
-                <div className="flex items-center gap-2"><div className={`w-3 h-3 border border-black ${checked.rework ? 'bg-black' : ''}`} /><span>Rework</span></div>
-                <div className="flex items-center gap-2"><div className={`w-3 h-3 border border-black ${checked.scrap ? 'bg-black' : ''}`} /><span>Scrap</span></div>
-                <div className="flex items-center gap-2"><div className={`w-3 h-3 border border-black ${checked.others ? 'bg-black' : ''}`} /><span>Others</span></div>
-              </>
-            );
-          })()}
+        <div className="text-center font-bold py-1.5 border border-black border-b-2 bg-gray-100 mb-2 text-sm">
+          NON-CONFORMITY REPORT
         </div>
-      </div>
 
-      {/* Approval History */}
-      {approvalHistory.length > 0 && (
+        {/* INITIATOR Section */}
         <div className="border border-black mb-2">
-          <div className="px-2 py-1 border-b border-black font-bold bg-gray-50 text-[10px]">Approval History</div>
+          <div className="px-2 py-1 border-b border-black font-bold bg-gray-50 text-[10px]">INITIATOR</div>
+          <div className="flex border-b border-black">
+            <div className="w-28 px-2 py-1 border-r border-black text-[9px]">NCR #:</div>
+            <div className="flex-1 px-2 py-1 border-r border-black font-medium">{selectedMRB?.mrb_number}</div>
+            <div className="w-32 px-2 py-1 border-r border-black text-[9px]">Part # / Qty:</div>
+            <div className="flex-1 px-2 py-1 font-medium">{selectedMRB?.material_number} / {selectedMRB?.total_quantity} {selectedMRB?.uom || ''}</div>
+          </div>
+          <div className="flex border-b border-black">
+            <div className="w-28 px-2 py-1 border-r border-black text-[9px]">Lot / Serial #'s:</div>
+            <div className="flex-1 px-2 py-1 border-r border-black font-medium">{selectedMRB?.batch || selectedMRB?.production_order_number || '—'}</div>
+            <div className="w-32 px-2 py-1 border-r border-black text-[9px]">Vendor (if applicable):</div>
+            <div className="flex-1 px-2 py-1 font-medium">{selectedMRB?.vendor_name || '—'}</div>
+          </div>
+          <div className="flex">
+            <div className="w-28 px-2 py-1 border-r border-black text-[9px]">Initiator Name:</div>
+            <div className="flex-1 px-2 py-1 border-r border-black font-medium">{initiator}</div>
+            <div className="w-32 px-2 py-1 border-r border-black text-[9px]">Date:</div>
+            <div className="flex-1 px-2 py-1 font-medium">{initiatorDate}</div>
+          </div>
+        </div>
+
+        {/* Material / Product Description */}
+        <div className="border border-black mb-2">
+          <div className="px-2 py-1 border-b border-black font-bold bg-gray-50 text-[10px]">Material / Product Description</div>
+          <div className="p-2 min-h-[40px] text-[10px]">{selectedMRB?.material_description || '—'}</div>
+        </div>
+
+        {/* Deviation Summary */}
+        <div className="border border-black mb-2">
+          <div className="px-2 py-1 border-b border-black font-bold bg-gray-50 text-[10px]">Deviation Summary</div>
+          <div className="p-2 min-h-[80px] text-[10px] space-y-1">
+            {selectedMRB?.defect_category && (
+              <p><strong>Defect Category:</strong> {selectedMRB.defect_category}{selectedMRB?.defect_code ? ` (${selectedMRB.defect_code})` : ''}</p>
+            )}
+            {selectedMRB?.defect_description && <p><strong>Description:</strong> {selectedMRB.defect_description}</p>}
+            {selectedMRB?.issue_description && <p><strong>Issue:</strong> {selectedMRB.issue_description}</p>}
+            {selectedMRB?.impact_on_production && <p><strong>Impact on Production:</strong> {selectedMRB.impact_on_production}</p>}
+            {selectedMRB?.production_order_number && <p><strong>Production Order:</strong> {selectedMRB.production_order_number}</p>}
+            {selectedMRB?.quality_remarks && <p><strong>Quality Remarks:</strong> {selectedMRB.quality_remarks}</p>}
+          </div>
+        </div>
+
+        {/* Disposition */}
+        <div className="border border-black mb-2">
+          <div className="px-2 py-1 border-b border-black font-bold bg-gray-50 text-[10px]">Disposition</div>
+          <div className="grid grid-cols-3 gap-4 p-2 text-[10px]">
+            <div className="flex items-center gap-2"><div className={`w-3 h-3 border border-black ${checked.use_as_is ? 'bg-black' : ''}`} /><span>Use As Is</span></div>
+            <div className="flex items-center gap-2"><div className={`w-3 h-3 border border-black ${checked.sort ? 'bg-black' : ''}`} /><span>Sort</span></div>
+            <div className="flex items-center gap-2"><div className={`w-3 h-3 border border-black ${checked.return_to_vendor ? 'bg-black' : ''}`} /><span>Return to Vendor</span></div>
+            <div className="flex items-center gap-2"><div className={`w-3 h-3 border border-black ${checked.rework ? 'bg-black' : ''}`} /><span>Rework</span></div>
+            <div className="flex items-center gap-2"><div className={`w-3 h-3 border border-black ${checked.scrap ? 'bg-black' : ''}`} /><span>Scrap</span></div>
+            <div className="flex items-center gap-2"><div className={`w-3 h-3 border border-black ${checked.others ? 'bg-black' : ''}`} /><span>Others</span></div>
+          </div>
+        </div>
+
+        {/* Approvals Table */}
+        <div className="border border-black mb-2">
+          <div className="px-2 py-1 border-b border-black font-bold bg-gray-50 text-[10px]">Approvals</div>
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                <th className="border border-black px-2 py-1 bg-gray-50 text-[9px]">Stage</th>
-                <th className="border border-black px-2 py-1 bg-gray-50 text-[9px]">Action</th>
-                <th className="border border-black px-2 py-1 bg-gray-50 text-[9px]">Role</th>
-                <th className="border border-black px-2 py-1 bg-gray-50 text-[9px]">Date</th>
-                <th className="border border-black px-2 py-1 bg-gray-50 text-[9px]">Remarks</th>
+                <th className="border border-black px-2 py-1 bg-gray-50 text-[9px] w-32">Department</th>
+                <th className="border border-black px-2 py-1 bg-gray-50 text-[9px]">Name</th>
+                <th className="border border-black px-2 py-1 bg-gray-50 text-[9px] w-24">Sign</th>
+                <th className="border border-black px-2 py-1 bg-gray-50 text-[9px] w-24">Date</th>
               </tr>
             </thead>
             <tbody>
-              {approvalHistory.map((h, i) => (
+              {approvalRows.map((row, i) => (
                 <tr key={i}>
-                  <td className="border border-black px-2 py-1 text-[9px]">{h.stage}</td>
-                  <td className="border border-black px-2 py-1 text-[9px] capitalize">{h.action}</td>
-                  <td className="border border-black px-2 py-1 text-[9px]">{h.performed_by_role}</td>
-                  <td className="border border-black px-2 py-1 text-[9px]">{formatDate(h.performed_at)}</td>
-                  <td className="border border-black px-2 py-1 text-[9px]">{h.remarks || ''}</td>
+                  <td className="border border-black px-2 py-2 text-[10px]">{row.dept}</td>
+                  <td className="border border-black px-2 py-2 text-[10px]">{row.name || ''}</td>
+                  <td className="border border-black px-2 py-2 text-[10px]"></td>
+                  <td className="border border-black px-2 py-2 text-[10px] text-center">{formatDate(row.date)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      )}
 
-      {/* NCR Status */}
-      <div className="border border-black mb-2 p-2">
-        <div className="font-bold mb-1 text-[10px]">NCR Close out comments:</div>
-        <div className="min-h-[30px] border-b border-dotted border-black mb-2 p-1 text-[10px]">
-          {selectedMRB?.final_remarks || selectedMRB?.mrb_committee_remarks || ''}
+        {/* NCR Close out */}
+        <div className="border border-black mb-2 p-2">
+          <div className="font-bold mb-1 text-[10px]">NCR Close out comments:</div>
+          <div className="min-h-[40px] border-b border-dotted border-black mb-2 p-1 text-[10px]">
+            {selectedMRB?.final_remarks || selectedMRB?.mrb_committee_remarks || ''}
+          </div>
+          <div className="flex gap-4">
+            <div className={`border border-black px-4 py-1 font-bold text-[10px] ${isClosed ? 'bg-gray-300' : ''}`}>CLOSED</div>
+            <div className={`border border-black px-4 py-1 font-bold text-[10px] ${!isClosed ? 'bg-gray-300' : ''}`}>OPEN</div>
+          </div>
         </div>
-        <div className="flex gap-4">
-          <div className={`border border-black px-4 py-1 font-bold text-[10px] ${selectedMRB?.status === 'closed' || selectedMRB?.status === 'approved' ? 'bg-gray-200' : ''}`}>CLOSED</div>
-          <div className={`border border-black px-4 py-1 font-bold text-[10px] ${selectedMRB?.status !== 'closed' && selectedMRB?.status !== 'approved' ? 'bg-gray-200' : ''}`}>OPEN</div>
+
+        {/* Footer */}
+        <div className="flex justify-between text-[9px] mt-4 pt-2 border-t border-gray-200">
+          <span>Doc. No.: EG-QC-FT-502</span>
+          <span>Rev: 0</span>
+          <span>Effective Date: {printConfig?.ncr_effective_date || '01-Jan-2024'}</span>
+          <span>Page 1 of 1</span>
         </div>
       </div>
-
-      {/* Footer */}
-      <div className="flex justify-between text-[9px] mt-4 pt-2 border-t border-gray-200">
-        <span>Doc. No.: {printConfig?.mrb_doc_number || 'HBL/QA/MRB/001'}</span>
-        <span>Rev: {printConfig?.mrb_revision || '02'}</span>
-        <span>Effective Date: {printConfig?.mrb_effective_date || '01-Jan-2024'}</span>
-        <span>Page 1 of 1</span>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-6 p-4 md:p-6 overflow-auto h-full">
