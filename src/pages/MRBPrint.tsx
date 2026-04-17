@@ -276,9 +276,9 @@ const MRBPrint = () => {
 
   const { config: printConfig } = usePrintConfig(selectedMRB?.plant || '');
 
-  // NCR (IQC) Report
-  const NCRReport = () => (
-    <div ref={ncrPrintRef} className="max-w-[210mm] mx-auto bg-white text-black" style={{ fontFamily: 'Arial, sans-serif', fontSize: '10px' }}>
+  // Inward MRB - Non-Conformance Report (IQC) — matches NON_Conformance_Report_IQC.pdf
+  const InwardNCRReport = () => (
+    <div ref={printRef} className="max-w-[210mm] mx-auto bg-white text-black" style={{ fontFamily: 'Arial, sans-serif', fontSize: '10px' }}>
       {/* Header */}
       <div className="flex justify-between items-center mb-2">
         <div className="text-center flex-1">
