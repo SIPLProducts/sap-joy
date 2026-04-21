@@ -3,6 +3,7 @@ import { CalendarDays, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Search, RotateCcw, PlusCircle, FileSpreadsheet, ChevronLeft, ChevronRight, RefreshCw, AlertCircle, CheckCircle2, Loader2, Layers, XCircle, Save, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeSapSync } from '@/lib/sapSyncClient';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -251,11 +252,11 @@ export default function InwardReport() {
 
   // Auto-load all records on mount and when data refreshes
   useEffect(() => {
-    if (!isLoading && inspectionLotRecords.length > 0) {
+    if (!isLoading) {
       setSearchResults(inspectionLotRecords.filter(r => r.status !== 'mrb_created'));
       if (!hasSearched) setHasSearched(true);
     }
-  }, [isLoading, inspectionLotRecords]);
+  }, [isLoading, inspectionLotRecords, hasSearched]);
 
   const handleReset = () => {
     setFilters({
@@ -396,16 +397,46 @@ export default function InwardReport() {
 
   // API sync handler
   const handleAPISync = async () => {
+    if (!sapConfigId) {
+      toast.error('No inward SAP API configuration found. Please configure SAP settings first.');
+      return;
+    }
+
     setIsSyncing(true);
     try {
+      const { data: syncData, error: syncError } = await invokeSapSync({
+        action: 'sync',
+        config_id: sapConfigId,
+      });
+
+      if (syncError) {
+        throw new Error(syncError.message || 'SAP sync failed');
+      }
+
+      if (!syncData?.success) {
+        toast.error(`SAP sync failed: ${syncData?.error || 'Unknown error'}`);
+        return;
+      }
+
       await refreshData();
-      // Refresh last_sync_at
-      const now = new Date().toISOString();
-      setLastSyncAt(now);
-      toast.success('Data refreshed successfully!');
+
+      const { data: configData } = await supabase
+        .from('sap_api_config')
+        .select('last_sync_at')
+        .eq('id', sapConfigId)
+        .maybeSingle();
+
+      if (configData?.last_sync_at) {
+        setLastSyncAt(configData.last_sync_at);
+      }
+
+      setSelectedIds(new Set());
+      toast.success(
+        `SAP sync complete. Fetched: ${syncData.records_fetched ?? 0}, Inserted: ${syncData.records_inserted ?? 0}, Updated: ${syncData.records_updated ?? 0}. Display refreshed.`
+      );
     } catch (error) {
       console.error('Sync error:', error);
-      toast.error('Sync failed. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Sync failed. Please try again.');
     } finally {
       setIsSyncing(false);
     }
