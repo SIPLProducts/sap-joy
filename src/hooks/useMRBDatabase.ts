@@ -162,26 +162,6 @@ export function useMRBDatabase() {
 
       const currentStage = currentMRB?.status || 'quality_review';
 
-      // SPECIAL CASE: Return for clarification — do NOT mutate status/pending_with.
-      // Only log history + send notification.
-      if (action === 'returned_for_clarification') {
-        await supabase.from('mrb_approval_history').insert({
-          mrb_id: id,
-          stage: getStageFromStatus(currentStage as MRBStatus),
-          action: action,
-          performed_by: user?.id || '',
-          performed_by_role: userRole || 'quality',
-          remarks: remarks,
-        });
-
-        supabase.functions.invoke('send-mrb-email', {
-          body: { mrb_id: id, event_type: 'mrb_returned_for_clarification', triggered_by: user?.id },
-        }).catch(err => console.error('Email trigger failed:', err));
-
-        await fetchMRBRecords();
-        return true;
-      }
-
       const workflowRouting = (currentMRB as any)?.workflow_routing as string[] | null;
 
       // If the action is 'approved' (not reject) and there's a workflow_routing,
@@ -293,6 +273,7 @@ export function useMRBDatabase() {
       // Fire-and-forget email notification
       const emailEvent = action === 'approved' ? 'mrb_approved'
         : action === 'rejected' ? 'mrb_rejected'
+        : action === 'returned_for_clarification' ? 'mrb_returned_for_clarification'
         : action === 'returned' ? 'mrb_returned'
         : 'mrb_forwarded';
       supabase.functions.invoke('send-mrb-email', {

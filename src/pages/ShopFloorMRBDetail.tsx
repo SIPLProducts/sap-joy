@@ -146,9 +146,10 @@ export default function ShopFloorMRBDetail() {
       const action = reviewData.action;
       const workflowRouting = Array.isArray(mrb.workflow_routing) ? (mrb.workflow_routing as string[]) : [];
 
-      const currentDept = (userRole && (roleToDept[userRole] || userRole)) || '';
+      const currentRoutingRole = mrb.pending_with || userRole || '';
+      const currentDept = roleToDept[currentRoutingRole] || currentRoutingRole;
       const currentIdx = workflowRouting.findIndex(
-        (d) => d === currentDept || d === userRole || deptToRole[d] === userRole
+        (d) => d === currentDept || d === currentRoutingRole || deptToRole[d] === currentRoutingRole
       );
       const isLastStep = workflowRouting.length === 0 || currentIdx === workflowRouting.length - 1;
 
@@ -164,8 +165,17 @@ export default function ShopFloorMRBDetail() {
         additionalUpdates.final_approved_at = new Date().toISOString();
         historyAction = 'approved';
       } else if (action === 'return_for_clarification') {
-        newStatus = mrb.status;
-        additionalUpdates.pending_with = mrb.pending_with;
+        const nextDept = currentIdx >= 0 ? workflowRouting[currentIdx + 1] : undefined;
+        if (!nextDept) {
+          toast({
+            title: 'No Next Department',
+            description: 'No next department is configured in the workflow routing.',
+            variant: 'destructive',
+          });
+          return;
+        }
+        newStatus = (deptToStatus[nextDept] as MRBStatus) || mrb.status;
+        additionalUpdates.pending_with = deptToRole[nextDept] || nextDept;
         historyAction = 'returned_for_clarification';
       } else if (
         action === 'approve_with_deviation' ||
