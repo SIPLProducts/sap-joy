@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { clearAuthStorage, hasCurrentBrowserSession, markCurrentBrowserSession } from '@/lib/authStorage';
 
 export type AppRole = string;
 
@@ -74,6 +75,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
+    if (!hasCurrentBrowserSession()) {
+      clearAuthStorage();
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
@@ -145,6 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Welcome back!",
         description: "You have successfully signed in.",
       });
+      markCurrentBrowserSession();
       
       return { error: null };
     } catch (error: any) {
@@ -186,7 +192,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      clearAuthStorage();
+    }
     setUser(null);
     setSession(null);
     setProfile(null);
