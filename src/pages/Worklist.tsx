@@ -140,9 +140,9 @@ export default function Worklist() {
   const [pendingSAPSyncId, setPendingSAPSyncId] = useState<string | null>(null);
   const [pendingSAPSyncNumber, setPendingSAPSyncNumber] = useState<string>('');
 
-  // RBAC: Block-to-Unrestricted access control (#1.3)
+  // RBAC: SAP unblock access is limited to Master Admin, Admin, and Quality.
   const isMasterAdmin = profile?.email === MASTER_ADMIN_EMAIL || user?.email === MASTER_ADMIN_EMAIL;
-  const canUnblockSAP = isMasterAdmin || userRole === 'quality_head' || userRole === 'admin';
+  const canUnblockSAP = isMasterAdmin || userRole === 'admin' || userRole === 'quality';
 
   // Fetch sync history
   const fetchSyncHistory = async () => {
@@ -906,7 +906,7 @@ export default function Worklist() {
               <div className="text-sm font-medium text-foreground">
                 All MRB Records ({sortedRecords.length})
               </div>
-              {approvedRecords.length > 0 && (
+              {canUnblockSAP && approvedRecords.length > 0 && (
                 <div className="flex items-center gap-2">
                   <Button 
                     variant="outline" 
@@ -1046,7 +1046,7 @@ export default function Worklist() {
                       className={`border-b transition-colors hover:bg-muted/50 ${mrb.escalationLevel && mrb.escalationLevel !== 'none' ? 'bg-red-50/50' : ''} ${selectedIds.has(mrb.id) ? 'bg-primary/5' : ''}`}
                     >
                       <td className="p-3 align-middle">
-                        {mrb.status === 'approved' && (
+                        {canUnblockSAP && mrb.status === 'approved' && (
                           <Checkbox
                             checked={selectedIds.has(mrb.id)}
                             onCheckedChange={() => toggleSelect(mrb.id)}
