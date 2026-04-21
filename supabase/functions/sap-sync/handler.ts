@@ -279,8 +279,11 @@ export default async (req: Request) => {
         }
 
         const isBusinessSuccess = sapCode === '100' || sapCode === 100;
+        const alreadyUnblocked = isAlreadyUnblockedMessage(sapMsg);
+        const verifiedUnblocked = isVerifiedUnblocked(verification);
+        const effectiveSuccess = isBusinessSuccess || verifiedUnblocked || alreadyUnblocked;
 
-        if (!isBusinessSuccess) {
+        if (!effectiveSuccess) {
           return new Response(JSON.stringify({
             success: false,
             error: sapMsg || `SAP returned CODE ${sapCode} — blocking was not successful`,
@@ -296,11 +299,15 @@ export default async (req: Request) => {
             http_status: response.status,
             raw_body_length: bodyText.length,
             verification,
+            already_unblocked: alreadyUnblocked,
+            verified_unblocked: verifiedUnblocked,
           }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
         return new Response(JSON.stringify({
           success: true,
+          already_unblocked: alreadyUnblocked,
+          verified_unblocked: verifiedUnblocked,
           sap_response: responseData,
           code: sapCode,
           CODE: sapCode,
