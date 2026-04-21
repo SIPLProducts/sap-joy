@@ -57,11 +57,19 @@ export function MRBProvider({ children }: { children: ReactNode }) {
           .order('sent_at', { ascending: false }),
       ]);
 
+      if (mrbResult.error) {
+        console.error('[MRBContext] mrb_records fetch error:', mrbResult.error);
+      }
       if (mrbResult.data) {
         // Apply plant-based filtering on client side
         const filtered = shouldFilterByPlant && userPlant
           ? mrbResult.data.filter(r => r.plant === userPlant)
           : mrbResult.data;
+        console.log(
+          `[MRBContext] Loaded ${mrbResult.data.length} mrb_records (after plant filter: ${filtered.length}). ` +
+          `shop_floor=${filtered.filter((r: any) => r.source === 'shop_floor').length}, ` +
+          `quality_inspection=${filtered.filter((r: any) => r.source === 'quality_inspection').length}`
+        );
         setMRBRecords(filtered);
       }
       if (emailResult.data) {
@@ -72,7 +80,7 @@ export function MRBProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [shouldFilterByPlant, userPlant]);
 
   useEffect(() => {
     fetchData();
