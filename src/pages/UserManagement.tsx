@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Search, UserCog, Shield, Building2, Edit, Trash2, Plus, RefreshCw, UserPlus, KeyRound } from 'lucide-react';
 import { PasswordPolicyIndicator } from '@/components/auth/PasswordPolicyIndicator';
-import { validatePassword, hashPasswordForHistory } from '@/lib/passwordPolicy';
+import { validatePassword, hashPasswordForHistory, PASSWORD_POLICY } from '@/lib/passwordPolicy';
 import { format } from 'date-fns';
 
 interface UserWithRole {
@@ -34,6 +34,20 @@ interface UserWithRole {
 }
 
 const HIDDEN_EMAILS = ['masteradmin@sharviinfotech.com', 'bala@sharviinfotech.com'];
+
+const PASSWORD_HELP_TEXT = `Password must be ${PASSWORD_POLICY.minLength}-${PASSWORD_POLICY.maxLength} characters and include at least one letter and one number.`;
+
+const getPasswordLengthMessage = (password: string) => {
+  if (password.length <= PASSWORD_POLICY.maxLength) return null;
+  return `This password has ${password.length} characters. Maximum allowed is ${PASSWORD_POLICY.maxLength}.`;
+};
+
+const getPasswordValidationMessage = (password: string) => {
+  const trimmedPassword = password.trim();
+  const validation = validatePassword(trimmedPassword);
+  const lengthMessage = getPasswordLengthMessage(trimmedPassword);
+  return validation.isValid ? null : [lengthMessage, ...validation.errors].filter(Boolean).join('. ');
+};
 
 const getRoleBadgeVariant = (role: AppRole | null): "default" | "secondary" | "destructive" | "outline" => {
   if (!role) return 'outline';
@@ -172,6 +186,15 @@ export default function UserManagement() {
   const handleSaveEdit = async () => {
     if (!selectedUser) return;
 
+    const trimmedResetPassword = resetPassword.trim();
+    if (trimmedResetPassword) {
+      const passwordError = getPasswordValidationMessage(trimmedResetPassword);
+      if (passwordError) {
+        toast({ title: 'Password Policy Error', description: passwordError, variant: 'destructive' });
+        return;
+      }
+    }
+
     const validRoleKeys = roleOptions.map(r => r.value);
     if (!selectedRole || !validRoleKeys.includes(selectedRole)) {
       toast({ title: 'Validation Error', description: 'Please select a valid role before saving.', variant: 'destructive' });
@@ -226,13 +249,8 @@ export default function UserManagement() {
       }
 
       // Password reset
-      if (resetPassword.trim()) {
-        const validation = validatePassword(resetPassword.trim());
-        if (!validation.isValid) {
-          throw new Error(validation.errors.join('. '));
-        }
-
-        const pwHash = await hashPasswordForHistory(resetPassword.trim());
+      if (trimmedResetPassword) {
+        const pwHash = await hashPasswordForHistory(trimmedResetPassword);
         const { data: historyRecords } = await supabase
           .from('password_history')
           .select('password_hash')
@@ -246,7 +264,7 @@ export default function UserManagement() {
 
         const { error: pwErr } = await supabase.rpc('admin_update_user_password', {
           target_user_id: selectedUser.user_id,
-          new_password: resetPassword.trim(),
+          new_password: trimmedResetPassword,
         });
         if (pwErr) throw pwErr;
 
@@ -277,7 +295,9 @@ export default function UserManagement() {
 
       toast({
         title: 'Success',
-        description: `User ${selectedUser.full_name} updated successfully`,
+        description: trimmedResetPassword
+          ? 'Password reset successfully. The user can now login with Employee ID and the new password.'
+          : `User ${selectedUser.full_name} updated successfully`,
       });
       setIsEditDialogOpen(false);
       setResetPassword('');
@@ -321,9 +341,9 @@ export default function UserManagement() {
       return;
     }
     
-    const validation = validatePassword(newUserPassword);
-    if (!validation.isValid) {
-      toast({ title: 'Password Policy Error', description: validation.errors.join('. '), variant: 'destructive' });
+    const passwordError = getPasswordValidationMessage(newUserPassword);
+    if (passwordError) {
+      toast({ title: 'Password Policy Error', description: passwordError, variant: 'destructive' });
       return;
     }
 
@@ -560,7 +580,11 @@ export default function UserManagement() {
             </div>
             <div className="space-y-2">
               <Label>Password * <span className="text-xs text-muted-foreground">(8-10 chars, letter + number)</span></Label>
-              <Input type="password" placeholder="8-10 characters" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value.slice(0, 10))} maxLength={10} />
+              <Input type="password" placeholder="8-10 characters" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} />
+              <p className="text-xs text-muted-foreground">{PASSWORD_HELP_TEXT}</p>
+              {getPasswordLengthMessage(newUserPassword) && (
+                <p className="text-xs font-medium text-destructive">{getPasswordLengthMessage(newUserPassword)}</p>
+              )}
               <PasswordPolicyIndicator password={newUserPassword} />
             </div>
             <div className="space-y-2">
@@ -662,7 +686,11 @@ export default function UserManagement() {
             </div>
             <div className="space-y-2">
               <Label className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> Reset Password <span className="text-xs text-muted-foreground">(8-10 chars)</span></Label>
-              <Input type="password" placeholder="Leave blank to keep current" value={resetPassword} onChange={(e) => setResetPassword(e.target.value.slice(0, 10))} maxLength={10} />
+              <Input type="password" placeholder="Leave blank to keep current" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} />
+              <p className="text-xs text-muted-foreground">{PASSWORD_HELP_TEXT}</p>
+              {getPasswordLengthMessage(resetPassword) && (
+                <p className="text-xs font-medium text-destructive">{getPasswordLengthMessage(resetPassword)}</p>
+              )}
               <PasswordPolicyIndicator password={resetPassword} />
             </div>
 
