@@ -15,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
@@ -24,6 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getStatusDisplayName, getStatusColor, getRoleDisplayName } from '@/data/mockData';
 import { useDepartmentMap } from '@/hooks/useDepartmentMap';
 import { WorkflowProgressIndicator } from '@/components/mrb/WorkflowProgressIndicator';
+import { getRoutedStatus, getWorkflowReviewLabel } from '@/lib/mrbWorkflowDisplay';
 import type { Database } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -135,6 +135,7 @@ export default function InwardMRBDetail() {
     userRole === 'admin' ||
     isMasterAdmin
   );
+  const displayStatusLabel = getWorkflowReviewLabel(mrb.status, mrb.pending_with, roleDisplayNames);
 
   const handleOpenApprovalDialog = () => {
     if (!reviewData.action) {
@@ -187,7 +188,7 @@ export default function InwardMRBDetail() {
           });
           return;
         }
-        newStatus = (deptToStatus[nextDept] as MRBStatus) || mrb.status;
+        newStatus = getRoutedStatus(nextDept, deptToStatus, 'quality_review');
         additionalUpdates.pending_with = deptToRole[nextDept] || nextDept;
         historyAction = 'returned_for_clarification';
       } else if (action === 'approve_with_deviation' || action === 'return_to_vendor') {
@@ -211,7 +212,7 @@ export default function InwardMRBDetail() {
         } else {
           // Forward to next department in workflow_routing
           const nextDept = workflowRouting[currentIdx + 1];
-          newStatus = (deptToStatus[nextDept] as MRBStatus) || 'quality_review';
+          newStatus = getRoutedStatus(nextDept, deptToStatus, 'quality_review');
           additionalUpdates.pending_with = deptToRole[nextDept] || nextDept;
           historyAction = action === 'approve_with_deviation' ? 'forwarded' : 'returned';
         }

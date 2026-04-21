@@ -35,6 +35,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeSapSync } from '@/lib/sapSyncClient';
 import { useAuth } from '@/contexts/AuthContext';
+import { getWorkflowReviewLabel } from '@/lib/mrbWorkflowDisplay';
 import type { Database } from '@/integrations/supabase/types';
 import * as XLSX from 'xlsx';
 
@@ -338,7 +339,7 @@ export default function Worklist() {
     const exportData = sortedRecords.map(mrb => ({
       'MRB Number': mrb.mrbNumber,
       'Source': mrb.source === 'quality_inspection' ? 'Inward' : 'Shop Floor',
-      'Status': getStatusDisplayName(mrb.status),
+      'Status': getWorkflowReviewLabel(mrb.status, mrb.pendingWith, roleDisplayNames),
       'Inspection Lot': mrb.inspectionLot || '-',
       'Material Number': mrb.materialNumber,
       'Material Description': mrb.materialDescription,

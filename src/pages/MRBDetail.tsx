@@ -17,6 +17,7 @@ import { getStatusDisplayName, getStatusColor, getSLAColor, getRoleDisplayName }
 import { useDepartmentMap } from '@/hooks/useDepartmentMap';
 import { useToast } from '@/hooks/use-toast';
 import { WorkflowProgressIndicator } from '@/components/mrb/WorkflowProgressIndicator';
+import { getWorkflowReviewLabel } from '@/lib/mrbWorkflowDisplay';
 import type { Database as DB } from '@/integrations/supabase/types';
 
 type MRBRecord = DB['public']['Tables']['mrb_records']['Row'];
@@ -225,6 +226,8 @@ export default function MRBDetail() {
       </div>
     );
   }
+
+  const displayStatusLabel = getWorkflowReviewLabel(mrb.status, mrb.pending_with, roleDisplayNames);
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
