@@ -113,7 +113,7 @@ export type Database = {
           mrb_number: string
           recipients: string[]
           sent_at: string
-          sent_by: string
+          sent_by: string | null
           status: string | null
           subject: string
           template: string
@@ -126,7 +126,7 @@ export type Database = {
           mrb_number: string
           recipients: string[]
           sent_at?: string
-          sent_by: string
+          sent_by?: string | null
           status?: string | null
           subject: string
           template: string
@@ -139,7 +139,7 @@ export type Database = {
           mrb_number?: string
           recipients?: string[]
           sent_at?: string
-          sent_by?: string
+          sent_by?: string | null
           status?: string | null
           subject?: string
           template?: string
@@ -319,7 +319,7 @@ export type Database = {
           id: string
           mrb_id: string
           performed_at: string
-          performed_by: string
+          performed_by: string | null
           performed_by_role: string
           remarks: string | null
           stage: string
@@ -329,7 +329,7 @@ export type Database = {
           id?: string
           mrb_id: string
           performed_at?: string
-          performed_by: string
+          performed_by?: string | null
           performed_by_role: string
           remarks?: string | null
           stage: string
@@ -339,7 +339,7 @@ export type Database = {
           id?: string
           mrb_id?: string
           performed_at?: string
-          performed_by?: string
+          performed_by?: string | null
           performed_by_role?: string
           remarks?: string | null
           stage?: string
@@ -363,7 +363,7 @@ export type Database = {
           mrb_id: string
           name: string
           uploaded_at: string
-          uploaded_by: string
+          uploaded_by: string | null
           url: string
         }
         Insert: {
@@ -374,7 +374,7 @@ export type Database = {
           mrb_id: string
           name: string
           uploaded_at?: string
-          uploaded_by: string
+          uploaded_by?: string | null
           url: string
         }
         Update: {
@@ -385,7 +385,7 @@ export type Database = {
           mrb_id?: string
           name?: string
           uploaded_at?: string
-          uploaded_by?: string
+          uploaded_by?: string | null
           url?: string
         }
         Relationships: [
@@ -407,7 +407,7 @@ export type Database = {
           closed_by: string | null
           closure_status: string | null
           created_at: string
-          created_by: string
+          created_by: string | null
           defect_category: Database["public"]["Enums"]["defect_category"] | null
           defect_code: string | null
           defect_description: string | null
@@ -494,7 +494,7 @@ export type Database = {
           closed_by?: string | null
           closure_status?: string | null
           created_at?: string
-          created_by: string
+          created_by?: string | null
           defect_category?:
             | Database["public"]["Enums"]["defect_category"]
             | null
@@ -583,7 +583,7 @@ export type Database = {
           closed_by?: string | null
           closure_status?: string | null
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           defect_category?:
             | Database["public"]["Enums"]["defect_category"]
             | null
