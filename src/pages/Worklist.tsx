@@ -530,6 +530,16 @@ export default function Worklist() {
     await handleSAPSync(pendingSAPSyncId, pendingSAPSyncNumber, postingDate);
   };
 
+  const isSapUnblockConfirmed = (result: any) =>
+    result?.success === true || result?.already_unblocked === true || result?.verified_unblocked === true;
+
+  const getSapSyncError = (response: any, result: any) => {
+    if (response?.error) {
+      return typeof response.error === 'object' ? response.error.message || JSON.stringify(response.error) : String(response.error);
+    }
+    return result?.error || result?.message || 'SAP API returned an error';
+  };
+
   const handleSAPSync = async (mrbId: string, mrbNumber: string, sapPostingDate?: string) => {
     setSyncingIds(prev => new Set(prev).add(mrbId));
     
@@ -556,24 +566,24 @@ export default function Worklist() {
         request_body: requestBody,
       });
 
-      if (response.error) {
-        const errDetail = typeof response.error === 'object' ? (response.error.message || JSON.stringify(response.error)) : String(response.error);
-        throw new Error(errDetail || 'SAP unblock edge function failed');
-      }
-
       const result = response.data;
       console.log('SAP 343 Unblock Response:', result);
 
-      if (!result?.success) {
-        throw new Error(result?.error || 'SAP API returned an error');
+      if (!isSapUnblockConfirmed(result)) {
+        throw new Error(getSapSyncError(response, result));
       }
 
       // Update MRB with SAP sync status
-      await updateMRB(mrbId, {
+      const dbUpdated = await updateMRB(mrbId, {
         sap_stock_update_status: 'synced',
         closure_status: 'completed',
         closed_at: new Date().toISOString(),
+        closed_by: user?.id,
       });
+
+      if (!dbUpdated) {
+        throw new Error('SAP unblock confirmed, but application status update failed. Please refresh and try again.');
+      }
 
       // Log sync history with SAP response
       await logSyncHistory(mrbId, mrbNumber, 'single', 'success');
@@ -686,18 +696,25 @@ export default function Worklist() {
         const response = await invokeSapSync({
           action: 'unblock',
           config_id: sap343ConfigId,
+          verify_config_id: sapMb52ConfigId || undefined,
           request_body: requestBody,
         });
 
-        if (response.error || !response.data?.success) {
-          throw new Error(response.error?.message || response.data?.error || 'SAP sync failed');
+        const result = response.data;
+        if (!isSapUnblockConfirmed(result)) {
+          throw new Error(getSapSyncError(response, result));
         }
         
-        await updateMRB(mrb.id, {
+        const dbUpdated = await updateMRB(mrb.id, {
           sap_stock_update_status: 'synced',
           closure_status: 'completed',
           closed_at: new Date().toISOString(),
+          closed_by: user?.id,
         });
+
+        if (!dbUpdated) {
+          throw new Error('SAP unblock confirmed, but application status update failed.');
+        }
 
         await logSyncHistory(mrb.id, mrb.mrbNumber, 'batch', 'success', batchId);
         successCount++;

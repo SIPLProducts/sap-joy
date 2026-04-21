@@ -279,8 +279,11 @@ export default async (req: Request) => {
         }
 
         const isBusinessSuccess = sapCode === '100' || sapCode === 100;
+        const alreadyUnblocked = isAlreadyUnblockedMessage(sapMsg);
+        const verifiedUnblocked = isVerifiedUnblocked(verification);
+        const effectiveSuccess = isBusinessSuccess || verifiedUnblocked || alreadyUnblocked;
 
-        if (!isBusinessSuccess) {
+        if (!effectiveSuccess) {
           return new Response(JSON.stringify({
             success: false,
             error: sapMsg || `SAP returned CODE ${sapCode} — blocking was not successful`,
@@ -296,11 +299,15 @@ export default async (req: Request) => {
             http_status: response.status,
             raw_body_length: bodyText.length,
             verification,
+            already_unblocked: alreadyUnblocked,
+            verified_unblocked: verifiedUnblocked,
           }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
         return new Response(JSON.stringify({
           success: true,
+          already_unblocked: alreadyUnblocked,
+          verified_unblocked: verifiedUnblocked,
           sap_response: responseData,
           code: sapCode,
           CODE: sapCode,
@@ -1018,6 +1025,21 @@ async function callSAPApi(
     error: `Transport OK but SAP rejected all ${attemptQueue.length} credential attempts. Check username, password, and SAP client in API Settings.`,
     debug,
   }
+}
+
+function isAlreadyUnblockedMessage(message: any): boolean {
+  const normalized = String(message || '').toLowerCase()
+  return normalized.includes('deficit of ba blocked') ||
+    normalized.includes('deficit of blocked') ||
+    normalized.includes('already unblocked') ||
+    normalized.includes('no blocked stock')
+}
+
+function isVerifiedUnblocked(verification: any): boolean {
+  if (!verification?.success) return false
+  const records = Array.isArray(verification.records) ? verification.records : []
+  if (records.length === 0) return true
+  return records.every((record: any) => Number(record?.SPEME ?? record?.speme ?? record?.blocked_quantity ?? 0) <= 0)
 }
 
 async function mapAndInsertData(
