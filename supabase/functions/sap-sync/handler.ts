@@ -40,6 +40,22 @@ export default async (req: Request) => {
     const body = await req.json()
     const { action, config_id } = body
 
+    if (action === 'unblock') {
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userData.user.id)
+        .maybeSingle()
+
+      const userRole = roleData?.role || null
+      const isMasterAdmin = userEmail === 'masteradmin@sharviinfotech.com'
+      if (roleError || (!isMasterAdmin && userRole !== 'admin' && userRole !== 'quality')) {
+        return new Response(JSON.stringify({ success: false, error: 'Only Master Admin, Admin, or Quality can run SAP unblock.' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
     // Fetch the SAP config
     const { data: config, error: configError } = await supabase
       .from('sap_api_config')
