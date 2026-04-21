@@ -1,153 +1,109 @@
 
-## Fix Dynamic Workflow Routing So MRBs Never Get Stuck
+## Fix “Unblock & SAP Sync” Visibility for Quality
 
-### What will be fixed
-The workflow will be corrected so that for both Inward and Shop Floor MRBs:
+### Requirement
+The **Unblock & SAP Sync** action should be available only to:
 
-- `Return for Clarification` moves the MRB to the next department in `workflow_routing`
-- any routed department such as `stores` can take action successfully
-- after a department submits its review, that same user/department no longer sees the review action area unless the MRB is reassigned back to them later in the routing
-- the visible status label will match the actual `pending_with` department instead of showing an old hardcoded review stage
-- approval history and workflow progress will stay aligned with the routed department
+- Master Admin
+- Admin
+- Quality
 
-### Root causes already identified
-1. `mrb_records` update access is still hardcoded for old roles like quality/purchase/engineering/executive and does not allow dynamic routed roles like `stores`.
-   - Result: Stores can submit a review and history gets inserted, but the MRB row itself does not move.
+It should not be hidden for Quality users.
 
-2. Dynamic departments like `stores` have no `workflow_status` configured in `departments`.
-   - Result: when routing moves to Stores, the code falls back to the previous status such as `purchase_review`, so the status badge becomes wrong even when `pending_with` is correct.
+### Current issue
+In `src/pages/Worklist.tsx`, the visibility rule currently allows:
 
-3. Detail pages still render the action form purely from `pending_with === userRole`, so if the MRB row fails to move, the same department keeps seeing the action section.
+```ts
+masteradmin || admin || quality_head
+```
 
-4. Approval history stage labels are derived from `mrb.status`, not the actual routed department taking action.
-   - Result: Stores activity can appear under `Purchase Review`.
+So a user with role `quality` does not see the button.
 
-## Implementation plan
+There is also a second issue: even after showing the button to Quality, the database update after SAP success may fail because approved MRBs usually have `pending_with = null`, and the current MRB update policy mainly allows admins or the current workflow assignee.
 
-### 1. Make workflow updates permission-safe for all routed departments
-Create a database migration to replace the current hardcoded MRB update policy with a routing-based rule.
+## Implementation Plan
 
-New update access logic for `mrb_records`:
-- creator can edit only while status is `draft`
-- admin can always update
-- the authenticated user can update when their assigned role matches `pending_with`
-- keep existing authenticated read/insert behavior unchanged
+### 1. Update the frontend role check
+Change the Worklist permission logic from:
 
-This allows custom workflow departments like `stores` to act without the MRB getting stuck.
+```ts
+const canUnblockSAP = isMasterAdmin || userRole === 'quality_head' || userRole === 'admin';
+```
 
-### 2. Make next-step routing fully dynamic and never depend on old stage fallbacks
-Update the review submission flow in:
-- `src/pages/InwardMRBDetail.tsx`
-- `src/pages/ShopFloorMRBDetail.tsx`
+to allow exactly:
 
-Changes:
-- centralize “next department” resolution from `workflow_routing`
-- for `return_for_clarification`, always move to the next routed department
-- for intermediate approvals like `approve_with_deviation`, move to the next routed department unless it is the last step
-- for final approval actions, close/approve only at the last routed step
-- stop using the previous record status as the fallback when the next department has no explicit `workflow_status`
+```ts
+const canUnblockSAP =
+  isMasterAdmin ||
+  userRole === 'admin' ||
+  userRole === 'quality';
+```
 
-For departments without a configured `workflow_status`, use a safe generic in-progress status internally, while showing the real pending department in the UI.
+This will make **Unblock & SAP Sync** visible for Quality login.
 
-### 3. Show workflow status based on the actual pending department
-Add a shared helper for workflow display state, for example in a small utility file.
+### 2. Apply the same rule to batch SAP sync controls
+Currently, approved MRBs can show selection checkboxes and batch sync controls based only on approval status.
 
-This helper will:
-- treat `approved/rejected/closed` as terminal states
-- otherwise derive the displayed review label from `pending_with`
-- show labels like:
-  - `Engineering Review`
-  - `Purchase Review`
-  - `Stores Review`
-  - `Quality Review`
+Update the Worklist UI so these are shown only when `canUnblockSAP` is true:
 
-Use this helper in:
-- `src/pages/InwardMRBDetail.tsx`
-- `src/pages/ShopFloorMRBDetail.tsx`
-- `src/pages/Worklist.tsx`
-- any shared MRB detail header still using `getStatusDisplayName(mrb.status)` for in-progress routed records
+- Select All Approved
+- Approved-row checkbox
+- Batch SAP Sync button
+- Single-row Unblock & SAP Sync button
 
-This fixes the “status still shows Purchase Review while pending with Stores” problem.
+This prevents unauthorized users from selecting approved MRBs for SAP unblock.
 
-### 4. Record history using the acting department, not the stale enum stage
-Update `src/hooks/useMRBDatabase.ts` so approval history stage labels are derived from the current routed owner (`pending_with`) when available, instead of only from `mrb.status`.
+### 3. Update database permission for SAP unblock completion
+Add a database migration so Quality, Admin, and Master Admin can update approved MRBs for SAP unblock completion.
 
-Result:
-- Stores actions appear as `Stores Review`
-- custom routed departments display correctly in history
-- history remains consistent with the workflow chart
+The policy will allow these users to update approved MRBs where SAP sync is still pending, so the app can save:
 
-### 5. Ensure the action form disappears immediately after a department submits
-Keep action visibility tied to the current assignee only:
-- show review form only when `pending_with === userRole` or admin override applies
-- once the record moves to the next department, the previous department loses the review UI automatically
+- `sap_stock_update_status = 'synced'`
+- `closure_status = 'completed'`
+- `closed_at`
+- `closed_by`
 
-Because the main bug is the record not moving, this fix mainly depends on step 1 and step 2. After those are corrected, the old actor will no longer keep seeing the action button.
+This is required because the SAP call can succeed, but the app still needs permission to mark the MRB as synced.
 
-### 6. Remove or disable misleading manual forward UI
-The current “Forward to another department” checkbox on the detail pages is not the real routing mechanism and can confuse users.
+### 4. Add backend protection for SAP unblock action
+Update the SAP sync backend function so the `unblock` action checks the logged-in user before calling SAP.
 
-Update both detail screens to:
-- remove the manual forward selection UI, or
-- replace it with a read-only note that routing happens automatically from the configured MRB workflow
+Allowed users:
 
-This keeps the behavior aligned with the requirement: routing must follow the selected MRB workflow automatically.
+- Master Admin email
+- role `admin`
+- role `quality`
 
-### 7. Repair currently affected stuck MRBs
-Apply a targeted correction for existing broken records already impacted by the old permissions behavior, starting with the MRB that is currently stuck with Stores.
+If another role tries to trigger `unblock`, the backend will return an authorization error.
 
-Goal:
-- move those MRBs to the correct next department according to their latest valid workflow action and `workflow_routing`
-- ensure Quality receives the record where Stores already forwarded it
+This prevents someone from bypassing the hidden UI and calling the SAP unblock function directly.
 
-This will be done carefully so production records are not broadly altered.
+### 5. Keep SAP Sync History readable, but restrict unblock execution
+The existing SAP Sync History dialog can remain visible unless you want it hidden separately.
+
+The action itself will be protected both:
+
+- in the UI
+- in the backend function
+
+### 6. Verify behavior
+After implementation:
+
+- Quality login will see **Unblock & SAP Sync** for approved, not-yet-synced MRBs.
+- Admin will see it.
+- Master Admin will see it.
+- Purchase, Engineering, Stores, Shop Floor, and other roles will not see it.
+- Batch SAP Sync controls will also be hidden for unauthorized roles.
+- Quality can complete the SAP unblock and the MRB will update to SAP synced successfully.
 
 ## Files and systems involved
 
 ### Code
-- `src/hooks/useMRBDatabase.ts`
-- `src/pages/InwardMRBDetail.tsx`
-- `src/pages/ShopFloorMRBDetail.tsx`
 - `src/pages/Worklist.tsx`
-- likely one new shared workflow-status helper file
+- `supabase/functions/sap-sync/handler.ts`
 
 ### Backend
-- database migration for `mrb_records` update policy
+- database migration for MRB SAP unblock update permission
 
-## Technical notes
-```text
-Current broken flow:
-Engineering -> Purchase -> Stores -> Quality
-                     |
-                     v
-           Stores review is recorded in history
-           but MRB row does not update
-                     |
-                     v
-pending_with stays Stores
-status stays old stage
-Quality cannot act
-Stores still sees action form
-```
-
-```text
-Fixed flow:
-Engineering -> Purchase -> Stores -> Quality
-                     |
-                     v
-           Stores update is authorized
-           MRB moves to Quality
-           previous actor loses action UI
-           Quality receives action UI
-           status label shows current pending department
-```
-
-## Expected result
-After this fix:
-
-- Purchase returning for clarification to Stores will move the MRB to Stores correctly.
-- Stores submitting `Approve with Deviation` will move the MRB to Quality when Quality is next in routing.
-- Quality will then get the review option immediately.
-- The previous department will no longer see the review action after submitting.
-- Status labels, workflow chart, and approval history will all reflect the same routed department.
-- Dynamic routed roles like `stores` will work the same way as quality, purchase, and engineering.
+## Expected Result
+Quality users will be able to perform **Unblock & SAP Sync**, while the action remains restricted to only Master Admin, Admin, and Quality.
