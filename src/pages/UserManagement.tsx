@@ -341,9 +341,9 @@ export default function UserManagement() {
       return;
     }
     
-    const validation = validatePassword(newUserPassword);
-    if (!validation.isValid) {
-      toast({ title: 'Password Policy Error', description: validation.errors.join('. '), variant: 'destructive' });
+    const passwordError = getPasswordValidationMessage(newUserPassword);
+    if (passwordError) {
+      toast({ title: 'Password Policy Error', description: passwordError, variant: 'destructive' });
       return;
     }
 
@@ -580,7 +580,11 @@ export default function UserManagement() {
             </div>
             <div className="space-y-2">
               <Label>Password * <span className="text-xs text-muted-foreground">(8-10 chars, letter + number)</span></Label>
-              <Input type="password" placeholder="8-10 characters" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value.slice(0, 10))} maxLength={10} />
+              <Input type="password" placeholder="8-10 characters" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} />
+              <p className="text-xs text-muted-foreground">{PASSWORD_HELP_TEXT}</p>
+              {getPasswordLengthMessage(newUserPassword) && (
+                <p className="text-xs font-medium text-destructive">{getPasswordLengthMessage(newUserPassword)}</p>
+              )}
               <PasswordPolicyIndicator password={newUserPassword} />
             </div>
             <div className="space-y-2">
@@ -682,7 +686,11 @@ export default function UserManagement() {
             </div>
             <div className="space-y-2">
               <Label className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> Reset Password <span className="text-xs text-muted-foreground">(8-10 chars)</span></Label>
-              <Input type="password" placeholder="Leave blank to keep current" value={resetPassword} onChange={(e) => setResetPassword(e.target.value.slice(0, 10))} maxLength={10} />
+              <Input type="password" placeholder="Leave blank to keep current" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} />
+              <p className="text-xs text-muted-foreground">{PASSWORD_HELP_TEXT}</p>
+              {getPasswordLengthMessage(resetPassword) && (
+                <p className="text-xs font-medium text-destructive">{getPasswordLengthMessage(resetPassword)}</p>
+              )}
               <PasswordPolicyIndicator password={resetPassword} />
             </div>
 
