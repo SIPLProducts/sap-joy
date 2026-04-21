@@ -1,114 +1,135 @@
 
-## Route “Return for Clarification” to the Next Workflow Department
+## Fix Password Reset Confusion for Employee Login
 
-### Requirement
-When any department selects **Return for Clarification**, the MRB should not remain with the same department. It should move to the **next department in the configured `workflow_routing` sequence** so that the next department can take action.
+### What is happening
+The password policy is currently **8-10 characters only**.
+
+`Kakinada@123` is **12 characters**, so it is not a valid password under the current rule.
+
+However, the User Management password input currently does this:
+
+```ts
+e.target.value.slice(0, 10)
+```
+
+That means when an admin types:
+
+```text
+Kakinada@123
+```
+
+the app silently saves only:
+
+```text
+Kakinada@1
+```
+
+So when Chandra tries to login with `Kakinada@123`, the backend correctly returns:
+
+```text
+Invalid login credentials
+```
+
+Also, if Chandra logs in using employee ID `123456`, the app first resolves `123456` to Chandra’s email and then signs in with the password. The employee ID part is fine; the problem is the password reset UI silently trimming the password.
 
 ## Implementation Plan
 
-### 1. Update Inward MRB review routing
-Modify `src/pages/InwardMRBDetail.tsx`.
+### 1. Stop silently cutting passwords in User Management
+Update `src/pages/UserManagement.tsx`.
 
 Current behavior:
-- `return_for_clarification` keeps:
-  - same `status`
-  - same `pending_with`
-  - only logs history
+- Create User password field cuts input to 10 characters.
+- Reset Password field cuts input to 10 characters.
+- Admin may think a longer password was saved, but only the first 10 characters are stored.
 
 New behavior:
-- Find the current department position in `mrb.workflow_routing`.
-- Move to the next department in the routing.
-- Set:
-  - `status` from `deptToStatus[nextDept]`
-  - `pending_with` from `deptToRole[nextDept]`
-  - history action as `returned_for_clarification`
-- Keep the review comments in the correct department remarks field.
+- Remove `.slice(0, 10)`.
+- Remove `maxLength={10}`.
+- Allow the admin to type the full password.
+- Show validation clearly if it is more than 10 characters.
+- Do not save until the password satisfies the policy.
 
-Example flow:
+### 2. Validate password before saving any user changes
+Currently, the edit flow updates profile, plant, and role before password reset validation is fully completed.
+
+Change `handleSaveEdit()` so password validation happens at the beginning:
+- If reset password is entered and invalid, stop immediately.
+- Do not update role, employee ID, plant, or password.
+- Show a clear error.
+
+Example message:
+
 ```text
-Purchase returns for clarification
-Workflow: purchase → engineering → quality_head
-Result: MRB pending_with = engineering
+Password must not exceed 10 characters. Current length: 12.
 ```
 
-### 2. Update Shop Floor MRB review routing
-Modify `src/pages/ShopFloorMRBDetail.tsx` with the same logic.
+This prevents partial user updates when password validation fails.
 
-Current behavior:
-- `return_for_clarification` stays with the same department.
+### 3. Add clear password length helper text
+Update the Create User and Edit User dialogs to show:
 
-New behavior:
-- Move to the next department in `workflow_routing`.
-- Apply the same status and pending role mapping as other forwarded actions.
-
-### 3. Fix shared database update behavior
-Modify `src/hooks/useMRBDatabase.ts`.
-
-Current issue:
-- `updateMRBStatus()` has a special case for `returned_for_clarification`.
-- That special case only inserts approval history and sends email.
-- It intentionally skips updating `mrb_records`, so even if the detail page calculates the next department, the record will not move.
-
-Change this behavior so:
-- `returned_for_clarification` can update `status` and `pending_with`.
-- It still logs approval history as `returned_for_clarification`.
-- It still triggers the `mrb_returned_for_clarification` notification event.
-- It no longer blocks record updates.
-
-### 4. Handle missing next department safely
-If the current department is already the last department in `workflow_routing`, there is no next department to send it to.
-
-Use a safe fallback:
-- Do not mark the MRB approved or closed.
-- Keep it with the current department.
-- Show a clear toast message such as:
 ```text
-No next department is configured in the workflow routing.
+Password must be 8-10 characters and include at least one letter and one number.
 ```
 
-This prevents accidental completion or incorrect routing.
+When the typed password is too long, show:
 
-### 5. Keep routing fully dynamic
-Use the existing dynamic mapping from `useDepartmentMap()`:
+```text
+This password has 12 characters. Maximum allowed is 10.
+```
 
-- `roleToDept`
-- `deptToRole`
-- `deptToStatus`
+This makes it obvious that `Kakinada@123` is not allowed.
 
-No hardcoded role sequence will be added. The behavior will follow the plant’s configured workflow routing.
+### 4. Keep the existing 8-10 character policy
+No change will be made to:
+- `src/lib/passwordPolicy.ts`
+- backend password max-length validation
+- current password expiry/history rules
 
-## Files to Update
+The app will continue enforcing:
+- minimum 8 characters
+- maximum 10 characters
+- at least one letter
+- at least one number
 
-- `src/pages/InwardMRBDetail.tsx`
-  - Change `return_for_clarification` branch to route to the next workflow department.
+### 5. Fix password reset save feedback
+After password reset succeeds, show the exact policy-safe outcome without displaying the password:
 
-- `src/pages/ShopFloorMRBDetail.tsx`
-  - Apply the same next-department routing behavior.
+```text
+Password reset successfully. The user can now login with Employee ID and the new password.
+```
 
-- `src/hooks/useMRBDatabase.ts`
-  - Remove/adjust the special case that prevents record updates for `returned_for_clarification`.
-  - Preserve correct history and email event handling.
+If reset fails, show the real validation/backend error and do not show generic success.
+
+### 6. Recommended immediate user action after the fix
+After this UI fix is applied, reset Chandra’s password again using a valid 8-10 character password, for example:
+
+```text
+Kakinada1
+```
+
+or another password that follows the policy.
+
+Then Chandra should login with:
+
+```text
+Employee ID: 123456
+Password: the new 8-10 character password
+```
+
+## Files to update
+
+- `src/pages/UserManagement.tsx`
+  - Remove silent password truncation.
+  - Validate reset password before any other save operations.
+  - Add clearer password length feedback.
+  - Improve reset success/failure messages.
 
 ## Expected Result
 
-After the change:
+After this fix:
 
-```text
-Current pending department selects Return for Clarification
-        ↓
-System finds next department in workflow_routing
-        ↓
-MRB status and pending_with move to that next department
-        ↓
-Next department can see and act on the MRB
-```
-
-Example:
-
-```text
-Quality Head → Return for Clarification
-Routing: quality_head → purchase → engineering
-Result: Pending With = purchase
-```
-
-This will work for both **Inward MRB** and **Shop Floor MRB** detail review screens.
+- Admins will no longer think a 12-character password was saved.
+- Invalid passwords like `Kakinada@123` will be blocked with a clear message.
+- Chandra can login using employee ID `123456` after the password is reset to a valid 8-10 character password.
+- The app will avoid partial user updates when password validation fails.
