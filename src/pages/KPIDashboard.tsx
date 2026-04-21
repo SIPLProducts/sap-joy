@@ -118,21 +118,26 @@ export default function KPIDashboard() {
 
   // Combine both sources safely to ensure all MRBs show up without duplicates
   const allMRBs = useMemo(() => {
-    const combined = [...(mrbRecords || [])];
-    const existingIds = new Set(combined.map(r => r.id));
-    
-    if (inwardMRBRecords && inwardMRBRecords.length > 0) {
-      inwardMRBRecords.forEach((inward: any) => {
-        if (!existingIds.has(inward.id)) {
-          combined.push({
-            ...inward,
-            source: inward.source || 'quality_inspection'
-          } as any);
-        }
+    // Defensive UNION by id: guarantees BOTH shop_floor (from mrbRecords) AND
+    // quality_inspection (from either context) are included, even if one
+    // context is briefly empty during load.
+    const byId = new Map<string, any>();
+
+    (mrbRecords || []).forEach((r: any) => {
+      if (r && r.id) byId.set(r.id, r);
+    });
+
+    (inwardMRBRecords || []).forEach((inward: any) => {
+      if (!inward || !inward.id) return;
+      const existing = byId.get(inward.id);
+      byId.set(inward.id, {
+        ...(existing || {}),
+        ...inward,
+        source: inward.source || existing?.source || 'quality_inspection',
       });
-    }
-    
-    return combined;
+    });
+
+    return Array.from(byId.values());
   }, [mrbRecords, inwardMRBRecords]);
 
   // Filter MRBs based on selections
