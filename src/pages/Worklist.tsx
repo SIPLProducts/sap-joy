@@ -530,12 +530,14 @@ export default function Worklist() {
     await handleSAPSync(pendingSAPSyncId, pendingSAPSyncNumber, postingDate);
   };
 
-  const isSapUnblockConfirmed = (result: any) =>
-    result?.success === true || result?.already_unblocked === true || result?.verified_unblocked === true;
+  const isSapUnblockConfirmed = (result: any) => result?.success === true;
 
   const getSapSyncError = (response: any, result: any) => {
     if (response?.error) {
       return typeof response.error === 'object' ? response.error.message || JSON.stringify(response.error) : String(response.error);
+    }
+    if (result?.already_unblocked && !result?.verified_unblocked) {
+      return result?.error || `SAP did not confirm unblock. MB52 verification did not prove the stock is unblocked, so the MRB was not marked as synced. SAP Message: ${result?.message || 'No SAP message returned'}`;
     }
     return result?.error || result?.message || 'SAP API returned an error';
   };
@@ -597,11 +599,19 @@ export default function Worklist() {
       const verification = result.verification;
       const liveRecord = verification?.success && verification?.records?.length ? verification.records[0] : null;
 
+      const successTitle = result?.code === '100' || result?.code === 100
+        ? '✅ SAP unblock completed successfully'
+        : '✅ SAP already appears unblocked';
+      const successSummary = result?.code === '100' || result?.code === 100
+        ? `Material Document: ${sapMBLNR || '—'}`
+        : 'Confirmed by valid MB52 verification.';
+
       toast({
-        title: '✅ Live SAP Result',
+        title: successTitle,
         description: (
           <div className="mt-1 space-y-1 max-w-sm">
             <p className="font-semibold text-sm">{mrbNumber}</p>
+            <p className="text-xs text-muted-foreground">{successSummary}</p>
             <div className="bg-muted/50 rounded p-2 text-xs space-y-0.5 border">
               <p><span className="font-medium">SAP 343 Request</span></p>
               <p className="text-muted-foreground pl-2">MATNR: {requestBody.MATNR}</p>

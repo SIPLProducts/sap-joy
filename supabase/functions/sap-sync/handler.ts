@@ -269,7 +269,7 @@ export default async (req: Request) => {
               ? {
                   success: true,
                   count: Array.isArray(verifyResponse.data) ? verifyResponse.data.length : 0,
-                  records: Array.isArray(verifyResponse.data) ? verifyResponse.data.slice(0, 3) : [],
+                  records: Array.isArray(verifyResponse.data) ? verifyResponse.data.slice(0, 10) : [],
                 }
               : {
                   success: false,
@@ -280,13 +280,17 @@ export default async (req: Request) => {
 
         const isBusinessSuccess = sapCode === '100' || sapCode === 100;
         const alreadyUnblocked = isAlreadyUnblockedMessage(sapMsg);
-        const verifiedUnblocked = isVerifiedUnblocked(verification);
-        const effectiveSuccess = isBusinessSuccess || verifiedUnblocked || alreadyUnblocked;
+        const verificationResult = evaluateUnblockVerification(verification, request_body);
+        verification = verificationResult.verification;
+        const verifiedUnblocked = verificationResult.verifiedUnblocked;
+        const effectiveSuccess = isBusinessSuccess || (alreadyUnblocked && verifiedUnblocked);
 
         if (!effectiveSuccess) {
           return new Response(JSON.stringify({
             success: false,
-            error: sapMsg || `SAP returned CODE ${sapCode} — blocking was not successful`,
+            error: alreadyUnblocked
+              ? `SAP did not confirm unblock. MB52 verification did not prove the stock is unblocked, so the MRB was not marked as synced. SAP Message: ${sapMsg || `CODE ${sapCode}`}`
+              : sapMsg || `SAP returned CODE ${sapCode} — unblock was not successful`,
             sap_response: responseData,
             code: sapCode,
             CODE: sapCode,
@@ -1035,11 +1039,67 @@ function isAlreadyUnblockedMessage(message: any): boolean {
     normalized.includes('no blocked stock')
 }
 
-function isVerifiedUnblocked(verification: any): boolean {
-  if (!verification?.success) return false
-  const records = Array.isArray(verification.records) ? verification.records : []
-  if (records.length === 0) return true
-  return records.every((record: any) => Number(record?.SPEME ?? record?.speme ?? record?.blocked_quantity ?? 0) <= 0)
+function normalizeSapKey(value: any, stripLeadingZeros = false): string {
+  const normalized = String(value ?? '').trim().toUpperCase()
+  return stripLeadingZeros ? normalized.replace(/^0+/, '') || '0' : normalized
+}
+
+function getFirstValue(record: any, keys: string[]): any {
+  for (const key of keys) {
+    if (record?.[key] !== undefined && record?.[key] !== null && record?.[key] !== '') return record[key]
+  }
+  return undefined
+}
+
+function evaluateUnblockVerification(verification: any, requestBody: any): { verifiedUnblocked: boolean; verification: any } {
+  if (!verification?.success) return { verifiedUnblocked: false, verification }
+
+  const rawRecords = Array.isArray(verification.records) ? verification.records : []
+  const records = rawRecords.filter((record: any) => {
+    const keys = Object.keys(record || {}).map((key) => key.toLowerCase())
+    const hasStockField = ['matnr', 'werks', 'lgort', 'charg', 'speme', 'labst', 'material_code', 'plant', 'storage_location', 'batch', 'blocked_quantity', 'available_quantity']
+      .some((key) => keys.includes(key))
+    const msg = String(record?.MSG || record?.msg || record?.message || '').toLowerCase()
+    return hasStockField && !msg.includes('request payload is empty')
+  })
+
+  if (records.length === 0) {
+    return {
+      verifiedUnblocked: false,
+      verification: { ...verification, success: false, error: 'MB52 verification did not return valid stock records', records: rawRecords.slice(0, 3) },
+    }
+  }
+
+  const expected = {
+    material: normalizeSapKey(requestBody?.MATNR, true),
+    plant: normalizeSapKey(requestBody?.WERKS),
+    sloc: normalizeSapKey(requestBody?.LGORT),
+    batch: normalizeSapKey(requestBody?.CHARG, true),
+  }
+
+  const matchingRecords = records.filter((record: any) => {
+    const material = normalizeSapKey(getFirstValue(record, ['MATNR', 'matnr', 'material_code', 'material']), true)
+    const plant = normalizeSapKey(getFirstValue(record, ['WERKS', 'werks', 'plant']))
+    const sloc = normalizeSapKey(getFirstValue(record, ['LGORT', 'lgort', 'storage_location']))
+    const batch = normalizeSapKey(getFirstValue(record, ['CHARG', 'charg', 'batch']), true)
+    return (!expected.material || material === expected.material) &&
+      (!expected.plant || plant === expected.plant) &&
+      (!expected.sloc || sloc === expected.sloc) &&
+      (!expected.batch || batch === expected.batch)
+  })
+
+  if (matchingRecords.length === 0) {
+    return {
+      verifiedUnblocked: false,
+      verification: { ...verification, success: false, error: 'MB52 verification did not return a matching stock record', records: rawRecords.slice(0, 3) },
+    }
+  }
+
+  const verifiedUnblocked = matchingRecords.every((record: any) => Number(getFirstValue(record, ['SPEME', 'speme', 'blocked_quantity']) ?? 0) <= 0)
+  return {
+    verifiedUnblocked,
+    verification: { ...verification, count: matchingRecords.length, records: matchingRecords.slice(0, 3), matched: true, success: verifiedUnblocked, error: verifiedUnblocked ? undefined : 'MB52 verification still shows blocked stock' },
+  }
 }
 
 async function mapAndInsertData(
