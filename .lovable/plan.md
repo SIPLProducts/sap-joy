@@ -1,109 +1,132 @@
 
-## Fix “Unblock & SAP Sync” Visibility for Quality
+## Make “Refresh Data” Run the Same SAP Sync as “Trigger Sync” for MRB Inward Materials
 
 ### Requirement
-The **Unblock & SAP Sync** action should be available only to:
+On the **MRB - Inward Materials** screen, clicking **Refresh Data** should:
 
-- Master Admin
-- Admin
-- Quality
+1. Run the same SAP sync functionality used by **SAP Sync Monitor → Trigger Sync** for the Inward Materials API.
+2. After SAP sync completes, re-fetch the latest data from the database.
+3. Update the frontend table immediately with the latest inward inspection lot records.
 
-It should not be hidden for Quality users.
-
-### Current issue
-In `src/pages/Worklist.tsx`, the visibility rule currently allows:
+## Current Behavior
+The current **Refresh Data** button in `src/pages/InwardReport.tsx` only calls:
 
 ```ts
-masteradmin || admin || quality_head
+await refreshData();
 ```
 
-So a user with role `quality` does not see the button.
+That means it refreshes from the database only. It does not trigger the actual SAP sync.
 
-There is also a second issue: even after showing the button to Quality, the database update after SAP success may fail because approved MRBs usually have `pending_with = null`, and the current MRB update policy mainly allows admins or the current workflow assignee.
+The SAP Sync Monitor already uses the correct sync path:
+
+```ts
+await invokeSapSync({ action: 'sync', config_id: configId });
+```
+
+So the Inward Materials page needs to use this same path before refreshing local display data.
 
 ## Implementation Plan
 
-### 1. Update the frontend role check
-Change the Worklist permission logic from:
+### 1. Import the SAP sync client into Inward Materials
+Update `src/pages/InwardReport.tsx` to import:
 
 ```ts
-const canUnblockSAP = isMasterAdmin || userRole === 'quality_head' || userRole === 'admin';
+import { invokeSapSync } from '@/lib/sapSyncClient';
 ```
 
-to allow exactly:
+This allows the page to call the same sync flow used by SAP Sync Monitor.
+
+### 2. Update the Refresh Data button handler
+Replace the current `handleAPISync` logic with a two-step process:
+
+```text
+Click Refresh Data
+  → validate inward SAP config exists
+  → call SAP sync with action = "sync"
+  → wait for sync result
+  → if successful, refresh data from database
+  → update table/search results
+  → refresh last_sync_at timestamp
+  → show success/failure message
+```
+
+The handler will call:
 
 ```ts
-const canUnblockSAP =
-  isMasterAdmin ||
-  userRole === 'admin' ||
-  userRole === 'quality';
+const { data, error } = await invokeSapSync({
+  action: 'sync',
+  config_id: sapConfigId,
+});
 ```
 
-This will make **Unblock & SAP Sync** visible for Quality login.
+Then call:
 
-### 2. Apply the same rule to batch SAP sync controls
-Currently, approved MRBs can show selection checkboxes and batch sync controls based only on approval status.
+```ts
+await refreshData();
+```
 
-Update the Worklist UI so these are shown only when `canUnblockSAP` is true:
+### 3. Keep the frontend table in sync after database refresh
+After the database refresh finishes, the existing `inspectionLotRecords` effect already updates `searchResults`.
 
-- Select All Approved
-- Approved-row checkbox
-- Batch SAP Sync button
-- Single-row Unblock & SAP Sync button
+I will keep that behavior, but make the refresh flow explicitly preserve the current user experience:
 
-This prevents unauthorized users from selecting approved MRBs for SAP unblock.
+- refresh all inward data from the database
+- keep the page in “searched/results visible” mode
+- clear stale selection state if needed
+- update pagination safely
 
-### 3. Update database permission for SAP unblock completion
-Add a database migration so Quality, Admin, and Master Admin can update approved MRBs for SAP unblock completion.
+### 4. Improve user feedback
+Change toast messages so the user can clearly tell what happened:
 
-The policy will allow these users to update approved MRBs where SAP sync is still pending, so the app can save:
+Success example:
 
-- `sap_stock_update_status = 'synced'`
-- `closure_status = 'completed'`
-- `closed_at`
-- `closed_by`
+```text
+SAP sync complete. Fetched: X, Inserted: Y, Updated: Z. Display refreshed.
+```
 
-This is required because the SAP call can succeed, but the app still needs permission to mark the MRB as synced.
+Failure example:
 
-### 4. Add backend protection for SAP unblock action
-Update the SAP sync backend function so the `unblock` action checks the logged-in user before calling SAP.
+```text
+SAP sync failed: [reason]
+```
 
-Allowed users:
+If the database refresh succeeds but SAP sync fails, the page will show the SAP failure and avoid falsely showing “Data refreshed successfully”.
 
-- Master Admin email
-- role `admin`
-- role `quality`
+### 5. Refresh the correct last sync timestamp
+Instead of setting `lastSyncAt` to the browser’s current time, re-read `last_sync_at` from `sap_api_config` after sync.
 
-If another role tries to trigger `unblock`, the backend will return an authorization error.
+This avoids showing a fake successful timestamp if the SAP sync did not actually update the backend config.
 
-This prevents someone from bypassing the hidden UI and calling the SAP unblock function directly.
+### 6. Prevent duplicate clicks while syncing
+Keep the existing `isSyncing` loading state so users cannot trigger multiple SAP syncs at the same time.
 
-### 5. Keep SAP Sync History readable, but restrict unblock execution
-The existing SAP Sync History dialog can remain visible unless you want it hidden separately.
+The button will continue showing:
 
-The action itself will be protected both:
+```text
+Syncing...
+```
 
-- in the UI
-- in the backend function
+while the SAP sync and database refresh are running.
 
-### 6. Verify behavior
-After implementation:
+## Files to Update
 
-- Quality login will see **Unblock & SAP Sync** for approved, not-yet-synced MRBs.
-- Admin will see it.
-- Master Admin will see it.
-- Purchase, Engineering, Stores, Shop Floor, and other roles will not see it.
-- Batch SAP Sync controls will also be hidden for unauthorized roles.
-- Quality can complete the SAP unblock and the MRB will update to SAP synced successfully.
+### `src/pages/InwardReport.tsx`
+Planned changes:
 
-## Files and systems involved
-
-### Code
-- `src/pages/Worklist.tsx`
-- `supabase/functions/sap-sync/handler.ts`
-
-### Backend
-- database migration for MRB SAP unblock update permission
+- import `invokeSapSync`
+- update `handleAPISync`
+- validate `sapConfigId`
+- trigger SAP sync using `action: 'sync'`
+- refresh database data after SAP sync
+- re-fetch `last_sync_at`
+- improve success/error toast messages
 
 ## Expected Result
-Quality users will be able to perform **Unblock & SAP Sync**, while the action remains restricted to only Master Admin, Admin, and Quality.
+
+After this change:
+
+- Clicking **Refresh Data** in **MRB - Inward Materials** will behave like **SAP Sync Monitor → Trigger Sync** for the inward SAP API.
+- New SAP data will be pulled first.
+- The latest database records will then be fetched and displayed in the frontend.
+- The user will see accurate sync status and error messages.
+- The page will no longer only refresh old database data without first syncing from SAP.
