@@ -248,8 +248,8 @@ export default function Worklist() {
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
-  // Get approved records for batch selection
-  const approvedRecords = sortedRecords.filter(mrb => mrb.status === 'approved');
+  // Get approved, unsynced records for SAP unblock batch selection
+  const approvedRecords = sortedRecords.filter(mrb => mrb.status === 'approved' && mrb.sapStockUpdateStatus !== 'synced');
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-GB', {
