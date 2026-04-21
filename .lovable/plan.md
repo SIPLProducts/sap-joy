@@ -1,81 +1,183 @@
 
-## Fix SAP Unblock false failure in MRB Worklist
+## Fix False Success for SAP Unblock & Sync
 
 ### Problem
-The SAP unblock action is succeeding in SAP, but the app still leaves the MRB in the “Unblock & SAP Sync” state. On the next attempt, SAP returns a business error like:
+The current unblock logic is now too permissive. It can show **success** even when SAP did not actually unblock the stock.
+
+From the screenshot and logs, the issue is:
+
+- SAP 343 response returns:
+  ```text
+  CODE: 200
+  MSG: Deficit of BA Blocked ...
+  ```
+  This is not a successful unblock document creation.
+
+- The app currently treats messages like **Deficit of BA Blocked** as `already_unblocked=true`.
+
+- MB52 verification is also being interpreted incorrectly:
+  - It shows `Records found: 1`
+  - But Material / Batch / Plant / SLoc are blank
+  - Blocked Qty is shown as `0` only because the expected fields are missing
+  - Logs show MB52 returned:
+    ```json
+    {"CODE":"200","MSG":"Request Payload is empty","MBLNR":"","MJAHR":0}
+    ```
+  - That is not valid stock verification.
+
+So the app is marking the MRB as synced based on an invalid verification response and a SAP business error.
+
+## Implementation Plan
+
+### 1. Remove unsafe “Deficit of BA Blocked = success” behavior
+Update `supabase/functions/sap-sync/handler.ts`.
+
+Current unsafe behavior:
+```ts
+effectiveSuccess = isBusinessSuccess || verifiedUnblocked || alreadyUnblocked
+```
+
+Change it so:
+
+- `CODE === 100` remains success.
+- `Deficit of BA Blocked` is not automatically success.
+- Deficit / already-unblocked messages can only be considered success if MB52 verification is valid and proves the item has no blocked stock.
+
+New logic:
+```ts
+effectiveSuccess =
+  isBusinessSuccess ||
+  (alreadyUnblockedMessage && verifiedUnblocked === true)
+```
+
+This prevents SAP business errors from being shown as successful unless verification is reliable.
+
+### 2. Make MB52 verification strict and valid
+Update `isVerifiedUnblocked(...)` in `supabase/functions/sap-sync/handler.ts`.
+
+It should only return `true` when MB52 returns valid stock data.
+
+Reject verification as invalid when the response contains only SAP message fields like:
+
+```json
+{
+  "CODE": "200",
+  "MSG": "Request Payload is empty"
+}
+```
+
+A valid MB52 record must contain at least one real stock identifier/quantity field such as:
+
+- `MATNR`
+- `WERKS`
+- `LGORT`
+- `CHARG`
+- `SPEME`
+- `LABST`
+- mapped equivalents like `material_code`, `plant`, `storage_location`, `batch`, `blocked_quantity`
+
+If MB52 does not return valid stock rows, verification should be:
+
+```ts
+verified_unblocked: false
+verification.error: 'MB52 verification did not return valid stock records'
+```
+
+### 3. Match MB52 result against the exact MRB item
+Pass the original SAP 343 request values into the verification helper:
+
+- Material: `MATNR`
+- Plant: `WERKS`
+- Storage Location: `LGORT`
+- Batch: `CHARG`
+
+Then verify only matching MB52 rows.
+
+A row should count only if it matches the requested material, plant, storage location, and batch after normalizing leading zeros where needed.
+
+This prevents the app from using unrelated MB52 data to mark the MRB as synced.
+
+### 4. Treat zero blocked stock carefully
+For non-100 SAP responses:
+
+- If MB52 returns a matching valid stock row and blocked quantity is `0`, then mark as success.
+- If MB52 returns matching valid stock row and blocked quantity is greater than `0`, keep failure.
+- If MB52 returns no valid matching stock row, do not automatically mark success.
+- If MB52 itself returns “Request Payload is empty”, keep failure.
+
+This avoids false success while still supporting true already-unblocked cases.
+
+### 5. Improve Worklist frontend handling
+Update `src/pages/Worklist.tsx`.
+
+The frontend should only show success when the backend returns:
+
+```ts
+success === true
+```
+
+It should not independently treat these flags as success unless the backend has already combined them safely:
+
+```ts
+already_unblocked
+verified_unblocked
+```
+
+Update `isSapUnblockConfirmed(...)` to avoid frontend-side false positives.
+
+### 6. Improve the success toast wording
+Update the success toast in `Worklist.tsx`.
+
+If SAP returns `CODE === 100`, show:
+
+```text
+SAP unblock completed successfully.
+Material Document: ...
+```
+
+If SAP returns a non-100 code but verified unblocked through MB52, show:
+
+```text
+SAP already appears unblocked. Confirmed by valid MB52 verification.
+```
+
+If MB52 verification is invalid, show failure instead of success.
+
+### 7. Improve failure message for this exact case
+When SAP returns:
 
 ```text
 Deficit of BA Blocked ...
 ```
 
-That happens because the frontend/backend currently treat the unblock as successful only when the SAP 343 response returns `CODE === 100`. If SAP already completed the movement, returns a non-standard success, or a retry hits “already unblocked / no blocked stock”, the MRB is never marked as synced locally.
+and MB52 verification is invalid or still blocked, show:
 
-### Exact issue
-1. `src/pages/Worklist.tsx`
-   - `handleSAPSync()` only marks the MRB synced when `result.success === true`.
-   - `handleBatchSync()` is even stricter and does not pass MB52 verification config.
-   - `updateMRB(...)` result is not checked before showing success UI.
-
-2. `supabase/functions/sap-sync/handler.ts`
-   - `action === 'unblock'` returns `success: false` for every non-`100` SAP code.
-   - Even when MB52 verification shows the stock is no longer blocked, that verification is not used to convert the result into a safe success.
-
-### Implementation plan
-
-#### 1. Make unblock flow idempotent in `supabase/functions/sap-sync/handler.ts`
-Enhance the unblock response handling so it can succeed in these cases:
-- SAP returns business success (`CODE === 100`)
-- MB52 verification confirms the blocked quantity is now zero / absent
-- SAP returns a retry-style message such as “Deficit of BA Blocked” but MB52 confirms the item is already unblocked
-
-Add normalized response metadata such as:
-- `already_unblocked: boolean`
-- `verified_unblocked: boolean`
-
-This keeps the existing 200-OK result-object protocol while giving the frontend a reliable outcome.
-
-#### 2. Add verification-based success evaluation in `src/pages/Worklist.tsx`
-Update `handleSAPSync()` to:
-- inspect SAP response and verification result together
-- treat the operation as successful when backend says:
-  - `success === true`, or
-  - `already_unblocked === true`, or
-  - `verified_unblocked === true`
-
-#### 3. Mark MRB synced only after confirmed unblock
-When unblock is confirmed, update the MRB with:
-```ts
-sap_stock_update_status: 'synced'
-closure_status: 'completed'
-closed_at: new Date().toISOString()
-closed_by: user?.id
+```text
+SAP did not confirm unblock. MB52 verification did not prove the stock is unblocked, so the MRB was not marked as synced.
+SAP Message: Deficit of BA Blocked ...
 ```
 
-Also check the return value of `updateMRB(...)`. If DB update fails, show a clear message that SAP changed successfully but the application status update failed.
+This makes it clear why the app did not update the MRB.
 
-#### 4. Apply the same logic to batch sync
-Update `handleBatchSync()` so it:
-- passes `verify_config_id: sapMb52ConfigId`
-- uses the same idempotent success rules
-- marks records synced when SAP is already in the correct state
-
-#### 5. Improve user-facing failure messages
-Instead of showing a hard failure for every non-100 SAP message:
-- if verification confirms unblock, show success
-- if SAP truly failed and MB52 still shows blocked stock, show the SAP message
-- keep logging the raw SAP message into sync history for troubleshooting
+### 8. Deploy updated backend function
+After code changes, deploy the updated `sap-sync` backend function so production uses the corrected verification logic.
 
 ### Files to update
-- `src/pages/Worklist.tsx`
+
 - `supabase/functions/sap-sync/handler.ts`
+  - Make unblock success evaluation stricter.
+  - Require valid MB52 verification for non-100 SAP responses.
+  - Reject “Request Payload is empty” as verification failure.
+  - Match MB52 records to requested material/plant/storage/batch.
 
-### Expected result
-After this change:
-- if SAP unblocks the item, the MRB will be marked as synced/completed in the app
-- the Worklist button will switch from `Unblock & SAP Sync` to `SAP Synced`
-- retry attempts on already-unblocked items will no longer produce false failures when verification confirms the stock is already released
+- `src/pages/Worklist.tsx`
+  - Stop frontend from treating loose flags as success.
+  - Improve success/failure toast messages.
 
-### Technical notes
-- No database schema change is required.
-- Keep the existing response contract: HTTP 200 with `{ ok/error/data }`-style result handling.
-- Preserve SAP numeric/string formatting rules already used in the request payload.
+### Expected Result
+After this fix:
+
+- SAP `CODE === 100` will still show success and mark MRB as synced.
+- `Deficit of BA Blocked` will no longer show success by itself.
+- Invalid MB52 responses like `Request Payload is empty` will not be treated as proof of unblock.
+- The MRB will only move to **SAP Synced / Completed** when SAP actually confirms the unblock or valid MB52 verification proves the blocked quantity is zero.
