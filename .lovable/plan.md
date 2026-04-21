@@ -1,132 +1,49 @@
 
-## Make “Refresh Data” Run the Same SAP Sync as “Trigger Sync” for MRB Inward Materials
 
-### Requirement
-On the **MRB - Inward Materials** screen, clicking **Refresh Data** should:
+## Fix KPI Dashboard — Shop Floor Records Not Showing
 
-1. Run the same SAP sync functionality used by **SAP Sync Monitor → Trigger Sync** for the Inward Materials API.
-2. After SAP sync completes, re-fetch the latest data from the database.
-3. Update the frontend table immediately with the latest inward inspection lot records.
+### Problem
+On the KPI Dashboard, the Total MRBs card shows `28` with the breakdown `0 shop floor • 28 inward`. The database actually has 8 shop floor MRBs and 28 inward MRBs for plant 1300 (36 total). All shop floor records are missing across the dashboard (KPI cards, defect/vendor charts, SLA, "My Pending", etc., since every metric is derived from the same incomplete dataset).
 
-## Current Behavior
-The current **Refresh Data** button in `src/pages/InwardReport.tsx` only calls:
+### Root cause
+`src/contexts/MRBContext.tsx` has two issues that cause `mrb_records` (the table that holds BOTH `shop_floor` and `quality_inspection` MRBs) to be loaded incorrectly or only partially:
 
-```ts
-await refreshData();
-```
+1. **Stale closure / missing deps in `fetchData`**
+   `fetchData` is wrapped in `useCallback(..., [])` but reads `shouldFilterByPlant` and `userPlant` from outer scope. When the provider mounts before `AuthContext` resolves the profile/role, the first (and only) fetch captures stale auth values; the data is never re-fetched once the role/profile become available.
 
-That means it refreshes from the database only. It does not trigger the actual SAP sync.
+2. **No re-fetch when auth changes**
+   The `useEffect` is keyed on `[fetchData]` only. Because `fetchData` never changes (empty deps), the records are loaded once at mount and never refreshed when the user signs in / role becomes known.
 
-The SAP Sync Monitor already uses the correct sync path:
+The KPI Dashboard's `allMRBs` then merges `mrbRecords` (incomplete — possibly empty) with `inwardMRBRecords` (always populated by `InwardMRBContext` because that one filters by `source = quality_inspection` directly). Net result: only inward MRBs show, shop floor count is `0`.
 
-```ts
-await invokeSapSync({ action: 'sync', config_id: configId });
-```
+### Fix
 
-So the Inward Materials page needs to use this same path before refreshing local display data.
+**1. `src/contexts/MRBContext.tsx`**
+- Add `shouldFilterByPlant` and `userPlant` to `useCallback` dependency array of `fetchData`.
+- Re-run the effect when `userRole` / `userPlant` change so the fetch re-executes once auth is ready.
+- Add an explicit error log when `mrbResult.error` is set so silent RLS / network failures are visible in console.
+- Guard against partial loads: only call `setMRBRecords` if there is no error; otherwise log and keep previous state.
 
-## Implementation Plan
+**2. `src/pages/KPIDashboard.tsx` — defensive merge**
+- Change `allMRBs` so it explicitly UNIONS by `id` from both sources rather than starting from one and topping up with the other. This guarantees that if either context is briefly empty, the other still contributes its records:
+  - Build a Map keyed by `id`, populate from `mrbRecords` first, then overlay `inwardMRBRecords` (so the inward context wins on conflict but is never the only source).
+- Keep the existing source-based KPI counters; once `mrbRecords` is correct, `shopFloorMRBs` will be correct too.
 
-### 1. Import the SAP sync client into Inward Materials
-Update `src/pages/InwardReport.tsx` to import:
+**3. Verify other dashboards and the legacy `Dashboard.tsx`**
+- `Dashboard.tsx`, `MRBAnalyticsDashboard.tsx`, `QualityHeadDashboard.tsx`, `PurchaseHeadDashboard.tsx`, `EngineeringHeadDashboard.tsx`, `ExecutiveSummaryDashboard.tsx`, `PlantHeadDashboard.tsx` all consume `useMRB().mrbRecords`. Once the context is fixed, all of them will start showing shop floor records again — no per-page changes required.
+- No backend / RLS changes needed (RLS on `mrb_records` SELECT is `true`, both record types are visible).
 
-```ts
-import { invokeSapSync } from '@/lib/sapSyncClient';
-```
+### Files changed
+- `src/contexts/MRBContext.tsx` — fix `useCallback` deps, refetch on auth change, log errors.
+- `src/pages/KPIDashboard.tsx` — defensive `allMRBs` merge using a Map keyed by `id`.
 
-This allows the page to call the same sync flow used by SAP Sync Monitor.
+### Expected result
+- Total MRBs card shows `36` with `8 shop floor • 28 inward` (for current data).
+- Shop floor records appear in:
+  - Top KPI cards (Total / Open / Closed / Rejected / Accepted / SLA / Avg Pending Days)
+  - Defect Category, Top Reject Reasons, Reject Reasons by Plant/Month
+  - Top 5 Vendors by Damage and vendor breakdowns
+  - "My Pending Actions" and SLA charts
+- Quality / Purchase / Engineering / Executive / MRB Analytics dashboards and the legacy Dashboard also reflect shop floor records.
+- No regression to plant-based filtering for non-admin / non-executive users.
 
-### 2. Update the Refresh Data button handler
-Replace the current `handleAPISync` logic with a two-step process:
-
-```text
-Click Refresh Data
-  → validate inward SAP config exists
-  → call SAP sync with action = "sync"
-  → wait for sync result
-  → if successful, refresh data from database
-  → update table/search results
-  → refresh last_sync_at timestamp
-  → show success/failure message
-```
-
-The handler will call:
-
-```ts
-const { data, error } = await invokeSapSync({
-  action: 'sync',
-  config_id: sapConfigId,
-});
-```
-
-Then call:
-
-```ts
-await refreshData();
-```
-
-### 3. Keep the frontend table in sync after database refresh
-After the database refresh finishes, the existing `inspectionLotRecords` effect already updates `searchResults`.
-
-I will keep that behavior, but make the refresh flow explicitly preserve the current user experience:
-
-- refresh all inward data from the database
-- keep the page in “searched/results visible” mode
-- clear stale selection state if needed
-- update pagination safely
-
-### 4. Improve user feedback
-Change toast messages so the user can clearly tell what happened:
-
-Success example:
-
-```text
-SAP sync complete. Fetched: X, Inserted: Y, Updated: Z. Display refreshed.
-```
-
-Failure example:
-
-```text
-SAP sync failed: [reason]
-```
-
-If the database refresh succeeds but SAP sync fails, the page will show the SAP failure and avoid falsely showing “Data refreshed successfully”.
-
-### 5. Refresh the correct last sync timestamp
-Instead of setting `lastSyncAt` to the browser’s current time, re-read `last_sync_at` from `sap_api_config` after sync.
-
-This avoids showing a fake successful timestamp if the SAP sync did not actually update the backend config.
-
-### 6. Prevent duplicate clicks while syncing
-Keep the existing `isSyncing` loading state so users cannot trigger multiple SAP syncs at the same time.
-
-The button will continue showing:
-
-```text
-Syncing...
-```
-
-while the SAP sync and database refresh are running.
-
-## Files to Update
-
-### `src/pages/InwardReport.tsx`
-Planned changes:
-
-- import `invokeSapSync`
-- update `handleAPISync`
-- validate `sapConfigId`
-- trigger SAP sync using `action: 'sync'`
-- refresh database data after SAP sync
-- re-fetch `last_sync_at`
-- improve success/error toast messages
-
-## Expected Result
-
-After this change:
-
-- Clicking **Refresh Data** in **MRB - Inward Materials** will behave like **SAP Sync Monitor → Trigger Sync** for the inward SAP API.
-- New SAP data will be pulled first.
-- The latest database records will then be fetched and displayed in the frontend.
-- The user will see accurate sync status and error messages.
-- The page will no longer only refresh old database data without first syncing from SAP.
