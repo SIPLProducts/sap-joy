@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getNextWorkflowStep } from '@/lib/workflowRouting';
 import { fetchDepartmentMaps } from '@/hooks/useDepartmentMap';
+import { formatRoleLabel } from '@/lib/mrbWorkflowDisplay';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
@@ -160,9 +161,13 @@ export function useMRBDatabase() {
         .eq('id', id)
         .single();
 
-      const currentStage = currentMRB?.status || 'quality_review';
-
       const workflowRouting = (currentMRB as any)?.workflow_routing as string[] | null;
+      const deptMaps = await fetchDepartmentMaps();
+      const actingRole = currentMRB?.pending_with || userRole || 'quality';
+      const currentStage = currentMRB?.status || 'quality_review';
+      const currentStageLabel = currentMRB?.pending_with
+        ? `${deptMaps.roleDisplayNames[currentMRB.pending_with] || formatRoleLabel(currentMRB.pending_with)} Review`
+        : getStageFromStatus(currentStage as MRBStatus);
 
       // If the action is 'approved' (not reject) and there's a workflow_routing,
       // use the routing sequence to determine the next status instead of the caller's newStatus
@@ -177,9 +182,7 @@ export function useMRBDatabase() {
         newStatus !== 'approved' &&
         newStatus !== 'closed'
       ) {
-        const currentRole = currentMRB?.pending_with || userRole || 'quality';
-        const deptMaps = await fetchDepartmentMaps();
-        const nextStep = getNextWorkflowStep(workflowRouting, currentRole, deptMaps);
+        const nextStep = getNextWorkflowStep(workflowRouting, actingRole, deptMaps);
 
         if (nextStep) {
           if (nextStep.isLast && nextStep.nextStatus === 'approved') {
@@ -263,7 +266,7 @@ export function useMRBDatabase() {
       // Add to approval history - use CURRENT stage (where action was taken), not new status
       await supabase.from('mrb_approval_history').insert({
         mrb_id: id,
-        stage: getStageFromStatus(currentStage as MRBStatus),
+        stage: currentStageLabel,
         action: action,
         performed_by: user?.id || '',
         performed_by_role: userRole || 'quality',
