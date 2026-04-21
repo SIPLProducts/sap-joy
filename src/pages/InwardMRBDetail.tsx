@@ -15,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
@@ -24,6 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getStatusDisplayName, getStatusColor, getRoleDisplayName } from '@/data/mockData';
 import { useDepartmentMap } from '@/hooks/useDepartmentMap';
 import { WorkflowProgressIndicator } from '@/components/mrb/WorkflowProgressIndicator';
+import { getRoutedStatus, getWorkflowReviewLabel } from '@/lib/mrbWorkflowDisplay';
 import type { Database } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -135,6 +135,7 @@ export default function InwardMRBDetail() {
     userRole === 'admin' ||
     isMasterAdmin
   );
+  const displayStatusLabel = getWorkflowReviewLabel(mrb.status, mrb.pending_with, roleDisplayNames);
 
   const handleOpenApprovalDialog = () => {
     if (!reviewData.action) {
@@ -187,7 +188,7 @@ export default function InwardMRBDetail() {
           });
           return;
         }
-        newStatus = (deptToStatus[nextDept] as MRBStatus) || mrb.status;
+        newStatus = getRoutedStatus(nextDept, deptToStatus, 'quality_review');
         additionalUpdates.pending_with = deptToRole[nextDept] || nextDept;
         historyAction = 'returned_for_clarification';
       } else if (action === 'approve_with_deviation' || action === 'return_to_vendor') {
@@ -211,7 +212,7 @@ export default function InwardMRBDetail() {
         } else {
           // Forward to next department in workflow_routing
           const nextDept = workflowRouting[currentIdx + 1];
-          newStatus = (deptToStatus[nextDept] as MRBStatus) || 'quality_review';
+          newStatus = getRoutedStatus(nextDept, deptToStatus, 'quality_review');
           additionalUpdates.pending_with = deptToRole[nextDept] || nextDept;
           historyAction = action === 'approve_with_deviation' ? 'forwarded' : 'returned';
         }
@@ -308,7 +309,7 @@ export default function InwardMRBDetail() {
                     {mrb.mrb_number}
                   </h1>
                   <Badge className={getStatusColor(mrb.status)}>
-                    {getStatusDisplayName(mrb.status)}
+                    {displayStatusLabel}
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -519,61 +520,9 @@ export default function InwardMRBDetail() {
                   />
                 </div>
 
-                {/* Forward to next department */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="forwardToNext"
-                      checked={reviewData.forwardToNext}
-                      onCheckedChange={(checked) => 
-                        setReviewData({ ...reviewData, forwardToNext: checked as boolean })
-                      }
-                    />
-                    <Label htmlFor="forwardToNext">Forward to another department</Label>
-                  </div>
-                  
-                  {reviewData.forwardToNext && (
-                    <div className="pl-6 space-y-3">
-                       <Label>Select Departments to Forward</Label>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {(Array.isArray(mrb.workflow_routing) ? (mrb.workflow_routing as string[]) : [])
-                          .filter(d => d !== currentRole && d !== userRole)
-                          .map((dept) => (
-                            <label
-                              key={dept}
-                              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                                reviewData.nextDepartments?.includes(dept)
-                                  ? 'border-primary bg-primary/5'
-                                  : 'border-border hover:border-muted-foreground'
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={reviewData.nextDepartments?.includes(dept) || false}
-                                onChange={(e) => {
-                                  const current = reviewData.nextDepartments || [];
-                                  if (e.target.checked) {
-                                    setReviewData({ 
-                                      ...reviewData, 
-                                      nextDepartments: [...current, dept] 
-                                    });
-                                  } else {
-                                    setReviewData({ 
-                                      ...reviewData, 
-                                      nextDepartments: current.filter(d => d !== dept) 
-                                    });
-                                  }
-                                }}
-                                className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
-                              />
-                              <span className="text-sm font-medium">{roleDisplayNames[dept] || dept}</span>
-                            </label>
-                          ))
-                        }
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  The MRB will automatically move to the next department in the configured routing after submission.
+                </p>
               </CardContent>
             </Card>
           </>

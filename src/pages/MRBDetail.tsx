@@ -17,6 +17,7 @@ import { getStatusDisplayName, getStatusColor, getSLAColor, getRoleDisplayName }
 import { useDepartmentMap } from '@/hooks/useDepartmentMap';
 import { useToast } from '@/hooks/use-toast';
 import { WorkflowProgressIndicator } from '@/components/mrb/WorkflowProgressIndicator';
+import { getWorkflowReviewLabel } from '@/lib/mrbWorkflowDisplay';
 import type { Database as DB } from '@/integrations/supabase/types';
 
 type MRBRecord = DB['public']['Tables']['mrb_records']['Row'];
@@ -226,6 +227,8 @@ export default function MRBDetail() {
     );
   }
 
+  const displayStatusLabel = getWorkflowReviewLabel(mrb.status, mrb.pending_with, roleDisplayNames);
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('en-GB', {
@@ -249,7 +252,7 @@ export default function MRBDetail() {
             <h1 className="text-2xl font-bold">{mrb.mrb_number}</h1>
             <p className="text-muted-foreground">{mrb.material_description}</p>
           </div>
-          <Badge className={getStatusColor(mrb.status)}>{getStatusDisplayName(mrb.status)}</Badge>
+          <Badge className={getStatusColor(mrb.status)}>{displayStatusLabel}</Badge>
           <Badge className={getSLAColor(mrb.sla_status || 'green')}>{mrb.pending_days || 0} days pending</Badge>
         </div>
       </div>
