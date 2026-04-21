@@ -1065,7 +1065,7 @@ export default function Worklist() {
                       </td>
                       <td className="p-3 align-middle">
                         <Badge className={getStatusColor(mrb.status)}>
-                          {getStatusDisplayName(mrb.status)}
+                          {getWorkflowReviewLabel(mrb.status, mrb.pendingWith, roleDisplayNames)}
                         </Badge>
                       </td>
                       {/* Inward Material Columns */}
