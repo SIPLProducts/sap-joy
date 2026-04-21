@@ -90,16 +90,33 @@ Deno.serve(async (req) => {
       }
 
       // Clean up related tables first (using admin client to bypass RLS)
-      await adminClient.from("password_history").delete().eq("user_id", user_id);
-      await adminClient.from("user_security").delete().eq("user_id", user_id);
-      await adminClient.from("user_plants").delete().eq("user_id", user_id);
-      await adminClient.from("user_roles").delete().eq("user_id", user_id);
-      await adminClient.from("profiles").delete().eq("user_id", user_id);
+      const cleanupSteps: Array<[string, Promise<{ error: unknown } | any>]> = [
+        ["password_history", adminClient.from("password_history").delete().eq("user_id", user_id)],
+        ["user_security",    adminClient.from("user_security").delete().eq("user_id", user_id)],
+        ["user_plants",      adminClient.from("user_plants").delete().eq("user_id", user_id)],
+        ["user_roles",       adminClient.from("user_roles").delete().eq("user_id", user_id)],
+        ["profiles",         adminClient.from("profiles").delete().eq("user_id", user_id)],
+      ];
+      for (const [name, p] of cleanupSteps) {
+        try {
+          const { error } = await p;
+          if (error) console.error(`Cleanup ${name} failed:`, error);
+        } catch (e) {
+          console.error(`Cleanup ${name} threw:`, e);
+        }
+      }
 
-      // Delete the auth user
+      // Delete the auth user. Audit FKs (mrb_records, mrb_attachments,
+      // mrb_approval_history, email_logs) are now ON DELETE SET NULL, so
+      // historical activity will not block this delete.
       const { error: deleteError } = await adminClient.auth.admin.deleteUser(user_id);
       if (deleteError) {
-        return jsonResponse({ ok: false, error: `Failed to delete user: ${deleteError.message}` });
+        console.error("auth.admin.deleteUser error:", deleteError);
+        const detail = (deleteError as any)?.message || JSON.stringify(deleteError);
+        return jsonResponse({
+          ok: false,
+          error: `Failed to delete user: ${detail}. If this persists, run the latest database migration on this environment so user-reference foreign keys cascade to NULL.`,
+        });
       }
 
       return jsonResponse({ ok: true, message: "User deleted successfully" });
