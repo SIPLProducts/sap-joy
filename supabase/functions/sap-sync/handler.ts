@@ -1027,6 +1027,21 @@ async function callSAPApi(
   }
 }
 
+function isAlreadyUnblockedMessage(message: any): boolean {
+  const normalized = String(message || '').toLowerCase()
+  return normalized.includes('deficit of ba blocked') ||
+    normalized.includes('deficit of blocked') ||
+    normalized.includes('already unblocked') ||
+    normalized.includes('no blocked stock')
+}
+
+function isVerifiedUnblocked(verification: any): boolean {
+  if (!verification?.success) return false
+  const records = Array.isArray(verification.records) ? verification.records : []
+  if (records.length === 0) return true
+  return records.every((record: any) => Number(record?.SPEME ?? record?.speme ?? record?.blocked_quantity ?? 0) <= 0)
+}
+
 async function mapAndInsertData(
   supabase: any,
   records: any[],
