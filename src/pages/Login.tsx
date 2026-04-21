@@ -10,6 +10,7 @@ import { Shield, Factory, CheckCircle, ClipboardCheck, Award, Eye, EyeOff, WifiO
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHealthCheck, ConnectionStatus } from '@/hooks/useHealthCheck';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { clearAuthStorage } from '@/lib/authStorage';
 import loginHeroImage from '@/assets/login-hero.jpg';
 import hblLogo from '@/assets/hbl-logo.png';
 
@@ -48,8 +49,7 @@ export default function Login() {
         if (!hasAutoCleared.current) {
           hasAutoCleared.current = true;
           console.warn('Auto-clearing stale session data due to connectivity issues');
-          localStorage.clear();
-          sessionStorage.clear();
+          clearAuthStorage();
           window.location.reload();
         }
       }).finally(() => clearTimeout(timeout));
@@ -82,10 +82,7 @@ export default function Login() {
     setLoginError(null);
     
     // Clear any stale session data before attempting login
-    const staleKeys = Object.keys(localStorage).filter(
-      key => key.includes('supabase') || key.includes('sb-')
-    );
-    staleKeys.forEach(key => localStorage.removeItem(key));
+    clearAuthStorage();
     
     setIsLoading(true);
     setRetryCount(0);
@@ -127,6 +124,7 @@ export default function Login() {
             if (secData && typeof secData === 'object' && 'password_expired' in secData && secData.password_expired) {
               setLoginError(`Your password has expired. Please contact your administrator to reset it.`);
               await supabase.auth.signOut();
+              clearAuthStorage();
               setIsLoading(false);
               setRetryCount(0);
               return;
@@ -380,8 +378,7 @@ export default function Login() {
               {/* Clear Session */}
               <button
                 onClick={() => {
-                  localStorage.clear();
-                  sessionStorage.clear();
+                  clearAuthStorage();
                   window.location.reload();
                 }}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
