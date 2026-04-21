@@ -269,7 +269,7 @@ export default async (req: Request) => {
               ? {
                   success: true,
                   count: Array.isArray(verifyResponse.data) ? verifyResponse.data.length : 0,
-                  records: Array.isArray(verifyResponse.data) ? verifyResponse.data.slice(0, 3) : [],
+                  records: Array.isArray(verifyResponse.data) ? verifyResponse.data.slice(0, 10) : [],
                 }
               : {
                   success: false,
@@ -280,13 +280,17 @@ export default async (req: Request) => {
 
         const isBusinessSuccess = sapCode === '100' || sapCode === 100;
         const alreadyUnblocked = isAlreadyUnblockedMessage(sapMsg);
-        const verifiedUnblocked = isVerifiedUnblocked(verification);
-        const effectiveSuccess = isBusinessSuccess || verifiedUnblocked || alreadyUnblocked;
+        const verificationResult = evaluateUnblockVerification(verification, request_body);
+        verification = verificationResult.verification;
+        const verifiedUnblocked = verificationResult.verifiedUnblocked;
+        const effectiveSuccess = isBusinessSuccess || (alreadyUnblocked && verifiedUnblocked);
 
         if (!effectiveSuccess) {
           return new Response(JSON.stringify({
             success: false,
-            error: sapMsg || `SAP returned CODE ${sapCode} — blocking was not successful`,
+            error: alreadyUnblocked
+              ? `SAP did not confirm unblock. MB52 verification did not prove the stock is unblocked, so the MRB was not marked as synced. SAP Message: ${sapMsg || `CODE ${sapCode}`}`
+              : sapMsg || `SAP returned CODE ${sapCode} — unblock was not successful`,
             sap_response: responseData,
             code: sapCode,
             CODE: sapCode,
