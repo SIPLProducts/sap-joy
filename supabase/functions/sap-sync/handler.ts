@@ -1147,6 +1147,12 @@ async function mapAndInsertData(
       'vendor_code', 'vendor_name', 'po_number', 'po_item_number', 'grn_number', 'uploaded_by', 'upload_batch_id',
       'inspection_date', 'posting_date', 'grn_item_no', 'grn_date',
     ]),
+    zmrb_inward_report: new Set([
+      'inspection_lot', 'material_code', 'material_description', 'plant', 'storage_location',
+      'batch', 'uom', 'blocked_quantity', 'transaction_quantity', 'status', 'block_reason',
+      'vendor_code', 'vendor_name', 'po_number', 'po_item_number', 'grn_number', 'uploaded_by', 'upload_batch_id',
+      'inspection_date', 'posting_date', 'grn_item_no', 'grn_date', 'source',
+    ]),
     materials: new Set(['material_number', 'description', 'uom', 'category']),
     vendors: new Set(['code', 'name', 'contact_email', 'contact_phone', 'address', 'is_active']),
   } as const
@@ -1154,6 +1160,7 @@ async function mapAndInsertData(
   const requiredColumnsByTable = {
     shop_floor_stock: ['plant', 'material_code', 'available_quantity'],
     inward_inspection_lots: ['inspection_lot', 'material_code', 'plant'],
+    zmrb_inward_report: ['inspection_lot', 'material_code', 'plant'],
     materials: ['material_number', 'description'],
     vendors: ['code', 'name'],
   } as const
@@ -1177,6 +1184,22 @@ async function mapAndInsertData(
       vendor_code: 'vendor_code', vendor_name: 'vendor_name', po_item_number: 'po_item_number',
       grn_number: 'grn_number',
       qals_prueflos: 'inspection_lot', inspection_date: 'inspection_date', posting_date: 'posting_date',
+      zeile: 'grn_item_no', bldat: 'grn_date', grn_item_no: 'grn_item_no', grn_date: 'grn_date',
+    },
+    zmrb_inward_report: {
+      matnr: 'material_code', material: 'material_code', maktx: 'material_description',
+      material_desc: 'material_description', werks: 'plant', werk: 'plant', charg: 'batch',
+      lgort: 'storage_location', prueflos: 'inspection_lot', lifnr: 'vendor_code',
+      sellifnr: 'vendor_code',
+      name1: 'vendor_name', ebeln: 'po_number', ebelp: 'po_item_number', mblnr: 'grn_number',
+      meins: 'uom', mengeneinh: 'uom', menge: 'blocked_quantity', lmenge04: 'blocked_quantity',
+      qty: 'transaction_quantity',
+      inspection_lot: 'inspection_lot', storage_location: 'storage_location',
+      vendor_code: 'vendor_code', vendor_name: 'vendor_name', po_item_number: 'po_item_number',
+      grn_number: 'grn_number',
+      qals_prueflos: 'inspection_lot', enstehdat: 'inspection_date',
+      inspection_date: 'inspection_date', posting_date: 'posting_date',
+      budat_mkpf: 'posting_date', sgtxt: 'block_reason',
       zeile: 'grn_item_no', bldat: 'grn_date', grn_item_no: 'grn_item_no', grn_date: 'grn_date',
     },
     materials: {
@@ -1241,6 +1264,11 @@ async function mapAndInsertData(
           row.status = row.status || 'pending'
         }
 
+        if (tableName === 'zmrb_inward_report') {
+          row.status = row.status || 'pending'
+          row.source = row.source || 'sap_api'
+        }
+
         const requiredColumns = requiredColumnsByTable[tableName as keyof typeof requiredColumnsByTable] || []
         const missingRequired = requiredColumns.filter((column) => {
           const value = row[column]
@@ -1264,6 +1292,8 @@ async function mapAndInsertData(
       for (let index = 0; index < sanitizedRows.length; index += batchSize) {
         const batch = sanitizedRows.slice(index, index + batchSize)
         const upsertOptions = tableName === 'inward_inspection_lots'
+          ? { onConflict: 'inspection_lot' }
+          : tableName === 'zmrb_inward_report'
           ? { onConflict: 'inspection_lot' }
           : tableName === 'shop_floor_stock'
           ? { onConflict: 'stock_key' }
