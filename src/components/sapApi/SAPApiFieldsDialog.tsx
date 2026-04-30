@@ -52,6 +52,7 @@ function mapFieldTypeToDbType(fieldType: string): string {
 const sapTables = [
   { value: 'shop_floor_stock', label: 'Shop Floor Stock' },
   { value: 'inward_inspection_lots', label: 'Inward Inspection Lots' },
+  { value: 'zmrb_inward_report', label: 'ZMRB Inward Report' },
   { value: 'materials', label: 'Materials' },
   { value: 'vendors', label: 'Vendors' },
   { value: 'mrb_records', label: 'MRB Records' },
