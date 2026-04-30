@@ -1,57 +1,73 @@
+## Add ZMRB Inward Report API → New Table + Sync Monitor Support
 
+### Goal
+The new SAP API config `ZMRB_Inward_Inspection_Report` (id `f1ac85d4-…`) should:
+1. Have response field mappings identical to the existing `ZMRB_Inward_Inspection`.
+2. Sync into a brand-new dedicated table `zmrb_inward_report` (same schema as `inward_inspection_lots`).
+3. Be syncable from the SAP Sync Monitor UI (Test + Sync Now + history + data preview), auto-detected by config name.
 
-## Fix: "Database error deleting user" on production
+---
 
-### Root Cause
-Several tables hold foreign keys to `auth.users(id)` **without** `ON DELETE` actions, so PostgreSQL blocks the auth user deletion whenever the user has any activity history:
+### 1. Database migration — create `zmrb_inward_report`
 
-| Table | Column(s) referencing auth.users |
-|---|---|
-| `mrb_records` | `created_by`, `quality_approved_by`, `purchase_approved_by`, `engineering_approved_by`, `final_approved_by`, `closed_by` |
-| `mrb_attachments` | `uploaded_by` |
-| `mrb_approval_history` | `performed_by` |
-| `email_logs` | `sent_by` |
+Create the new table mirroring `inward_inspection_lots` exactly, plus RLS:
 
-The `create-user` edge function only cleans up `password_history`, `user_security`, `user_plants`, `user_roles`, `profiles` — it does NOT touch the audit/transactional tables above. So `auth.admin.deleteUser()` fails with the generic "Database error deleting user" because of the FK violation.
+- Columns (same as `inward_inspection_lots`): `id`, `inspection_lot`, `material_code`, `material_description`, `plant`, `storage_location`, `batch`, `blocked_quantity`, `transaction_quantity`, `uom`, `inspection_date`, `posting_date`, `block_reason`, `vendor_code`, `vendor_name`, `po_number`, `po_item_number`, `grn_number`, `grn_item_no`, `grn_date`, `status` (default `'pending'`), `source`, `upload_batch_id`, `uploaded_by`, `created_at`, `updated_at`.
+- Unique constraint on `inspection_lot` (for upsert deduplication, same pattern as the existing table).
+- RLS: same 4 authenticated SELECT/INSERT/UPDATE/DELETE policies as `inward_inspection_lots`.
+- `updated_at` trigger using existing `update_updated_at_column()`.
 
-We must NOT delete MRB records / approval history / attachments / email logs (they are business audit data). Instead we should **preserve history** by setting those FK columns to `NULL` on user deletion.
+### 2. Seed response field mappings for the new config
 
-### Fix — Two parts
+Insert ~25 rows into `sap_api_response_fields` for `config_id = f1ac85d4-ca04-497a-bed6-1f509d10b4c2`, copying every row currently mapped under config `a1000001-…-000000000004` but with `map_to_table = 'zmrb_inward_report'` instead of `inward_inspection_lots`. Unmapped fields (AUFNR, KDAUF, EKORG, GROUP, GNAME, LGOBE, CH) are copied as-is with NULL mappings, matching existing behaviour.
 
-**1. Database migration: change FKs to `ON DELETE SET NULL`**
+Also seed request fields (WERKS=1300 required, ART=04 required, plus optional LGORT/PRUEFLOS/MATNR/LIFNR/ZEILE/BLDAT) for the new config so it actually returns data — currently it has none.
 
-For all 9 FK constraints listed above, drop and recreate them as `ON DELETE SET NULL`. The columns are already nullable in the schema (they're optional approval/closure fields, and `created_by`/`performed_by`/`uploaded_by`/`sent_by` will become nullable as part of this change if not already — verified `mrb_records.created_by`, `mrb_attachments.uploaded_by`, `mrb_approval_history.performed_by`, `email_logs.sent_by` are currently `NOT NULL`, so we will also relax them to allow `NULL` so the SET NULL action is valid).
+### 3. Sync handler — register the new table
 
-```sql
--- Make audit columns nullable so SET NULL works
-ALTER TABLE mrb_records          ALTER COLUMN created_by DROP NOT NULL;
-ALTER TABLE mrb_attachments      ALTER COLUMN uploaded_by DROP NOT NULL;
-ALTER TABLE mrb_approval_history ALTER COLUMN performed_by DROP NOT NULL;
-ALTER TABLE email_logs           ALTER COLUMN sent_by DROP NOT NULL;
+Edit `supabase/functions/sap-sync/handler.ts`:
 
--- Recreate each FK with ON DELETE SET NULL
-ALTER TABLE mrb_records DROP CONSTRAINT mrb_records_created_by_fkey,
-  ADD CONSTRAINT mrb_records_created_by_fkey
-  FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
--- ... (same for the other 8 constraints)
-```
+- Add `zmrb_inward_report` to `allowedColumnsByTable` (same column set as `inward_inspection_lots`).
+- Add it to `requiredColumnsByTable` with `['inspection_lot', 'material_code', 'plant']`.
+- Add an alias map block identical to `inward_inspection_lots`.
+- Add upsert option: `tableName === 'zmrb_inward_report' ? { onConflict: 'inspection_lot' } : …`.
+- In the per-table normalisation block, default `status` to `'pending'` for `zmrb_inward_report` (same as inspection lots).
 
-This preserves all MRB/approval/email history while allowing the auth user to be deleted. Existing RLS policies that compare `auth.uid() = created_by` continue to work for live users; deleted users' rows just show "Unknown user" in the UI (already handled by the frontend, which falls back when no profile is found).
+No changes to record-fetching/auth/proxy logic — it's already config-driven.
 
-**2. Edge function update (`supabase/functions/create-user/index.ts`)**
+### 4. SAP Sync Monitor UI — auto-detect the new API
 
-Improve the delete branch to:
-- Also clean up `mrb_attachments` ownership? **No** — keep as audit. The DB migration handles it via SET NULL.
-- Surface a clearer error message including the underlying Postgres error (so future failures are easier to diagnose, instead of the generic "Database error deleting user").
-- Wrap the cleanup steps in try/catch and log per-step failures.
+Edit `src/pages/SAPSyncMonitor.tsx`:
 
-### Files changed
-- New SQL migration (via the migration tool) — alters the 9 FK constraints + 4 NOT NULL relaxations.
-- `supabase/functions/create-user/index.ts` — better error reporting on the delete path.
+- Add a `fetchAllRows('zmrb_inward_report')` call alongside the existing `inward_inspection_lots` fetch.
+- Push a new `DataPreview`: `'ZMRB Inward Report'` with row count + recent records.
+- Add a helper `isReportConfig(cfg)` that returns true when `config_name` includes `report` (case-insensitive). The existing Test / Sync Now / history rendering already iterates `configs`, so the new card and buttons will appear automatically once the config is loaded — no extra JSX wiring needed.
+- Sync history filter: existing logic keys on `config_id`, so the new sync runs will show up in the per-config history dropdown without changes.
 
-### Expected result
-- Deleting any user (including admins, quality, purchase, engineering users with MRB activity history) succeeds.
-- All MRB records, approval history, attachments, and email logs are preserved with the deleted user's foreign key set to `NULL`.
-- No data loss, no orphaned rows, no RLS regressions.
-- Same fix works on cloud and the self-hosted production server (the migration runs on whichever Supabase the project is connected to; for the self-hosted server you will re-run the same migration).
+### 5. Scheduler (optional, for future auto-sync)
 
+`sap-sync-scheduler` already iterates configs with `scheduler_enabled = true`. No code change needed; an admin can simply tick "Scheduler Enabled" on the new config in SAP API Settings to have it run every 5 min.
+
+---
+
+### Technical notes
+
+- Table choice driven solely by `sap_api_response_fields.map_to_table`, so once the mappings in step 2 point to `zmrb_inward_report`, the same handler routes records there.
+- Upsert key `inspection_lot` mirrors existing dedup behaviour and matches memory `Inward Inspection Lot Deduplication`.
+- No changes to MRB workflow, dashboards, or any consumer of `inward_inspection_lots` — the new table is purely a parallel store for report-style data.
+- Edge function is auto-deployed; no manual redeploy.
+- Self-hosted production server will need the SQL migration re-run (same pattern noted in the user-deletion fix).
+
+### Files touched
+
+- New SQL migration (creates `zmrb_inward_report` + RLS + trigger + seeds request/response field rows for config `f1ac85d4-…`).
+- `supabase/functions/sap-sync/handler.ts` — register new table in allowed/required/alias/upsert blocks.
+- `src/pages/SAPSyncMonitor.tsx` — preview + auto-detect for report configs.
+
+### Acceptance criteria
+
+- `ZMRB_Inward_Inspection_Report` appears as a card in SAP Sync Monitor with working Test Connection and Sync Now buttons.
+- Clicking Sync Now fetches data from `/mrb/inward/report?sap-client=234` with `ART=04`, parses the response, and inserts/upserts into `public.zmrb_inward_report`.
+- A "ZMRB Inward Report" data preview card shows the live row count and most recent records.
+- Sync history filter dropdown includes the new config; per-run rows show records_inserted/updated.
+- No regression to the existing ZMRB_Inward_Inspection sync into `inward_inspection_lots`.
