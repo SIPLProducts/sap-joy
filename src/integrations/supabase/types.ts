@@ -1490,6 +1490,93 @@ export type Database = {
         }
         Relationships: []
       }
+      zmrb_inward_report: {
+        Row: {
+          batch: string | null
+          block_reason: string | null
+          blocked_quantity: number
+          created_at: string
+          grn_date: string | null
+          grn_item_no: string | null
+          grn_number: string | null
+          id: string
+          inspection_date: string | null
+          inspection_lot: string
+          material_code: string
+          material_description: string | null
+          plant: string
+          po_item_number: string | null
+          po_number: string | null
+          posting_date: string | null
+          source: string | null
+          status: string
+          storage_location: string | null
+          transaction_quantity: number
+          uom: string | null
+          updated_at: string
+          upload_batch_id: string | null
+          uploaded_by: string | null
+          vendor_code: string | null
+          vendor_name: string | null
+        }
+        Insert: {
+          batch?: string | null
+          block_reason?: string | null
+          blocked_quantity?: number
+          created_at?: string
+          grn_date?: string | null
+          grn_item_no?: string | null
+          grn_number?: string | null
+          id?: string
+          inspection_date?: string | null
+          inspection_lot: string
+          material_code: string
+          material_description?: string | null
+          plant: string
+          po_item_number?: string | null
+          po_number?: string | null
+          posting_date?: string | null
+          source?: string | null
+          status?: string
+          storage_location?: string | null
+          transaction_quantity?: number
+          uom?: string | null
+          updated_at?: string
+          upload_batch_id?: string | null
+          uploaded_by?: string | null
+          vendor_code?: string | null
+          vendor_name?: string | null
+        }
+        Update: {
+          batch?: string | null
+          block_reason?: string | null
+          blocked_quantity?: number
+          created_at?: string
+          grn_date?: string | null
+          grn_item_no?: string | null
+          grn_number?: string | null
+          id?: string
+          inspection_date?: string | null
+          inspection_lot?: string
+          material_code?: string
+          material_description?: string | null
+          plant?: string
+          po_item_number?: string | null
+          po_number?: string | null
+          posting_date?: string | null
+          source?: string | null
+          status?: string
+          storage_location?: string | null
+          transaction_quantity?: number
+          uom?: string | null
+          updated_at?: string
+          upload_batch_id?: string | null
+          uploaded_by?: string | null
+          vendor_code?: string | null
+          vendor_name?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
