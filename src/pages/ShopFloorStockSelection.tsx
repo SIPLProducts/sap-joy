@@ -229,6 +229,11 @@ export default function ShopFloorStockSelection() {
         storageLocation: sel.storage_location || '',
         availableQuantity: sel.available_quantity,
         uom: sel.uom || 'EA',
+        vendorCode: (sel as any).vendor_code || '',
+        vendorName: (sel as any).vendor_name || '',
+        grnNo: (sel as any).grn_no || '',
+        grnItem: (sel as any).grn_item || '',
+        grnDate: (sel as any).grn_date || '',
       };
       navigate('/shop-floor/material-blocking', { state: { stockItem } });
     }
