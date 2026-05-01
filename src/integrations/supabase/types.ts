@@ -1648,7 +1648,7 @@ export type Database = {
         | "return_to_vendor"
         | "scrap_material"
       escalation_level: "none" | "L1" | "L2" | "L3"
-      mrb_source: "quality_inspection" | "shop_floor"
+      mrb_source: "quality_inspection" | "shop_floor" | "inprocess"
       mrb_status:
         | "draft"
         | "quality_review"
@@ -1804,7 +1804,7 @@ export const Constants = {
         "scrap_material",
       ],
       escalation_level: ["none", "L1", "L2", "L3"],
-      mrb_source: ["quality_inspection", "shop_floor"],
+      mrb_source: ["quality_inspection", "shop_floor", "inprocess"],
       mrb_status: [
         "draft",
         "quality_review",
