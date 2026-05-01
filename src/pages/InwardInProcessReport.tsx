@@ -112,11 +112,15 @@ export default function InwardReport() {
         .order('created_at', { ascending: false });
       
       if (data && data.length > 0) {
-        const inwardConfig = data.find(c => 
-          c.config_name.toLowerCase().includes('zmrb') || 
+        // Prefer the dedicated in-process (ZMRB04) config
+        const processConfig = data.find(c =>
+          c.config_name.toLowerCase().includes('process')
+        );
+        const inwardConfig = data.find(c =>
+          c.config_name.toLowerCase().includes('zmrb') ||
           c.config_name.toLowerCase().includes('inward')
         );
-        const chosen = inwardConfig || data[0];
+        const chosen = processConfig || inwardConfig || data[0];
         setSapConfigId(chosen.id);
         setLastSyncAt(chosen.last_sync_at);
       }
