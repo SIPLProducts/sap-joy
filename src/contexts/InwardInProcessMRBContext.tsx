@@ -29,6 +29,10 @@ export interface InspectionLotRecord {
   grnNumber: string;
   grnItemNo: string;
   grnDate: string;
+  productionOrderNo: string;
+  workCenter: string;
+  orderType: string;
+  confirmationDate: string;
   status: 'pending' | 'mrb_created' | 'cleared';
   source: 'upload' | 'api' | 'mrb';
   /** Raw DB row — carries any dynamic columns added via SAP field config */
@@ -181,6 +185,10 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
             grnNumber: lot.grn_number || '',
             grnItemNo: (lot as any).grn_item_no || '',
             grnDate: (lot as any).grn_date || '',
+            productionOrderNo: (lot as any).production_order_no || '',
+            workCenter: (lot as any).work_center || '',
+            orderType: (lot as any).order_type || '',
+            confirmationDate: (lot as any).confirmation_no || '',
             status: effectiveStatus,
             source: lot.upload_batch_id ? 'upload' : 'api',
             _raw: lot as unknown as Record<string, unknown>,
