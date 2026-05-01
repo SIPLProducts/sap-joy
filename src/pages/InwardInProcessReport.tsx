@@ -15,7 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { useInwardMRB, InspectionLotRecord } from '@/contexts/InwardMRBContext';
+import { useInwardInProcessMRB, InspectionLotRecord } from '@/contexts/InwardInProcessMRBContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
 import { MultiSelectFilter } from '@/components/inward/MultiSelectFilter';
@@ -46,9 +46,9 @@ const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 export default function InwardReport() {
   const navigate = useNavigate();
-  const { inspectionLotRecords, filters, setFilters, getFilteredRecords, refreshData, isLoading, uploadInspectionLots, createBatchMRBs, updateTransactionQuantity } = useInwardMRB();
+  const { inspectionLotRecords, filters, setFilters, getFilteredRecords, refreshData, isLoading, uploadInspectionLots, createBatchMRBs, updateTransactionQuantity } = useInwardInProcessMRB();
   const { userRole } = useAuth();
-  const { extraFields } = useExtraDynamicFields('inward_inspection_lots');
+  const { extraFields } = useExtraDynamicFields('zmrb_inward_report');
 
   // Role-based permissions
   const canCreateMRB = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
@@ -281,7 +281,7 @@ export default function InwardReport() {
 
   const confirmSingleMRB = () => {
     if (pendingSingleRecord) {
-      navigate('/inward/create-mrb', { state: { inspectionLot: pendingSingleRecord } });
+      navigate('/inward/inprocess/create-mrb', { state: { inspectionLot: pendingSingleRecord } });
     }
     setShowSingleConfirm(false);
     setPendingSingleRecord(null);
@@ -512,7 +512,7 @@ export default function InwardReport() {
             <div className="flex items-center gap-3">
               <FileSpreadsheet className="h-6 w-6 text-primary" />
               <div>
-                <h1 className="text-xl font-bold text-foreground">MRB - Inward Materials</h1>
+                <h1 className="text-xl font-bold text-foreground">MRB - Inward InProcess</h1>
                 <div className="flex items-center gap-3 mt-0.5">
                   <p className="text-sm text-muted-foreground">
                     Auto-refreshes every 5 min
