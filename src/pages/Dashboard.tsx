@@ -78,7 +78,7 @@ export default function Dashboard() {
                 {pendingForMe.slice(0, 5).map((mrb) => (
                   <Link
                     key={mrb.id}
-                    to={mrb.source === 'quality_inspection' ? `/inward/mrb/${mrb.id}` : `/mrb/${mrb.id}`}
+                    to={(mrb.source === 'quality_inspection' || (mrb.source as string) === 'inprocess') ? `/inward/mrb/${mrb.id}` : `/mrb/${mrb.id}`}
                     className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted"
                   >
                     <div>
@@ -105,13 +105,17 @@ export default function Dashboard() {
               {mrbRecords.slice(0, 5).map((mrb) => (
                 <Link
                   key={mrb.id}
-                  to={mrb.source === 'quality_inspection' ? `/inward/mrb/${mrb.id}` : `/mrb/${mrb.id}`}
+                  to={(mrb.source === 'quality_inspection' || (mrb.source as string) === 'inprocess') ? `/inward/mrb/${mrb.id}` : `/mrb/${mrb.id}`}
                   className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted"
                 >
                   <div>
                     <p className="font-medium">{mrb.mrb_number}</p>
                     <p className="text-sm text-muted-foreground">
-                      {mrb.source === 'shop_floor' ? 'Shop Floor' : 'Quality Inspection'}
+                      {mrb.source === 'shop_floor'
+                        ? 'Shop Floor'
+                        : (mrb.source as string) === 'inprocess'
+                          ? 'Inward InProcess'
+                          : 'Quality Inspection'}
                     </p>
                   </div>
                   <Badge className={getStatusColor(mrb.status)}>{getStatusDisplayName(mrb.status)}</Badge>
