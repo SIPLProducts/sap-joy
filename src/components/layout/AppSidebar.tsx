@@ -26,6 +26,7 @@ const menuItems = [
   { title: 'Pending Actions', url: '/pending-actions', icon: AlertTriangle, matrixKey: 'pending_actions' },
   { title: 'Material Blocking', url: '/shop-floor/stock-selection', icon: Package, matrixKey: 'material_booking' },
   { title: 'MRB - Inward Materials', url: '/inward/report', icon: FileSpreadsheet, matrixKey: 'inward_materials' },
+  { title: 'MRB - Inward InProcess', url: '/inward/inprocess', icon: Layers, matrixKey: 'inward_inprocess' },
   { title: 'MRB Print', url: '/mrb-print', icon: Printer, matrixKey: 'mrb_print' },
   { title: 'Email Log', url: '/emails', icon: Mail, matrixKey: 'email_log' },
   { title: 'Help & Support', url: '/help', icon: HelpCircle, matrixKey: 'help_support' },
