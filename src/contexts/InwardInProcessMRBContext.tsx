@@ -104,9 +104,9 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
     try {
       setIsLoading(true);
       
-      // Fetch all inspection lots synced from SAP / uploads so the page can show the full live picture
+      // Fetch all inspection lots synced from SAP (ZMRB04 — In-Process) so the page can show the full live picture
       let lotsQuery = supabase
-        .from('inward_inspection_lots')
+        .from('zmrb_inward_report')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -121,11 +121,11 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
         console.error('Error fetching uploaded lots:', uploadError);
       }
 
-      // Fetch inward MRB records (source = quality_inspection)
+      // Fetch inward MRB records (source = inprocess)
       let mrbQuery = supabase
         .from('mrb_records')
         .select('*')
-        .eq('source', 'quality_inspection')
+        .eq('source', 'inprocess' as any)
         .order('created_at', { ascending: false });
 
       if (shouldFilterByPlant && userPlant) {
@@ -201,33 +201,33 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
 
     // Subscribe to real-time updates for both tables
     const mrbChannel = supabase
-      .channel('inward_mrb_changes')
+      .channel('inward_inprocess_mrb_changes')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'mrb_records',
-          filter: 'source=eq.quality_inspection',
+          filter: 'source=eq.inprocess',
         },
         (payload) => {
-          console.log('Real-time inward MRB update:', payload);
+          console.log('Real-time inward in-process MRB update:', payload);
           fetchData(); // Refresh all data on changes
         }
       )
       .subscribe();
 
     const lotsChannel = supabase
-      .channel('inward_lots_changes')
+      .channel('inward_inprocess_lots_changes')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'inward_inspection_lots',
+          table: 'zmrb_inward_report',
         },
         (payload) => {
-          console.log('Real-time inspection lots update:', payload);
+          console.log('Real-time in-process inspection lots update:', payload);
           fetchData(); // Refresh all data on changes
         }
       )
