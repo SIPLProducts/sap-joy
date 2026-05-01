@@ -1,56 +1,50 @@
-## Goal
+## Problem
 
-Make the requested ZMRB04 column set the single source of truth wherever an **InProcess** record (`mrb_records.source = 'inprocess'` / `zmrb_inward_report` row) is shown:
+On the **MRB - Inward InProcess** screen, after the 20 friendly columns (Inspection Lot, Material Code, …, Confirmation Date) the table appends a second strip of columns whose headers read as raw SAP codes:
 
-1. **MRB - Inward InProcess screen** (`/inward/inprocess`)
-2. **MRB Worklist** (`/worklist`) — only when an InProcess row is filtered/viewed
-3. **InProcess MRB Detail** (`/inward/mrb/:id`) opened from the Worklist's "View" action for an InProcess record
+`PRUEFLOS WERK ENSTEHDAT AUFNR MATNR SELLIFNR MBLNR CHARG LGORT EBELN EBELP BUDAT_MKPF SGTXT MENGENEINH LMENGE04 MAKTX NAME1 QTY GRN_ITEM_NO AUART GRN_DATE ARBPL RUECK`
 
-Final 20 columns (in order):
-Action, Status, Inspection Lot (PRUEFLOS), Material Code (MATNR), Material Description (MAKTX), Plant (WERK), SLoc (LGORT), Batch (CHARG), Blocked Qty (LMENGE04), Trans. Qty (QTY), UoM (MENGENEINH), Inspection Date (ENSTEHDAT), Posting Date (BUDAT_MKPF), Block Reason (SGTXT), Vendor Code (SELLIFNR), Vendor Name (NAME1), Production Order (AUFNR), Work Center (ARBPL), Order Type (AUART), Confirmation Date (RUECK).
+These are duplicates — every one of them is already shown in the 20 friendly columns.
 
-## Status of each surface
+## Root cause
 
-### 1. InProcess report — already correct
-`src/pages/InwardInProcessReport.tsx` already renders exactly this column set (verified at lines 753–772). **No change required.**
+`src/pages/InwardInProcessReport.tsx` renders the friendly columns first, then loops over `extraFields` from `useExtraDynamicFields('zmrb_inward_report')` to append "extra" SAP fields configured in **SAP API Settings → Fields**.
 
-### 2. Worklist — InProcess-aware view
-`src/pages/Worklist.tsx` is a unified table for all sources. Per user direction ("Only for InProcess rows") we keep the existing global columns, but switch to a **dedicated column layout when `sourceFilter === 'inprocess'`** so a user filtering the worklist by InProcess sees only the requested 20 fields.
+The filter that decides what is "extra" lives in `src/hooks/useDynamicFields.ts` and uses a `BASE_COLUMNS` allow-list per table. The map currently has entries for `inward_inspection_lots` and `shop_floor_stock` but **no entry for `zmrb_inward_report`**. Result: every mapped column on `zmrb_inward_report` is treated as "extra" and re-rendered with its raw SAP `field_name` as the header.
 
-Changes:
-- Extend `UnifiedMRBRecord` with: `storageLocation`, `batch`, `inspectionDate`, `postingDate`, `productionOrderNo`, `workCenter`, `orderType`, `confirmationDate`, `blockReason` (the existing `defectDescription` already carries block reason).
-- Hydrate these from `mrb_records` joined with `zmrb_inward_report` on `inspection_lot` (one extra fetch in `useMRBDatabase` or a small inline lookup in `Worklist`) so values are present on InProcess rows.
-- When `sourceFilter === 'inprocess'`, render the alternate `<thead>`/`<tbody>` markup with the 20 columns above. Action column reuses the existing "Eye" button → `handleViewClick(mrb)` which already routes InProcess records to `/inward/mrb/:id`.
-- Update Excel export (`handleExportToExcel`) to include the new fields when InProcess rows are present.
+The Inward Materials report does not show the duplicates because `inward_inspection_lots` is in the allow-list.
 
-### 3. InProcess MRB Detail page
-`src/pages/InwardMRBDetail.tsx` currently shows generic Inward fields (PO, PO Item, GRN, GRN Item No, GRN Date). For `source = 'inprocess'` MRBs we replace those with the production fields and add the new ones.
+## Fix
 
-Changes (all gated on `mrb.source === 'inprocess'`):
-- Remove the **PO Number, PO Line Item, GRN Number, GRN Item No, GRN Date** field cards.
-- Add field cards for: SLoc, Inspection Date, Posting Date, Production Order, Work Center, Order Type, Confirmation Date.
-- Source the values: prefer `mrb_records` columns where they exist (`storage_location`, `batch`, `inspection_lot`, etc.). For the 4 production fields plus inspection/posting dates, fall back to `zmrb_inward_report` looked up by `inspection_lot` (mirrors the existing `inward_inspection_lots` fallback already used in this file).
-- For non-InProcess MRBs the page renders unchanged.
+Add a `zmrb_inward_report` entry to `BASE_COLUMNS` listing every column the InProcess report already renders, so the dynamic engine excludes them from `extraFields`.
 
-## Database — no schema migration
+### File to change
 
-`zmrb_inward_report` already has `production_order_no`, `work_center`, `order_type`, `confirmation_no`, `inspection_date`, `posting_date`, `storage_location`, `batch`, `block_reason`, `vendor_code`, `vendor_name` (verified). The previous migration also patched `sap_api_response_fields` for ZMRB04 so the scheduler persists `AUFNR/ARBPL/AUART/RUECK`. No new migration is needed.
+**`src/hooks/useDynamicFields.ts`** — extend `BASE_COLUMNS` with:
 
-We **do** need a small data-flow improvement so the MRB detail screen always has these fields without a DB-level join:
-- Optional: when an InProcess MRB is created (`createBatchMRBs` in `src/contexts/InwardInProcessMRBContext.tsx`), also copy `storage_location`, `batch` (already done), and persist `production_order_number` (already a column on `mrb_records`) into the MRB row so display is read-once. Inspection/Posting dates and Work Center / Order Type / Confirmation Date stay sourced from `zmrb_inward_report` via fallback lookup.
+```ts
+zmrb_inward_report: new Set([
+  'id', 'inspection_lot', 'material_code', 'material_description',
+  'plant', 'storage_location', 'batch',
+  'blocked_quantity', 'transaction_quantity', 'uom',
+  'inspection_date', 'posting_date', 'block_reason',
+  'vendor_code', 'vendor_name',
+  'production_order_no', 'work_center', 'order_type', 'confirmation_no',
+  'po_number', 'po_item_number', 'grn_number', 'grn_item_no', 'grn_date',
+  'status', 'source', 'upload_batch_id', 'uploaded_by',
+  'created_at', 'updated_at',
+]),
+```
 
-## Files to change
+That's the entire fix. After this change `extraFields.length` becomes 0 for the InProcess report (until a genuinely new SAP field is added in SAP API Settings that maps to a column outside this set), so:
 
-1. `src/pages/Worklist.tsx`
-   - Extend `UnifiedMRBRecord`, fetch InProcess fallback fields, render alternate `<thead>`/`<tbody>` when `sourceFilter === 'inprocess'`, update Excel export.
-2. `src/pages/InwardMRBDetail.tsx`
-   - Branch the "MRB Details" card on `mrb.source === 'inprocess'` to render the requested field set; keep current layout for `quality_inspection`. Add `zmrb_inward_report` fallback lookup for production/date fields.
-3. `src/contexts/InwardInProcessMRBContext.tsx`
-   - In `createBatchMRBs`, additionally write `production_order_number` to the inserted `mrb_records` row (uses the new `productionOrderNo` already on `InspectionLotRecord`).
-4. `src/pages/InwardInProcessReport.tsx` — **no change**.
+- The duplicate header strip disappears.
+- The duplicate cell strip disappears.
+- The empty-state `colSpan` (`19 + extraFields.length`) collapses to its base value automatically — no other math to update.
+- The dynamic engine still works: any future field someone adds via SAP API Settings that maps to a brand-new column will continue to be appended as a real "extra" column.
 
 ## Out of scope
 
-- Inward Materials screen (`/inward`) and its detail view: untouched.
-- Shop Floor screens, dashboards, KPIs, role matrix entries, workflow routing: untouched.
-- No type regeneration (`src/integrations/supabase/types.ts` is auto-managed).
+- No changes to the Worklist or MRB Detail (those screens don't use the dynamic-extras renderer).
+- No DB migration, no changes to `sap_api_response_fields`, no edits to the auto-generated `types.ts`.
+- The Inward Materials report is unaffected (its allow-list is already correct).
