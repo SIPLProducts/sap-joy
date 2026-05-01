@@ -9,6 +9,11 @@ export interface AvailableStockRecord {
   storageLocation: string;
   availableQuantity: number;
   uom: string;
+  vendorCode?: string;
+  vendorName?: string;
+  grnNo?: string;
+  grnItem?: string;
+  grnDate?: string;
 }
 
 // Block reasons for shop floor

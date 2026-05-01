@@ -288,7 +288,11 @@ export default function ShopFloorMaterialBlocking() {
         material_number: stockItem.materialCode,
         material_description: stockItem.materialDescription,
         plant: stockItem.plant,
-        vendor_name: 'N/A (Shop Floor)',
+        vendor_code: stockItem.vendorCode || null,
+        vendor_name: stockItem.vendorName || 'N/A (Shop Floor)',
+        grn_number: stockItem.grnNo || null,
+        grn_item_number: stockItem.grnItem || null,
+        grn_date: stockItem.grnDate || null,
         po_number: poNumber || null,
         total_quantity: blockQuantity,
         accepted_quantity: 0,
@@ -558,6 +562,26 @@ export default function ShopFloorMaterialBlocking() {
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Storage Location</Label>
                 <Input value={stockItem.storageLocation} disabled className="bg-muted h-9" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Vendor Code</Label>
+                <Input value={stockItem.vendorCode || '-'} disabled className="bg-muted h-9" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Vendor Name</Label>
+                <Input value={stockItem.vendorName || '-'} disabled className="bg-muted h-9" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">GRN No</Label>
+                <Input value={stockItem.grnNo || '-'} disabled className="bg-muted h-9" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">GRN Item</Label>
+                <Input value={stockItem.grnItem || '-'} disabled className="bg-muted h-9" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">GRN Date</Label>
+                <Input value={stockItem.grnDate || '-'} disabled className="bg-muted h-9" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Available Quantity</Label>
