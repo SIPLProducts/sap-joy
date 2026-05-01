@@ -1,50 +1,67 @@
 ## Problem
 
-On the **MRB - Inward InProcess** screen, after the 20 friendly columns (Inspection Lot, Material Code, …, Confirmation Date) the table appends a second strip of columns whose headers read as raw SAP codes:
-
-`PRUEFLOS WERK ENSTEHDAT AUFNR MATNR SELLIFNR MBLNR CHARG LGORT EBELN EBELP BUDAT_MKPF SGTXT MENGENEINH LMENGE04 MAKTX NAME1 QTY GRN_ITEM_NO AUART GRN_DATE ARBPL RUECK`
-
-These are duplicates — every one of them is already shown in the 20 friendly columns.
+The SAP `ZMRB_Inward_Process` (ZMRB04) sync says it inserted 3 records and the rows do exist in `zmrb_inward_report`, but on the **MRB Inward InProcess** screen the new ZMRB04-specific columns — **Production Order (AUFNR), Work Center (ARBPL), Order Type (AUART), Confirmation Date (RUECK)** — and **Vendor Code/Name** are blank.
 
 ## Root cause
 
-`src/pages/InwardInProcessReport.tsx` renders the friendly columns first, then loops over `extraFields` from `useExtraDynamicFields('zmrb_inward_report')` to append "extra" SAP fields configured in **SAP API Settings → Fields**.
+The sync runs in `supabase/functions/sap-sync/handler.ts`. For each table it sanitizes incoming rows against two hardcoded maps:
 
-The filter that decides what is "extra" lives in `src/hooks/useDynamicFields.ts` and uses a `BASE_COLUMNS` allow-list per table. The map currently has entries for `inward_inspection_lots` and `shop_floor_stock` but **no entry for `zmrb_inward_report`**. Result: every mapped column on `zmrb_inward_report` is treated as "extra" and re-rendered with its raw SAP `field_name` as the header.
+- `allowedColumnsByTable.zmrb_inward_report` — allow-list of writable columns
+- `aliasMapByTable.zmrb_inward_report` — case-insensitive aliases (e.g. `werk → plant`)
 
-The Inward Materials report does not show the duplicates because `inward_inspection_lots` is in the allow-list.
+The user's **SAP API Settings → Response Fields** for `ZMRB_Inward_Process` correctly map:
+- `AUFNR → production_order_no`
+- `ARBPL → work_center`
+- `AUART → order_type`
+- `RUECK → confirmation_no`
+- `SELLIFNR → vendor_code`
+- `NAME1 → vendor_name`
+
+But none of `production_order_no`, `work_center`, `order_type`, `confirmation_no` are in the handler's `allowedColumnsByTable.zmrb_inward_report` set. At line 1246 the sanitizer does `if (!allowedColumns.has(normalizedColumn)) return`, so these values are silently dropped before the upsert — that is why the columns persist as `NULL` in the DB and render blank in the UI even though the SAP response contains them.
+
+DB confirms it: all four currently-synced rows have `production_order_no = NULL`, `work_center = NULL`, `order_type = NULL`, `confirmation_no = NULL`.
+
+`SELLIFNR` and `NAME1` happen to be empty in the SAP response itself, so even though their mappings are correct, the columns will stay blank for these specific rows. No fix needed — but the alias for `sellifnr → vendor_code` is already present, so future rows with vendor data will populate.
 
 ## Fix
 
-Add a `zmrb_inward_report` entry to `BASE_COLUMNS` listing every column the InProcess report already renders, so the dynamic engine excludes them from `extraFields`.
+Edit `supabase/functions/sap-sync/handler.ts`:
 
-### File to change
+1. Extend `allowedColumnsByTable.zmrb_inward_report` to include the four production columns:
 
-**`src/hooks/useDynamicFields.ts`** — extend `BASE_COLUMNS` with:
+   ```ts
+   zmrb_inward_report: new Set([
+     'inspection_lot', 'material_code', 'material_description', 'plant', 'storage_location',
+     'batch', 'uom', 'blocked_quantity', 'transaction_quantity', 'status', 'block_reason',
+     'vendor_code', 'vendor_name', 'po_number', 'po_item_number', 'grn_number',
+     'uploaded_by', 'upload_batch_id',
+     'inspection_date', 'posting_date', 'grn_item_no', 'grn_date', 'source',
+     'production_order_no', 'work_center', 'order_type', 'confirmation_no',
+   ]),
+   ```
 
-```ts
-zmrb_inward_report: new Set([
-  'id', 'inspection_lot', 'material_code', 'material_description',
-  'plant', 'storage_location', 'batch',
-  'blocked_quantity', 'transaction_quantity', 'uom',
-  'inspection_date', 'posting_date', 'block_reason',
-  'vendor_code', 'vendor_name',
-  'production_order_no', 'work_center', 'order_type', 'confirmation_no',
-  'po_number', 'po_item_number', 'grn_number', 'grn_item_no', 'grn_date',
-  'status', 'source', 'upload_batch_id', 'uploaded_by',
-  'created_at', 'updated_at',
-]),
-```
+2. Extend `aliasMapByTable.zmrb_inward_report` so future configs that map by raw SAP code (rather than directly to the column name) still resolve correctly:
 
-That's the entire fix. After this change `extraFields.length` becomes 0 for the InProcess report (until a genuinely new SAP field is added in SAP API Settings that maps to a column outside this set), so:
+   ```ts
+   aufnr: 'production_order_no',
+   arbpl: 'work_center',
+   auart: 'order_type',
+   rueck: 'confirmation_no',
+   ```
 
-- The duplicate header strip disappears.
-- The duplicate cell strip disappears.
-- The empty-state `colSpan` (`19 + extraFields.length`) collapses to its base value automatically — no other math to update.
-- The dynamic engine still works: any future field someone adds via SAP API Settings that maps to a brand-new column will continue to be appended as a real "extra" column.
+3. Deploy `sap-sync` and trigger one manual sync from **SAP API Settings → ZMRB_Inward_Process → Run Sync** (or wait for the 5-minute scheduler). Since the upsert uses `onConflict: 'inspection_lot'`, the existing rows will be updated in place — no DB cleanup needed.
+
+## Verification
+
+After the next sync:
+
+- DB: `select inspection_lot, production_order_no, work_center, order_type, confirmation_no from zmrb_inward_report;` should show populated values for rows where the SAP payload had them (e.g. `AUFNR=6000008627`, `ARBPL=EMUTEST`, `AUART=ZPEL`, `RUECK=752113`).
+- UI: open `/inward/inprocess` — the **Production Order**, **Work Center**, **Order Type**, **Confirmation Date** columns will display values instead of `-`.
+- Vendor Code / Vendor Name will remain blank for the current 4 rows because SAP returned them empty; they will populate automatically when SAP returns non-empty `SELLIFNR` / `NAME1`.
 
 ## Out of scope
 
-- No changes to the Worklist or MRB Detail (those screens don't use the dynamic-extras renderer).
-- No DB migration, no changes to `sap_api_response_fields`, no edits to the auto-generated `types.ts`.
-- The Inward Materials report is unaffected (its allow-list is already correct).
+- No DB migration. The columns already exist on `zmrb_inward_report`.
+- No frontend changes. `InwardInProcessReport.tsx` and `InwardInProcessMRBContext.tsx` already read and render these fields; they were just always `NULL`.
+- No change to `sap_api_response_fields` data — the user's mappings are already correct.
+- No change to the `inward_inspection_lots` allow-list (Inward Materials / ZMRB01 path is unaffected).
