@@ -319,7 +319,7 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
       for (let i = 0; i < rows.length; i += batchSize) {
         const batch = rows.slice(i, i + batchSize);
         const { error } = await supabase
-          .from('inward_inspection_lots')
+          .from('zmrb_inward_report')
           .insert(batch);
 
         if (error) {
@@ -343,7 +343,7 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
 
   const updateLotStatus = async (id: string, status: 'pending' | 'mrb_created' | 'cleared') => {
     const { error } = await supabase
-      .from('inward_inspection_lots')
+      .from('zmrb_inward_report')
       .update({ status })
       .eq('id', id);
 
@@ -426,7 +426,7 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
           
           const mrbData: MRBInsert = {
             mrb_number: mrbNumber,
-            source: 'quality_inspection',
+            source: 'inprocess' as any,
             created_by: user.id,
             status: initialStatus,
             plant: record.plant,
@@ -455,9 +455,9 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
 
           if (error) throw error;
 
-          // Update lot status in inward_inspection_lots table
+          // Update lot status in zmrb_inward_report table
           await supabase
-            .from('inward_inspection_lots')
+            .from('zmrb_inward_report')
             .update({ status: 'mrb_created' })
             .eq('inspection_lot', record.inspectionLot);
 
@@ -541,7 +541,7 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
   };
 
   return (
-    <InwardMRBContext.Provider
+    <InwardInProcessMRBContext.Provider
       value={{
         inspectionLotRecords,
         inwardMRBRecords,
@@ -557,14 +557,14 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
       }}
     >
       {children}
-    </InwardMRBContext.Provider>
+    </InwardInProcessMRBContext.Provider>
   );
 }
 
-export function useInwardMRB() {
-  const context = useContext(InwardMRBContext);
+export function useInwardInProcessMRB() {
+  const context = useContext(InwardInProcessMRBContext);
   if (context === undefined) {
-    throw new Error('useInwardMRB must be used within an InwardMRBProvider');
+    throw new Error('useInwardInProcessMRB must be used within an InwardInProcessMRBProvider');
   }
   return context;
 }
