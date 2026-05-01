@@ -1299,6 +1299,7 @@ export default function Worklist() {
                 )}
               </tbody>
             </table>
+            )}
           </div>
         </div>
       </div>
