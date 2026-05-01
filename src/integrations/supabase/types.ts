@@ -1495,6 +1495,7 @@ export type Database = {
           batch: string | null
           block_reason: string | null
           blocked_quantity: number
+          confirmation_no: string | null
           created_at: string
           grn_date: string | null
           grn_item_no: string | null
@@ -1504,10 +1505,12 @@ export type Database = {
           inspection_lot: string
           material_code: string
           material_description: string | null
+          order_type: string | null
           plant: string
           po_item_number: string | null
           po_number: string | null
           posting_date: string | null
+          production_order_no: string | null
           source: string | null
           status: string
           storage_location: string | null
@@ -1518,11 +1521,13 @@ export type Database = {
           uploaded_by: string | null
           vendor_code: string | null
           vendor_name: string | null
+          work_center: string | null
         }
         Insert: {
           batch?: string | null
           block_reason?: string | null
           blocked_quantity?: number
+          confirmation_no?: string | null
           created_at?: string
           grn_date?: string | null
           grn_item_no?: string | null
@@ -1532,10 +1537,12 @@ export type Database = {
           inspection_lot: string
           material_code: string
           material_description?: string | null
+          order_type?: string | null
           plant: string
           po_item_number?: string | null
           po_number?: string | null
           posting_date?: string | null
+          production_order_no?: string | null
           source?: string | null
           status?: string
           storage_location?: string | null
@@ -1546,11 +1553,13 @@ export type Database = {
           uploaded_by?: string | null
           vendor_code?: string | null
           vendor_name?: string | null
+          work_center?: string | null
         }
         Update: {
           batch?: string | null
           block_reason?: string | null
           blocked_quantity?: number
+          confirmation_no?: string | null
           created_at?: string
           grn_date?: string | null
           grn_item_no?: string | null
@@ -1560,10 +1569,12 @@ export type Database = {
           inspection_lot?: string
           material_code?: string
           material_description?: string | null
+          order_type?: string | null
           plant?: string
           po_item_number?: string | null
           po_number?: string | null
           posting_date?: string | null
+          production_order_no?: string | null
           source?: string | null
           status?: string
           storage_location?: string | null
@@ -1574,6 +1585,7 @@ export type Database = {
           uploaded_by?: string | null
           vendor_code?: string | null
           vendor_name?: string | null
+          work_center?: string | null
         }
         Relationships: []
       }

@@ -1,66 +1,58 @@
-## Issue
+## Goal
 
-A new MRB created from the **MRB - Inward InProcess** tab is being saved with `source = 'inprocess'` correctly in the database, but the **MRB Worklist** displays it with the orange **"Shop Floor"** badge. This is because `getSourceBadge()` in `Worklist.tsx` only checks for `'quality_inspection'` and falls through to "Shop Floor" for everything else (including the new `inprocess` value).
+Update the **MRB - Inward InProcess** screen (`/inward/inprocess`) so that the table displays the exact column set requested for the ZMRB04 SAP API, including 4 new fields that are currently being fetched from SAP but discarded (Production Order, Work Center, Order Type, Confirmation Date/No).
 
-The same fall-through issue affects: source filter dropdown, Excel export, and the row-click navigation route.
+## Final column list (in order)
 
-## Fix
+Action, Status, Inspection Lot (PRUEFLOS), Material Code (MATNR), Material Description (MAKTX), Plant (WERK), SLoc (LGORT), Batch (CHARG), Blocked Qty (LMENGE04), Trans. Qty (QTY), UoM (MENGENEINH), Inspection Date (ENSTEHDAT), Posting Date (BUDAT_MKPF), Block Reason (SGTXT), Vendor Code (SELLIFNR), Vendor Name (NAME1), **Production Order (AUFNR)**, **Work Center (ARBPL)**, **Order Type (AUART)**, **Confirmation Date (RUECK)**.
 
-### 1. `src/pages/Worklist.tsx`
+Columns to **remove** from the existing screen: PO Number, PO Item Number, GRN Number, GRN Item No, GRN Date.
 
-**a. Source badge (line ~272–277)** — add an explicit `inprocess` branch:
-```tsx
-const getSourceBadge = (source: MRBSource) => {
-  if (source === 'quality_inspection') {
-    return <Badge ... className="bg-blue-50 text-blue-700 border-blue-200">Inward</Badge>;
-  }
-  if (source === 'inprocess') {
-    return <Badge ... className="bg-purple-50 text-purple-700 border-purple-200">InProcess</Badge>;
-  }
-  return <Badge ... className="bg-orange-50 text-orange-700 border-orange-200">Shop Floor</Badge>;
-};
+## Changes required
+
+### 1. Database migration
+
+Add the 4 missing columns to `zmrb_inward_report`:
+
+```sql
+ALTER TABLE public.zmrb_inward_report
+  ADD COLUMN IF NOT EXISTS production_order_no text,
+  ADD COLUMN IF NOT EXISTS work_center        text,
+  ADD COLUMN IF NOT EXISTS order_type         text,
+  ADD COLUMN IF NOT EXISTS confirmation_no    text;
 ```
 
-**b. Source-type union & filter dropdown (lines 52, 958–966)** — extend type and add option:
-```tsx
-type SourceType = 'all' | 'quality_inspection' | 'shop_floor' | 'inprocess';
-...
-<SelectItem value="inprocess">Inward InProcess</SelectItem>
+Then patch the existing ZMRB_Inward_Process field config rows so the SAP scheduler actually persists those fields (currently `map_to_table` is NULL for them):
+
+```sql
+UPDATE public.sap_api_response_fields
+   SET map_to_table = 'zmrb_inward_report'
+ WHERE config_id = 'f1ac85d4-ca04-497a-bed6-1f509d10b4c2'
+   AND sap_field_name IN ('AUFNR','ARBPL','AUART','RUECK');
 ```
 
-**c. Excel export label (line 341)** — map `inprocess` to "Inward InProcess":
-```tsx
-'Source': mrb.source === 'quality_inspection' ? 'Inward'
-        : mrb.source === 'inprocess' ? 'Inward InProcess'
-        : 'Shop Floor',
-```
+No change to the inward (ZMRB01) config — it does not use these fields.
 
-**d. Row-click navigation (lines 404–411)** — route `inprocess` records to the inward MRB detail page (it already reads from `mrb_records` by id):
-```tsx
-if (mrb.source === 'quality_inspection' || mrb.source === 'inprocess') {
-  navigate(`/inward/mrb/${mrb.id}`);
-} else if (mrb.source === 'shop_floor') {
-  navigate(`/shop-floor/mrb/${mrb.id}`);
-} else {
-  navigate(`/mrb/${mrb.id}`);
-}
-```
+### 2. Context: `src/contexts/InwardInProcessMRBContext.tsx`
 
-### 2. `src/pages/Dashboard.tsx`
+- Extend `InspectionLotRecord` with: `productionOrderNo`, `workCenter`, `orderType`, `confirmationDate` (all `string`).
+- Map them in `fetchData()` from the new DB columns (`production_order_no`, `work_center`, `order_type`, `confirmation_no`) with `''` fallback.
 
-The "Recent Activity" card displays `Shop Floor` / `Quality Inspection` based on source and links via the same logic. Update both:
-- Display label: show "Inward InProcess" when `source === 'inprocess'`.
-- Link target: route `inprocess` to `/inward/mrb/${id}` (same as quality_inspection).
+### 3. UI: `src/pages/InwardInProcessReport.tsx`
 
-## QA after fix
+- Remove `<TableHead>` and `<TableCell>` blocks for: PO Number, PO Item Number, GRN Number, GRN Item No, GRN Date.
+- Add 4 new `<TableHead>` / `<TableCell>` blocks after Vendor Name in the requested order: Production Order, Work Center, Order Type, Confirmation Date.
+- Confirmation Date is rendered with `formatDate()` if it parses, otherwise raw string (RUECK can come as a counter or YYYYMMDD).
+- Update the empty-row `colSpan` (currently `20 + extraFields.length`) to the new visible column count (`19 + extraFields.length`).
 
-1. Open MRB Worklist → the MRB created from "Inward InProcess" now shows a purple **"InProcess"** badge (not orange Shop Floor).
-2. Source filter dropdown has a new option **"Inward InProcess"**; selecting it shows only inprocess MRBs.
-3. Click the InProcess MRB row → opens the inward MRB detail page successfully.
-4. Excel export → Source column reads "Inward InProcess" for that MRB.
-5. Dashboard recent activity → label and link work for inprocess records.
+### 4. Out of scope
 
-## Out of scope
+- The Inward Materials screen (`/inward`) keeps Vendor/PO/GRN columns — no change there.
+- No changes to MRB creation form, role matrix, or workflow routing.
+- Existing rows in `zmrb_inward_report` will simply have NULL values for the 4 new columns until the next SAP sync repopulates them.
 
-- No DB / migration changes — `mrb_source` enum already includes `inprocess` and the record was saved correctly.
-- No changes to the InProcess creation flow itself.
+## Technical details
+
+- The SAP sync handler reads `map_to_column`/`map_to_table` from `sap_api_response_fields` at runtime (per memory: "Dynamic UI Rendering Engine" / "SAP Scheduler Mapping Logic"), so once the migration runs, the next 5-min ZMRB04 sync (or a manual "Refresh Data") will populate the 4 new columns automatically.
+- Real-time channel subscription on `zmrb_inward_report` already exists, so the UI will refresh as soon as new data lands.
+- No TypeScript type regeneration step needed from us — `src/integrations/supabase/types.ts` is auto-managed.
