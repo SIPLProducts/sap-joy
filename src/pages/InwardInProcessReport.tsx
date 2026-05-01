@@ -766,11 +766,10 @@ export default function InwardReport() {
                             <TableHead className="font-semibold whitespace-nowrap">Block Reason</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Vendor Code</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Vendor Name</TableHead>
-                            <TableHead className="font-semibold whitespace-nowrap">PO Number</TableHead>
-                            <TableHead className="font-semibold whitespace-nowrap">PO Item Number</TableHead>
-                            <TableHead className="font-semibold whitespace-nowrap">GRN Number</TableHead>
-                            <TableHead className="font-semibold whitespace-nowrap">GRN Item No</TableHead>
-                            <TableHead className="font-semibold whitespace-nowrap">GRN Date</TableHead>
+                            <TableHead className="font-semibold whitespace-nowrap">Production Order</TableHead>
+                            <TableHead className="font-semibold whitespace-nowrap">Work Center</TableHead>
+                            <TableHead className="font-semibold whitespace-nowrap">Order Type</TableHead>
+                            <TableHead className="font-semibold whitespace-nowrap">Confirmation Date</TableHead>
                             {extraFields.map((df) => (
                               <TableHead key={df.id} className="font-semibold whitespace-nowrap">
                                 {df.description || df.field_name}
@@ -781,7 +780,7 @@ export default function InwardReport() {
                         <TableBody>
                           {paginatedResults.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={20 + extraFields.length} className="text-center py-12 text-muted-foreground">
+                              <TableCell colSpan={19 + extraFields.length} className="text-center py-12 text-muted-foreground">
                                 No records found matching the selection criteria
                               </TableCell>
                             </TableRow>
@@ -921,19 +920,16 @@ export default function InwardReport() {
                                   {record.vendorName || '-'}
                                 </TableCell>
                                 <TableCell className="font-mono text-sm">
-                                  {record.poNumber || '-'}
+                                  {record.productionOrderNo || '-'}
                                 </TableCell>
                                 <TableCell className="font-mono text-sm">
-                                  {record.poItemNumber || '-'}
+                                  {record.workCenter || '-'}
                                 </TableCell>
                                 <TableCell className="font-mono text-sm">
-                                  {record.grnNumber || '-'}
+                                  {record.orderType || '-'}
                                 </TableCell>
-                                <TableCell className="font-mono text-sm">
-                                  {record.grnItemNo || '-'}
-                                </TableCell>
-                                <TableCell className="font-mono text-sm">
-                                  {record.grnDate || '-'}
+                                <TableCell className="whitespace-nowrap">
+                                  {record.confirmationDate ? formatDate(record.confirmationDate) : '-'}
                                 </TableCell>
                                 {extraFields.map((df) => (
                                   <TableCell key={df.id} className="text-sm">
