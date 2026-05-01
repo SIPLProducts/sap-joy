@@ -539,6 +539,11 @@ export default function ShopFloorStockSelection() {
                             <TableHead className="max-w-[200px]">Description</TableHead>
                             <TableHead>Batch</TableHead>
                             <TableHead>SLoc</TableHead>
+                            <TableHead>Vendor Code</TableHead>
+                            <TableHead>Vendor Name</TableHead>
+                            <TableHead>GRN No</TableHead>
+                            <TableHead>GRN Item</TableHead>
+                            <TableHead>GRN Date</TableHead>
                             <TableHead className="text-right">Available Qty</TableHead>
                             <TableHead>UoM</TableHead>
                             <TableHead>Source</TableHead>
@@ -567,6 +572,11 @@ export default function ShopFloorStockSelection() {
                                 </TableCell>
                                 <TableCell>{stock.batch || '-'}</TableCell>
                                 <TableCell>{stock.storage_location || '-'}</TableCell>
+                                <TableCell className="font-mono text-xs">{(stock as any).vendor_code || '-'}</TableCell>
+                                <TableCell className="max-w-[160px] truncate" title={(stock as any).vendor_name || ''}>{(stock as any).vendor_name || '-'}</TableCell>
+                                <TableCell className="font-mono text-xs">{(stock as any).grn_no || '-'}</TableCell>
+                                <TableCell className="font-mono text-xs">{(stock as any).grn_item || '-'}</TableCell>
+                                <TableCell>{(stock as any).grn_date || '-'}</TableCell>
                                 <TableCell className="text-right font-medium">
                                   {(stock.available_quantity ?? 0).toLocaleString()}
                                 </TableCell>
