@@ -104,7 +104,7 @@ interface ValidationErrors {
 const AUTOSAVE_KEY = 'mrb_draft_autosave';
 const AUTOSAVE_INTERVAL = 5000; // 5 seconds
 
-export default function CreateInwardMRB() {
+export default function CreateInwardInProcessMRB() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -732,7 +732,7 @@ Quality Department`;
               </Button>
               <div>
                 <h1 className="text-xl font-bold text-foreground">
-                  Create MRB – Quality Inspection (Inward)
+                  Create MRB – Inward InProcess
                 </h1>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <span>Inspection Lot: {inspectionLot.inspectionLot}</span>
