@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { RoleProvider } from "@/contexts/RoleContext";
 import { MRBProvider } from "@/contexts/MRBContext";
 import { InwardMRBProvider } from "@/contexts/InwardMRBContext";
+import { InwardInProcessMRBProvider } from "@/contexts/InwardInProcessMRBContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { MasterAdminGuard } from "@/components/auth/MasterAdminGuard";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -20,6 +21,8 @@ import EmailLog from "@/pages/EmailLog";
 import InwardReport from "@/pages/InwardReport";
 import CreateInwardMRB from "@/pages/CreateInwardMRB";
 import InwardMRBDetail from "@/pages/InwardMRBDetail";
+import InwardInProcessReport from "@/pages/InwardInProcessReport";
+import CreateInwardInProcessMRB from "@/pages/CreateInwardInProcessMRB";
 import ShopFloorStockSelection from "@/pages/ShopFloorStockSelection";
 import ShopFloorMaterialBlocking from "@/pages/ShopFloorMaterialBlocking";
 import ShopFloorMRBDetail from "@/pages/ShopFloorMRBDetail";
@@ -55,6 +58,7 @@ const App = () => (
         <RoleProvider>
           <MRBProvider>
             <InwardMRBProvider>
+              <InwardInProcessMRBProvider>
               <Toaster />
               <Sonner />
               <BrowserRouter basename={routerBasename}>
@@ -77,6 +81,9 @@ const App = () => (
                           <Route path="inward/create-mrb" element={<CreateInwardMRB />} />
                           <Route path="inward/mrb/:id" element={<InwardMRBDetail />} />
                           <Route path="inward/mrb/:id/committee" element={<MRBCommitteeReview />} />
+                          <Route path="inward/inprocess" element={<InwardInProcessReport />} />
+                          <Route path="inward/inprocess/create-mrb" element={<CreateInwardInProcessMRB />} />
+                          <Route path="inward/inprocess/mrb/:id" element={<InwardMRBDetail />} />
                           <Route path="shop-floor/stock-selection" element={<ShopFloorStockSelection />} />
                           <Route path="shop-floor/material-blocking" element={<ShopFloorMaterialBlocking />} />
                           <Route path="shop-floor/mrb/:id" element={<ShopFloorMRBDetail />} />
@@ -104,6 +111,7 @@ const App = () => (
                   } />
                 </Routes>
               </BrowserRouter>
+              </InwardInProcessMRBProvider>
             </InwardMRBProvider>
           </MRBProvider>
         </RoleProvider>
