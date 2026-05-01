@@ -84,6 +84,17 @@ export const BASE_COLUMNS: Record<string, Set<string>> = {
     'row_number_custom', 'rack_number', 'shelf_number', 'bin_number',
     'upload_batch_id', 'uploaded_by', 'created_at', 'updated_at',
   ]),
+  zmrb_inward_report: new Set([
+    'id', 'inspection_lot', 'material_code', 'material_description',
+    'plant', 'storage_location', 'batch',
+    'blocked_quantity', 'transaction_quantity', 'uom',
+    'inspection_date', 'posting_date', 'block_reason',
+    'vendor_code', 'vendor_name',
+    'production_order_no', 'work_center', 'order_type', 'confirmation_no',
+    'po_number', 'po_item_number', 'grn_number', 'grn_item_no', 'grn_date',
+    'status', 'source', 'upload_batch_id', 'uploaded_by',
+    'created_at', 'updated_at',
+  ]),
 };
 
 /**
