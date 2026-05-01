@@ -48,6 +48,16 @@ export default function InwardMRBDetail() {
   const [lotBatch, setLotBatch] = useState<string | null>(null);
   const [grnItemNo, setGrnItemNo] = useState<string | null>(null);
   const [grnDate, setGrnDate] = useState<string | null>(null);
+  // ZMRB04 (in-process) fallback fields, sourced from zmrb_inward_report when MRB row lacks them
+  const [inprocessFields, setInprocessFields] = useState<{
+    storage_location?: string | null;
+    inspection_date?: string | null;
+    posting_date?: string | null;
+    production_order_no?: string | null;
+    work_center?: string | null;
+    order_type?: string | null;
+    confirmation_no?: string | null;
+  }>({});
   
   const [reviewData, setReviewData] = useState({
     reviewComments: '',
@@ -93,6 +103,22 @@ export default function InwardMRBDetail() {
           }
           if (!grnDate && (lotData as any)?.grn_date) {
             setGrnDate((lotData as any).grn_date);
+          }
+
+          // For InProcess MRBs, also fetch ZMRB04 fields
+          if ((mrbData as any).source === 'inprocess') {
+            const { data: zmrbData } = await supabase
+              .from('zmrb_inward_report')
+              .select('storage_location, inspection_date, posting_date, production_order_no, work_center, order_type, confirmation_no, batch')
+              .eq('inspection_lot', mrbData.inspection_lot)
+              .limit(1)
+              .maybeSingle();
+            if (zmrbData) {
+              setInprocessFields(zmrbData as any);
+              if (!lotData?.batch && (zmrbData as any).batch) {
+                setLotBatch((zmrbData as any).batch);
+              }
+            }
           }
         }
       }
@@ -338,6 +364,86 @@ export default function InwardMRBDetail() {
             <CardTitle className="text-base font-semibold">MRB Details</CardTitle>
           </CardHeader>
           <CardContent className="p-6">
+            {(mrb as any).source === 'inprocess' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Inspection Lot</Label>
+                <p className="font-medium">{mrb.inspection_lot || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Material Code</Label>
+                <p className="font-medium font-mono">{mrb.material_number}</p>
+              </div>
+              <div className="space-y-1 lg:col-span-2">
+                <Label className="text-muted-foreground text-xs">Material Description</Label>
+                <p className="font-medium">{mrb.material_description}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Plant</Label>
+                <p className="font-medium">{mrb.plant}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">SLoc</Label>
+                <p className="font-medium font-mono">{(mrb as any).storage_location || inprocessFields.storage_location || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Batch</Label>
+                <p className="font-medium font-mono">{mrb.batch || lotBatch || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Blocked Quantity</Label>
+                <p className="font-medium text-destructive">{mrb.blocked_quantity} {mrb.uom}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Trans. Qty</Label>
+                <p className="font-medium">{mrb.total_quantity} {mrb.uom}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">UoM</Label>
+                <p className="font-medium">{mrb.uom || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Inspection Date</Label>
+                <p className="font-medium">{inprocessFields.inspection_date || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Posting Date</Label>
+                <p className="font-medium">{inprocessFields.posting_date || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Block Reason</Label>
+                <p className="font-medium">{mrb.defect_description || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Vendor Code</Label>
+                <p className="font-medium font-mono">{mrb.vendor_code || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Vendor Name</Label>
+                <p className="font-medium">{mrb.vendor_name || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Production Order</Label>
+                <p className="font-medium font-mono">{(mrb as any).production_order_number || inprocessFields.production_order_no || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Work Center</Label>
+                <p className="font-medium font-mono">{inprocessFields.work_center || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Order Type</Label>
+                <p className="font-medium font-mono">{inprocessFields.order_type || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Confirmation Date</Label>
+                <p className="font-medium font-mono">{inprocessFields.confirmation_no || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Pending With</Label>
+                <p className="font-medium">{mrb.pending_with ? (roleDisplayNames[mrb.pending_with] || getRoleDisplayName(mrb.pending_with as any)) : 'N/A'}</p>
+              </div>
+            </div>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Inspection Lot</Label>
@@ -400,6 +506,7 @@ export default function InwardMRBDetail() {
                 <p className="font-medium">{mrb.pending_with ? (roleDisplayNames[mrb.pending_with] || getRoleDisplayName(mrb.pending_with as any)) : 'N/A'}</p>
               </div>
             </div>
+            )}
           </CardContent>
         </Card>
 
