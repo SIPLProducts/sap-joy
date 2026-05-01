@@ -452,6 +452,7 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
             batch: record.batch || null,
             storage_location: record.storageLocation || null,
             defect_description: record.blockReason || null,
+            production_order_number: record.productionOrderNo || null,
             pending_with: initialPendingWith as string
           };
 
