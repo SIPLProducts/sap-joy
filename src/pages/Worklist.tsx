@@ -96,6 +96,15 @@ interface UnifiedMRBRecord {
   // SAP unblock fields
   storageLocation: string | null;
   batch: string | null;
+  // ZMRB04 InProcess fields
+  inspectionDate: string | null;
+  postingDate: string | null;
+  blockReason: string | null;
+  productionOrderNo: string | null;
+  workCenter: string | null;
+  orderType: string | null;
+  confirmationDate: string | null;
+  transactionQuantity: number | null;
 }
 
 interface SAPSyncHistoryEntry {
@@ -133,6 +142,9 @@ export default function Worklist() {
   const [syncHistory, setSyncHistory] = useState<SAPSyncHistoryEntry[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // ZMRB04 InProcess field cache, keyed by inspection_lot
+  const [inprocessLotMap, setInprocessLotMap] = useState<Record<string, any>>({});
   
   // Posting date popup state for SAP 343/344
   const [showPostingDateDialog, setShowPostingDateDialog] = useState(false);
@@ -183,8 +195,35 @@ export default function Worklist() {
     };
   }, []);
 
+  // Hydrate ZMRB04 fallback data for any InProcess MRB rows
+  useEffect(() => {
+    const inprocessLots = mrbRecords
+      .filter(m => (m.source as any) === 'inprocess' && m.inspection_lot)
+      .map(m => m.inspection_lot as string);
+    const missing = inprocessLots.filter(lot => !inprocessLotMap[lot]);
+    if (missing.length === 0) return;
+
+    (async () => {
+      const { data } = await supabase
+        .from('zmrb_inward_report')
+        .select('inspection_lot, storage_location, batch, inspection_date, posting_date, block_reason, production_order_no, work_center, order_type, confirmation_no, transaction_quantity')
+        .in('inspection_lot', missing);
+      if (data && data.length > 0) {
+        setInprocessLotMap(prev => {
+          const next = { ...prev };
+          data.forEach((row: any) => {
+            if (row.inspection_lot) next[row.inspection_lot] = row;
+          });
+          return next;
+        });
+      }
+    })();
+  }, [mrbRecords, inprocessLotMap]);
+
   // Transform database records to unified format
-  const unifiedRecords: UnifiedMRBRecord[] = mrbRecords.map(mrb => ({
+  const unifiedRecords: UnifiedMRBRecord[] = mrbRecords.map(mrb => {
+    const lot = mrb.inspection_lot ? inprocessLotMap[mrb.inspection_lot] : null;
+    return ({
     id: mrb.id,
     mrbNumber: mrb.mrb_number,
     status: mrb.status,
@@ -226,9 +265,18 @@ export default function Worklist() {
     finalApprovedBy: mrb.final_approved_by,
     closureStatus: mrb.closure_status,
     sapStockUpdateStatus: mrb.sap_stock_update_status,
-    storageLocation: (mrb as any).storage_location || null,
-    batch: (mrb as any).batch || null,
-  }));
+    storageLocation: (mrb as any).storage_location || lot?.storage_location || null,
+    batch: (mrb as any).batch || lot?.batch || null,
+    inspectionDate: lot?.inspection_date || null,
+    postingDate: lot?.posting_date || null,
+    blockReason: mrb.defect_description || lot?.block_reason || null,
+    productionOrderNo: (mrb as any).production_order_number || lot?.production_order_no || null,
+    workCenter: lot?.work_center || null,
+    orderType: lot?.order_type || null,
+    confirmationDate: lot?.confirmation_no || null,
+    transactionQuantity: lot?.transaction_quantity != null ? Number(lot.transaction_quantity) : null,
+    });
+  });
 
   const filteredRecords = unifiedRecords.filter(mrb => {
     const matchesSearch = !searchTerm || 
