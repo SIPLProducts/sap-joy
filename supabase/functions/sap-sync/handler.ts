@@ -1152,6 +1152,7 @@ async function mapAndInsertData(
       'batch', 'uom', 'blocked_quantity', 'transaction_quantity', 'status', 'block_reason',
       'vendor_code', 'vendor_name', 'po_number', 'po_item_number', 'grn_number', 'uploaded_by', 'upload_batch_id',
       'inspection_date', 'posting_date', 'grn_item_no', 'grn_date', 'source',
+      'production_order_no', 'work_center', 'order_type', 'confirmation_no',
     ]),
     materials: new Set(['material_number', 'description', 'uom', 'category']),
     vendors: new Set(['code', 'name', 'contact_email', 'contact_phone', 'address', 'is_active']),
@@ -1201,6 +1202,10 @@ async function mapAndInsertData(
       inspection_date: 'inspection_date', posting_date: 'posting_date',
       budat_mkpf: 'posting_date', sgtxt: 'block_reason',
       zeile: 'grn_item_no', bldat: 'grn_date', grn_item_no: 'grn_item_no', grn_date: 'grn_date',
+      aufnr: 'production_order_no', production_order_no: 'production_order_no',
+      arbpl: 'work_center', work_center: 'work_center',
+      auart: 'order_type', order_type: 'order_type',
+      rueck: 'confirmation_no', confirmation_no: 'confirmation_no',
     },
     materials: {
       material: 'material_number', matnr: 'material_number',
