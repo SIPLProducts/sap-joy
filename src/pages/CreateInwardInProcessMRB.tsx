@@ -136,7 +136,7 @@ export default function CreateInwardMRB() {
           <p className="text-muted-foreground mb-6">
             Please select an inspection lot from the Inward Report to create an MRB.
           </p>
-          <Button onClick={() => navigate('/inward/report')}>
+          <Button onClick={() => navigate('/inward/inprocess')}>
             Go to Inward Report
           </Button>
         </div>
@@ -512,7 +512,7 @@ export default function CreateInwardMRB() {
       const newMRB = await createMRB({
         mrb_number: mrbNumber,
         status: mrbStatus,
-        source: 'quality_inspection',
+        source: 'inprocess' as any,
         created_by: user?.id || '',
         pending_with: pendingWith,
         pending_days: 0,
@@ -547,7 +547,7 @@ export default function CreateInwardMRB() {
         // Update the inspection lot status to 'mrb_created'
         if (formData.inspectionLot) {
           await supabase
-            .from('inward_inspection_lots')
+            .from('zmrb_inward_report')
             .update({ status: 'mrb_created' })
             .eq('inspection_lot', formData.inspectionLot);
         }
@@ -726,7 +726,7 @@ Quality Department`;
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate('/inward/report')}
+                onClick={() => navigate('/inward/inprocess')}
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
@@ -756,7 +756,7 @@ Quality Department`;
                 <Save className="h-4 w-4 mr-2" />
                 Save Draft
               </Button>
-              <Button variant="ghost" onClick={() => navigate('/inward/report')}>
+              <Button variant="ghost" onClick={() => navigate('/inward/inprocess')}>
                 <X className="h-4 w-4 mr-2" />
                 Cancel
               </Button>
