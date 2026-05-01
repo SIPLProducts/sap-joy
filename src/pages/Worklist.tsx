@@ -49,7 +49,7 @@ type AppRole = string;
 
 const statuses: MRBStatus[] = ['quality_review', 'purchase_review', 'engineering_review', 'final_approval', 'approved', 'rejected', 'closed'];
 
-type SourceType = 'all' | 'quality_inspection' | 'shop_floor';
+type SourceType = 'all' | 'quality_inspection' | 'shop_floor' | 'inprocess';
 
 interface UnifiedMRBRecord {
   id: string;
@@ -273,6 +273,9 @@ export default function Worklist() {
     if (source === 'quality_inspection') {
       return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Inward</Badge>;
     }
+    if ((source as string) === 'inprocess') {
+      return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">InProcess</Badge>;
+    }
     return <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">Shop Floor</Badge>;
   };
 
@@ -338,7 +341,11 @@ export default function Worklist() {
   const handleExportToExcel = () => {
     const exportData = sortedRecords.map(mrb => ({
       'MRB Number': mrb.mrbNumber,
-      'Source': mrb.source === 'quality_inspection' ? 'Inward' : 'Shop Floor',
+      'Source': mrb.source === 'quality_inspection'
+        ? 'Inward'
+        : (mrb.source as string) === 'inprocess'
+          ? 'Inward InProcess'
+          : 'Shop Floor',
       'Status': getWorkflowReviewLabel(mrb.status, mrb.pendingWith, roleDisplayNames),
       'Inspection Lot': mrb.inspectionLot || '-',
       'Material Number': mrb.materialNumber,
@@ -402,7 +409,7 @@ export default function Worklist() {
   };
 
   const handleViewClick = (mrb: UnifiedMRBRecord) => {
-    if (mrb.source === 'quality_inspection') {
+    if (mrb.source === 'quality_inspection' || (mrb.source as string) === 'inprocess') {
       navigate(`/inward/mrb/${mrb.id}`);
     } else if (mrb.source === 'shop_floor') {
       navigate(`/shop-floor/mrb/${mrb.id}`);
@@ -962,6 +969,7 @@ export default function Worklist() {
                 <SelectContent>
                   <SelectItem value="all">All Sources</SelectItem>
                   <SelectItem value="quality_inspection">Inward</SelectItem>
+                  <SelectItem value="inprocess">Inward InProcess</SelectItem>
                   <SelectItem value="shop_floor">Shop Floor</SelectItem>
                 </SelectContent>
               </Select>
