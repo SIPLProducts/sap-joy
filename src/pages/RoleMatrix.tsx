@@ -22,6 +22,7 @@ const SCREENS = [
   { key: 'pending_actions', label: 'Pending Actions', group: 'Operations' },
   { key: 'material_booking', label: 'Material Blocking', group: 'Operations' },
   { key: 'inward_materials', label: 'MRB - Inward Materials', group: 'Operations' },
+  { key: 'inward_inprocess', label: 'MRB - Inward InProcess', group: 'Operations' },
   { key: 'mrb_print', label: 'MRB Print', group: 'Tools' },
   { key: 'email_log', label: 'Email Log', group: 'Tools' },
   { key: 'help_support', label: 'Help & Support', group: 'Tools' },
