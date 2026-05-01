@@ -67,7 +67,7 @@ interface UpdateQtyResult {
   sap_response?: any;
 }
 
-interface InwardMRBContextType {
+interface InwardInProcessMRBContextType {
   inspectionLotRecords: InspectionLotRecord[];
   inwardMRBRecords: MRBRecord[];
   isLoading: boolean;
@@ -81,9 +81,9 @@ interface InwardMRBContextType {
   updateTransactionQuantity: (record: InspectionLotRecord, newQty: number, sapConfigId: string) => Promise<UpdateQtyResult>;
 }
 
-const InwardMRBContext = createContext<InwardMRBContextType | undefined>(undefined); // stable context ref
+const InwardInProcessMRBContext = createContext<InwardInProcessMRBContextType | undefined>(undefined); // stable context ref
 
-export function InwardMRBProvider({ children }: { children: ReactNode }) {
+export function InwardInProcessMRBProvider({ children }: { children: ReactNode }) {
   const [inspectionLotRecords, setInspectionLotRecords] = useState<InspectionLotRecord[]>([]);
   const [inwardMRBRecords, setInwardMRBRecords] = useState<MRBRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
