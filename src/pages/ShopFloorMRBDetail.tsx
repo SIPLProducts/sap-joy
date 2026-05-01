@@ -346,6 +346,26 @@ export default function ShopFloorMRBDetail() {
                 <p className="font-medium text-destructive">{mrb.blocked_quantity} {mrb.uom}</p>
               </div>
               <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Vendor Code</Label>
+                <p className="font-medium font-mono">{mrb.vendor_code || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Vendor Name</Label>
+                <p className="font-medium">{mrb.vendor_name || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">GRN No</Label>
+                <p className="font-medium font-mono">{mrb.grn_number || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">GRN Item</Label>
+                <p className="font-medium font-mono">{mrb.grn_item_number || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">GRN Date</Label>
+                <p className="font-medium">{mrb.grn_date || '-'}</p>
+              </div>
+              <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Pending With</Label>
                 <p className="font-medium">{mrb.pending_with ? (roleDisplayNames[mrb.pending_with] || getRoleDisplayName(mrb.pending_with as any)) : 'N/A'}</p>
               </div>
