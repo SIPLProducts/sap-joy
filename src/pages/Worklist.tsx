@@ -467,6 +467,13 @@ export default function Worklist() {
     }
   };
 
+  // Result Recording modal state — opened from the inline action button on each row
+  const [resultRecordingLot, setResultRecordingLot] = useState<string | null>(null);
+  const openResultRecording = (mrb: UnifiedMRBRecord) => {
+    if (!mrb.inspectionLot) return;
+    setResultRecordingLot(mrb.inspectionLot);
+  };
+
   const logSyncHistory = async (
     mrbId: string, 
     mrbNumber: string, 
