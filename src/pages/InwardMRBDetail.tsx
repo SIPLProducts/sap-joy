@@ -57,6 +57,10 @@ export default function InwardMRBDetail() {
     work_center?: string | null;
     order_type?: string | null;
     confirmation_no?: string | null;
+    customer_code?: string | null;
+    customer_name?: string | null;
+    sales_order?: string | null;
+    sales_item?: string | null;
   }>({});
   
   const [reviewData, setReviewData] = useState({
@@ -109,7 +113,7 @@ export default function InwardMRBDetail() {
           if ((mrbData as any).source === 'inprocess') {
             const { data: zmrbData } = await supabase
               .from('zmrb_inward_report')
-              .select('storage_location, inspection_date, posting_date, production_order_no, work_center, order_type, confirmation_no, batch')
+              .select('storage_location, inspection_date, posting_date, production_order_no, work_center, order_type, confirmation_no, batch, customer_code, customer_name, sales_order, sales_item')
               .eq('inspection_lot', mrbData.inspection_lot)
               .limit(1)
               .maybeSingle();
