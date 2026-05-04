@@ -39,6 +39,10 @@ interface InspectionLotRecord {
   materialDescription: string;
   vendorCode: string;
   vendorName: string;
+  customerCode?: string;
+  customerName?: string;
+  salesOrder?: string;
+  salesItem?: string;
   storageLocation: string;
   batch: string;
   poNumber: string;
@@ -80,6 +84,10 @@ interface FormData {
   blockReason: string;
   vendorCode: string;
   vendorName: string;
+  customerCode: string;
+  customerName: string;
+  salesOrder: string;
+  salesItem: string;
   purchaseOrderNumber: string;
   poItemNumber: string;
   grnNumber: string;
@@ -173,6 +181,10 @@ export default function CreateInwardInProcessMRB() {
     blockReason: inspectionLot.blockReason,
     vendorCode: inspectionLot.vendorCode,
     vendorName: inspectionLot.vendorName,
+    customerCode: inspectionLot.customerCode || '',
+    customerName: inspectionLot.customerName || '',
+    salesOrder: inspectionLot.salesOrder || '',
+    salesItem: inspectionLot.salesItem || '',
     purchaseOrderNumber: inspectionLot.purchaseOrderNumber || inspectionLot.poNumber || '',
     poItemNumber: inspectionLot.poItemNumber || '',
     grnNumber: inspectionLot.grnNumber || '',
