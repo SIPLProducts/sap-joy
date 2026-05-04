@@ -516,7 +516,7 @@ export default function InwardReport() {
             <div className="flex items-center gap-3">
               <FileSpreadsheet className="h-6 w-6 text-primary" />
               <div>
-                <h1 className="text-xl font-bold text-foreground">MRB - Inward InProcess</h1>
+                <h1 className="text-xl font-bold text-foreground">MRB Inprocess Materials</h1>
                 <div className="flex items-center gap-3 mt-0.5">
                   <p className="text-sm text-muted-foreground">
                     Auto-refreshes every 5 min
