@@ -1349,6 +1349,13 @@ export default function Worklist() {
       </DialogContent>
     </Dialog>
 
+    <ResultRecordingModal
+      open={!!resultRecordingLot}
+      inspectionLot={resultRecordingLot}
+      inspOper="0010"
+      onClose={() => setResultRecordingLot(null)}
+    />
+
     </TooltipProvider>
   );
 }
