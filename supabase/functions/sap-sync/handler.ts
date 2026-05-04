@@ -192,7 +192,7 @@ export default async (req: Request) => {
       try {
         const url = buildUrl(config)
         const headers = buildAuthHeaders(config)
-        const method = (config.http_method || 'POST').toUpperCase()
+        const method = 'POST' // result_recording always sends JSON body
         const timeout = config.timeout_ms || 60000
 
         const inspLotNum = Number(inspection_lot)
