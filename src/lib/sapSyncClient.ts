@@ -1441,3 +1441,45 @@ export async function invokeSapSync(body: Record<string, any>): Promise<{ data: 
   // Self-hosted: direct browser → middleware
   return invokeDirect(body);
 }
+
+/**
+ * Resolve the SAP config row used for the Result Recording API by keyword.
+ * Looks for config_name or endpoint_path containing "result" + "record".
+ */
+async function resolveResultRecordingConfigId(): Promise<string | null> {
+  const { data } = await supabase
+    .from('sap_api_config')
+    .select('id, config_name, endpoint_path, is_active')
+    .or('config_name.ilike.%result%record%,endpoint_path.ilike.%result%record%')
+    .order('is_active', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.id || null;
+}
+
+/**
+ * Call the Result Recording SAP API for a given inspection lot/operation.
+ * Returns the parsed SAP body in `data` on success.
+ */
+export async function invokeResultRecording(args: {
+  inspectionLot: string | number;
+  inspOper?: string;
+  configId?: string;
+}): Promise<{ data: any; error: any }> {
+  let configId = args.configId || null;
+  if (!configId) {
+    configId = await resolveResultRecordingConfigId();
+  }
+  if (!configId) {
+    return {
+      data: null,
+      error: { message: 'No SAP API configuration found for Result Recording. Please add one in SAP API Settings (name should contain "Result Recording").' },
+    };
+  }
+  return invokeSapSync({
+    action: 'result_recording',
+    config_id: configId,
+    inspection_lot: args.inspectionLot,
+    insp_oper: args.inspOper || '0010',
+  });
+}
