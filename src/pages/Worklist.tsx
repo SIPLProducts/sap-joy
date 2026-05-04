@@ -106,6 +106,11 @@ interface UnifiedMRBRecord {
   orderType: string | null;
   confirmationDate: string | null;
   transactionQuantity: number | null;
+  // ZMRB04 customer / sales fields (in-process only)
+  customerCode: string | null;
+  customerName: string | null;
+  salesOrder: string | null;
+  salesItem: string | null;
 }
 
 interface SAPSyncHistoryEntry {
@@ -207,7 +212,7 @@ export default function Worklist() {
     (async () => {
       const { data } = await supabase
         .from('zmrb_inward_report')
-        .select('inspection_lot, storage_location, batch, inspection_date, posting_date, block_reason, production_order_no, work_center, order_type, confirmation_no, transaction_quantity')
+        .select('inspection_lot, storage_location, batch, inspection_date, posting_date, block_reason, production_order_no, work_center, order_type, confirmation_no, transaction_quantity, customer_code, customer_name, sales_order, sales_item')
         .in('inspection_lot', missing);
       if (data && data.length > 0) {
         setInprocessLotMap(prev => {
@@ -276,6 +281,10 @@ export default function Worklist() {
     orderType: lot?.order_type || null,
     confirmationDate: lot?.confirmation_no || null,
     transactionQuantity: lot?.transaction_quantity != null ? Number(lot.transaction_quantity) : null,
+    customerCode: lot?.customer_code || null,
+    customerName: lot?.customer_name || null,
+    salesOrder: lot?.sales_order || null,
+    salesItem: lot?.sales_item || null,
     });
   });
 
