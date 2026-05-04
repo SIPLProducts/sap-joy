@@ -419,12 +419,20 @@ export default function InwardMRBDetail() {
                 <p className="font-medium">{mrb.defect_description || '-'}</p>
               </div>
               <div className="space-y-1">
-                <Label className="text-muted-foreground text-xs">Vendor Code</Label>
-                <p className="font-medium font-mono">{mrb.vendor_code || '-'}</p>
+                <Label className="text-muted-foreground text-xs">Customer Code</Label>
+                <p className="font-medium font-mono">{inprocessFields.customer_code || '-'}</p>
               </div>
               <div className="space-y-1">
-                <Label className="text-muted-foreground text-xs">Vendor Name</Label>
-                <p className="font-medium">{mrb.vendor_name || '-'}</p>
+                <Label className="text-muted-foreground text-xs">Customer Name</Label>
+                <p className="font-medium">{inprocessFields.customer_name || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Sales Order</Label>
+                <p className="font-medium font-mono">{inprocessFields.sales_order || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-muted-foreground text-xs">Sales Item</Label>
+                <p className="font-medium font-mono">{inprocessFields.sales_item || '-'}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Production Order</Label>
