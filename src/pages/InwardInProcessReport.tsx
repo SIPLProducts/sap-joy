@@ -915,10 +915,16 @@ export default function InwardReport() {
                                   ) : '-'}
                                 </TableCell>
                                 <TableCell className="font-mono text-sm">
-                                  {record.vendorCode || '-'}
+                                  {record.customerCode || '-'}
                                 </TableCell>
                                 <TableCell className="max-w-[150px] truncate">
-                                  {record.vendorName || '-'}
+                                  {record.customerName || '-'}
+                                </TableCell>
+                                <TableCell className="font-mono text-sm">
+                                  {record.salesOrder || '-'}
+                                </TableCell>
+                                <TableCell className="font-mono text-sm">
+                                  {record.salesItem || '-'}
                                 </TableCell>
                                 <TableCell className="font-mono text-sm">
                                   {record.productionOrderNo || '-'}
@@ -928,9 +934,6 @@ export default function InwardReport() {
                                 </TableCell>
                                 <TableCell className="font-mono text-sm">
                                   {record.orderType || '-'}
-                                </TableCell>
-                                <TableCell className="whitespace-nowrap">
-                                  {record.confirmationDate ? formatDate(record.confirmationDate) : '-'}
                                 </TableCell>
                                 {extraFields.map((df) => (
                                   <TableCell key={df.id} className="text-sm">
