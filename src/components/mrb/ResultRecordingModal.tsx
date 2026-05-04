@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -160,8 +160,8 @@ export function ResultRecordingModal({ open, onClose, inspectionLot, inspOper }:
                       const isOpen = expanded.has(key);
                       const subRows = resvalByChar.get(String(c.INSPCHAR)) || [];
                       return (
-                        <>
-                          <tr key={`row-${key}`} className="border-t hover:bg-muted/30">
+                        <Fragment key={`grp-${key}`}>
+                          <tr className="border-t hover:bg-muted/30">
                             <td className="p-2 align-middle">
                               <Button
                                 variant="ghost"
@@ -182,7 +182,7 @@ export function ResultRecordingModal({ open, onClose, inspectionLot, inspOper }:
                             ))}
                           </tr>
                           {isOpen && (
-                            <tr key={`sub-${key}`} className="bg-muted/20">
+                            <tr className="bg-muted/20">
                               <td colSpan={CHAR_COLUMNS.length + 1} className="p-3">
                                 <div className="text-xs font-medium text-muted-foreground mb-2">
                                   Result Values (RESVAL) for INSPCHAR {String(c.INSPCHAR)}
@@ -214,7 +214,7 @@ export function ResultRecordingModal({ open, onClose, inspectionLot, inspOper }:
                               </td>
                             </tr>
                           )}
-                        </>
+                        </Fragment>
                       );
                     })}
                   </tbody>
