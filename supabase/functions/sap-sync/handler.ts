@@ -177,6 +177,78 @@ export default async (req: Request) => {
 
     // UNBLOCK - SAP 343
     if (action === 'unblock') {
+      // handled below
+    }
+
+    // RESULT RECORDING - read inspection results from SAP for a given INSPLOT/INSPOPER
+    if (action === 'result_recording') {
+      const { inspection_lot, insp_oper } = body
+      if (!inspection_lot) {
+        return new Response(JSON.stringify({ ok: false, error: 'inspection_lot is required' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      try {
+        const url = buildUrl(config)
+        const headers = buildAuthHeaders(config)
+        const method = (config.http_method || 'POST').toUpperCase()
+        const timeout = config.timeout_ms || 60000
+
+        const inspLotNum = Number(inspection_lot)
+        const inspOperStr = String(insp_oper || '0010').padStart(4, '0')
+        const sapPayload = {
+          GET: {
+            INSPLOT: Number.isFinite(inspLotNum) ? inspLotNum : inspection_lot,
+            INSPOPER: inspOperStr,
+          },
+        }
+
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), timeout)
+        const fetchOpts: RequestInit = {
+          method,
+          headers,
+          signal: controller.signal,
+          body: JSON.stringify(sapPayload),
+        }
+
+        const response = await proxyAwareFetch(config, url, fetchOpts)
+        clearTimeout(timer)
+        const bodyText = await response.text()
+        console.log('[result_recording] status:', response.status, 'body length:', bodyText.length)
+
+        if (!response.ok) {
+          const hint = extractSapErrorHint(response.status, bodyText)
+          return new Response(JSON.stringify({
+            ok: false,
+            error: hint || `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
+            http_status: response.status,
+          }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        let parsed: any = null
+        try { parsed = bodyText ? JSON.parse(bodyText) : null } catch {
+          return new Response(JSON.stringify({ ok: false, error: 'SAP returned non-JSON response', raw: bodyText.substring(0, 500) }), {
+            status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        return new Response(JSON.stringify({ ok: true, data: parsed, request: sapPayload }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      } catch (err: any) {
+        const errMsg = err?.name === 'AbortError'
+          ? `SAP API timed out after ${config.timeout_ms || 60000}ms`
+          : `Network error: ${err?.message || 'unknown'}`
+        return new Response(JSON.stringify({ ok: false, error: errMsg }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
+    // legacy unblock branch continues below
+    if (action === 'unblock') {
       const { request_body, verify_config_id } = body
       if (!request_body) {
         return new Response(JSON.stringify({ success: false, error: 'request_body is required for unblock action' }), {

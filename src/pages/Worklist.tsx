@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, AlertTriangle, Eye, Loader2, Unlock, RefreshCw, CheckSquare, Square, History, Clock, CheckCircle2, XCircle, Download, CalendarDays } from 'lucide-react';
+import { Search, AlertTriangle, Eye, Loader2, Unlock, RefreshCw, CheckSquare, Square, History, Clock, CheckCircle2, XCircle, Download, CalendarDays, ScanEye } from 'lucide-react';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useDepartmentMap } from '@/hooks/useDepartmentMap';
+import { ResultRecordingModal } from '@/components/mrb/ResultRecordingModal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -464,6 +465,13 @@ export default function Worklist() {
     } else {
       navigate(`/mrb/${mrb.id}`);
     }
+  };
+
+  // Result Recording modal state — opened from the inline action button on each row
+  const [resultRecordingLot, setResultRecordingLot] = useState<string | null>(null);
+  const openResultRecording = (mrb: UnifiedMRBRecord) => {
+    if (!mrb.inspectionLot) return;
+    setResultRecordingLot(mrb.inspectionLot);
   };
 
   const logSyncHistory = async (
@@ -1092,10 +1100,27 @@ export default function Worklist() {
                   sortedRecords.map((mrb) => (
                     <tr key={mrb.id} className="border-b transition-colors hover:bg-muted/50">
                       <td className="p-3 align-middle sticky left-0 bg-background border-r">
-                        <Button variant="outline" size="sm" onClick={() => handleViewClick(mrb)}>
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button variant="outline" size="sm" onClick={() => handleViewClick(mrb)}>
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openResultRecording(mrb)}
+                                disabled={!mrb.inspectionLot}
+                              >
+                                <ScanEye className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {mrb.inspectionLot ? 'Result Recording' : 'Inspection Lot missing'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                       </td>
                       <td className="p-3 align-middle">
                         <Badge className={getStatusColor(mrb.status)}>
@@ -1266,6 +1291,21 @@ export default function Worklist() {
                             <Eye className="h-4 w-4 mr-1" />
                             View
                           </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openResultRecording(mrb)}
+                                disabled={!mrb.inspectionLot}
+                              >
+                                <ScanEye className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {mrb.inspectionLot ? 'Result Recording' : 'Inspection Lot missing'}
+                            </TooltipContent>
+                          </Tooltip>
                           {mrb.status === 'approved' && mrb.sapStockUpdateStatus === 'synced' ? (
                             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-green-50 border border-green-200 text-green-700 text-xs font-semibold whitespace-nowrap">
                               <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -1340,6 +1380,13 @@ export default function Worklist() {
         </div>
       </DialogContent>
     </Dialog>
+
+    <ResultRecordingModal
+      open={!!resultRecordingLot}
+      inspectionLot={resultRecordingLot}
+      inspOper="0010"
+      onClose={() => setResultRecordingLot(null)}
+    />
 
     </TooltipProvider>
   );
