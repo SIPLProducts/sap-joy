@@ -1,36 +1,49 @@
 ## Goal
-On the **Inward In-Process Materials** worklist, stop rendering the duplicate dynamic columns `Kunnr`, `Name1_cust`, `VBELN`, `POSNR` — they are already shown by the dedicated **Customer Code / Customer Name / Sales Order / Sales Item** columns. Confirm the SAP→DB mapping for those 4 keys is correct so the dedicated columns continue to populate.
+Mirror the In-Process Materials screen on the Create-MRB form, MRB Detail page, and Worklist (when source = InProcess). For in-process records: remove **Vendor Code / Vendor Name** and replace with **Customer Code, Customer Name, Sales Order, Sales Item** — sourced the same way as in the worklist (read from `zmrb_inward_report.customer_code/customer_name/sales_order/sales_item`).
 
-## Background (verified)
-The 4 SAP response-field rows are already mapped correctly in `sap_api_response_fields`:
+Only in-process flows are affected. The regular Inward (quality_inspection) flow keeps Vendor Code/Vendor Name as-is.
 
-| sap_field_name | map_to_table | map_to_column |
-|---|---|---|
-| Kunnr | zmrb_inward_report | customer_code |
-| Name1_cust | zmrb_inward_report | customer_name |
-| VBELN | zmrb_inward_report | sales_order |
-| POSNR | zmrb_inward_report | sales_item |
+## Background
+- The In-Process Materials worklist already shows Customer Code, Customer Name, Sales Order, Sales Item, hydrated from `zmrb_inward_report` via `InwardInProcessMRBContext` (already populated `customerCode/customerName/salesOrder/salesItem` on `InspectionLotRecord`).
+- `mrb_records` does NOT have customer/sales columns. We will not add them — instead, hydrate from `zmrb_inward_report` by `inspection_lot` (same pattern already used for `production_order_no`, `work_center`, etc.).
 
-(User wrote "VBELLN" — actual SAP key is `VBELN`; existing config is correct, no change needed.)
+## Code changes
 
-The duplicate column rendering happens because `useExtraDynamicFields('zmrb_inward_report')` returns any mapped field whose `map_to_column` is **not** listed in `BASE_COLUMNS.zmrb_inward_report` in `src/hooks/useDynamicFields.ts`. The four target columns (`customer_code`, `customer_name`, `sales_order`, `sales_item`) are missing from that set, so they leak through as "extra" columns and render twice in `InwardInProcessReport.tsx`.
+### 1) `src/pages/CreateInwardInProcessMRB.tsx` — Create In-Process MRB form
+- Extend the local `InspectionLotRecord` interface with `customerCode`, `customerName`, `salesOrder`, `salesItem` (the parent already passes them via `location.state`).
+- Extend `FormData` with the same 4 fields; populate from `inspectionLot.*` in the initial `useState`.
+- In the Inspection Lot Details grid (around lines 822–849):
+  - Remove the **Vendor Code** and **Vendor Name** inputs.
+  - Add **Customer Code**, **Customer Name**, **Sales Order**, **Sales Item** read-only inputs in their place (keep PO/GRN block intact below).
+- In `handleSubmit` (around line 524) stop writing `vendor_code` / `vendor_name` for in-process MRBs — pass `null` so detail/worklist always render from the live `zmrb_inward_report` hydration (single source of truth and avoids stale duplicates).
+- Update the email body (lines ~582–598) — replace "Vendor Code / Vendor Name" lines with Customer Code / Customer Name / Sales Order / Sales Item.
 
-## Code change (1 file)
+### 2) `src/pages/InwardMRBDetail.tsx` — MRB Detail page (in-process branch only)
+- Extend `inprocessFields` state shape with `customer_code`, `customer_name`, `sales_order`, `sales_item`.
+- Extend the `zmrb_inward_report` `select(...)` (around line 112) to also fetch those 4 columns.
+- In the in-process branch of MRB Details grid (lines 417–424):
+  - Remove **Vendor Code** + **Vendor Name** rows.
+  - Add **Customer Code**, **Customer Name**, **Sales Order**, **Sales Item** rows reading from `inprocessFields.customer_code` etc.
+- Leave the non-in-process branch (lines 447+) untouched — it still shows Vendor info.
 
-**`src/hooks/useDynamicFields.ts`** — add the 4 columns to `BASE_COLUMNS.zmrb_inward_report`:
-- `customer_code`
-- `customer_name`
-- `sales_order`
-- `sales_item`
-
-This single change automatically removes the duplicate `Kunnr / Name1_cust / VBELN / POSNR` columns from the In-Process Materials worklist (and any other screen using `useExtraDynamicFields('zmrb_inward_report')`) without touching the SAP config or the page header layout.
+### 3) `src/pages/Worklist.tsx` — In-Process worklist table
+- Extend `UnifiedMRBRecord` with `customerCode`, `customerName`, `salesOrder`, `salesItem`.
+- Extend the in-process hydration `select` (line 210) to also pull `customer_code, customer_name, sales_order, sales_item`.
+- Map them in `unifiedRecords` (line 225+) from `lot?.customer_code` etc.
+- In the **InProcess-only** table (lines 1066–1150):
+  - Replace headers **Vendor Code / Vendor Name** (lines 1084–1085) with **Customer Code, Customer Name, Sales Order, Sales Item** (4 headers — bump `colSpan` empty-state from 20 to 22).
+  - Replace the matching `<td>` cells (lines 1144–1145) with the 4 new cells.
+- Leave the all-sources / non-inprocess table untouched.
+- Update the Excel export `Vendor Name` / `Vendor Code` keys (lines 402–403) — for in-process source rows, export Customer Code / Customer Name / Sales Order / Sales Item instead (or in addition); the non-inprocess rows keep Vendor columns.
 
 ## Out of scope
-- No DB / migration changes — all 4 columns and SAP mappings already exist and work.
-- No changes to `InwardInProcessReport.tsx` — the dedicated Customer Code / Customer Name / Sales Order / Sales Item headers and cells already render correctly from the previous task.
-- No changes to `sap_api_response_fields` rows — keeping the mappings intact ensures the SAP scheduler keeps writing values into `customer_code / customer_name / sales_order / sales_item`.
+- No DB migrations — `zmrb_inward_report` already has the 4 columns, and SAP mappings (`Kunnr`, `Name1_cust`, `VBELN`, `POSNR`) are already configured.
+- No changes to the regular Inward (quality_inspection) Create/Detail/Worklist views — they continue to show Vendor.
+- No print template changes (separate task if needed).
 
 ## Verification
-1. Open Inward In-Process Materials → header row should show **Customer Code, Customer Name, Sales Order, Sales Item** exactly once each. The columns previously labeled `Kunnr`, `Name1_cust`, `VBELN`, `POSNR` should be gone.
-2. Values in the dedicated columns continue to populate from SAP sync.
-3. Any *other* extra response field configured in SAP API Settings (outside the base set) still renders dynamically — only the 4 duplicates are suppressed.
+1. Open any in-process inspection lot → Create MRB → "Inspection Lot Details" shows Customer Code, Customer Name, Sales Order, Sales Item (no Vendor fields).
+2. Submit an MRB → open it from Worklist → MRB Detail (in-process branch) shows the same 4 fields, hydrated from `zmrb_inward_report`.
+3. Worklist with source = "Inward InProcess" → header columns and rows show Customer Code, Customer Name, Sales Order, Sales Item instead of Vendor Code/Name.
+4. Worklist for quality_inspection / shop_floor sources still shows Vendor unchanged.
+5. Excel export from Worklist contains the new fields for in-process rows.
