@@ -832,8 +832,20 @@ Quality Department`;
                 <Input value={formData.blockReason} readOnly className="bg-muted" />
               </div>
               <div className="space-y-2">
-                <Label className="text-muted-foreground">Vendor Code</Label>
-                <Input value={formData.vendorCode} readOnly className="bg-muted" />
+                <Label className="text-muted-foreground">Customer Code</Label>
+                <Input value={formData.customerCode} readOnly className="bg-muted" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Customer Name</Label>
+                <Input value={formData.customerName} readOnly className="bg-muted" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Sales Order</Label>
+                <Input value={formData.salesOrder} readOnly className="bg-muted" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Sales Item</Label>
+                <Input value={formData.salesItem} readOnly className="bg-muted" />
               </div>
               <div className="space-y-2">
                 <Label className="text-muted-foreground">GRN Number</Label>
@@ -846,10 +858,6 @@ Quality Department`;
               <div className="space-y-2">
                 <Label className="text-muted-foreground">GRN Date</Label>
                 <Input value={formData.grnDate} readOnly className="bg-muted" />
-              </div>
-              <div className="space-y-2 lg:col-span-2">
-                <Label className="text-muted-foreground">Vendor Name</Label>
-                <Input value={formData.vendorName} readOnly className="bg-muted" />
               </div>
               <div className="space-y-2">
                 <Label className="text-muted-foreground">Purchase Order Number</Label>
