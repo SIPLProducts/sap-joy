@@ -1291,6 +1291,21 @@ export default function Worklist() {
                             <Eye className="h-4 w-4 mr-1" />
                             View
                           </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openResultRecording(mrb)}
+                                disabled={!mrb.inspectionLot}
+                              >
+                                <ScanEye className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {mrb.inspectionLot ? 'Result Recording' : 'Inspection Lot missing'}
+                            </TooltipContent>
+                          </Tooltip>
                           {mrb.status === 'approved' && mrb.sapStockUpdateStatus === 'synced' ? (
                             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-green-50 border border-green-200 text-green-700 text-xs font-semibold whitespace-nowrap">
                               <CheckCircle2 className="h-4 w-4 text-green-600" />
