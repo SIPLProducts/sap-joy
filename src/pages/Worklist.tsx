@@ -1090,8 +1090,10 @@ export default function Worklist() {
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Inspection Date</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Posting Date</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Block Reason</th>
-                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Vendor Code</th>
-                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Vendor Name</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Customer Code</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Customer Name</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Sales Order</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Sales Item</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Production Order</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Work Center</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Order Type</th>
@@ -1101,7 +1103,7 @@ export default function Worklist() {
               <tbody className="[&_tr:last-child]:border-0">
                 {sortedRecords.length === 0 ? (
                   <tr className="border-b">
-                    <td colSpan={20} className="p-4 text-center py-12 text-muted-foreground">
+                    <td colSpan={22} className="p-4 text-center py-12 text-muted-foreground">
                       No InProcess MRB records found matching your criteria
                     </td>
                   </tr>
