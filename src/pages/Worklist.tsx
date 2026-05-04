@@ -1100,10 +1100,27 @@ export default function Worklist() {
                   sortedRecords.map((mrb) => (
                     <tr key={mrb.id} className="border-b transition-colors hover:bg-muted/50">
                       <td className="p-3 align-middle sticky left-0 bg-background border-r">
-                        <Button variant="outline" size="sm" onClick={() => handleViewClick(mrb)}>
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button variant="outline" size="sm" onClick={() => handleViewClick(mrb)}>
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openResultRecording(mrb)}
+                                disabled={!mrb.inspectionLot}
+                              >
+                                <ScanEye className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {mrb.inspectionLot ? 'Result Recording' : 'Inspection Lot missing'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                       </td>
                       <td className="p-3 align-middle">
                         <Badge className={getStatusColor(mrb.status)}>
