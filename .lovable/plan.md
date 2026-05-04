@@ -1,71 +1,57 @@
 ## Goal
 
-Add a **Result Recording** action (eye icon) after the **View** button on every MRB Worklist row. Clicking it calls a configurable SAP API with `INSPLOT` + `INSPOPER`, then opens a modal that shows the returned `CHAR[]` array as a table. Each CHAR row has an expand/"split" button that reveals its matching `RESVAL[]` rows (joined on `INSPCHAR`) inline within the same modal.
+Make every field in the Result Recording `CHAR[]` payload available as a configurable column in the modal, so admins can show/hide/reorder them via SAP API Settings → Response Fields without any code change.
 
-The SAP endpoint is registered through the existing **SAP API Settings** screen (same as MB52, ZMRB_Inward_Process, etc.) so URL/credentials/headers are admin-configurable. The displayed columns for CHAR and RESVAL are also driven by `sap_api_response_fields` so they can be tuned without code changes.
+## Current state
 
-## User-visible changes
+- `Result_Recording_View` config currently has only 13 `char` columns seeded.
+- The modal already renders all `char` rows from `sap_api_response_fields` dynamically — so the only gap is missing field rows.
+- The user's sample payload contains ~70 distinct fields per CHAR element.
 
-1. **MRB Worklist** (`src/pages/Worklist.tsx`)
-   - Both worklist tables (InProcess and main worklist) get a new outline button next to **View**:
-     - Icon: `ScanEye` (lucide) to differentiate from the existing `Eye` View icon
-     - Label: `Result Recording`
-     - Disabled when the row has no `inspectionLot` (with tooltip "Inspection Lot missing")
-   - Clicking opens `<ResultRecordingModal>` passing `{ inspectionLot, inspOper }`. `inspOper` defaults to `"0010"` when not stored on the record (matches the sample request).
+## Changes
 
-2. **Result Recording Modal** (new `src/components/mrb/ResultRecordingModal.tsx`)
-   - Header shows lot context: Inspection Lot, Material, Material Description, Batch, GRN, Vendor (taken from the SAP response top-level fields — `INSPLOT`, `MATNR`, `MAKTX`, `CHARG`, `ZZGRN`, `ZZSUPL`).
-   - Loading spinner while the call is in flight; clear error banner on failure.
-   - **Main table** lists `CHAR[]` rows. Default columns (configurable):
-     `INSPCHAR`, `KURZTEXT` (Characteristic), `CODE_DESP` (Result), `BEWERTUNG` (Valuation), `SOLLSTPUMF` (Required Samples), `MENGENEINH` (UoM), `TOLGRENZE` (Tolerance).
-   - First column of each CHAR row is an expand toggle (`ChevronRight` / `ChevronDown` — the "split" button). Toggling expands an inline sub-row spanning all columns that renders the **RESVAL sub-table** filtered by `RESVAL.INSPCHAR === CHAR.INSPCHAR`.
-   - RESVAL sub-table columns (configurable): `RES_NO`, `RES_VALUE`, `RES_VALUAT`, `INSPECTOR`, `CODE1`, `ORIGINAL_INPUT`, `REMARK`, `BATCH`, `FORMULA`. Empty-state message when no matching RESVAL rows.
-   - Footer: `Close` button only (read-only view in this iteration).
+### 1. Seed missing CHAR fields (data insert, no schema change)
 
-3. **SAP API Settings** — no UI changes. The admin creates a new config row called `ZMRB_Result_Recording` (or any name) using the existing form, with:
-   - `http_method`: `POST`
-   - `endpoint_path`: provided by SAP team (e.g. `/mrb/quality/result_recording`)
-   - Request fields configured via the existing **Fields** dialog: two static-mapped request fields `INSPLOT` and `INSPOPER` whose values come from the caller.
-   - Response fields: define the CHAR and RESVAL columns we want surfaced (used to drive the modal's column headers/order).
+Insert one `sap_api_response_fields` row per missing CHAR field for the `Result_Recording_View` config, with `description='char'` and incrementing `sort_order` starting after the existing max (114+). Skip fields already seeded.
 
-## Backend / SAP integration
+Fields to add (in display order), each as `json_path = CHAR[].<SAP_NAME>`:
 
-Edge function: extend `supabase/functions/sap-sync/handler.ts` with a new `action: 'result_recording'`.
+| Group | SAP fields |
+|---|---|
+| Identity | `INSPLOT`, `INSPOPER` |
+| Status | `CHAR_ATTR`, `CHAR_INVAL`, `EVALUATION`, `ERR_CLASS` |
+| Counts | `VALID_VALS`, `NONCONF`, `DEFECTS`, `VALS_ABOVE`, `VALS_BELOW` |
+| Stats | `MEAN_VALUE`, `VARIANCE` |
+| Timing | `START_DATE`, `START_TIME`, `END_DATE`, `END_TIME` |
+| Inspector / remarks | `INSPECTOR`, `RES_ORG`, `REMARK` |
+| Primary code | `CODE1`, `CODE_GRP1` |
+| Catalog | `KATAB1`, `KATALGART1`, `AUSWMENGE1`, `AUSWAHLMGE` |
+| Code group / code | `CODEGRUPPE`, `CODE`, `CODE_DESP`, `BEWERTUNG`, `FEHLKLASSE` |
+| Alt codes | `CODE_1`/`CODE_DESP_1`/`BEWERTUNG_1`/`FEHLKLASSE_1` … `_5` (20 fields) |
+| Selected set | `AUSWVERS1`, `AUSWDAT1` |
+| Misc | `HPZ` |
 
-- Body shape: `{ action: 'result_recording', config_id?, inspection_lot, insp_oper }`.
-- `config_id` resolution (in this order):
-  1. Use `config_id` if supplied.
-  2. Otherwise look up `sap_api_config` by keyword (`config_name ILIKE '%result%record%'` or `endpoint_path ILIKE '%result_recording%'`) using `.maybeSingle()` — same dynamic resolution pattern documented in `mem://technical/sap-config-dynamic-resolution`.
-- Build payload exactly as SAP expects:
-  ```json
-  { "GET": { "INSPLOT": <number>, "INSPOPER": "<string>" } }
-  ```
-  `INSPLOT` is sent as a number (matching the sample); `INSPOPER` is zero-padded to 4 chars per existing SAP string-format rule.
-- Reuse the existing `buildSapTargetUrl` / `fetchViaProxy` / `callSAPApi` helpers — no new transport code. Auth, proxy secret, sap-client query param, and 60 s timeout all flow through unchanged.
-- Response handling:
-  - On HTTP 200 + JSON parseable: return `{ ok: true, data: <full SAP body> }` (HTTP 200 wrapper, per `mem://technical/edge-function-response-protocol`).
-  - On failure: return `{ ok: false, error, debug }` with HTTP 200 so the modal can show a toast + inline error.
-- No DB writes — this is a read-only fetch. Nothing is persisted to Supabase in this iteration.
+Friendly default labels (`field_name`) e.g. `INSPCHAR → "Char #"`, `KURZTEXT → "Characteristic"`, `BEWERTUNG → "Valuation"`, `CODE_DESP_1 → "Alt Code 1 Desc"`, etc. Admins can rename later in the UI.
 
-Client wrapper: add `invokeResultRecording({ inspectionLot, inspOper })` in `src/lib/sapSyncClient.ts`, mirroring the existing `invokeSapSync` shape (calls the same `sap-sync` function with the new action).
+All inserted rows default to active and visible. To keep the modal readable out of the box, only the 13 already-seeded columns remain in the "compact" sort range (101–113); the new ones get sort_orders 114+ so they appear after — admins can reorder/hide via the SAP API Settings UI.
 
-## Configurability of the modal columns
+### 2. No code change required
 
-To match the request "make it as configurable similarly like other APIs":
+The modal (`ResultRecordingModal.tsx`) already:
+- Loads `sap_api_response_fields` filtered by `description='char'`
+- Renders one column per row, sorted by `sort_order`, using `field_name` as the header label
+- Reads each value via the configured `json_path`
 
-- Use the existing `sap_api_response_fields` table. We add a convention: rows whose `json_path` starts with `CHAR[].` map to CHAR-table columns; rows starting with `RESVAL[].` map to the RESVAL sub-table; rows with no array prefix map to the modal header chips.
-- A small new hook `useResultRecordingFields(configId)` reads these rows once when the modal opens and builds three column lists (header / char / resval). If no config rows are found, it falls back to the hardcoded defaults listed above so the feature works out of the box.
+So once the rows exist, every CHAR field becomes available, and renaming/reordering/hiding is done from the existing Response Fields admin screen.
 
-## Files touched
+### Out of scope
 
-- New: `src/components/mrb/ResultRecordingModal.tsx`
-- New: `src/hooks/useResultRecordingFields.ts`
-- Edit: `src/pages/Worklist.tsx` — add button in both action cells, manage modal state
-- Edit: `src/lib/sapSyncClient.ts` — add `invokeResultRecording`
-- Edit: `supabase/functions/sap-sync/handler.ts` — add `result_recording` action branch (and deploy)
+- No changes to the `RESVAL[]` columns (already seeded; user request was about CHAR headers).
+- No new admin UI — the existing Response Fields editor under SAP API Settings is used for configuration.
+- No edge function or schema changes.
 
-## Out of scope (this iteration)
+## Verification
 
-- Editing/saving result values back to SAP (the response shows `RES_VALUE` blanks; this view is read-only for now).
-- Persisting the fetched results to Supabase.
-- Auto-creating the `ZMRB_Result_Recording` config row — admin creates it via SAP API Settings using the SAP-provided endpoint path.
+After insert:
+- Open MRB Worklist → click eye icon on a row → modal shows the full CHAR table with all configured columns.
+- Go to SAP API Settings → `Result_Recording_View` → Response Fields → confirm all CHAR fields are listed and editable (label, sort order, active flag).
