@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import hblLogo from '@/assets/hbl-logo.png';
 
 // Menu items with role-based access based on User's Matrix from Database
 const menuItems = [
@@ -86,8 +87,8 @@ export function AppSidebar() {
     <Sidebar className="border-r border-sidebar-border">
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary">
-            <Wrench className="h-5 w-5 text-sidebar-primary-foreground" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white p-1 shrink-0">
+            <img src={hblLogo} alt="HBL" className="h-full w-full object-contain" />
           </div>
           <div>
             <h1 className="text-lg font-bold text-sidebar-foreground">HBL MRB</h1>
