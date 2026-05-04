@@ -1152,8 +1152,10 @@ export default function Worklist() {
                       <td className="p-3 align-middle max-w-[180px]">
                         <p className="text-xs truncate" title={mrb.blockReason || ''}>{mrb.blockReason || '-'}</p>
                       </td>
-                      <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.vendorCode || '-'}</td>
-                      <td className="p-3 align-middle max-w-[160px] truncate">{mrb.vendorName || '-'}</td>
+                      <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.customerCode || '-'}</td>
+                      <td className="p-3 align-middle max-w-[160px] truncate">{mrb.customerName || '-'}</td>
+                      <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.salesOrder || '-'}</td>
+                      <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.salesItem || '-'}</td>
                       <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.productionOrderNo || '-'}</td>
                       <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.workCenter || '-'}</td>
                       <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.orderType || '-'}</td>
