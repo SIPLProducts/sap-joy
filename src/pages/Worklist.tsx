@@ -397,7 +397,9 @@ export default function Worklist() {
 
   // Excel Export function
   const handleExportToExcel = () => {
-    const exportData = sortedRecords.map(mrb => ({
+    const exportData = sortedRecords.map(mrb => {
+      const isInprocess = (mrb.source as string) === 'inprocess';
+      return ({
       'MRB Number': mrb.mrbNumber,
       'Source': mrb.source === 'quality_inspection'
         ? 'Inward'
@@ -408,8 +410,12 @@ export default function Worklist() {
       'Inspection Lot': mrb.inspectionLot || '-',
       'Material Number': mrb.materialNumber,
       'Material Description': mrb.materialDescription,
-      'Vendor Name': mrb.vendorName,
-      'Vendor Code': mrb.vendorCode || '-',
+      'Vendor Name': isInprocess ? '-' : mrb.vendorName,
+      'Vendor Code': isInprocess ? '-' : (mrb.vendorCode || '-'),
+      'Customer Code': isInprocess ? (mrb.customerCode || '-') : '-',
+      'Customer Name': isInprocess ? (mrb.customerName || '-') : '-',
+      'Sales Order': isInprocess ? (mrb.salesOrder || '-') : '-',
+      'Sales Item': isInprocess ? (mrb.salesItem || '-') : '-',
       'Plant': mrb.plant,
       'GRN Number': mrb.grnNumber || '-',
       'PO Number': mrb.poNumber || '-',
@@ -445,7 +451,8 @@ export default function Worklist() {
       'Closure Status': mrb.closureStatus?.replace(/_/g, ' ') || '-',
       'SAP Sync Status': mrb.sapStockUpdateStatus?.replace(/_/g, ' ') || '-',
       'Created At': formatDate(mrb.createdAt),
-    }));
+      });
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
