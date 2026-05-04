@@ -92,6 +92,7 @@ export const BASE_COLUMNS: Record<string, Set<string>> = {
     'vendor_code', 'vendor_name',
     'production_order_no', 'work_center', 'order_type', 'confirmation_no',
     'po_number', 'po_item_number', 'grn_number', 'grn_item_no', 'grn_date',
+    'customer_code', 'customer_name', 'sales_order', 'sales_item',
     'status', 'source', 'upload_batch_id', 'uploaded_by',
     'created_at', 'updated_at',
   ]),
