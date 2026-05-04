@@ -56,7 +56,6 @@ export default function InwardMRBDetail() {
     production_order_no?: string | null;
     work_center?: string | null;
     order_type?: string | null;
-    confirmation_no?: string | null;
     customer_code?: string | null;
     customer_name?: string | null;
     sales_order?: string | null;
@@ -113,7 +112,7 @@ export default function InwardMRBDetail() {
           if ((mrbData as any).source === 'inprocess') {
             const { data: zmrbData } = await supabase
               .from('zmrb_inward_report')
-              .select('storage_location, inspection_date, posting_date, production_order_no, work_center, order_type, confirmation_no, batch, customer_code, customer_name, sales_order, sales_item')
+              .select('storage_location, inspection_date, posting_date, production_order_no, work_center, order_type, batch, customer_code, customer_name, sales_order, sales_item')
               .eq('inspection_lot', mrbData.inspection_lot)
               .limit(1)
               .maybeSingle();
@@ -445,10 +444,6 @@ export default function InwardMRBDetail() {
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Order Type</Label>
                 <p className="font-medium font-mono">{inprocessFields.order_type || '-'}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground text-xs">Confirmation Date</Label>
-                <p className="font-medium font-mono">{inprocessFields.confirmation_no || '-'}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-muted-foreground text-xs">Pending With</Label>

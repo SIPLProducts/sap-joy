@@ -55,6 +55,10 @@ interface InspectionLotRecord {
   blockedQuantity: number;
   blockReason: string;
   inspectionDate: string;
+  postingDate?: string;
+  productionOrderNo?: string;
+  workCenter?: string;
+  orderType?: string;
   status: 'pending' | 'mrb_created' | 'cleared';
   purchaseOrderNumber?: string;
   _raw?: Record<string, any>;
@@ -88,11 +92,11 @@ interface FormData {
   customerName: string;
   salesOrder: string;
   salesItem: string;
-  purchaseOrderNumber: string;
-  poItemNumber: string;
-  grnNumber: string;
-  grnItemNumber: string;
-  grnDate: string;
+  inspectionDate: string;
+  postingDate: string;
+  productionOrderNo: string;
+  workCenter: string;
+  orderType: string;
   qualityDecision: string;
   defectCategory: string;
   defectDescription: string;
@@ -185,11 +189,11 @@ export default function CreateInwardInProcessMRB() {
     customerName: inspectionLot.customerName || '',
     salesOrder: inspectionLot.salesOrder || '',
     salesItem: inspectionLot.salesItem || '',
-    purchaseOrderNumber: inspectionLot.purchaseOrderNumber || inspectionLot.poNumber || '',
-    poItemNumber: inspectionLot.poItemNumber || '',
-    grnNumber: inspectionLot.grnNumber || '',
-    grnItemNumber: inspectionLot.grnItemNo || inspectionLot._raw?.grn_item_no || '',
-    grnDate: inspectionLot.grnDate || inspectionLot._raw?.grn_date || '',
+    inspectionDate: inspectionLot.inspectionDate || '',
+    postingDate: inspectionLot.postingDate || (inspectionLot._raw?.posting_date as string) || '',
+    productionOrderNo: inspectionLot.productionOrderNo || (inspectionLot._raw?.production_order_no as string) || '',
+    workCenter: inspectionLot.workCenter || (inspectionLot._raw?.work_center as string) || '',
+    orderType: inspectionLot.orderType || (inspectionLot._raw?.order_type as string) || '',
     
     // Quality inspection input - restore from draft or empty
     qualityDecision: savedDraft?.qualityDecision || '',
@@ -536,10 +540,11 @@ export default function CreateInwardInProcessMRB() {
         vendor_code: formData.vendorCode,
         vendor_name: formData.vendorName,
         inspection_lot: formData.inspectionLot,
-        po_number: formData.purchaseOrderNumber,
-        grn_number: formData.grnNumber || null,
-        grn_item_number: formData.grnItemNumber || null,
-        grn_date: formData.grnDate || null,
+        po_number: null,
+        grn_number: null,
+        grn_item_number: null,
+        grn_date: null,
+        production_order_number: formData.productionOrderNo || null,
         batch: formData.batch || null,
         storage_location: formData.storageLocation || null,
         total_quantity: formData.transactionQuantity,
@@ -611,9 +616,9 @@ A quality discrepancy has been identified in an in-process inspection of ${formD
    Customer Name: ${formData.customerName || 'N/A'}
    Sales Order: ${formData.salesOrder || 'N/A'}
    Sales Item: ${formData.salesItem || 'N/A'}
-   GRN Number: ${formData.grnNumber || 'N/A'}
-   PO Number: ${formData.purchaseOrderNumber || 'N/A'}
-   PO Item: ${formData.poItemNumber || 'N/A'}
+   Production Order: ${formData.productionOrderNo || 'N/A'}
+   Work Center: ${formData.workCenter || 'N/A'}
+   Order Type: ${formData.orderType || 'N/A'}
    Inspection Lot: ${formData.inspectionLot}
 
 3. Proposed Disposition
@@ -851,24 +856,24 @@ Quality Department`;
                 <Input value={formData.salesItem} readOnly className="bg-muted" />
               </div>
               <div className="space-y-2">
-                <Label className="text-muted-foreground">GRN Number</Label>
-                <Input value={formData.grnNumber} readOnly className="bg-muted" />
+                <Label className="text-muted-foreground">Inspection Date</Label>
+                <Input value={formData.inspectionDate} readOnly className="bg-muted" />
               </div>
               <div className="space-y-2">
-                <Label className="text-muted-foreground">GRN Item No</Label>
-                <Input value={formData.grnItemNumber} readOnly className="bg-muted" />
+                <Label className="text-muted-foreground">Posting Date</Label>
+                <Input value={formData.postingDate} readOnly className="bg-muted" />
               </div>
               <div className="space-y-2">
-                <Label className="text-muted-foreground">GRN Date</Label>
-                <Input value={formData.grnDate} readOnly className="bg-muted" />
+                <Label className="text-muted-foreground">Production Order</Label>
+                <Input value={formData.productionOrderNo} readOnly className="bg-muted font-mono" />
               </div>
               <div className="space-y-2">
-                <Label className="text-muted-foreground">Purchase Order Number</Label>
-                <Input value={formData.purchaseOrderNumber} readOnly className="bg-muted" />
+                <Label className="text-muted-foreground">Work Center</Label>
+                <Input value={formData.workCenter} readOnly className="bg-muted font-mono" />
               </div>
               <div className="space-y-2">
-                <Label className="text-muted-foreground">PO Item Number</Label>
-                <Input value={formData.poItemNumber} readOnly className="bg-muted" />
+                <Label className="text-muted-foreground">Order Type</Label>
+                <Input value={formData.orderType} readOnly className="bg-muted font-mono" />
               </div>
             </div>
           </div>

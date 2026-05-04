@@ -104,7 +104,6 @@ interface UnifiedMRBRecord {
   productionOrderNo: string | null;
   workCenter: string | null;
   orderType: string | null;
-  confirmationDate: string | null;
   transactionQuantity: number | null;
   // ZMRB04 customer / sales fields (in-process only)
   customerCode: string | null;
@@ -212,7 +211,7 @@ export default function Worklist() {
     (async () => {
       const { data } = await supabase
         .from('zmrb_inward_report')
-        .select('inspection_lot, storage_location, batch, inspection_date, posting_date, block_reason, production_order_no, work_center, order_type, confirmation_no, transaction_quantity, customer_code, customer_name, sales_order, sales_item')
+        .select('inspection_lot, storage_location, batch, inspection_date, posting_date, block_reason, production_order_no, work_center, order_type, transaction_quantity, customer_code, customer_name, sales_order, sales_item')
         .in('inspection_lot', missing);
       if (data && data.length > 0) {
         setInprocessLotMap(prev => {
@@ -279,7 +278,6 @@ export default function Worklist() {
     productionOrderNo: (mrb as any).production_order_number || lot?.production_order_no || null,
     workCenter: lot?.work_center || null,
     orderType: lot?.order_type || null,
-    confirmationDate: lot?.confirmation_no || null,
     transactionQuantity: lot?.transaction_quantity != null ? Number(lot.transaction_quantity) : null,
     customerCode: lot?.customer_code || null,
     customerName: lot?.customer_name || null,
@@ -1104,13 +1102,12 @@ export default function Worklist() {
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Production Order</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Work Center</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Order Type</th>
-                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Confirmation Date</th>
                 </tr>
               </thead>
               <tbody className="[&_tr:last-child]:border-0">
                 {sortedRecords.length === 0 ? (
                   <tr className="border-b">
-                    <td colSpan={22} className="p-4 text-center py-12 text-muted-foreground">
+                    <td colSpan={21} className="p-4 text-center py-12 text-muted-foreground">
                       No InProcess MRB records found matching your criteria
                     </td>
                   </tr>
@@ -1166,7 +1163,6 @@ export default function Worklist() {
                       <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.productionOrderNo || '-'}</td>
                       <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.workCenter || '-'}</td>
                       <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.orderType || '-'}</td>
-                      <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.confirmationDate || '-'}</td>
                     </tr>
                   ))
                 )}
