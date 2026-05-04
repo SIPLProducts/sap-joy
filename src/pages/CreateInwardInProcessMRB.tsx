@@ -591,11 +591,11 @@ export default function CreateInwardInProcessMRB() {
             }
           }
 
-          const emailSubject = `Approval Request: Quality Non-Conformance | ${formData.vendorName} | Lot ${formData.inspectionLot}`;
+          const emailSubject = `Approval Request: Quality Non-Conformance | ${formData.customerName || formData.materialDescription} | Lot ${formData.inspectionLot}`;
           
           const emailBody = `Dear Material Review Board,
 
-A quality discrepancy has been identified in a recent shipment of ${formData.materialDescription} from ${formData.vendorName}. To maintain our production schedule and quality standards, we require your collective review and approval on the proposed disposition.
+A quality discrepancy has been identified in an in-process inspection of ${formData.materialDescription}${formData.customerName ? ` for customer ${formData.customerName}` : ''}. To maintain our production schedule and quality standards, we require your collective review and approval on the proposed disposition.
 
 1. Defect Overview
    Total Quantity: ${formData.transactionQuantity} ${formData.uom}
@@ -604,10 +604,13 @@ A quality discrepancy has been identified in a recent shipment of ${formData.mat
    Quality Decision: ${qualityDecisionLabel}
    Defect Category: ${formData.defectCategory ? inwardDefectCategories.find(c => c.value === formData.defectCategory)?.label || formData.defectCategory : 'N/A'}
 
-2. Material & Vendor Details
+2. Material & Customer Details
    Material Code: ${formData.materialCode}
    Plant: ${formData.plant}
-   Vendor Code: ${formData.vendorCode}
+   Customer Code: ${formData.customerCode || 'N/A'}
+   Customer Name: ${formData.customerName || 'N/A'}
+   Sales Order: ${formData.salesOrder || 'N/A'}
+   Sales Item: ${formData.salesItem || 'N/A'}
    GRN Number: ${formData.grnNumber || 'N/A'}
    PO Number: ${formData.purchaseOrderNumber || 'N/A'}
    PO Item: ${formData.poItemNumber || 'N/A'}
