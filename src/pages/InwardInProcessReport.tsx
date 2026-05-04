@@ -764,12 +764,13 @@ export default function InwardReport() {
                             <TableHead className="font-semibold whitespace-nowrap">Inspection Date</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Posting Date</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Block Reason</TableHead>
-                            <TableHead className="font-semibold whitespace-nowrap">Vendor Code</TableHead>
-                            <TableHead className="font-semibold whitespace-nowrap">Vendor Name</TableHead>
+                            <TableHead className="font-semibold whitespace-nowrap">Customer Code</TableHead>
+                            <TableHead className="font-semibold whitespace-nowrap">Customer Name</TableHead>
+                            <TableHead className="font-semibold whitespace-nowrap">Sales Order</TableHead>
+                            <TableHead className="font-semibold whitespace-nowrap">Sales Item</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Production Order</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Work Center</TableHead>
                             <TableHead className="font-semibold whitespace-nowrap">Order Type</TableHead>
-                            <TableHead className="font-semibold whitespace-nowrap">Confirmation Date</TableHead>
                             {extraFields.map((df) => (
                               <TableHead key={df.id} className="font-semibold whitespace-nowrap">
                                 {df.description || df.field_name}
@@ -780,7 +781,7 @@ export default function InwardReport() {
                         <TableBody>
                           {paginatedResults.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={19 + extraFields.length} className="text-center py-12 text-muted-foreground">
+                              <TableCell colSpan={20 + extraFields.length} className="text-center py-12 text-muted-foreground">
                                 No records found matching the selection criteria
                               </TableCell>
                             </TableRow>
@@ -914,10 +915,16 @@ export default function InwardReport() {
                                   ) : '-'}
                                 </TableCell>
                                 <TableCell className="font-mono text-sm">
-                                  {record.vendorCode || '-'}
+                                  {record.customerCode || '-'}
                                 </TableCell>
                                 <TableCell className="max-w-[150px] truncate">
-                                  {record.vendorName || '-'}
+                                  {record.customerName || '-'}
+                                </TableCell>
+                                <TableCell className="font-mono text-sm">
+                                  {record.salesOrder || '-'}
+                                </TableCell>
+                                <TableCell className="font-mono text-sm">
+                                  {record.salesItem || '-'}
                                 </TableCell>
                                 <TableCell className="font-mono text-sm">
                                   {record.productionOrderNo || '-'}
@@ -927,9 +934,6 @@ export default function InwardReport() {
                                 </TableCell>
                                 <TableCell className="font-mono text-sm">
                                   {record.orderType || '-'}
-                                </TableCell>
-                                <TableCell className="whitespace-nowrap">
-                                  {record.confirmationDate ? formatDate(record.confirmationDate) : '-'}
                                 </TableCell>
                                 {extraFields.map((df) => (
                                   <TableCell key={df.id} className="text-sm">

@@ -16,6 +16,10 @@ export interface InspectionLotRecord {
   materialDescription: string;
   vendorCode: string;
   vendorName: string;
+  customerCode: string;
+  customerName: string;
+  salesOrder: string;
+  salesItem: string;
   storageLocation: string;
   batch: string;
   poNumber: string;
@@ -172,6 +176,10 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
             materialDescription: lot.material_description || '',
             vendorCode: lot.vendor_code || '',
             vendorName: lot.vendor_name || '',
+            customerCode: (lot as any).customer_code || lot.vendor_code || '',
+            customerName: (lot as any).customer_name || lot.vendor_name || '',
+            salesOrder: (lot as any).sales_order || '',
+            salesItem: (lot as any).sales_item || '',
             storageLocation: lot.storage_location || '',
             batch: lot.batch || '',
             poNumber: lot.po_number || '',

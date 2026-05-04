@@ -1,57 +1,40 @@
 ## Goal
+On the **Inward In-Process Materials** worklist (`/inward-in-process-report`):
+1. Rename column headers **Vendor Code → Customer Code** and **Vendor Name → Customer Name**.
+2. Populate those columns from the SAP-configured fields (`Kunnr` → `customer_code`, `Name1_cust` → `customer_name`) defined in **SAP API Settings → ZMRB_Inward_Process → Response Fields**.
+3. Immediately after Customer Name, display **Sales Order** (`VBELN`) and **Sales Item** (`POSNR`) using the same configured mappings.
+4. Remove the **Confirmation Date** column.
 
-Make every field in the Result Recording `CHAR[]` payload available as a configurable column in the modal, so admins can show/hide/reorder them via SAP API Settings → Response Fields without any code change.
+## Database changes
+The four target columns referenced in `sap_api_response_fields` do not yet exist on `zmrb_inward_report`. Add them so the SAP scheduler can persist values:
+- `customer_code text`
+- `customer_name text`
+- `sales_order text`
+- `sales_item text`
 
-## Current state
+Also fix the existing response-field rows for `VBELN` and `POSNR` — currently `map_to_column` is set but `map_to_table` is empty, so the scheduler ignores them. Update both rows to set `map_to_table = 'zmrb_inward_report'`.
 
-- `Result_Recording_View` config currently has only 13 `char` columns seeded.
-- The modal already renders all `char` rows from `sap_api_response_fields` dynamically — so the only gap is missing field rows.
-- The user's sample payload contains ~70 distinct fields per CHAR element.
+No RLS or policy changes needed (existing authenticated policies cover new columns).
 
-## Changes
+## Code changes
 
-### 1. Seed missing CHAR fields (data insert, no schema change)
+**`src/contexts/InwardInProcessMRBContext.tsx`**
+- Extend `InspectionLotRecord` with `customerCode`, `customerName`, `salesOrder`, `salesItem` (keep existing `vendorCode`/`vendorName` as aliases for backwards compatibility with `CreateInwardInProcessMRB.tsx`, mapping them to the same source fields so the Create-MRB flow keeps working).
+- In `fetchData`, read from new columns: `customer_code`, `customer_name`, `sales_order`, `sales_item` (with `(lot as any)` casts until `types.ts` regenerates).
+- Drop `confirmationDate` (or leave the field but stop using it — safer to leave for type stability, just not displayed).
 
-Insert one `sap_api_response_fields` row per missing CHAR field for the `Result_Recording_View` config, with `description='char'` and incrementing `sort_order` starting after the existing max (114+). Skip fields already seeded.
+**`src/pages/InwardInProcessReport.tsx`**
+- Header row: replace `Vendor Code` → `Customer Code`, `Vendor Name` → `Customer Name`. Insert two new headers `Sales Order` and `Sales Item` immediately after Customer Name. Remove `Confirmation Date` header.
+- Body row: render `record.customerCode`, `record.customerName`, `record.salesOrder`, `record.salesItem`. Remove the `confirmationDate` cell.
+- Update the empty-state `colSpan` accordingly (currently `19 + extraFields.length` → becomes `20 + extraFields.length`: −1 for Confirmation Date, +2 for Sales Order/Item).
 
-Fields to add (in display order), each as `json_path = CHAR[].<SAP_NAME>`:
+**`CreateInwardInProcessMRB.tsx`** — no UI rename requested for the create form in this task; leave the existing Vendor Code/Name labels there untouched (the user only asked about the In-Process worklist). Will use `customerCode`/`customerName` aliases so it still resolves data.
 
-| Group | SAP fields |
-|---|---|
-| Identity | `INSPLOT`, `INSPOPER` |
-| Status | `CHAR_ATTR`, `CHAR_INVAL`, `EVALUATION`, `ERR_CLASS` |
-| Counts | `VALID_VALS`, `NONCONF`, `DEFECTS`, `VALS_ABOVE`, `VALS_BELOW` |
-| Stats | `MEAN_VALUE`, `VARIANCE` |
-| Timing | `START_DATE`, `START_TIME`, `END_DATE`, `END_TIME` |
-| Inspector / remarks | `INSPECTOR`, `RES_ORG`, `REMARK` |
-| Primary code | `CODE1`, `CODE_GRP1` |
-| Catalog | `KATAB1`, `KATALGART1`, `AUSWMENGE1`, `AUSWAHLMGE` |
-| Code group / code | `CODEGRUPPE`, `CODE`, `CODE_DESP`, `BEWERTUNG`, `FEHLKLASSE` |
-| Alt codes | `CODE_1`/`CODE_DESP_1`/`BEWERTUNG_1`/`FEHLKLASSE_1` … `_5` (20 fields) |
-| Selected set | `AUSWVERS1`, `AUSWDAT1` |
-| Misc | `HPZ` |
-
-Friendly default labels (`field_name`) e.g. `INSPCHAR → "Char #"`, `KURZTEXT → "Characteristic"`, `BEWERTUNG → "Valuation"`, `CODE_DESP_1 → "Alt Code 1 Desc"`, etc. Admins can rename later in the UI.
-
-All inserted rows default to active and visible. To keep the modal readable out of the box, only the 13 already-seeded columns remain in the "compact" sort range (101–113); the new ones get sort_orders 114+ so they appear after — admins can reorder/hide via the SAP API Settings UI.
-
-### 2. No code change required
-
-The modal (`ResultRecordingModal.tsx`) already:
-- Loads `sap_api_response_fields` filtered by `description='char'`
-- Renders one column per row, sorted by `sort_order`, using `field_name` as the header label
-- Reads each value via the configured `json_path`
-
-So once the rows exist, every CHAR field becomes available, and renaming/reordering/hiding is done from the existing Response Fields admin screen.
-
-### Out of scope
-
-- No changes to the `RESVAL[]` columns (already seeded; user request was about CHAR headers).
-- No new admin UI — the existing Response Fields editor under SAP API Settings is used for configuration.
-- No edge function or schema changes.
+## Out of scope
+- No changes to the Create MRB form labels, the inward MRB detail page, print layouts, or any other inward (non in-process) screen.
+- No edge function changes — the existing dynamic mapping engine already writes any field whose `map_to_table`+`map_to_column` are configured.
 
 ## Verification
-
-After insert:
-- Open MRB Worklist → click eye icon on a row → modal shows the full CHAR table with all configured columns.
-- Go to SAP API Settings → `Result_Recording_View` → Response Fields → confirm all CHAR fields are listed and editable (label, sort order, active flag).
+1. Run SAP sync (or wait for scheduler) → confirm `zmrb_inward_report` rows now have `customer_code`, `customer_name`, `sales_order`, `sales_item` populated.
+2. Open Inward In-Process Materials → confirm headers read **Customer Code, Customer Name, Sales Order, Sales Item** in that order, Confirmation Date is gone, values render correctly.
+3. SAP API Settings → ZMRB_Inward_Process → Response Fields: changing label/order of `Kunnr`, `Name1_cust`, `VBELN`, `POSNR` continues to control what is shown (extra fields beyond the 4 base ones still flow through the existing `useExtraDynamicFields` path).
