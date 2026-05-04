@@ -106,6 +106,11 @@ interface UnifiedMRBRecord {
   orderType: string | null;
   confirmationDate: string | null;
   transactionQuantity: number | null;
+  // ZMRB04 customer / sales fields (in-process only)
+  customerCode: string | null;
+  customerName: string | null;
+  salesOrder: string | null;
+  salesItem: string | null;
 }
 
 interface SAPSyncHistoryEntry {
@@ -207,7 +212,7 @@ export default function Worklist() {
     (async () => {
       const { data } = await supabase
         .from('zmrb_inward_report')
-        .select('inspection_lot, storage_location, batch, inspection_date, posting_date, block_reason, production_order_no, work_center, order_type, confirmation_no, transaction_quantity')
+        .select('inspection_lot, storage_location, batch, inspection_date, posting_date, block_reason, production_order_no, work_center, order_type, confirmation_no, transaction_quantity, customer_code, customer_name, sales_order, sales_item')
         .in('inspection_lot', missing);
       if (data && data.length > 0) {
         setInprocessLotMap(prev => {
@@ -276,6 +281,10 @@ export default function Worklist() {
     orderType: lot?.order_type || null,
     confirmationDate: lot?.confirmation_no || null,
     transactionQuantity: lot?.transaction_quantity != null ? Number(lot.transaction_quantity) : null,
+    customerCode: lot?.customer_code || null,
+    customerName: lot?.customer_name || null,
+    salesOrder: lot?.sales_order || null,
+    salesItem: lot?.sales_item || null,
     });
   });
 
@@ -388,7 +397,9 @@ export default function Worklist() {
 
   // Excel Export function
   const handleExportToExcel = () => {
-    const exportData = sortedRecords.map(mrb => ({
+    const exportData = sortedRecords.map(mrb => {
+      const isInprocess = (mrb.source as string) === 'inprocess';
+      return ({
       'MRB Number': mrb.mrbNumber,
       'Source': mrb.source === 'quality_inspection'
         ? 'Inward'
@@ -399,8 +410,12 @@ export default function Worklist() {
       'Inspection Lot': mrb.inspectionLot || '-',
       'Material Number': mrb.materialNumber,
       'Material Description': mrb.materialDescription,
-      'Vendor Name': mrb.vendorName,
-      'Vendor Code': mrb.vendorCode || '-',
+      'Vendor Name': isInprocess ? '-' : mrb.vendorName,
+      'Vendor Code': isInprocess ? '-' : (mrb.vendorCode || '-'),
+      'Customer Code': isInprocess ? (mrb.customerCode || '-') : '-',
+      'Customer Name': isInprocess ? (mrb.customerName || '-') : '-',
+      'Sales Order': isInprocess ? (mrb.salesOrder || '-') : '-',
+      'Sales Item': isInprocess ? (mrb.salesItem || '-') : '-',
       'Plant': mrb.plant,
       'GRN Number': mrb.grnNumber || '-',
       'PO Number': mrb.poNumber || '-',
@@ -436,7 +451,8 @@ export default function Worklist() {
       'Closure Status': mrb.closureStatus?.replace(/_/g, ' ') || '-',
       'SAP Sync Status': mrb.sapStockUpdateStatus?.replace(/_/g, ' ') || '-',
       'Created At': formatDate(mrb.createdAt),
-    }));
+      });
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
@@ -1081,8 +1097,10 @@ export default function Worklist() {
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Inspection Date</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Posting Date</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Block Reason</th>
-                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Vendor Code</th>
-                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Vendor Name</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Customer Code</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Customer Name</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Sales Order</th>
+                  <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Sales Item</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Production Order</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Work Center</th>
                   <th className="h-12 px-3 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Order Type</th>
@@ -1092,7 +1110,7 @@ export default function Worklist() {
               <tbody className="[&_tr:last-child]:border-0">
                 {sortedRecords.length === 0 ? (
                   <tr className="border-b">
-                    <td colSpan={20} className="p-4 text-center py-12 text-muted-foreground">
+                    <td colSpan={22} className="p-4 text-center py-12 text-muted-foreground">
                       No InProcess MRB records found matching your criteria
                     </td>
                   </tr>
@@ -1141,8 +1159,10 @@ export default function Worklist() {
                       <td className="p-3 align-middle max-w-[180px]">
                         <p className="text-xs truncate" title={mrb.blockReason || ''}>{mrb.blockReason || '-'}</p>
                       </td>
-                      <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.vendorCode || '-'}</td>
-                      <td className="p-3 align-middle max-w-[160px] truncate">{mrb.vendorName || '-'}</td>
+                      <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.customerCode || '-'}</td>
+                      <td className="p-3 align-middle max-w-[160px] truncate">{mrb.customerName || '-'}</td>
+                      <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.salesOrder || '-'}</td>
+                      <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.salesItem || '-'}</td>
                       <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.productionOrderNo || '-'}</td>
                       <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.workCenter || '-'}</td>
                       <td className="p-3 align-middle font-mono text-sm whitespace-nowrap">{mrb.orderType || '-'}</td>

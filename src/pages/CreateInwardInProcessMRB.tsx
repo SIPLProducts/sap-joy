@@ -39,6 +39,10 @@ interface InspectionLotRecord {
   materialDescription: string;
   vendorCode: string;
   vendorName: string;
+  customerCode?: string;
+  customerName?: string;
+  salesOrder?: string;
+  salesItem?: string;
   storageLocation: string;
   batch: string;
   poNumber: string;
@@ -80,6 +84,10 @@ interface FormData {
   blockReason: string;
   vendorCode: string;
   vendorName: string;
+  customerCode: string;
+  customerName: string;
+  salesOrder: string;
+  salesItem: string;
   purchaseOrderNumber: string;
   poItemNumber: string;
   grnNumber: string;
@@ -173,6 +181,10 @@ export default function CreateInwardInProcessMRB() {
     blockReason: inspectionLot.blockReason,
     vendorCode: inspectionLot.vendorCode,
     vendorName: inspectionLot.vendorName,
+    customerCode: inspectionLot.customerCode || '',
+    customerName: inspectionLot.customerName || '',
+    salesOrder: inspectionLot.salesOrder || '',
+    salesItem: inspectionLot.salesItem || '',
     purchaseOrderNumber: inspectionLot.purchaseOrderNumber || inspectionLot.poNumber || '',
     poItemNumber: inspectionLot.poItemNumber || '',
     grnNumber: inspectionLot.grnNumber || '',
@@ -579,11 +591,11 @@ export default function CreateInwardInProcessMRB() {
             }
           }
 
-          const emailSubject = `Approval Request: Quality Non-Conformance | ${formData.vendorName} | Lot ${formData.inspectionLot}`;
+          const emailSubject = `Approval Request: Quality Non-Conformance | ${formData.customerName || formData.materialDescription} | Lot ${formData.inspectionLot}`;
           
           const emailBody = `Dear Material Review Board,
 
-A quality discrepancy has been identified in a recent shipment of ${formData.materialDescription} from ${formData.vendorName}. To maintain our production schedule and quality standards, we require your collective review and approval on the proposed disposition.
+A quality discrepancy has been identified in an in-process inspection of ${formData.materialDescription}${formData.customerName ? ` for customer ${formData.customerName}` : ''}. To maintain our production schedule and quality standards, we require your collective review and approval on the proposed disposition.
 
 1. Defect Overview
    Total Quantity: ${formData.transactionQuantity} ${formData.uom}
@@ -592,10 +604,13 @@ A quality discrepancy has been identified in a recent shipment of ${formData.mat
    Quality Decision: ${qualityDecisionLabel}
    Defect Category: ${formData.defectCategory ? inwardDefectCategories.find(c => c.value === formData.defectCategory)?.label || formData.defectCategory : 'N/A'}
 
-2. Material & Vendor Details
+2. Material & Customer Details
    Material Code: ${formData.materialCode}
    Plant: ${formData.plant}
-   Vendor Code: ${formData.vendorCode}
+   Customer Code: ${formData.customerCode || 'N/A'}
+   Customer Name: ${formData.customerName || 'N/A'}
+   Sales Order: ${formData.salesOrder || 'N/A'}
+   Sales Item: ${formData.salesItem || 'N/A'}
    GRN Number: ${formData.grnNumber || 'N/A'}
    PO Number: ${formData.purchaseOrderNumber || 'N/A'}
    PO Item: ${formData.poItemNumber || 'N/A'}
@@ -820,8 +835,20 @@ Quality Department`;
                 <Input value={formData.blockReason} readOnly className="bg-muted" />
               </div>
               <div className="space-y-2">
-                <Label className="text-muted-foreground">Vendor Code</Label>
-                <Input value={formData.vendorCode} readOnly className="bg-muted" />
+                <Label className="text-muted-foreground">Customer Code</Label>
+                <Input value={formData.customerCode} readOnly className="bg-muted" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Customer Name</Label>
+                <Input value={formData.customerName} readOnly className="bg-muted" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Sales Order</Label>
+                <Input value={formData.salesOrder} readOnly className="bg-muted" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Sales Item</Label>
+                <Input value={formData.salesItem} readOnly className="bg-muted" />
               </div>
               <div className="space-y-2">
                 <Label className="text-muted-foreground">GRN Number</Label>
@@ -834,10 +861,6 @@ Quality Department`;
               <div className="space-y-2">
                 <Label className="text-muted-foreground">GRN Date</Label>
                 <Input value={formData.grnDate} readOnly className="bg-muted" />
-              </div>
-              <div className="space-y-2 lg:col-span-2">
-                <Label className="text-muted-foreground">Vendor Name</Label>
-                <Input value={formData.vendorName} readOnly className="bg-muted" />
               </div>
               <div className="space-y-2">
                 <Label className="text-muted-foreground">Purchase Order Number</Label>
