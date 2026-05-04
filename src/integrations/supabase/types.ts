@@ -1497,6 +1497,8 @@ export type Database = {
           blocked_quantity: number
           confirmation_no: string | null
           created_at: string
+          customer_code: string | null
+          customer_name: string | null
           grn_date: string | null
           grn_item_no: string | null
           grn_number: string | null
@@ -1511,6 +1513,8 @@ export type Database = {
           po_number: string | null
           posting_date: string | null
           production_order_no: string | null
+          sales_item: string | null
+          sales_order: string | null
           source: string | null
           status: string
           storage_location: string | null
@@ -1529,6 +1533,8 @@ export type Database = {
           blocked_quantity?: number
           confirmation_no?: string | null
           created_at?: string
+          customer_code?: string | null
+          customer_name?: string | null
           grn_date?: string | null
           grn_item_no?: string | null
           grn_number?: string | null
@@ -1543,6 +1549,8 @@ export type Database = {
           po_number?: string | null
           posting_date?: string | null
           production_order_no?: string | null
+          sales_item?: string | null
+          sales_order?: string | null
           source?: string | null
           status?: string
           storage_location?: string | null
@@ -1561,6 +1569,8 @@ export type Database = {
           blocked_quantity?: number
           confirmation_no?: string | null
           created_at?: string
+          customer_code?: string | null
+          customer_name?: string | null
           grn_date?: string | null
           grn_item_no?: string | null
           grn_number?: string | null
@@ -1575,6 +1585,8 @@ export type Database = {
           po_number?: string | null
           posting_date?: string | null
           production_order_no?: string | null
+          sales_item?: string | null
+          sales_order?: string | null
           source?: string | null
           status?: string
           storage_location?: string | null
