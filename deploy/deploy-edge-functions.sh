@@ -6,7 +6,7 @@
 ###############################################################################
 set -euo pipefail
 
-APP_DIR="/opt/MRB"
+APP_DIR="${APP_DIR:-/opt/MRB_NEW}"
 FRONTEND_DIR="$APP_DIR"
 SUPABASE_DIR="/opt/supabase/docker"
 ENV_FILE="$APP_DIR/.env"

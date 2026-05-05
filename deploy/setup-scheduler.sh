@@ -5,7 +5,7 @@
 ###############################################################################
 set -euo pipefail
 
-APP_DIR="/opt/MRB"
+APP_DIR="${APP_DIR:-/opt/MRB_NEW}"
 ENV_FILE="$APP_DIR/.env"
 
 if [ -f "$ENV_FILE" ]; then
