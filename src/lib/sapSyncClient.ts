@@ -1272,7 +1272,8 @@ async function mapAndInsertClientSide(
   aliasMap.zmrb_inward_report = {
     matnr: 'material_code', maktx: 'material_description',
     werks: 'plant', werk: 'plant', charg: 'batch', lgort: 'storage_location',
-    prueflos: 'inspection_lot', lifnr: 'vendor_code', name1: 'vendor_name',
+    prueflos: 'inspection_lot', lifnr: 'vendor_code', sellifnr: 'vendor_code',
+    name1: 'vendor_name',
     ebeln: 'po_number', ebelp: 'po_item_number', mblnr: 'grn_number',
     meins: 'uom', mengeneinh: 'uom', menge: 'blocked_quantity', lmenge04: 'blocked_quantity',
     qty: 'transaction_quantity', sgtxt: 'block_reason',
@@ -1280,7 +1281,9 @@ async function mapAndInsertClientSide(
     zeile: 'grn_item_no', bldat: 'grn_date',
     aufnr: 'production_order_no', arbpl: 'work_center', auart: 'order_type',
     rueck: 'confirmation_no', kunnr: 'customer_code', name1_cust: 'customer_name',
-    vbeln: 'sales_order', posnr: 'sales_item',
+    vbeln: 'sales_order', kdauf: 'sales_order', posnr: 'sales_item', kdpos: 'sales_item',
+    grn_item_no: 'grn_item_no', grn_date: 'grn_date',
+    inspection_lot: 'inspection_lot', material_code: 'material_code', plant: 'plant',
   };
 
   const requiredByTable: Record<string, string[]> = {
@@ -1408,6 +1411,20 @@ async function mapAndInsertClientSide(
         ? { onConflict: 'stock_key' }
         : undefined;
 
+      // Pre-fetch existing keys so we can report inserted vs updated correctly
+      let newKeyCount = 0;
+      if (tableName === 'zmrb_inward_report' || tableName === 'inward_inspection_lots') {
+        const lotKeys = batch.map((r: any) => r.inspection_lot).filter(Boolean);
+        if (lotKeys.length > 0) {
+          const { data: existing } = await supabase
+            .from(tableName as 'zmrb_inward_report')
+            .select('inspection_lot')
+            .in('inspection_lot', lotKeys);
+          const existingSet = new Set((existing || []).map((r: any) => r.inspection_lot));
+          newKeyCount = lotKeys.filter((k) => !existingSet.has(k)).length;
+        }
+      }
+
       const { data, error } = await (supabase
         .from(tableName as 'shop_floor_stock')
         .upsert(batch as any, upsertOptions as any) as any)
@@ -1420,7 +1437,13 @@ async function mapAndInsertClientSide(
       }
       
       console.log(`[SAP Sync DB] Supabase Upsert Success for ${tableName}. Returned data length:`, data?.length);
-      result.inserted += data?.length || 0;
+      const total = data?.length || 0;
+      if (tableName === 'zmrb_inward_report' || tableName === 'inward_inspection_lots') {
+        result.inserted += newKeyCount;
+        result.updated += Math.max(0, total - newKeyCount);
+      } else {
+        result.inserted += total;
+      }
     }
   }
 
