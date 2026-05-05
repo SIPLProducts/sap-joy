@@ -1132,7 +1132,11 @@ export default function Worklist() {
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              {mrb.inspectionLot ? 'Result Recording' : 'Inspection Lot missing'}
+                              {mrb.inspectionLot
+                                ? 'Result Recording'
+                                : mrb.source === 'shop_floor'
+                                  ? 'Not applicable for Shop Floor MRBs'
+                                  : 'Inspection Lot not yet assigned'}
                             </TooltipContent>
                           </Tooltip>
                         </div>
@@ -1319,7 +1323,11 @@ export default function Worklist() {
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              {mrb.inspectionLot ? 'Result Recording' : 'Inspection Lot missing'}
+                              {mrb.inspectionLot
+                                ? 'Result Recording'
+                                : mrb.source === 'shop_floor'
+                                  ? 'Not applicable for Shop Floor MRBs'
+                                  : 'Inspection Lot not yet assigned'}
                             </TooltipContent>
                           </Tooltip>
                           {mrb.status === 'approved' && mrb.sapStockUpdateStatus === 'synced' ? (
