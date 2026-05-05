@@ -1,41 +1,40 @@
-I found two likely causes for the on-prem issue:
+## Goal
 
-1. The In-Process page may be selecting the wrong active SAP config. It currently chooses the newest active config whose name contains `process`; if the self-hosted database still has older/duplicated configs or incomplete mappings, it can sync SAP successfully but write nothing to `zmrb_inward_report`.
-2. The self-hosted migration path is inconsistent (`/opt/MRB` vs `/opt/MRB_NEW`), so the patch may not actually be applied to the database used by the deployed app.
+Replace the current Result Recording modal columns with a fixed 9-column layout, applied identically to both the parent CHAR rows and the expanded RESVAL sub-rows, with values resolved per the user's mapping rules.
 
-Plan to fix:
+## Target columns (same for CHAR and RESVAL)
 
-1. Harden the In-Process API config selection
-   - Update `src/pages/InwardInProcessReport.tsx` to explicitly prefer `ZMRB_Inward_Process`.
-   - Require the chosen config to have response mappings to `zmrb_inward_report`.
-   - Avoid falling back to `ZMRB_Inward_Inspection`, because that config maps to `inward_inspection_lots` and will not show on the In-Process screen.
-   - If no valid config exists, show a clear toast/message instead of silently using the wrong config.
+| # | Label | CHAR source | RESVAL source |
+|---|-------|-------------|---------------|
+| 1 | Char NO | `CHAR.INSPCHAR` | `RESVAL.RES_NO` |
+| 2 | Char Type | `CHAR.KATAB1` | parent `CHAR.KATAB1` |
+| 3 | Characteristic Name | `CHAR.KURZTEXT` | parent `CHAR.KURZTEXT` |
+| 4 | Specifications | `CHAR.TOLGRENZE` | parent `CHAR.TOLGRENZE` |
+| 5 | Sample | `CHAR.SOLLSTPUMF` | parent `CHAR.SOLLSTPUMF` |
+| 6 | Result | If `KATAB1=='X'` → `CHAR.NONCONF`, else `CHAR.MEAN_VALUE` | `RESVAL.RES_VALUE` |
+| 7 | Visual Result | If `BEWERTUNG=='A'` → `CHAR.CODE_DESP`; if `BEWERTUNG=='R'` → `CHAR.CODE_DESP_1` | (blank — visual is per-char) |
+| 8 | A/R | `CHAR.BEWERTUNG` (badge: A green, R red) | parent `CHAR.BEWERTUNG` |
+| 9 | Remarks | `CHAR.REMARK` | `RESVAL.REMARK` |
 
-2. Harden self-hosted client-side sync mapping
-   - Update `src/lib/sapSyncClient.ts` so manual sync reports accurate inserted vs updated counts for `zmrb_inward_report`, not just returned row count.
-   - Add safer SAP field aliases for known In-Process fields such as `SELLIFNR`, `KDAUF`, `KDPOS`, `GRN_ITEM_NO`, and existing direct DB column aliases.
-   - Improve returned error details when all fetched rows are dropped due to missing mapped required fields, so future failures show exactly which SAP keys were received.
+RESVAL sub-table inherits parent CHAR values for columns where the user specified `CHARS.*` on the RESVAL side, so each result-value row is fully self-describing.
 
-3. Fix the self-hosted SQL patch so it applies to existing installations reliably
-   - Add a new idempotent migration that:
-     - Ensures `zmrb_inward_report` table/columns/index/RLS exist.
-     - Ensures `ZMRB_Inward_Process` config exists and is active.
-     - Ensures all `ZMRB_Inward_Process` request fields are present with `ART='04'`.
-     - Replaces/repairs response mappings for that config so mapped fields target `zmrb_inward_report`.
-     - Sets old `ZMRB_Inward_Inspection` inactive for In-Process screen usage only if needed, or leaves it active but prevents the In-Process page from selecting it.
-   - Generate a standalone SQL file in `/mnt/documents/` for direct application on the on-prem server.
+## Changes
 
-4. Fix deployment script path inconsistency
-   - Align `deploy/setup-db.sh`, `deploy/start.sh`, `deploy/restart.sh`, `deploy/deploy-edge-functions.sh`, and related scripts to use a single app directory convention.
-   - Based on the current install/update scripts, I will standardize to `/opt/MRB_NEW` unless the existing scripts already have a safe env override.
-   - Add an override variable pattern like `APP_DIR="${APP_DIR:-/opt/MRB_NEW}"` so future installs can still customize.
+**File: `src/components/mrb/ResultRecordingModal.tsx`**
 
-5. Provide exact on-prem verification commands
-   - Include SQL checks to verify:
-     - Which SAP config the In-Process page should use.
-     - How many response mappings point to `zmrb_inward_report`.
-     - Whether the last sync history contains hidden errors.
-     - Whether rows exist in `zmrb_inward_report`.
-   - Include restart/rebuild commands so the browser uses the updated client code.
+1. Remove `loadColumnConfig`, the dynamic `cols` state, `DEFAULT_HEADER_FIELDS`, `DEFAULT_CHAR_COLUMNS`, `DEFAULT_RESVAL_COLUMNS`, and the related `useEffect`. Columns are now fixed per spec.
+2. Define a single constant `RESULT_COLUMNS` (array of 9 `{key,label}` items) used for both header rows.
+3. Add two pure resolver helpers:
+   - `resolveCharCell(col, char)` — applies the conditional logic for Result and Visual Result.
+   - `resolveResvalCell(col, char, resval)` — for Char NO uses `RES_NO`, for Result uses `RES_VALUE`, for Remarks uses `RESVAL.REMARK`, Visual Result returns blank, all other columns inherit from parent `char`.
+4. Render the CHAR table using `RESULT_COLUMNS` with `resolveCharCell`. Keep the existing expand/collapse chevron column.
+5. Render the RESVAL sub-table with the same `RESULT_COLUMNS` headers (no chevron column) using `resolveResvalCell`.
+6. Keep the A/R badge styling (green for `A`, red for `R`) in both tables.
+7. Keep header summary block (Inspection Lot / Material / Batch / GRN / Vendor / Lot Qty / UoM) unchanged — it is independent of the row columns.
+8. Empty / null values render as `-` (existing `fmt` helper).
 
-After approval, I will implement the code changes, create the new migration and downloadable SQL patch, and provide the exact commands to run on your on-prem server.
+## Out of scope
+
+- No DB/migration changes (column config is no longer read from `sap_api_response_fields` for this modal).
+- No backend / edge-function changes.
+- No changes to how Result Recording data is fetched (`invokeResultRecording`).
