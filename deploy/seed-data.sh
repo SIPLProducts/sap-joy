@@ -6,7 +6,7 @@
 ###############################################################################
 set -euo pipefail
 
-APP_DIR="/opt/MRB"
+APP_DIR="${APP_DIR:-/opt/MRB_NEW}"
 ENV_FILE="$APP_DIR/.env"
 
 if [ -f "$ENV_FILE" ]; then
@@ -26,6 +26,7 @@ echo "============================================"
 # Find seed SQL file (check multiple locations)
 SEED_FILE=""
 for path in \
+  "$APP_DIR/deploy/seed-data.sql" \
   "$APP_DIR/frontend/deploy/seed-data.sql" \
   "$APP_DIR/scripts/seed-data.sql" \
   "$(dirname "$0")/seed-data.sql"; do

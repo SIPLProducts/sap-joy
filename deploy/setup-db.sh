@@ -6,7 +6,7 @@
 ###############################################################################
 set -euo pipefail
 
-APP_DIR="/opt/MRB"
+APP_DIR="${APP_DIR:-/opt/MRB_NEW}"
 ENV_FILE="$APP_DIR/.env"
 
 if [ -f "$ENV_FILE" ]; then
@@ -91,7 +91,13 @@ echo "  ✓ Migration tracking ready"
 ###############################################################################
 echo "[4/6] Applying migrations..."
 
-MIGRATION_DIR="$APP_DIR/frontend/supabase/migrations"
+# Migrations live alongside the source. Support both legacy ($APP_DIR/frontend)
+# and current layout (rsync copies project root into $APP_DIR directly).
+if [ -d "$APP_DIR/supabase/migrations" ]; then
+  MIGRATION_DIR="$APP_DIR/supabase/migrations"
+else
+  MIGRATION_DIR="$APP_DIR/frontend/supabase/migrations"
+fi
 
 if [ ! -d "$MIGRATION_DIR" ]; then
   echo "  ⚠ No migration directory found at $MIGRATION_DIR"

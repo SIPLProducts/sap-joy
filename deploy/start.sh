@@ -5,7 +5,7 @@
 ###############################################################################
 set -euo pipefail
 
-APP_DIR="/opt/MRB"
+APP_DIR="${APP_DIR:-/opt/MRB_NEW}"
 BACKEND_DIR="$APP_DIR/sap-proxy/mrb-backend"
 LOG_DIR="/var/log/mrb"
 ENV_FILE="$APP_DIR/.env"

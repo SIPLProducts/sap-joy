@@ -7,7 +7,7 @@
 set -euo pipefail
 
 SUPABASE_DIR="/opt/supabase"
-APP_DIR="/opt/MRB"
+APP_DIR="${APP_DIR:-/opt/MRB_NEW}"
 ENV_FILE="$APP_DIR/.env"
 
 # Detect server IP (LAN) — fallback to localhost

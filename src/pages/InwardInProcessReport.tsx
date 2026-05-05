@@ -105,25 +105,48 @@ export default function InwardReport() {
   // Fetch the inward SAP API config on mount
   useEffect(() => {
     const fetchSapConfig = async () => {
-      const { data } = await supabase
+      // Only consider configs whose response fields actually map to
+      // `zmrb_inward_report` (the table this screen reads from).
+      // This prevents the page from accidentally syncing an older config
+      // (e.g. ZMRB_Inward_Inspection) whose mappings target a different table,
+      // which would result in successful SAP fetches but no visible rows here.
+      const { data: configs } = await supabase
         .from('sap_api_config')
         .select('id, config_name, last_sync_at')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
-      
-      if (data && data.length > 0) {
-        // Prefer the dedicated in-process (ZMRB04) config
-        const processConfig = data.find(c =>
-          c.config_name.toLowerCase().includes('process')
-        );
-        const inwardConfig = data.find(c =>
-          c.config_name.toLowerCase().includes('zmrb') ||
-          c.config_name.toLowerCase().includes('inward')
-        );
-        const chosen = processConfig || inwardConfig || data[0];
-        setSapConfigId(chosen.id);
-        setLastSyncAt(chosen.last_sync_at);
+
+      if (!configs || configs.length === 0) {
+        toast.error('No active SAP API configuration found.');
+        return;
       }
+
+      const ids = configs.map((c) => c.id);
+      const { data: mappings } = await supabase
+        .from('sap_api_response_fields')
+        .select('config_id')
+        .in('config_id', ids)
+        .eq('map_to_table', 'zmrb_inward_report')
+        .not('map_to_column', 'is', null);
+
+      const validIds = new Set((mappings || []).map((m: any) => m.config_id));
+      const validConfigs = configs.filter((c) => validIds.has(c.id));
+
+      // Prefer config explicitly named for the in-process API
+      const processConfig = validConfigs.find((c) =>
+        c.config_name.toLowerCase().includes('process')
+      );
+      const chosen = processConfig || validConfigs[0];
+
+      if (!chosen) {
+        toast.error(
+          'No SAP config found with response mappings to zmrb_inward_report. Apply the In-Process patch on the database, then reload.'
+        );
+        return;
+      }
+
+      setSapConfigId(chosen.id);
+      setLastSyncAt(chosen.last_sync_at);
     };
     fetchSapConfig();
   }, []);
