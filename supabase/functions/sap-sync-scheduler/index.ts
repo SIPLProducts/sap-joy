@@ -751,6 +751,15 @@ async function mapAndInsertData(
     materials: new Set(['material_number', 'description', 'uom', 'category']),
     vendors: new Set(['code', 'name', 'contact_email', 'contact_phone', 'address', 'is_active']),
   }
+  allowedColumnsByTable.zmrb_inward_report = new Set([
+    'inspection_lot','material_code','material_description','plant',
+    'storage_location','batch','uom','blocked_quantity','transaction_quantity',
+    'status','block_reason','vendor_code','vendor_name','po_number','po_item_number',
+    'grn_number','grn_item_no','grn_date','inspection_date','posting_date',
+    'production_order_no','work_center','order_type','confirmation_no',
+    'customer_code','customer_name','sales_order','sales_item',
+    'uploaded_by','upload_batch_id','source',
+  ])
 
   // Alias maps matching manual sync exactly
   const aliasMapByTable: Record<string, Record<string, string>> = {
@@ -783,6 +792,19 @@ async function mapAndInsertData(
       vendor_code: 'code', lifnr: 'code', vendor_name: 'name', name1: 'name',
     },
   }
+  aliasMapByTable.zmrb_inward_report = {
+    matnr: 'material_code', maktx: 'material_description',
+    werks: 'plant', werk: 'plant', charg: 'batch', lgort: 'storage_location',
+    prueflos: 'inspection_lot', lifnr: 'vendor_code', name1: 'vendor_name',
+    ebeln: 'po_number', ebelp: 'po_item_number', mblnr: 'grn_number',
+    meins: 'uom', mengeneinh: 'uom', menge: 'blocked_quantity', lmenge04: 'blocked_quantity',
+    qty: 'transaction_quantity', sgtxt: 'block_reason',
+    enstehdat: 'inspection_date', budat_mkpf: 'posting_date',
+    zeile: 'grn_item_no', bldat: 'grn_date',
+    aufnr: 'production_order_no', arbpl: 'work_center', auart: 'order_type',
+    rueck: 'confirmation_no', kunnr: 'customer_code', name1_cust: 'customer_name',
+    vbeln: 'sales_order', posnr: 'sales_item',
+  }
 
   const requiredByTable: Record<string, string[]> = {
     shop_floor_stock: ['plant', 'material_code', 'available_quantity'],
@@ -790,6 +812,7 @@ async function mapAndInsertData(
     materials: ['material_number', 'description'],
     vendors: ['code', 'name'],
   }
+  requiredByTable.zmrb_inward_report = ['inspection_lot', 'material_code', 'plant']
 
   const tableFieldMap = new Map<string, any[]>()
   responseFields.forEach((field: any) => {
@@ -861,6 +884,11 @@ async function mapAndInsertData(
 
       if (tableName === 'inward_inspection_lots') {
         row.status = row.status || 'pending'
+      }
+
+      if (tableName === 'zmrb_inward_report') {
+        row.status = row.status || 'pending'
+        row.source = row.source || 'sap_api'
       }
 
       const missing = (requiredByTable[tableName] || []).filter(
@@ -959,6 +987,37 @@ async function mapAndInsertData(
         result.inserted += newKeyCount
         result.updated += Math.max(0, totalProcessed - newKeyCount)
 
+        console.log(`[scheduler] ${tableName} batch: ${newKeyCount} new, ${totalProcessed - newKeyCount} updated`)
+      }
+    } else if (tableName === 'zmrb_inward_report') {
+      // UPSERT on inspection_lot
+      for (let i = 0; i < rows.length; i += batchSize) {
+        const batch = rows.slice(i, i + batchSize)
+        const lotKeys = batch.map((r: any) => r.inspection_lot).filter(Boolean)
+        const existingKeys = new Set<string>()
+        if (lotKeys.length > 0) {
+          const { data: existingRows } = await supabase
+            .from(tableName)
+            .select('inspection_lot')
+            .in('inspection_lot', lotKeys)
+          for (const row of existingRows || []) {
+            existingKeys.add(row.inspection_lot)
+          }
+        }
+        const newKeyCount = lotKeys.filter((k: string) => !existingKeys.has(k)).length
+
+        const { data, error } = await supabase
+          .from(tableName)
+          .upsert(batch, { onConflict: 'inspection_lot', ignoreDuplicates: false })
+          .select()
+        if (error) {
+          console.log(`[scheduler] Upsert error for ${tableName}:`, error.message)
+          result.errors.push(`Error upserting into ${tableName}: ${error.message}`)
+          break
+        }
+        const totalProcessed = data?.length || 0
+        result.inserted += newKeyCount
+        result.updated += Math.max(0, totalProcessed - newKeyCount)
         console.log(`[scheduler] ${tableName} batch: ${newKeyCount} new, ${totalProcessed - newKeyCount} updated`)
       }
     } else {
