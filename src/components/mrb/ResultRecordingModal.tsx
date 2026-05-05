@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronRight, ChevronDown, Loader2, AlertTriangle } from 'lucide-react';
 import { invokeResultRecording } from '@/lib/sapSyncClient';
 import { toast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   open: boolean;
@@ -27,75 +26,44 @@ const DEFAULT_HEADER_FIELDS: Col[] = [
   { key: 'MENGENEINH', label: 'UoM' },
 ];
 
-const DEFAULT_CHAR_COLUMNS: Col[] = [
-  { key: 'INSPCHAR', label: 'Char #' },
-  { key: 'KURZTEXT', label: 'Characteristic' },
-  { key: 'CODE_DESP', label: 'Result' },
-  { key: 'BEWERTUNG', label: 'Valuation' },
-  { key: 'SOLLSTPUMF', label: 'Required Samples' },
-  { key: 'MENGENEINH', label: 'UoM' },
-  { key: 'TOLGRENZE', label: 'Tolerance' },
+const RESULT_COLUMNS: Col[] = [
+  { key: 'CHAR_NO', label: 'Char NO' },
+  { key: 'CHAR_TYPE', label: 'Char Type' },
+  { key: 'CHAR_NAME', label: 'Characteristic Name' },
+  { key: 'SPECIFICATIONS', label: 'Specifications' },
+  { key: 'SAMPLE', label: 'Sample' },
+  { key: 'RESULT', label: 'Result' },
+  { key: 'VISUAL_RESULT', label: 'Visual Result' },
+  { key: 'AR', label: 'A/R' },
+  { key: 'REMARKS', label: 'Remarks' },
 ];
 
-const DEFAULT_RESVAL_COLUMNS: Col[] = [
-  { key: 'INSPCHAR', label: 'Char #' },
-  { key: 'RES_NO', label: 'Res #' },
-  { key: 'RES_VALUE', label: 'Value' },
-  { key: 'RES_VALUAT', label: 'Valuation' },
-  { key: 'INSPECTOR', label: 'Inspector' },
-  { key: 'CODE1', label: 'Code' },
-  { key: 'ORIGINAL_INPUT', label: 'Original Input' },
-  { key: 'REMARK', label: 'Remark' },
-  { key: 'BATCH', label: 'Batch' },
-  { key: 'FORMULA', label: 'Formula' },
-];
+function resolveCharCell(key: string, c: any): any {
+  switch (key) {
+    case 'CHAR_NO': return c?.INSPCHAR;
+    case 'CHAR_TYPE': return c?.KATAB1;
+    case 'CHAR_NAME': return c?.KURZTEXT;
+    case 'SPECIFICATIONS': return c?.TOLGRENZE;
+    case 'SAMPLE': return c?.SOLLSTPUMF;
+    case 'RESULT':
+      return String(c?.KATAB1) === 'X' ? c?.NONCONF : c?.MEAN_VALUE;
+    case 'VISUAL_RESULT':
+      if (c?.BEWERTUNG === 'A') return c?.CODE_DESP;
+      if (c?.BEWERTUNG === 'R') return c?.CODE_DESP_1;
+      return '';
+    case 'AR': return c?.BEWERTUNG;
+    case 'REMARKS': return c?.REMARK;
+    default: return '';
+  }
+}
 
-/**
- * Read configurable column definitions from sap_api_response_fields.
- * Convention used in seed:
- *   description = 'header' | 'char' | 'resval'
- *   json_path   = 'INSPLOT' | 'CHAR[].INSPCHAR' | 'RESVAL[].RES_NO'
- * Falls back to DEFAULT_* lists when no rows are configured.
- */
-async function loadColumnConfig(): Promise<{ header: Col[]; char: Col[]; resval: Col[] }> {
-  try {
-    const { data: cfg } = await supabase
-      .from('sap_api_config')
-      .select('id')
-      .or('config_name.ilike.%result%record%,endpoint_path.ilike.%result%record%')
-      .order('is_active', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (!cfg?.id) return { header: DEFAULT_HEADER_FIELDS, char: DEFAULT_CHAR_COLUMNS, resval: DEFAULT_RESVAL_COLUMNS };
-
-    const { data: rows } = await supabase
-      .from('sap_api_response_fields')
-      .select('field_name, sap_field_name, json_path, description, sort_order')
-      .eq('config_id', cfg.id)
-      .order('sort_order', { ascending: true });
-
-    const header: Col[] = [];
-    const char: Col[] = [];
-    const resval: Col[] = [];
-    for (const r of rows || []) {
-      const path = r.json_path || r.sap_field_name || '';
-      const label = r.field_name || r.sap_field_name || path;
-      // Strip array prefix to get the leaf key actually present in each item
-      const leaf = path.includes('[].') ? path.split('[].').pop() || path : path;
-      const col: Col = { key: leaf, label };
-      const bucket = (r.description || '').toLowerCase();
-      if (bucket === 'header' || (!bucket && !path.includes('[]'))) header.push(col);
-      else if (bucket === 'char' || path.startsWith('CHAR[].')) char.push(col);
-      else if (bucket === 'resval' || path.startsWith('RESVAL[].')) resval.push(col);
-    }
-    return {
-      header: header.length ? header : DEFAULT_HEADER_FIELDS,
-      char: char.length ? char : DEFAULT_CHAR_COLUMNS,
-      resval: resval.length ? resval : DEFAULT_RESVAL_COLUMNS,
-    };
-  } catch (e) {
-    console.warn('[ResultRecording] failed to load column config, using defaults', e);
-    return { header: DEFAULT_HEADER_FIELDS, char: DEFAULT_CHAR_COLUMNS, resval: DEFAULT_RESVAL_COLUMNS };
+function resolveResvalCell(key: string, c: any, r: any): any {
+  switch (key) {
+    case 'CHAR_NO': return r?.RES_NO;
+    case 'RESULT': return r?.RES_VALUE;
+    case 'REMARKS': return r?.REMARK;
+    case 'VISUAL_RESULT': return '';
+    default: return resolveCharCell(key, c);
   }
 }
 
@@ -104,16 +72,7 @@ export function ResultRecordingModal({ open, onClose, inspectionLot, inspOper }:
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<any>(null);
   const [expanded, setExpanded] = useState<Set<string | number>>(new Set());
-  const [cols, setCols] = useState<{ header: Col[]; char: Col[]; resval: Col[] }>({
-    header: DEFAULT_HEADER_FIELDS,
-    char: DEFAULT_CHAR_COLUMNS,
-    resval: DEFAULT_RESVAL_COLUMNS,
-  });
-
-  useEffect(() => {
-    if (!open) return;
-    loadColumnConfig().then(setCols);
-  }, [open]);
+  const headerFields = DEFAULT_HEADER_FIELDS;
 
   useEffect(() => {
     if (!open || !inspectionLot) return;
@@ -190,7 +149,7 @@ export function ResultRecordingModal({ open, onClose, inspectionLot, inspOper }:
           {data && !loading && !error && (
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 rounded-md border bg-muted/30">
-                {cols.header.map(f => (
+                {headerFields.map(f => (
                   <div key={f.key + f.label} className="text-xs">
                     <div className="text-muted-foreground">{f.label}</div>
                     <div className="font-medium break-all">{fmt(data[f.key])}</div>
@@ -203,7 +162,7 @@ export function ResultRecordingModal({ open, onClose, inspectionLot, inspOper }:
                   <thead className="bg-muted/50">
                     <tr>
                       <th className="w-10 p-2"></th>
-                      {cols.char.map(c => (
+                      {RESULT_COLUMNS.map(c => (
                         <th key={c.key + c.label} className="p-2 text-left font-medium text-muted-foreground whitespace-nowrap">{c.label}</th>
                       ))}
                     </tr>
@@ -211,7 +170,7 @@ export function ResultRecordingModal({ open, onClose, inspectionLot, inspOper }:
                   <tbody>
                     {chars.length === 0 ? (
                       <tr>
-                        <td colSpan={cols.char.length + 1} className="p-6 text-center text-muted-foreground">
+                        <td colSpan={RESULT_COLUMNS.length + 1} className="p-6 text-center text-muted-foreground">
                           No characteristics returned for this inspection lot.
                         </td>
                       </tr>
@@ -233,17 +192,20 @@ export function ResultRecordingModal({ open, onClose, inspectionLot, inspOper }:
                                 {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                               </Button>
                             </td>
-                            {cols.char.map(col => (
-                              <td key={col.key + col.label} className="p-2 align-middle whitespace-nowrap">
-                                {col.key === 'BEWERTUNG' && c[col.key] ? (
-                                  <Badge variant={c[col.key] === 'A' ? 'default' : 'destructive'}>{c[col.key]}</Badge>
-                                ) : fmt(c[col.key])}
-                              </td>
-                            ))}
+                            {RESULT_COLUMNS.map(col => {
+                              const v = resolveCharCell(col.key, c);
+                              return (
+                                <td key={col.key + col.label} className="p-2 align-middle whitespace-nowrap">
+                                  {col.key === 'AR' && v ? (
+                                    <Badge variant={v === 'A' ? 'default' : 'destructive'}>{v}</Badge>
+                                  ) : fmt(v)}
+                                </td>
+                              );
+                            })}
                           </tr>
                           {isOpen && (
                             <tr className="bg-muted/20">
-                              <td colSpan={cols.char.length + 1} className="p-3">
+                              <td colSpan={RESULT_COLUMNS.length + 1} className="p-3">
                                 <div className="text-xs font-medium text-muted-foreground mb-2">
                                   Result Values (RESVAL) for INSPCHAR {String(c.INSPCHAR)}
                                 </div>
@@ -254,7 +216,7 @@ export function ResultRecordingModal({ open, onClose, inspectionLot, inspOper }:
                                     <table className="w-full text-xs">
                                       <thead className="bg-muted/40">
                                         <tr>
-                                          {cols.resval.map(rc => (
+                                          {RESULT_COLUMNS.map(rc => (
                                             <th key={rc.key + rc.label} className="p-2 text-left font-medium text-muted-foreground whitespace-nowrap">{rc.label}</th>
                                           ))}
                                         </tr>
@@ -262,9 +224,16 @@ export function ResultRecordingModal({ open, onClose, inspectionLot, inspOper }:
                                       <tbody>
                                         {subRows.map((r, i) => (
                                           <tr key={i} className="border-t">
-                                            {cols.resval.map(rc => (
-                                              <td key={rc.key + rc.label} className="p-2 whitespace-nowrap">{fmt(r[rc.key])}</td>
-                                            ))}
+                                            {RESULT_COLUMNS.map(rc => {
+                                              const v = resolveResvalCell(rc.key, c, r);
+                                              return (
+                                                <td key={rc.key + rc.label} className="p-2 whitespace-nowrap">
+                                                  {rc.key === 'AR' && v ? (
+                                                    <Badge variant={v === 'A' ? 'default' : 'destructive'}>{v}</Badge>
+                                                  ) : fmt(v)}
+                                                </td>
+                                              );
+                                            })}
                                           </tr>
                                         ))}
                                       </tbody>
