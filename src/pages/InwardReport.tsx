@@ -191,7 +191,7 @@ export default function InwardReport() {
       }
     }, AUTO_REFRESH_MS);
     return () => clearInterval(interval);
-  }, [refreshData]);
+  }, [refreshData, sapConfigId]);
 
   const handleStartEditQty = (record: InspectionLotRecord) => {
     setEditingQtyId(record.id);
