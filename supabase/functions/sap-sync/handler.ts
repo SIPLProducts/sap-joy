@@ -1030,25 +1030,9 @@ async function callSAPApi(
         requestBody[key] = requestOverrides[key]
         return
       }
-      if (field.is_required || (field.default_value && String(field.default_value).trim() !== '')) {
-        let val = field.default_value ?? ''
-        if (key === 'ART' || key === 'INSPECTION_TYPE') {
-          val = String(val).trim().padStart(2, '0')
-        }
-        requestBody[key] = val
-      }
+      // Always include the field; use default if provided, else empty string (pre-regression behavior)
+      requestBody[key] = field.default_value ?? ''
     })
-
-    if (config.max_records) {
-      if (requestBody.MAX_ROWS === undefined) requestBody.MAX_ROWS = config.max_records
-      if (requestBody.MAX_HITS === undefined) requestBody.MAX_HITS = config.max_records
-    }
-
-    for (const optionalKey of ['MATNR', 'CHARG']) {
-      if (requestBody[optionalKey] !== undefined && String(requestBody[optionalKey]).trim() === '') {
-        delete requestBody[optionalKey]
-      }
-    }
   }
 
   let finalUrl = url
