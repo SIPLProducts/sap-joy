@@ -601,6 +601,13 @@ async function directSync(
       if (requestFields?.length) {
         requestFields.forEach((field: any) => {
           const key = field.sap_field_name || field.field_name;
+          // Explicit per-call overrides win over default_value.
+          // Used to force ART=01 for Inward Inspection vs ART=04 for In-Process.
+          const overrides = (body.request_overrides || {}) as Record<string, any>;
+          if (overrides[key] !== undefined) {
+            requestBody[key] = overrides[key];
+            return;
+          }
           if (field.is_required || (field.default_value && String(field.default_value).trim() !== '')) {
             let val = field.default_value ?? '';
             

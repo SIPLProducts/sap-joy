@@ -162,6 +162,15 @@ Deno.serve({ port }, async (req) => {
             plantOverrides['WERK'] = plantCode
           }
 
+          // Force-set ART based on config name so a wrong default_value in DB
+          // can never silently swap Inward Inspection (01) and In-Process (04).
+          const cn = String(config.config_name || '').toLowerCase()
+          if (cn.includes('inward') && cn.includes('inspection') && !cn.includes('process')) {
+            plantOverrides['ART'] = '01'
+          } else if (cn.includes('process')) {
+            plantOverrides['ART'] = '04'
+          }
+
           const sapResponse = await callSAPApi(config, requestFields || [], plantOverrides)
 
           if (!sapResponse.success) {
