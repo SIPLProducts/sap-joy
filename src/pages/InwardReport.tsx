@@ -105,21 +105,48 @@ export default function InwardReport() {
   // Fetch the inward SAP API config on mount
   useEffect(() => {
     const fetchSapConfig = async () => {
-      const { data } = await supabase
+      const { data: configs } = await supabase
         .from('sap_api_config')
         .select('id, config_name, last_sync_at')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
-      
-      if (data && data.length > 0) {
-        const inwardConfig = data.find(c => 
-          c.config_name.toLowerCase().includes('zmrb') || 
-          c.config_name.toLowerCase().includes('inward')
-        );
-        const chosen = inwardConfig || data[0];
-        setSapConfigId(chosen.id);
-        setLastSyncAt(chosen.last_sync_at);
+
+      if (!configs || configs.length === 0) {
+        toast.error('No active SAP API configuration found.');
+        return;
       }
+
+      // Only consider configs whose response fields actually map to
+      // `inward_inspection_lots` (the table this Materials page reads from).
+      // Without this filter, the page can pick the In-Process config
+      // (which targets `zmrb_inward_report` and sends ART=04), making the
+      // Inward Materials sync behave like the In-Process sync.
+      const ids = configs.map((c) => c.id);
+      const { data: mappings } = await supabase
+        .from('sap_api_response_fields')
+        .select('config_id')
+        .in('config_id', ids)
+        .eq('map_to_table', 'inward_inspection_lots')
+        .not('map_to_column', 'is', null);
+
+      const validIds = new Set((mappings || []).map((m: any) => m.config_id));
+      const validConfigs = configs.filter((c) => validIds.has(c.id));
+
+      // Prefer config explicitly named for inward inspection
+      const inspectionConfig = validConfigs.find((c) =>
+        c.config_name.toLowerCase().includes('inspection')
+      );
+      const chosen = inspectionConfig || validConfigs[0];
+
+      if (!chosen) {
+        toast.error(
+          'No SAP config found with response mappings to inward_inspection_lots. Check SAP API Settings.'
+        );
+        return;
+      }
+
+      setSapConfigId(chosen.id);
+      setLastSyncAt(chosen.last_sync_at);
     };
     fetchSapConfig();
   }, []);
