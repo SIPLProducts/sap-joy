@@ -1,37 +1,66 @@
-## Problem
+## Root cause
 
-On `/inward/report` (MRB Inward Materials), clicking Refresh / Sync hits the **In‑Process** SAP API (ART=04) and shows "Fetched 5, Inserted 5" — the In‑Process numbers — instead of the Inward Inspection numbers (ART=01).
+Edge function logs show that when the user clicks Refresh on `/inward/report`, `sap-sync` calls SAP and gets back **HTTP 200** with body `Data is not available` (plain text, 21 bytes).
 
-Root cause confirmed against the DB:
+`callSAPApi` in `supabase/functions/sap-sync/handler.ts` (line ~1090) blindly does `JSON.parse(bodyText)` on any 200 response, which throws and returns:
 
-There are two active configs with "zmrb" in the name:
-- `ZMRB_Inward_Process` (created 2026‑04‑30) → maps to `zmrb_inward_report` (in‑process, ART=04)
-- `ZMRB_Inward_Inspection` (created 2026‑03‑16) → maps to `inward_inspection_lots` (inward, ART=01)
+> Response is not valid JSON: Data is not available
 
-`src/pages/InwardReport.tsx` currently uses simple keyword matching (`includes('zmrb') || includes('inward')`) ordered by `created_at desc`, so the newer `ZMRB_Inward_Process` is always chosen. The previous keyword logic worked only because the In‑Process config didn't exist before.
+That is the alert the user sees.
 
-The In‑Process page (`InwardInProcessReport.tsx`) already does the right thing: it joins `sap_api_response_fields` and filters by `map_to_table = 'zmrb_inward_report'`.
+There are also two reasons SAP is returning that plain-text "no data" reply for the Inward Inspection (ART=01) call but not for In-Process:
+
+1. The manual `callSAPApi` does not add `MAX_ROWS` / `MAX_HITS` to the request body, while the scheduler (`sap-sync-scheduler/index.ts`, lines 639-642) does. SAP for ZMRB_Inward_Inspection appears to return "Data is not available" without those bounds.
+2. `callSAPApi` does not pad `ART` to 2 digits and does not strip empty `MATNR` / `CHARG`, while the scheduler does (lines 632-633, 644-648). Empty optional filters are interpreted by SAP as "match nothing".
+
+The In-Process page works because its config (ART=04) currently returns rows from SAP regardless. So both screens should use the same robust payload-building used by the scheduler.
 
 ## Fix
 
-Update `fetchSapConfig` in `src/pages/InwardReport.tsx` to mirror the In‑Process pattern, but filter for `map_to_table = 'inward_inspection_lots'`. Also fix the auto‑refresh `last_sync_at` lookup to read by the resolved `sapConfigId` instead of "first active config".
+Edit `supabase/functions/sap-sync/handler.ts` only.
 
-### Changes to `src/pages/InwardReport.tsx`
+### 1. Treat SAP "Data is not available" plain-text reply as success-with-zero-records
 
-1. `fetchSapConfig` (mount effect):
-   - Query active `sap_api_config` rows.
-   - Query `sap_api_response_fields` where `config_id IN (...)` and `map_to_table = 'inward_inspection_lots'`.
-   - Pick the first config whose id is in the resulting set (prefer one whose `config_name` contains `inspection` for stability, fallback to first valid).
-   - Toast error if none found.
+In `callSAPApi`, before `JSON.parse`, detect the SAP "no data" sentinel and return success with empty records, matching pre-regression behavior:
 
-2. Auto‑refresh effect (5‑min interval):
-   - Replace the "first active config" `last_sync_at` query with a lookup by `sapConfigId` (`.eq('id', sapConfigId).maybeSingle()`).
-   - Add `sapConfigId` to the effect's dependency array.
+```ts
+if (response.ok) {
+  const trimmed = bodyText.trim();
+  // SAP returns plain text "Data is not available" (HTTP 200) when filters match nothing.
+  if (/^data\s+is\s+not\s+available/i.test(trimmed)) {
+    return { success: true, data: [], debug };
+  }
+  try {
+    const jsonData = JSON.parse(bodyText);
+    const records = jsonData?.d?.results || jsonData?.value || jsonData?.data
+      || (Array.isArray(jsonData) ? jsonData : [jsonData]);
+    return { success: true, data: records, debug };
+  } catch {
+    return { success: false, error: `Response is not valid JSON: ${bodyText.substring(0, 200)}`, debug };
+  }
+}
+```
 
-3. No other logic changes — sync handler already passes `config_id: sapConfigId`, which will now be the correct ART=01 config.
+### 2. Mirror scheduler payload construction in `callSAPApi`
 
-## Why this is safe
+Replace the body-building block (lines 1024-1031) with the same logic used by `sap-sync-scheduler/index.ts` (lines 619-648):
 
-- In‑Process page is unaffected (different filter value).
-- Falls back gracefully with a toast if no mapping rows exist.
-- Mirrors a pattern already proven on the In‑Process screen.
+- Pad `ART` / `INSPECTION_TYPE` default values with `padStart(2, '0')`.
+- Skip optional fields that are not required and have no default value.
+- After build, if `config.max_records` is set, default `MAX_ROWS` and `MAX_HITS` to it.
+- Drop `MATNR` and `CHARG` if their value is an empty string.
+
+This restores the working behavior from ~10 days ago (before the In-Process screen was added) without touching the keyword-/mapping-based config selection that was reverted previously.
+
+## Files touched
+
+- `supabase/functions/sap-sync/handler.ts` — only `callSAPApi` (request-body builder + 200-response handling).
+
+No DB changes. No frontend changes. The In-Process page is unaffected because it already used the scheduler-style payload via its own path, and the new code only makes the manual path equally tolerant.
+
+## Verification
+
+After deploy:
+1. On `/inward/report`, click Refresh — instead of the "invalid json" alert, the user should see either inserted/updated counts (if SAP has rows) or a clean "0 fetched" success toast (if SAP responds "Data is not available").
+2. On `/inward/inprocess/report`, behavior is unchanged.
+3. Edge logs for `sap-sync` should show `Payload keys: WERKS, ART, MAX_ROWS, MAX_HITS` (matching scheduler) instead of `WERKS, ART, ...empty optionals`.
