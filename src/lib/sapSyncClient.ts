@@ -267,6 +267,8 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
         return ['mb52', '/sap/api/mb52', 'stock_report'];
       case 'update_transaction_qty':
         return ['344', '/sap/api/344', 'unrestricted_to_blocked'];
+      case 'result_recording':
+        return ['result', 'recording', '/result', '/recording'];
       default:
         return [];
     }
@@ -388,6 +390,10 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
 
     if (action === 'fetch_live') {
       return await directFetchLive(url, headers, config, body, proxyBaseUrl);
+    }
+
+    if (action === 'result_recording') {
+      return await directResultRecording(url, headers, config, body, proxyBaseUrl);
     }
 
     return { data: { success: false, error: 'Invalid action' }, error: null };
@@ -959,6 +965,63 @@ async function directUnblock(
     },
     error: null,
   };
+}
+
+async function directResultRecording(
+  url: string,
+  headers: Record<string, string>,
+  config: any,
+  body: Record<string, any>,
+  proxyBaseUrl: string,
+): Promise<{ data: any; error: any }> {
+  const { inspection_lot, insp_oper } = body;
+  if (!inspection_lot) {
+    return { data: { ok: false, error: 'inspection_lot is required' }, error: null };
+  }
+
+  const inspLotNum = Number(inspection_lot);
+  const inspOperStr = String(insp_oper || '0010').padStart(4, '0');
+  const sapPayload = {
+    GET: {
+      INSPLOT: Number.isFinite(inspLotNum) ? inspLotNum : inspection_lot,
+      INSPOPER: inspOperStr,
+    },
+  };
+
+  console.log('[SAP Result Recording Request] URL:', url);
+  console.log('[SAP Result Recording Request] Payload:', sapPayload);
+
+  const response = await proxyAwareFetch(proxyBaseUrl, url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(sapPayload),
+  }, config);
+
+  const bodyText = await response.text();
+  console.log('[SAP Result Recording Response] Status:', response.status, 'Length:', bodyText.length);
+
+  if (!response.ok) {
+    return {
+      data: {
+        ok: false,
+        error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
+        http_status: response.status,
+      },
+      error: null,
+    };
+  }
+
+  let parsed: any = null;
+  try {
+    parsed = bodyText ? JSON.parse(bodyText) : null;
+  } catch {
+    return {
+      data: { ok: false, error: 'SAP returned non-JSON response', raw: bodyText.substring(0, 500) },
+      error: null,
+    };
+  }
+
+  return { data: { ok: true, data: parsed, request: sapPayload }, error: null };
 }
 
 async function directUpdateQty(

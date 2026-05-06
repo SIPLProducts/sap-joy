@@ -203,46 +203,34 @@ export function ResultRecordingModal({ open, onClose, inspectionLot, inspOper }:
                               );
                             })}
                           </tr>
-                          {isOpen && (
-                            <tr className="bg-muted/20">
-                              <td colSpan={RESULT_COLUMNS.length + 1} className="p-3">
-                                <div className="text-xs font-medium text-muted-foreground mb-2">
-                                  Result Values (RESVAL) for INSPCHAR {String(c.INSPCHAR)}
-                                </div>
-                                {subRows.length === 0 ? (
-                                  <div className="text-sm text-muted-foreground italic">No result values recorded.</div>
-                                ) : (
-                                  <div className="border rounded overflow-x-auto bg-background">
-                                    <table className="w-full text-xs">
-                                      <thead className="bg-muted/40">
-                                        <tr>
-                                          {RESULT_COLUMNS.map(rc => (
-                                            <th key={rc.key + rc.label} className="p-2 text-left font-medium text-muted-foreground whitespace-nowrap">{rc.label}</th>
-                                          ))}
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {subRows.map((r, i) => (
-                                          <tr key={i} className="border-t">
-                                            {RESULT_COLUMNS.map(rc => {
-                                              const v = resolveResvalCell(rc.key, c, r);
-                                              return (
-                                                <td key={rc.key + rc.label} className="p-2 whitespace-nowrap">
-                                                  {rc.key === 'AR' && v ? (
-                                                    <Badge variant={v === 'A' ? 'default' : 'destructive'}>{v}</Badge>
-                                                  ) : fmt(v)}
-                                                </td>
-                                              );
-                                            })}
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                )}
+                          {isOpen && subRows.length === 0 && (
+                            <tr className="bg-muted/10 border-t">
+                              <td></td>
+                              <td colSpan={RESULT_COLUMNS.length} className="p-2 pl-8 text-xs italic text-muted-foreground">
+                                No result values recorded.
                               </td>
                             </tr>
                           )}
+                          {isOpen && subRows.map((r, i) => (
+                            <tr key={`sub-${key}-${i}`} className="border-t bg-muted/10 hover:bg-muted/20">
+                              <td></td>
+                              {RESULT_COLUMNS.map((col, ci) => {
+                                const v = col.key === 'CHAR_NO'
+                                  ? `${c?.INSPCHAR ?? ''}.${r?.RES_NO ?? ''}`
+                                  : resolveResvalCell(col.key, c, r);
+                                return (
+                                  <td
+                                    key={col.key + col.label}
+                                    className={`p-2 align-middle whitespace-nowrap ${ci === 0 ? 'pl-8' : ''}`}
+                                  >
+                                    {col.key === 'AR' && v ? (
+                                      <Badge variant={v === 'A' ? 'default' : 'destructive'}>{v}</Badge>
+                                    ) : fmt(v)}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
                         </Fragment>
                       );
                     })}
