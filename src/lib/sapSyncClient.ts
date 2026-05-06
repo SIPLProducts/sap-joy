@@ -267,6 +267,8 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
         return ['mb52', '/sap/api/mb52', 'stock_report'];
       case 'update_transaction_qty':
         return ['344', '/sap/api/344', 'unrestricted_to_blocked'];
+      case 'result_recording':
+        return ['result', 'recording', '/result', '/recording'];
       default:
         return [];
     }
@@ -388,6 +390,10 @@ async function invokeDirect(body: Record<string, any>): Promise<{ data: any; err
 
     if (action === 'fetch_live') {
       return await directFetchLive(url, headers, config, body, proxyBaseUrl);
+    }
+
+    if (action === 'result_recording') {
+      return await directResultRecording(url, headers, config, body, proxyBaseUrl);
     }
 
     return { data: { success: false, error: 'Invalid action' }, error: null };
