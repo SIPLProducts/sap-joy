@@ -967,6 +967,63 @@ async function directUnblock(
   };
 }
 
+async function directResultRecording(
+  url: string,
+  headers: Record<string, string>,
+  config: any,
+  body: Record<string, any>,
+  proxyBaseUrl: string,
+): Promise<{ data: any; error: any }> {
+  const { inspection_lot, insp_oper } = body;
+  if (!inspection_lot) {
+    return { data: { ok: false, error: 'inspection_lot is required' }, error: null };
+  }
+
+  const inspLotNum = Number(inspection_lot);
+  const inspOperStr = String(insp_oper || '0010').padStart(4, '0');
+  const sapPayload = {
+    GET: {
+      INSPLOT: Number.isFinite(inspLotNum) ? inspLotNum : inspection_lot,
+      INSPOPER: inspOperStr,
+    },
+  };
+
+  console.log('[SAP Result Recording Request] URL:', url);
+  console.log('[SAP Result Recording Request] Payload:', sapPayload);
+
+  const response = await proxyAwareFetch(proxyBaseUrl, url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(sapPayload),
+  }, config);
+
+  const bodyText = await response.text();
+  console.log('[SAP Result Recording Response] Status:', response.status, 'Length:', bodyText.length);
+
+  if (!response.ok) {
+    return {
+      data: {
+        ok: false,
+        error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
+        http_status: response.status,
+      },
+      error: null,
+    };
+  }
+
+  let parsed: any = null;
+  try {
+    parsed = bodyText ? JSON.parse(bodyText) : null;
+  } catch {
+    return {
+      data: { ok: false, error: 'SAP returned non-JSON response', raw: bodyText.substring(0, 500) },
+      error: null,
+    };
+  }
+
+  return { data: { ok: true, data: parsed, request: sapPayload }, error: null };
+}
+
 async function directUpdateQty(
   url: string,
   headers: Record<string, string>,
