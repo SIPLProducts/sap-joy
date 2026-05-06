@@ -1,60 +1,75 @@
-## Issues
+## Changes
 
-1. **Result Recording empty on on-prem** — `invokeDirect()` in `src/lib/sapSyncClient.ts` (lines 372-393) only handles `test`, `sync`, `unblock`, `update_transaction_qty`, `fetch_live`. When `action === 'result_recording'`, it falls through to `{ success: false, error: 'Invalid action' }`. So in self-hosted mode (where the browser hits the middleware directly), Result Recording is never executed. In Lovable Cloud the edge function `sap-sync/handler.ts` (lines 184-248) does handle it — that's why cloud works.
+### A. Disable scheduler for Result Recording API
 
-2. **Split rows render a separate sub-table with duplicated headers** — `ResultRecordingModal.tsx` (lines 195-227) renders an inner `<table>` inside the expanded row with its own `<thead>`. The user wants child rows shown inline within the parent table (sharing parent headers) and the `CHAR_NO` cell of each child to display `<parent INSPCHAR>.<child RES_NO>` (e.g. `30.1`, `30.2`).
+The Result Recording endpoint is on-demand only (called from the MRB Worklist when a user opens a lot). It must never be picked up by `sap-sync-scheduler` / pg_cron.
 
-## Fix
+**`supabase/functions/sap-sync-scheduler/index.ts`** — at the start of the per-config loop (after fetching configs, before `shouldRunNow`), skip configs whose `config_name` or `endpoint_path` indicate result recording:
 
-### 1. `src/lib/sapSyncClient.ts` — add `result_recording` handling to direct mode
-
-- Add a `directResultRecording(url, headers, config, body, proxyBaseUrl)` helper that mirrors the edge-function logic:
-  - Build `sapPayload = { GET: { INSPLOT: Number(inspection_lot), INSPOPER: String(insp_oper||'0010').padStart(4,'0') } }`.
-  - POST to the proxy `/proxy` endpoint with `sap_target_url`, headers, JSON body (same pattern as `directUnblock`/`directUpdateQty`).
-  - Parse response; return `{ data: { ok: true, data: parsed, request: sapPayload }, error: null }` on success, or `{ ok: false, error }` on failure (wrapped in `data` so the modal's existing branch `resp?.ok === false` keeps working).
-- Wire it in `invokeDirect()`:
-  ```ts
-  if (action === 'result_recording') {
-    return await directResultRecording(url, headers, config, body, proxyBaseUrl);
-  }
-  ```
-- Also extend `resolveResultRecordingConfigId()` keyword fallback list inside `getFallbackTokens` so a missing `config_id` still resolves on direct mode (`['result', '/result', 'recording']`).
-
-### 2. `src/components/mrb/ResultRecordingModal.tsx` — inline split children, no duplicate headers
-
-Replace the current expanded-row block (the inner `<table>` with its own `<thead>`) with **N additional `<tr>` rows inside the same parent `<tbody>`**, one per RESVAL entry, using the SAME `RESULT_COLUMNS`. So markup becomes:
-
-```
-<tr> parent CHAR row (chevron, CHAR_NO=INSPCHAR, …) </tr>
-{isOpen && subRows.map((r, i) => (
-  <tr className="bg-muted/20">
-    <td/>  {/* empty chevron cell */}
-    {RESULT_COLUMNS.map(col => {
-       const v = col.key === 'CHAR_NO'
-         ? `${c.INSPCHAR}.${r.RES_NO}`     // e.g. "30.1"
-         : resolveResvalCell(col.key, c, r);
-       return <td …>{fmt(v)}</td>;
-    })}
-  </tr>
-))}
+```ts
+const cn = String(config.config_name || '').toLowerCase()
+const ep = String(config.endpoint_path || config.api_endpoint || '').toLowerCase()
+if ((cn.includes('result') && cn.includes('record')) ||
+    (ep.includes('result') && ep.includes('record'))) {
+  results.push({ config_id: config.id, config_name: config.config_name, skipped: true, reason: 'Result Recording API is on-demand only — scheduler disabled' })
+  continue
+}
 ```
 
-Remove the wrapper `<tr><td colSpan>…</td></tr>` and the inner sub-`<table>`/`<thead>` entirely. Keep the chevron toggle on the parent row only. No new columns, no new headers — children inherit parent headers visually.
+(No DB change to existing rows — leaves the toggle alone but the scheduler will simply ignore it. The Result Recording config can stay scheduler_enabled=false in DB; this is a hard guardrail.)
 
-Indent / visual cue for children: add `pl-8` on the first data cell of child rows (or a small left border) so it reads as a sub-row.
+### B. Reconcile-on-sync for Inward Inspection (ART=01) and In-Process (ART=04)
 
-### 3. No changes to
+Today the scheduler does an UPSERT keyed on `inspection_lot`. If SAP later removes a lot from its response (because it's been processed/cleared in SAP), the row stays orphaned in `inward_inspection_lots` / `zmrb_inward_report` forever — causing inconsistency.
 
-- `supabase/functions/sap-sync/handler.ts` (already correct in cloud)
-- DB / SAP request payload / config
+Rule: **after each successful sync run for a given config + plant, delete from the destination table any rows that (a) were not in this SAP response AND (b) have no MRB created against them.** Rows with an MRB are preserved regardless (so users keep their workflow history).
+
+**`supabase/functions/sap-sync-scheduler/index.ts`** — in the per-plant block, after `mapAndInsertData` succeeds, run a reconciliation step:
+
+1. Determine the destination table from `activeResponseFields` (`inward_inspection_lots` for Inward Inspection ART=01, `zmrb_inward_report` for In-Process ART=04).
+2. Build the set of inspection_lot values returned in this run (from the mapped rows passed to `mapAndInsertData`).
+3. Fetch all existing inspection_lot values currently in that table for this `plant` (skip when `plantCode === 'ALL'`).
+4. Compute `missing = existing - returned`.
+5. Fetch `mrb_records.inspection_lot` where `source = 'inward'` (for ART=01) or `'inprocess'` (for ART=04) AND `plant = plantCode` AND `inspection_lot IN missing`. Subtract those — they must be preserved.
+6. `delete().eq('plant', plantCode).in('inspection_lot', deletable)` on the destination table.
+7. Log `[scheduler] Reconciled <table>/<plant>: removed N orphan rows (kept M with MRB)` and add `records_deleted` to the run summary.
+
+Source-mapping rule (so we use the right `mrb_records.source` filter):
+
+```ts
+const isInward     = cn.includes('inward')  && cn.includes('inspection') && !cn.includes('process') // ART=01
+const isInProcess  = cn.includes('process') // ART=04
+const mrbSource = isInward ? 'inward' : isInProcess ? 'inprocess' : null
+// Only reconcile when we can confidently identify the source.
+```
+
+If `mrbSource` is null, **skip reconciliation** for safety (no mass delete on unknown configs).
+
+Also skip reconciliation when the SAP response is empty AND the prior fetch failed (already handled because `mapAndInsertData` only runs after `sapResponse.success`); but additionally guard:
+
+```ts
+if (sapResponse.success && Array.isArray(sapResponse.data) && sapResponse.data.length > 0) {
+  // run reconciliation
+}
+```
+
+This prevents wiping the table on a transient empty SAP response.
+
+### C. UI signal (optional, low-effort)
+
+In the per-run summary already returned by the scheduler, include `records_deleted` so it surfaces in `SAPSyncMonitor.tsx` (which already renders `records_inserted/updated`). Add the column read-side later — for now just include it in the JSON result.
+
+No `sap_stock_sync_history` schema change; we can write the reconciliation count into `error_message` only if needed, OR add a simple log line. Keep this PR minimal: only log + include in returned JSON.
 
 ## Files touched
 
-- `src/lib/sapSyncClient.ts` — add `directResultRecording`, route it from `invokeDirect`, extend fallback tokens.
-- `src/components/mrb/ResultRecordingModal.tsx` — inline split rows in the parent table, label child `CHAR_NO` as `INSPCHAR.RES_NO`, drop duplicate sub-headers.
+- `supabase/functions/sap-sync-scheduler/index.ts` — guardrail to skip Result Recording configs; reconciliation block after `mapAndInsertData` for the two inward tables.
+
+No DB migration. No frontend changes. No edits to `sap-sync/handler.ts` or `sapSyncClient.ts`.
 
 ## Verification
 
-1. **On-prem** (self-hosted, HTTP, internal IP): open MRB Worklist → Result Recording → SAP payload visible in browser Network tab and rows render (parity with cloud).
-2. **Cloud**: still works (edge function path untouched).
-3. Click expand on any CHAR row → split children appear as additional rows directly under the parent in the same table, no second header bar; child CHAR_NO column shows `30.1`, `30.2`, etc.
+1. Mark the Result Recording config as `scheduler_enabled=true` (worst case). Trigger the scheduler manually → run output shows that config skipped with reason `"on-demand only"`. Result Recording continues to work from MRB Worklist on-demand.
+2. Inward Inspection: SAP returns 100 lots → all in `inward_inspection_lots`. Remove 10 in SAP, 3 of which already have MRBs created. Trigger sync → `inward_inspection_lots` ends with 93 rows (90 still in SAP + 3 preserved with MRB). Log line: `Reconciled inward_inspection_lots/1300: removed 7 orphan rows (kept 3 with MRB)`.
+3. In-Process: same behavior on `zmrb_inward_report` filtered by `mrb_records.source = 'inprocess'`.
+4. Empty SAP response → no deletions (safety guard).

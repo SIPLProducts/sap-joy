@@ -72,6 +72,24 @@ Deno.serve({ port }, async (req) => {
 
     for (const config of configs || []) {
       if (requestedConfigIds && !requestedConfigIds.includes(config.id)) continue
+
+      // Result Recording API is on-demand only (called from MRB Worklist).
+      // Hard guardrail so it can never be picked up by the scheduler/pg_cron.
+      {
+        const _cn = String(config.config_name || '').toLowerCase()
+        const _ep = String(config.endpoint_path || config.api_endpoint || '').toLowerCase()
+        if ((_cn.includes('result') && _cn.includes('record')) ||
+            (_ep.includes('result') && _ep.includes('record'))) {
+          results.push({
+            config_id: config.id,
+            config_name: config.config_name,
+            skipped: true,
+            reason: 'Result Recording API is on-demand only — scheduler disabled',
+          })
+          continue
+        }
+      }
+
       // When triggered by pg_cron, always run — the cron schedule itself handles timing
       if (!ignoreSchedule && !isCronTrigger && !shouldRunNow(config, now)) continue
 
