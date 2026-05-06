@@ -132,11 +132,12 @@ export default function InwardReport() {
       const validIds = new Set((mappings || []).map((m: any) => m.config_id));
       const validConfigs = configs.filter((c) => validIds.has(c.id));
 
-      // Prefer config explicitly named for the in-process API
-      const processConfig = validConfigs.find((c) =>
-        c.config_name.toLowerCase().includes('process')
-      );
-      const chosen = processConfig || validConfigs[0];
+      // STRICT: only configs whose name contains "process" AND NOT "inspection".
+      // Prevents accidentally picking ZMRB_Inward_Inspection (ART=01) for the In-Process page.
+      const chosen = validConfigs.find((c) => {
+        const n = (c.config_name || '').toLowerCase();
+        return n.includes('process') && !n.includes('inspection');
+      });
 
       if (!chosen) {
         toast.error(
@@ -434,6 +435,7 @@ export default function InwardReport() {
       const { data: syncData, error: syncError } = await invokeSapSync({
         action: 'sync',
         config_id: sapConfigId,
+        request_overrides: { ART: '04' },
       });
 
       if (syncError) {
