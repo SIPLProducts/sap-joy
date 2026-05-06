@@ -110,7 +110,7 @@ export default async (req: Request) => {
           .eq('config_id', config_id)
           .order('sort_order')
 
-        const sapResponse = await callSAPApi(config, requestFields || [])
+        const sapResponse = await callSAPApi(config, requestFields || [], (body as any)?.request_overrides ?? {})
 
         if (!sapResponse.success) {
           await supabase.from('sap_stock_sync_history').update({
