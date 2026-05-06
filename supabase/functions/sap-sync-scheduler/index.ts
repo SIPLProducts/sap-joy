@@ -210,6 +210,98 @@ Deno.serve({ port }, async (req) => {
             plantCode,
           )
 
+          // ── 6b. Reconcile: remove rows missing from SAP response that have no MRB ──
+          let reconcileSummary: { table: string; removed: number; preserved: number } | null = null
+          try {
+            if (
+              Array.isArray(sapResponse.data) &&
+              sapResponse.data.length > 0 &&
+              plantCode !== 'ALL' &&
+              syncResult.errors.length === 0
+            ) {
+              const cnLower = String(config.config_name || '').toLowerCase()
+              const isInward = cnLower.includes('inward') && cnLower.includes('inspection') && !cnLower.includes('process')
+              const isInProcess = cnLower.includes('process')
+              const reconcileTable = isInward
+                ? 'inward_inspection_lots'
+                : isInProcess
+                ? 'zmrb_inward_report'
+                : null
+              const mrbSource = isInward ? 'inward' : isInProcess ? 'inprocess' : null
+
+              if (reconcileTable && mrbSource) {
+                // Build set of inspection_lots returned in this SAP response
+                const returnedLots = new Set<string>()
+                for (const rec of sapResponse.data as any[]) {
+                  const lot = rec?.PRUEFLOS ?? rec?.prueflos ?? rec?.QALS_PRUEFLOS
+                    ?? rec?.qals_prueflos ?? rec?.inspection_lot
+                  if (lot !== undefined && lot !== null && String(lot).trim() !== '') {
+                    returnedLots.add(String(lot))
+                  }
+                }
+
+                if (returnedLots.size > 0) {
+                  // Fetch existing inspection_lots in destination table for this plant
+                  const { data: existingRows } = await supabase
+                    .from(reconcileTable)
+                    .select('inspection_lot')
+                    .eq('plant', plantCode)
+
+                  const existingLots: string[] = (existingRows || [])
+                    .map((r: any) => r?.inspection_lot)
+                    .filter((v: any) => v !== null && v !== undefined && String(v).trim() !== '')
+                    .map((v: any) => String(v))
+
+                  const missing = existingLots.filter((lot) => !returnedLots.has(lot))
+
+                  if (missing.length > 0) {
+                    // Preserve any inspection_lot already attached to an MRB
+                    const { data: mrbRows } = await supabase
+                      .from('mrb_records')
+                      .select('inspection_lot')
+                      .eq('plant', plantCode)
+                      .eq('source', mrbSource)
+                      .in('inspection_lot', missing)
+
+                    const preservedSet = new Set<string>(
+                      (mrbRows || [])
+                        .map((r: any) => r?.inspection_lot)
+                        .filter(Boolean)
+                        .map((v: any) => String(v)),
+                    )
+
+                    const deletable = missing.filter((lot) => !preservedSet.has(lot))
+
+                    if (deletable.length > 0) {
+                      const { error: delErr } = await supabase
+                        .from(reconcileTable)
+                        .delete()
+                        .eq('plant', plantCode)
+                        .in('inspection_lot', deletable)
+
+                      if (delErr) {
+                        console.log(`[scheduler] Reconcile delete error on ${reconcileTable}/${plantCode}: ${delErr.message}`)
+                      }
+                    }
+
+                    reconcileSummary = {
+                      table: reconcileTable,
+                      removed: deletable.length,
+                      preserved: preservedSet.size,
+                    }
+                    console.log(
+                      `[scheduler] Reconciled ${reconcileTable}/${plantCode}: removed ${deletable.length} orphan rows (kept ${preservedSet.size} with MRB)`,
+                    )
+                  } else {
+                    console.log(`[scheduler] Reconcile ${reconcileTable}/${plantCode}: nothing to remove`)
+                  }
+                }
+              }
+            }
+          } catch (reconcileErr: any) {
+            console.log(`[scheduler] Reconcile step failed: ${reconcileErr?.message || reconcileErr}`)
+          }
+
           const hasErrors = syncResult.errors.length > 0
           const finalStatus = syncResult.inserted === 0 && hasErrors ? 'failed' : hasErrors ? 'partial' : 'success'
 
@@ -230,6 +322,8 @@ Deno.serve({ port }, async (req) => {
             records_fetched: syncResult.fetched,
             records_inserted: syncResult.inserted,
             records_updated: syncResult.updated,
+            records_deleted: reconcileSummary?.removed ?? 0,
+            records_preserved_with_mrb: reconcileSummary?.preserved ?? 0,
             errors: syncResult.errors.length > 0 ? syncResult.errors.slice(0, 5) : undefined,
           })
         } catch (error: any) {
