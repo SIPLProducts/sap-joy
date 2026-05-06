@@ -1026,8 +1026,29 @@ async function callSAPApi(
     requestBody = {}
     requestFields.forEach((field) => {
       const key = field.sap_field_name || field.field_name
-      requestBody[key] = requestOverrides[key] ?? field.default_value ?? ''
+      if (requestOverrides[key] !== undefined) {
+        requestBody[key] = requestOverrides[key]
+        return
+      }
+      if (field.is_required || (field.default_value && String(field.default_value).trim() !== '')) {
+        let val = field.default_value ?? ''
+        if (key === 'ART' || key === 'INSPECTION_TYPE') {
+          val = String(val).trim().padStart(2, '0')
+        }
+        requestBody[key] = val
+      }
     })
+
+    if (config.max_records) {
+      if (requestBody.MAX_ROWS === undefined) requestBody.MAX_ROWS = config.max_records
+      if (requestBody.MAX_HITS === undefined) requestBody.MAX_HITS = config.max_records
+    }
+
+    for (const optionalKey of ['MATNR', 'CHARG']) {
+      if (requestBody[optionalKey] !== undefined && String(requestBody[optionalKey]).trim() === '') {
+        delete requestBody[optionalKey]
+      }
+    }
   }
 
   let finalUrl = url
@@ -1088,6 +1109,11 @@ async function callSAPApi(
       const bodyText = await response.text()
 
       if (response.ok) {
+        const trimmed = bodyText.trim()
+        // SAP returns plain text "Data is not available" (HTTP 200) when filters match nothing.
+        if (/^data\s+is\s+not\s+available/i.test(trimmed)) {
+          return { success: true, data: [], debug }
+        }
         try {
           const jsonData = JSON.parse(bodyText)
           const records = jsonData?.d?.results || jsonData?.value || jsonData?.data || (Array.isArray(jsonData) ? jsonData : [jsonData])
