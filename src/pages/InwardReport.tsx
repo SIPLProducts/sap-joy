@@ -170,14 +170,17 @@ export default function InwardReport() {
       try {
         await refreshData();
         // Re-fetch last_sync_at from DB for accuracy
-        const { data } = await supabase
-          .from('sap_api_config')
-          .select('last_sync_at')
-          .eq('is_active', true)
-          .order('created_at', { ascending: false })
-          .limit(1);
-        if (data && data.length > 0 && data[0].last_sync_at) {
-          setLastSyncAt(data[0].last_sync_at);
+        if (sapConfigId) {
+          const { data } = await supabase
+            .from('sap_api_config')
+            .select('last_sync_at')
+            .eq('id', sapConfigId)
+            .maybeSingle();
+          if (data?.last_sync_at) {
+            setLastSyncAt(data.last_sync_at);
+          } else {
+            setLastSyncAt(new Date().toISOString());
+          }
         } else {
           setLastSyncAt(new Date().toISOString());
         }
