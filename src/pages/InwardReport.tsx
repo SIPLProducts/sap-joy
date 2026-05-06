@@ -105,21 +105,45 @@ export default function InwardReport() {
   // Fetch the inward SAP API config on mount
   useEffect(() => {
     const fetchSapConfig = async () => {
-      const { data } = await supabase
+      const { data: configs } = await supabase
         .from('sap_api_config')
         .select('id, config_name, last_sync_at')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-      if (data && data.length > 0) {
-        const inwardConfig = data.find(c =>
-          c.config_name.toLowerCase().includes('zmrb') ||
-          c.config_name.toLowerCase().includes('inward')
-        );
-        const chosen = inwardConfig || data[0];
-        setSapConfigId(chosen.id);
-        setLastSyncAt(chosen.last_sync_at);
+      if (!configs || configs.length === 0) {
+        toast.error('No active SAP API configuration found.');
+        return;
       }
+
+      // Only consider configs whose response fields map to inward_inspection_lots
+      // (ART=01). This prevents accidentally picking the In-Process config
+      // (ZMRB_Inward_Process / ART=04) which maps to zmrb_inward_report.
+      const ids = configs.map((c) => c.id);
+      const { data: mappings } = await supabase
+        .from('sap_api_response_fields')
+        .select('config_id')
+        .in('config_id', ids)
+        .eq('map_to_table', 'inward_inspection_lots');
+
+      const validIds = new Set((mappings || []).map((m: any) => m.config_id));
+      const validConfigs = configs.filter((c) => validIds.has(c.id));
+
+      // Prefer config explicitly named for inspection
+      const inspectionConfig = validConfigs.find((c) =>
+        c.config_name.toLowerCase().includes('inspection')
+      );
+      const chosen = inspectionConfig || validConfigs[0];
+
+      if (!chosen) {
+        toast.error(
+          'No SAP config found with response mappings to inward_inspection_lots. Check SAP API Settings.'
+        );
+        return;
+      }
+
+      setSapConfigId(chosen.id);
+      setLastSyncAt(chosen.last_sync_at);
     };
     fetchSapConfig();
   }, []);
@@ -143,14 +167,17 @@ export default function InwardReport() {
       try {
         await refreshData();
         // Re-fetch last_sync_at from DB for accuracy
-        const { data } = await supabase
-          .from('sap_api_config')
-          .select('last_sync_at')
-          .eq('is_active', true)
-          .order('created_at', { ascending: false })
-          .limit(1);
-        if (data && data.length > 0 && data[0].last_sync_at) {
-          setLastSyncAt(data[0].last_sync_at);
+        if (sapConfigId) {
+          const { data } = await supabase
+            .from('sap_api_config')
+            .select('last_sync_at')
+            .eq('id', sapConfigId)
+            .maybeSingle();
+          if (data?.last_sync_at) {
+            setLastSyncAt(data.last_sync_at);
+          } else {
+            setLastSyncAt(new Date().toISOString());
+          }
         } else {
           setLastSyncAt(new Date().toISOString());
         }
@@ -161,7 +188,7 @@ export default function InwardReport() {
       }
     }, AUTO_REFRESH_MS);
     return () => clearInterval(interval);
-  }, [refreshData]);
+  }, [refreshData, sapConfigId]);
 
   const handleStartEditQty = (record: InspectionLotRecord) => {
     setEditingQtyId(record.id);
