@@ -229,71 +229,89 @@ Deno.serve({ port }, async (req) => {
               const mrbSource = isInward ? 'quality_inspection' : isInProcess ? 'inprocess' : null
 
               if (reconcileTable && mrbSource) {
-                // Build set of inspection_lots returned in this SAP response
-                const returnedLots = new Set<string>()
-                for (const rec of sapResponse.data as any[]) {
-                  const lot = rec?.PRUEFLOS ?? rec?.prueflos ?? rec?.QALS_PRUEFLOS
-                    ?? rec?.qals_prueflos ?? rec?.inspection_lot
-                  if (lot !== undefined && lot !== null && String(lot).trim() !== '') {
-                    returnedLots.add(String(lot))
+                // Resolve which SAP keys hold inspection_lot using mappings + aliases.
+                const lotSapFields: string[] = []
+                for (const f of (activeResponseFields || []) as any[]) {
+                  if (f?.map_to_column === 'inspection_lot' && (f.sap_field_name || f.field_name)) {
+                    lotSapFields.push(String(f.sap_field_name || f.field_name))
                   }
                 }
+                for (const k of ['PRUEFLOS','prueflos','QALS_PRUEFLOS','qals_prueflos','inspection_lot','INSPECTION_LOT']) {
+                  if (!lotSapFields.includes(k)) lotSapFields.push(k)
+                }
+                const pickLot = (rec: any): string | null => {
+                  if (!rec || typeof rec !== 'object') return null
+                  const recKeys = Object.keys(rec)
+                  for (const k of lotSapFields) {
+                    if (rec[k] !== undefined && rec[k] !== null && String(rec[k]).trim() !== '') return String(rec[k]).trim()
+                    const ci = recKeys.find((rk) => rk.toLowerCase() === k.toLowerCase())
+                    if (ci && rec[ci] !== undefined && rec[ci] !== null && String(rec[ci]).trim() !== '') return String(rec[ci]).trim()
+                  }
+                  return null
+                }
 
-                if (returnedLots.size > 0) {
-                  // Fetch existing inspection_lots in destination table for this plant
-                  const { data: existingRows } = await supabase
-                    .from(reconcileTable)
-                    .select('inspection_lot')
-                    .eq('plant', plantCode)
+                const returnedLots = new Set<string>()
+                for (const rec of (sapResponse.data || []) as any[]) {
+                  const lot = pickLot(rec)
+                  if (lot) returnedLots.add(lot)
+                }
 
-                  const existingLots: string[] = (existingRows || [])
-                    .map((r: any) => r?.inspection_lot)
-                    .filter((v: any) => v !== null && v !== undefined && String(v).trim() !== '')
-                    .map((v: any) => String(v))
+                // Fetch existing inspection_lots in destination table for this plant
+                const { data: existingRows } = await supabase
+                  .from(reconcileTable)
+                  .select('inspection_lot')
+                  .eq('plant', plantCode)
 
-                  const missing = existingLots.filter((lot) => !returnedLots.has(lot))
+                const existingLots: string[] = (existingRows || [])
+                  .map((r: any) => r?.inspection_lot)
+                  .filter((v: any) => v !== null && v !== undefined && String(v).trim() !== '')
+                  .map((v: any) => String(v).trim())
 
-                  if (missing.length > 0) {
-                    // Preserve any inspection_lot already attached to an MRB
+                const missing = existingLots.filter((lot) => !returnedLots.has(lot))
+
+                if (missing.length > 0) {
+                  // Preserve any inspection_lot already attached to an MRB (chunked)
+                  const preservedSet = new Set<string>()
+                  for (let i = 0; i < missing.length; i += 500) {
+                    const chunk = missing.slice(i, i + 500)
                     const { data: mrbRows } = await supabase
                       .from('mrb_records')
                       .select('inspection_lot')
                       .eq('plant', plantCode)
                       .eq('source', mrbSource)
-                      .in('inspection_lot', missing)
-
-                    const preservedSet = new Set<string>(
-                      (mrbRows || [])
-                        .map((r: any) => r?.inspection_lot)
-                        .filter(Boolean)
-                        .map((v: any) => String(v)),
-                    )
-
-                    const deletable = missing.filter((lot) => !preservedSet.has(lot))
-
-                    if (deletable.length > 0) {
-                      const { error: delErr } = await supabase
-                        .from(reconcileTable)
-                        .delete()
-                        .eq('plant', plantCode)
-                        .in('inspection_lot', deletable)
-
-                      if (delErr) {
-                        console.log(`[scheduler] Reconcile delete error on ${reconcileTable}/${plantCode}: ${delErr.message}`)
-                      }
+                      .in('inspection_lot', chunk)
+                    for (const r of (mrbRows || []) as any[]) {
+                      if (r?.inspection_lot) preservedSet.add(String(r.inspection_lot).trim())
                     }
-
-                    reconcileSummary = {
-                      table: reconcileTable,
-                      removed: deletable.length,
-                      preserved: preservedSet.size,
-                    }
-                    console.log(
-                      `[scheduler] Reconciled ${reconcileTable}/${plantCode}: removed ${deletable.length} orphan rows (kept ${preservedSet.size} with MRB)`,
-                    )
-                  } else {
-                    console.log(`[scheduler] Reconcile ${reconcileTable}/${plantCode}: nothing to remove`)
                   }
+
+                  const deletable = missing.filter((lot) => !preservedSet.has(lot))
+
+                  let removedCount = 0
+                  for (let i = 0; i < deletable.length; i += 500) {
+                    const chunk = deletable.slice(i, i + 500)
+                    const { error: delErr } = await supabase
+                      .from(reconcileTable)
+                      .delete()
+                      .eq('plant', plantCode)
+                      .in('inspection_lot', chunk)
+                    if (delErr) {
+                      console.log(`[scheduler] Reconcile delete error on ${reconcileTable}/${plantCode}: ${delErr.message}`)
+                    } else {
+                      removedCount += chunk.length
+                    }
+                  }
+
+                  reconcileSummary = {
+                    table: reconcileTable,
+                    removed: removedCount,
+                    preserved: preservedSet.size,
+                  }
+                  console.log(
+                    `[scheduler] Reconciled ${reconcileTable}/${plantCode}: removed ${removedCount} orphan rows (kept ${preservedSet.size} with MRB)`,
+                  )
+                } else {
+                  console.log(`[scheduler] Reconcile ${reconcileTable}/${plantCode}: nothing to remove`)
                 }
               }
             }
