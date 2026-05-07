@@ -215,8 +215,7 @@ Deno.serve({ port }, async (req) => {
           try {
             if (
               Array.isArray(sapResponse.data) &&
-              plantCode !== 'ALL' &&
-              syncResult.errors.length === 0
+              plantCode !== 'ALL'
             ) {
               const cnLower = String(config.config_name || '').toLowerCase()
               const isInward = cnLower.includes('inward') && cnLower.includes('inspection') && !cnLower.includes('process')
