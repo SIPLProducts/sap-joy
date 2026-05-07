@@ -146,42 +146,97 @@ export default async (req: Request) => {
           const tableName = isInProcess ? 'zmrb_inward_report' : (isInward ? 'inward_inspection_lots' : null)
           const mrbSource = isInProcess ? 'inprocess' : (isInward ? 'quality_inspection' : null)
 
-          const tableInfo = tableName ? mappingResult.byTable[tableName] : null
           const arr = Array.isArray(sapResponse.data) ? sapResponse.data : []
-          if (tableName && mrbSource && tableInfo && arr.length > 0 && tableInfo.plants.size > 0) {
-            for (const plantCode of tableInfo.plants) {
-              const { data: existingRows } = await supabase
+          if (tableName && mrbSource) {
+            // Build set of returned inspection_lots directly from SAP response (independent of mapping)
+            const returnedLots = new Set<string>()
+            const responsePlants = new Set<string>()
+            for (const rec of arr as any[]) {
+              const lot = rec?.PRUEFLOS ?? rec?.prueflos ?? rec?.QALS_PRUEFLOS ?? rec?.qals_prueflos ?? rec?.inspection_lot ?? rec?.INSPECTION_LOT
+              if (lot !== undefined && lot !== null && String(lot).trim() !== '') {
+                returnedLots.add(String(lot))
+              }
+              const plant = rec?.WERKS ?? rec?.werks ?? rec?.plant ?? rec?.PLANT
+              if (plant !== undefined && plant !== null && String(plant).trim() !== '') {
+                responsePlants.add(String(plant))
+              }
+            }
+
+            // Plant scope: union of response plants + scheduler_plants + request override + mappingResult plants
+            const plantScope = new Set<string>()
+            for (const p of responsePlants) plantScope.add(p)
+            const tableInfo = mappingResult.byTable[tableName]
+            if (tableInfo) for (const p of tableInfo.plants) plantScope.add(String(p))
+            try {
+              const sp = (config as any)?.scheduler_plants
+              if (Array.isArray(sp)) for (const p of sp) if (p) plantScope.add(String(p))
+            } catch (_) { /* ignore */ }
+            const overrides = (body as any)?.request_overrides ?? {}
+            const overridePlant = overrides?.WERKS ?? overrides?.werks ?? overrides?.plant
+            if (overridePlant) plantScope.add(String(overridePlant))
+
+            // If still empty, fall back to all distinct plants currently in the destination table
+            if (plantScope.size === 0) {
+              const { data: distinctRows } = await supabase
+                .from(tableName)
+                .select('plant')
+                .limit(10000)
+              for (const r of (distinctRows || []) as any[]) {
+                if (r?.plant) plantScope.add(String(r.plant))
+              }
+            }
+
+            for (const plantCode of plantScope) {
+              const { data: existingRows, error: exErr } = await supabase
                 .from(tableName)
                 .select('inspection_lot')
                 .eq('plant', plantCode)
-              const existing = new Set<string>((existingRows || []).map((r: any) => String(r.inspection_lot)))
-              const missing: string[] = []
-              for (const lot of existing) {
-                if (!tableInfo.lots.has(lot)) missing.push(lot)
+              if (exErr) {
+                console.warn('[sap-sync:reconcile] fetch existing failed', tableName, plantCode, exErr.message)
+                continue
               }
+              const existing: string[] = (existingRows || [])
+                .map((r: any) => r?.inspection_lot)
+                .filter((v: any) => v !== null && v !== undefined && String(v).trim() !== '')
+                .map((v: any) => String(v))
+              const missing = existing.filter((lot) => !returnedLots.has(lot))
               if (missing.length === 0) continue
 
-              const { data: mrbLinked } = await supabase
-                .from('mrb_records')
-                .select('inspection_lot')
-                .eq('source', mrbSource)
-                .eq('plant', plantCode)
-                .in('inspection_lot', missing)
-              const preserved = new Set<string>((mrbLinked || []).map((r: any) => String(r.inspection_lot)))
+              // Preserve MRB-linked lots (chunked .in())
+              const preserved = new Set<string>()
+              for (let i = 0; i < missing.length; i += 500) {
+                const chunk = missing.slice(i, i + 500)
+                const { data: mrbLinked, error: mrbErr } = await supabase
+                  .from('mrb_records')
+                  .select('inspection_lot')
+                  .eq('source', mrbSource)
+                  .eq('plant', plantCode)
+                  .in('inspection_lot', chunk)
+                if (mrbErr) {
+                  console.warn('[sap-sync:reconcile] mrb lookup failed', plantCode, mrbErr.message)
+                  continue
+                }
+                for (const r of (mrbLinked || []) as any[]) {
+                  if (r?.inspection_lot) preserved.add(String(r.inspection_lot))
+                }
+              }
               recordsPreservedWithMrb += preserved.size
               const deletable = missing.filter((l) => !preserved.has(l))
-              if (deletable.length > 0) {
+              for (let i = 0; i < deletable.length; i += 500) {
+                const chunk = deletable.slice(i, i + 500)
                 const { error: delErr } = await supabase
                   .from(tableName)
                   .delete()
                   .eq('plant', plantCode)
-                  .in('inspection_lot', deletable)
+                  .in('inspection_lot', chunk)
                 if (delErr) {
                   console.warn('[sap-sync:reconcile] delete error', tableName, plantCode, delErr.message)
                 } else {
-                  recordsDeleted += deletable.length
-                  console.log(`[sap-sync:reconcile] ${tableName}/${plantCode}: removed ${deletable.length} orphan rows (kept ${preserved.size} with MRB)`)
+                  recordsDeleted += chunk.length
                 }
+              }
+              if (deletable.length > 0 || preserved.size > 0) {
+                console.log(`[sap-sync:reconcile] ${tableName}/${plantCode}: removed ${deletable.length} orphan rows (kept ${preserved.size} with MRB)`)
               }
             }
           }
