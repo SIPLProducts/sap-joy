@@ -183,7 +183,7 @@ export default function SAPSyncMonitor() {
       } else if (resData?.success) {
         toast({
           title: 'Sync Complete',
-          description: `Fetched: ${resData.records_fetched}, Inserted: ${resData.records_inserted}, Updated: ${resData.records_updated}`,
+          description: 'SAP sync successful',
         });
         await Promise.all([fetchSyncHistory(), fetchDataPreviews(), fetchConfigs()]);
       } else {
