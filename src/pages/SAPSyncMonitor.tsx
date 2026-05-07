@@ -336,6 +336,10 @@ export default function SAPSyncMonitor() {
                               <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 px-3 py-1.5 text-xs">
                                 Live Fetch — data not stored locally
                               </Badge>
+                            ) : isResultRecordingConfig(config) ? (
+                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 px-3 py-1.5 text-xs">
+                                On-Demand Only — triggered from MRB Worklist
+                              </Badge>
                             ) : (
                               <Button
                                 size="sm"
