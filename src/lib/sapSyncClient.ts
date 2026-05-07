@@ -851,6 +851,136 @@ async function directSync(
     const mappingResult = await mapAndInsertClientSide(records, responseFields || [], syncRecord.id);
     console.log(`${debugLabel} mapAndInsertClientSide result:`, mappingResult);
 
+    // Reconcile-on-sync: remove rows no longer returned by SAP, except those linked to an MRB.
+    let recordsDeleted = 0;
+    let recordsPreservedWithMrb = 0;
+    try {
+      const cn = String(config?.config_name || '').toLowerCase();
+      const ep = String(config?.endpoint_path || config?.api_endpoint || '').toLowerCase();
+      const isInProcess = cn.includes('process') || ep.includes('process');
+      const isInward = !isInProcess && (
+        (cn.includes('inward') && cn.includes('inspection')) ||
+        (ep.includes('inward') && ep.includes('inspection')) ||
+        cn.includes('inward')
+      );
+      const tableName: 'inward_inspection_lots' | 'zmrb_inward_report' | null =
+        isInProcess ? 'zmrb_inward_report' : (isInward ? 'inward_inspection_lots' : null);
+      const mrbSource: string | null = isInProcess ? 'inprocess' : (isInward ? 'quality_inspection' : null);
+
+      if (tableName && mrbSource && Array.isArray(records)) {
+        const lotSapFields: string[] = [];
+        const plantSapFields: string[] = [];
+        for (const f of (responseFields || []) as any[]) {
+          if (f?.map_to_column === 'inspection_lot' && (f.sap_field_name || f.field_name)) {
+            lotSapFields.push(String(f.sap_field_name || f.field_name));
+          }
+          if (f?.map_to_column === 'plant' && (f.sap_field_name || f.field_name)) {
+            plantSapFields.push(String(f.sap_field_name || f.field_name));
+          }
+        }
+        for (const k of ['PRUEFLOS','prueflos','QALS_PRUEFLOS','qals_prueflos','inspection_lot','INSPECTION_LOT']) {
+          if (!lotSapFields.includes(k)) lotSapFields.push(k);
+        }
+        for (const k of ['WERKS','werks','WERK','werk','plant','PLANT']) {
+          if (!plantSapFields.includes(k)) plantSapFields.push(k);
+        }
+        const pickField = (rec: any, keys: string[]): string | null => {
+          if (!rec || typeof rec !== 'object') return null;
+          const recKeys = Object.keys(rec);
+          for (const k of keys) {
+            if (rec[k] !== undefined && rec[k] !== null && String(rec[k]).trim() !== '') return String(rec[k]).trim();
+            const ci = recKeys.find((rk) => rk.toLowerCase() === k.toLowerCase());
+            if (ci && rec[ci] !== undefined && rec[ci] !== null && String(rec[ci]).trim() !== '') return String(rec[ci]).trim();
+          }
+          return null;
+        };
+
+        const returnedLots = new Set<string>();
+        const responsePlants = new Set<string>();
+        for (const rec of records as any[]) {
+          const lot = pickField(rec, lotSapFields);
+          if (lot) returnedLots.add(lot);
+          const plant = pickField(rec, plantSapFields);
+          if (plant) responsePlants.add(plant);
+        }
+
+        const plantScope = new Set<string>();
+        for (const p of responsePlants) plantScope.add(p);
+        const overrides = (body as any)?.request_overrides || {};
+        const overridePlant = overrides?.WERKS ?? overrides?.werks ?? overrides?.plant;
+        if (overridePlant) plantScope.add(String(overridePlant));
+        try {
+          const sp = (config as any)?.scheduler_plants;
+          if (Array.isArray(sp)) for (const p of sp) if (p) plantScope.add(String(p));
+        } catch (_) { /* ignore */ }
+
+        if (plantScope.size === 0) {
+          const { data: distinctRows } = await supabase
+            .from(tableName as 'inward_inspection_lots')
+            .select('plant')
+            .limit(10000);
+          for (const r of (distinctRows || []) as any[]) {
+            if (r?.plant) plantScope.add(String(r.plant));
+          }
+        }
+
+        for (const plantCode of plantScope) {
+          const { data: existingRows, error: exErr } = await supabase
+            .from(tableName as 'inward_inspection_lots')
+            .select('inspection_lot')
+            .eq('plant', plantCode);
+          if (exErr) {
+            console.warn('[sap-sync:reconcile] fetch existing failed', tableName, plantCode, exErr.message);
+            continue;
+          }
+          const existing: string[] = (existingRows || [])
+            .map((r: any) => r?.inspection_lot)
+            .filter((v: any) => v !== null && v !== undefined && String(v).trim() !== '')
+            .map((v: any) => String(v).trim());
+          const missing = existing.filter((lot) => !returnedLots.has(lot));
+          if (missing.length === 0) continue;
+
+          const preserved = new Set<string>();
+          for (let i = 0; i < missing.length; i += 500) {
+            const chunk = missing.slice(i, i + 500);
+            const { data: mrbLinked, error: mrbErr } = await supabase
+              .from('mrb_records')
+              .select('inspection_lot')
+              .eq('source', mrbSource as any)
+              .eq('plant', plantCode)
+              .in('inspection_lot', chunk);
+            if (mrbErr) {
+              console.warn('[sap-sync:reconcile] mrb lookup failed', plantCode, mrbErr.message);
+              continue;
+            }
+            for (const r of (mrbLinked || []) as any[]) {
+              if (r?.inspection_lot) preserved.add(String(r.inspection_lot).trim());
+            }
+          }
+          recordsPreservedWithMrb += preserved.size;
+          const deletable = missing.filter((l) => !preserved.has(l));
+          for (let i = 0; i < deletable.length; i += 500) {
+            const chunk = deletable.slice(i, i + 500);
+            const { error: delErr } = await supabase
+              .from(tableName as 'inward_inspection_lots')
+              .delete()
+              .eq('plant', plantCode)
+              .in('inspection_lot', chunk);
+            if (delErr) {
+              console.warn('[sap-sync:reconcile] delete error', tableName, plantCode, delErr.message);
+            } else {
+              recordsDeleted += chunk.length;
+            }
+          }
+          if (deletable.length > 0 || preserved.size > 0) {
+            console.log(`[sap-sync:reconcile] ${tableName}/${plantCode}: removed ${deletable.length} orphan rows (kept ${preserved.size} with MRB)`);
+          }
+        }
+      }
+    } catch (recErr: any) {
+      console.warn('[sap-sync:reconcile] failed:', recErr?.message);
+    }
+
     const hasErrors = mappingResult.errors.length > 0;
     const finalStatus = (mappingResult.inserted === 0 && hasErrors) ? 'failed' : (hasErrors ? 'partial' : 'success');
 
@@ -874,6 +1004,8 @@ async function directSync(
         records_fetched: mappingResult.fetched,
         records_inserted: mappingResult.inserted,
         records_updated: mappingResult.updated,
+        records_deleted: recordsDeleted,
+        records_preserved_with_mrb: recordsPreservedWithMrb,
         errors: mappingResult.errors,
         sample_data: records?.slice?.(0, 3) || null,
       },
