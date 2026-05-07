@@ -1374,6 +1374,15 @@ async function mapAndInsertData(
 
       if (sanitizedRows.length === 0) continue
 
+      // Track returned inspection_lot + plant per destination table (for reconciliation)
+      if (tableName === 'inward_inspection_lots' || tableName === 'zmrb_inward_report') {
+        if (!result.byTable[tableName]) result.byTable[tableName] = { lots: new Set(), plants: new Set() }
+        for (const r of sanitizedRows) {
+          if (r.inspection_lot) result.byTable[tableName].lots.add(String(r.inspection_lot))
+          if (r.plant) result.byTable[tableName].plants.add(String(r.plant))
+        }
+      }
+
       const batchSize = 500
 
       for (let index = 0; index < sanitizedRows.length; index += batchSize) {
