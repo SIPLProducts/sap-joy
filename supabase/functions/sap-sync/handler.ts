@@ -222,7 +222,7 @@ export default async (req: Request) => {
               const existing: string[] = (existingRows || [])
                 .map((r: any) => r?.inspection_lot)
                 .filter((v: any) => v !== null && v !== undefined && String(v).trim() !== '')
-                .map((v: any) => String(v))
+                .map((v: any) => String(v).trim())
               const missing = existing.filter((lot) => !returnedLots.has(lot))
               if (missing.length === 0) continue
 
