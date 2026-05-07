@@ -215,7 +215,6 @@ Deno.serve({ port }, async (req) => {
           try {
             if (
               Array.isArray(sapResponse.data) &&
-              sapResponse.data.length > 0 &&
               plantCode !== 'ALL' &&
               syncResult.errors.length === 0
             ) {
