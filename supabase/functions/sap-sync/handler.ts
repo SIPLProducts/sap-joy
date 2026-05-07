@@ -148,18 +148,42 @@ export default async (req: Request) => {
 
           const arr = Array.isArray(sapResponse.data) ? sapResponse.data : []
           if (tableName && mrbSource) {
-            // Build set of returned inspection_lots directly from SAP response (independent of mapping)
+            // Resolve which SAP field names hold inspection_lot / plant — prefer
+            // the user-defined response field mappings, then fall back to common SAP aliases.
+            const lotSapFields: string[] = []
+            const plantSapFields: string[] = []
+            for (const f of (responseFields || []) as any[]) {
+              if (f?.map_to_column === 'inspection_lot' && (f.sap_field_name || f.field_name)) {
+                lotSapFields.push(String(f.sap_field_name || f.field_name))
+              }
+              if (f?.map_to_column === 'plant' && (f.sap_field_name || f.field_name)) {
+                plantSapFields.push(String(f.sap_field_name || f.field_name))
+              }
+            }
+            for (const k of ['PRUEFLOS','prueflos','QALS_PRUEFLOS','qals_prueflos','inspection_lot','INSPECTION_LOT']) {
+              if (!lotSapFields.includes(k)) lotSapFields.push(k)
+            }
+            for (const k of ['WERKS','werks','WERK','werk','plant','PLANT']) {
+              if (!plantSapFields.includes(k)) plantSapFields.push(k)
+            }
+            const pickField = (rec: any, keys: string[]): string | null => {
+              if (!rec || typeof rec !== 'object') return null
+              const recKeys = Object.keys(rec)
+              for (const k of keys) {
+                if (rec[k] !== undefined && rec[k] !== null && String(rec[k]).trim() !== '') return String(rec[k]).trim()
+                const ci = recKeys.find((rk) => rk.toLowerCase() === k.toLowerCase())
+                if (ci && rec[ci] !== undefined && rec[ci] !== null && String(rec[ci]).trim() !== '') return String(rec[ci]).trim()
+              }
+              return null
+            }
+
             const returnedLots = new Set<string>()
             const responsePlants = new Set<string>()
             for (const rec of arr as any[]) {
-              const lot = rec?.PRUEFLOS ?? rec?.prueflos ?? rec?.QALS_PRUEFLOS ?? rec?.qals_prueflos ?? rec?.inspection_lot ?? rec?.INSPECTION_LOT
-              if (lot !== undefined && lot !== null && String(lot).trim() !== '') {
-                returnedLots.add(String(lot))
-              }
-              const plant = rec?.WERKS ?? rec?.werks ?? rec?.plant ?? rec?.PLANT
-              if (plant !== undefined && plant !== null && String(plant).trim() !== '') {
-                responsePlants.add(String(plant))
-              }
+              const lot = pickField(rec, lotSapFields)
+              if (lot) returnedLots.add(lot)
+              const plant = pickField(rec, plantSapFields)
+              if (plant) responsePlants.add(plant)
             }
 
             // Plant scope: union of response plants + scheduler_plants + request override + mappingResult plants
