@@ -460,8 +460,11 @@ export default function InwardReport() {
       }
 
       setSelectedIds(new Set());
+      const removed = syncData.records_deleted ?? 0;
+      const kept = syncData.records_preserved_with_mrb ?? 0;
+      const removedSegment = removed > 0 ? `, Removed: ${removed} (kept ${kept} with MRB)` : '';
       toast.success(
-        `SAP sync complete. Fetched: ${syncData.records_fetched ?? 0}, Inserted: ${syncData.records_inserted ?? 0}, Updated: ${syncData.records_updated ?? 0}. Display refreshed.`
+        `SAP sync complete. Fetched: ${syncData.records_fetched ?? 0}, Inserted: ${syncData.records_inserted ?? 0}, Updated: ${syncData.records_updated ?? 0}${removedSegment}. Display refreshed.`
       );
     } catch (error) {
       console.error('Sync error:', error);
