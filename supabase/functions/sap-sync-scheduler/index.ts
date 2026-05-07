@@ -227,7 +227,7 @@ Deno.serve({ port }, async (req) => {
                 : isInProcess
                 ? 'zmrb_inward_report'
                 : null
-              const mrbSource = isInward ? 'inward' : isInProcess ? 'inprocess' : null
+              const mrbSource = isInward ? 'quality_inspection' : isInProcess ? 'inprocess' : null
 
               if (reconcileTable && mrbSource) {
                 // Build set of inspection_lots returned in this SAP response
