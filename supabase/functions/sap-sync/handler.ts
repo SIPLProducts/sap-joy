@@ -1206,8 +1206,8 @@ async function mapAndInsertData(
   responseFields: any[],
   config: any,
   syncId: string,
-): Promise<{ fetched: number; inserted: number; updated: number; errors: string[] }> {
-  const result = { fetched: records.length, inserted: 0, updated: 0, errors: [] as string[] }
+): Promise<{ fetched: number; inserted: number; updated: number; errors: string[]; byTable: Record<string, { lots: Set<string>; plants: Set<string> }> }> {
+  const result = { fetched: records.length, inserted: 0, updated: 0, errors: [] as string[], byTable: {} as Record<string, { lots: Set<string>; plants: Set<string> }> }
 
   if (!records.length || !responseFields.length) {
     if (!responseFields.length) result.errors.push('No response field mappings configured')
