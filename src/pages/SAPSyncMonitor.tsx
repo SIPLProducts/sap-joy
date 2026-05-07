@@ -134,6 +134,13 @@ export default function SAPSyncMonitor() {
     return name.includes('mb52') || endpoint.includes('/mb52') || endpoint.includes('mb52');
   };
 
+  const isResultRecordingConfig = (config: SAPConfig) => {
+    const name = (config.config_name || '').toLowerCase();
+    const endpoint = (config.api_endpoint || '').toLowerCase();
+    return (name.includes('result') && name.includes('record')) ||
+           (endpoint.includes('result') && endpoint.includes('record'));
+  };
+
   useEffect(() => {
     const loadAll = async () => {
       setLoading(true);
@@ -183,7 +190,7 @@ export default function SAPSyncMonitor() {
       } else if (resData?.success) {
         toast({
           title: 'Sync Complete',
-          description: `Fetched: ${resData.records_fetched}, Inserted: ${resData.records_inserted}, Updated: ${resData.records_updated}`,
+          description: 'SAP sync successful',
         });
         await Promise.all([fetchSyncHistory(), fetchDataPreviews(), fetchConfigs()]);
       } else {
@@ -328,6 +335,10 @@ export default function SAPSyncMonitor() {
                             ) : isMB52Config(config) ? (
                               <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 px-3 py-1.5 text-xs">
                                 Live Fetch — data not stored locally
+                              </Badge>
+                            ) : isResultRecordingConfig(config) ? (
+                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 px-3 py-1.5 text-xs">
+                                On-Demand Only — triggered from MRB Worklist
                               </Badge>
                             ) : (
                               <Button
