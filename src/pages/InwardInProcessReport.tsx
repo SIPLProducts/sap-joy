@@ -50,6 +50,8 @@ export default function InwardReport() {
   const navigate = useNavigate();
   const { inspectionLotRecords, filters, setFilters, getFilteredRecords, refreshData, isLoading, uploadInspectionLots, createBatchMRBs, updateTransactionQuantity } = useInwardInProcessMRB();
   const { userRole } = useAuth();
+  const { userPlants } = useUserPlants();
+  const allPlantsConfig = usePlants();
   const { extraFields } = useExtraDynamicFields('zmrb_inward_report');
 
   // Role-based permissions
@@ -240,7 +242,13 @@ export default function InwardReport() {
   }, [editingQtyValue, sapConfigId, updateTransactionQuantity]);
 
   // Build options for filters from real DB data only
-  const allPlants = [...new Set(inspectionLotRecords.map(r => r.plant))];
+  const isAdminOrExec = userRole === 'admin' || userRole === 'executive';
+  const accessiblePlantsList = isAdminOrExec
+    ? allPlantsConfig
+    : allPlantsConfig.filter(p => userPlants.includes(p.code));
+  const accessiblePlantCodes = accessiblePlantsList.map(p => p.code);
+  const dataPlants = [...new Set(inspectionLotRecords.map(r => r.plant))];
+  const allPlants = accessiblePlantCodes.length > 0 ? accessiblePlantCodes : dataPlants;
   const allMaterials = [...new Set(inspectionLotRecords.map(r => r.materialCode))];
   const allVendors = [...new Set(inspectionLotRecords.map(r => r.vendorCode).filter(Boolean))];
   const allSlocs = [...new Set(inspectionLotRecords.map(r => r.storageLocation).filter(Boolean))];
