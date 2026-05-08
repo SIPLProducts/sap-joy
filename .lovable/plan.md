@@ -1,35 +1,23 @@
-## Plan
+## Problem
 
-### Root cause
-The current deletion logic only compares existing rows against a hardcoded SAP lot field list. If the server response uses a different mapped field name/case, `returnedLots` becomes incomplete or empty, so rows that are no longer in SAP are not removed reliably. Also, the self-hosted direct sync path in `src/lib/sapSyncClient.ts` has no reconciliation deletion at all, so on-prem deployments can upsert new SAP rows but never delete missing rows.
+On `/inward/inprocess`, the **Plant** filter dropdown is built from `inspectionLotRecords` (records already synced into `zmrb_inward_report`). A user logged into plant **1100** sees an empty Plant filter because no 1100 rows have been synced yet, even though 1100 is their assigned plant.
 
-### Changes to implement
-1. **Create shared reconciliation helpers in both sync paths**
-   - Normalize inspection lot and plant values with `trim()`.
-   - Resolve SAP inspection lot / plant using response field mappings first, then common SAP aliases.
-   - Compare normalized DB rows vs normalized SAP response rows.
+## Fix
 
-2. **Manual Refresh Data / Edge sync (`supabase/functions/sap-sync/handler.ts`)**
-   - Replace the current inline reconcile block with a safer helper.
-   - For `inward_inspection_lots`, delete rows where the normalized `inspection_lot` is absent from the SAP response and absent from `mrb_records` with `source='quality_inspection'`.
-   - For `zmrb_inward_report`, delete rows where the normalized `inspection_lot` is absent from the SAP response and absent from `mrb_records` with `source='inprocess'`.
-   - Run reconciliation even when SAP returns zero rows, as long as the sync is scoped to a known plant.
-   - Chunk MRB lookups and deletes to avoid `.in()` query limits.
+Change the `plantOptions` source on `src/pages/InwardInProcessReport.tsx` so the Plant dropdown always reflects the user's accessible plants, independent of whether data has been synced.
 
-3. **Scheduler sync (`supabase/functions/sap-sync-scheduler/index.ts`)**
-   - Replace the scheduler reconcile block with the same mapped-field based logic.
-   - Remove the `returnedLots.size > 0` gate so a valid empty SAP response can clear non-MRB orphan rows for that plant.
-   - Keep per-plant safety: only delete within the plant currently synced.
+### Source-of-truth rules (mirroring `AppHeader`)
+- **Admin / Executive**: show all plants from `usePlants()` (the `plants` table).
+- **All other roles**: show only the plants assigned to the user via `useUserPlants()` (intersected with the `plants` table for valid codes/labels).
+- Fallback: if the resolved list is empty, fall back to plants currently present in records (existing behaviour) so nothing regresses.
 
-4. **Self-hosted direct sync (`src/lib/sapSyncClient.ts`)**
-   - Add the same reconciliation after `mapAndInsertClientSide()` so on-prem direct middleware mode deletes stale rows too.
-   - Return `records_deleted` and `records_preserved_with_mrb` in the sync response.
+### Implementation outline
+1. In `InwardInProcessReport.tsx`:
+   - Import `useAuth`, `useUserPlants`, and `usePlants`.
+   - Compute `accessiblePlants` using the same logic as `AppHeader` (admin/executive → all plants; others → assigned plants).
+   - Replace `const allPlants = [...new Set(inspectionLotRecords.map(r => r.plant))]` with `accessiblePlants` (codes), and build `plantOptions` as `{ value: code, label: name ? \`${code} - ${name}\` : code }`.
+   - Keep the data-derived list as fallback only when `accessiblePlants` is empty.
+2. No backend / RLS / sync changes. Material, Vendor, Storage Location, Inspection Lot filters remain data-derived (those genuinely depend on existing records).
 
-5. **UI feedback**
-   - Keep the existing success toast as `SAP sync successful`.
-   - Do not add fetched/inserted text back into the toast.
-
-### Verification
-- Confirm all three paths report `records_deleted` when an orphan row is removed.
-- Confirm MRB-linked records are preserved.
-- Confirm inward uses `inward_inspection_lots` + `quality_inspection` and in-process uses `zmrb_inward_report` + `inprocess`.
+### Out of scope
+- Why the SAP sync hasn't produced any 1100 rows yet (`scheduler_plants=[1100]`, `zmrb_inward_report` has 0 rows for 1100). That's a separate sync investigation; the user opted for the UI fix only.

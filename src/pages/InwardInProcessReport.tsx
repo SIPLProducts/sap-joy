@@ -17,6 +17,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useInwardInProcessMRB, InspectionLotRecord } from '@/contexts/InwardInProcessMRBContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPlants } from '@/hooks/useUserPlants';
+import { usePlants } from '@/hooks/usePlantConfig';
 import { Input } from '@/components/ui/input';
 import { MultiSelectFilter } from '@/components/inward/MultiSelectFilter';
 import {} from '@/data/mockData';
@@ -48,6 +50,8 @@ export default function InwardReport() {
   const navigate = useNavigate();
   const { inspectionLotRecords, filters, setFilters, getFilteredRecords, refreshData, isLoading, uploadInspectionLots, createBatchMRBs, updateTransactionQuantity } = useInwardInProcessMRB();
   const { userRole } = useAuth();
+  const { userPlants } = useUserPlants();
+  const allPlantsConfig = usePlants();
   const { extraFields } = useExtraDynamicFields('zmrb_inward_report');
 
   // Role-based permissions
@@ -238,12 +242,21 @@ export default function InwardReport() {
   }, [editingQtyValue, sapConfigId, updateTransactionQuantity]);
 
   // Build options for filters from real DB data only
-  const allPlants = [...new Set(inspectionLotRecords.map(r => r.plant))];
+  const isAdminOrExec = userRole === 'admin' || userRole === 'executive';
+  const accessiblePlantsList = isAdminOrExec
+    ? allPlantsConfig
+    : allPlantsConfig.filter(p => userPlants.includes(p.code));
+  const accessiblePlantCodes = accessiblePlantsList.map(p => p.code);
+  const dataPlants = [...new Set(inspectionLotRecords.map(r => r.plant))];
+  const allPlants = accessiblePlantCodes.length > 0 ? accessiblePlantCodes : dataPlants;
   const allMaterials = [...new Set(inspectionLotRecords.map(r => r.materialCode))];
   const allVendors = [...new Set(inspectionLotRecords.map(r => r.vendorCode).filter(Boolean))];
   const allSlocs = [...new Set(inspectionLotRecords.map(r => r.storageLocation).filter(Boolean))];
   
-  const plantOptions = allPlants.map(p => ({ value: p, label: p }));
+  const plantOptions = allPlants.map(code => {
+    const meta = allPlantsConfig.find(p => p.code === code);
+    return { value: code, label: meta?.name ? `${code} - ${meta.name}` : code };
+  });
   const materialOptions = allMaterials.map(m => {
     const record = inspectionLotRecords.find(r => r.materialCode === m);
     return { value: m, label: record?.materialDescription ? `${m} - ${record.materialDescription}` : m };
