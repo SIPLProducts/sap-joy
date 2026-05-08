@@ -724,6 +724,26 @@ export default function EmailConfiguration() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!smtpDeleteTarget} onOpenChange={(open) => { if (!open) setSmtpDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete SMTP Configuration</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the SMTP configuration for <strong>{smtpDeleteTarget?.sender_email}</strong> ({smtpDeleteTarget?.plant ? `Plant ${smtpDeleteTarget.plant}` : 'All Plants'})? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => smtpDeleteTarget && deleteSmtp(smtpDeleteTarget)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
