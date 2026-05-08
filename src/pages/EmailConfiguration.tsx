@@ -423,7 +423,7 @@ export default function EmailConfiguration() {
                           <TooltipContent>Send Test Email</TooltipContent>
                         </Tooltip>
                         <Button size="icon" variant="ghost" onClick={() => openSmtpDialog(smtp)}><Pencil className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteSmtp(smtp.id)}><Trash2 className="h-4 w-4" /></Button>
+                        <Button size="icon" variant="ghost" className="text-destructive" onClick={() => setSmtpDeleteTarget(smtp)}><Trash2 className="h-4 w-4" /></Button>
                       </TableCell>
                     </TableRow>
                   ))}
