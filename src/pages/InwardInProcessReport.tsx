@@ -17,6 +17,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useInwardInProcessMRB, InspectionLotRecord } from '@/contexts/InwardInProcessMRBContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPlants } from '@/hooks/useUserPlants';
+import { usePlants } from '@/hooks/usePlantConfig';
 import { Input } from '@/components/ui/input';
 import { MultiSelectFilter } from '@/components/inward/MultiSelectFilter';
 import {} from '@/data/mockData';
