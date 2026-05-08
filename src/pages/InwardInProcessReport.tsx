@@ -253,7 +253,10 @@ export default function InwardReport() {
   const allVendors = [...new Set(inspectionLotRecords.map(r => r.vendorCode).filter(Boolean))];
   const allSlocs = [...new Set(inspectionLotRecords.map(r => r.storageLocation).filter(Boolean))];
   
-  const plantOptions = allPlants.map(p => ({ value: p, label: p }));
+  const plantOptions = allPlants.map(code => {
+    const meta = allPlantsConfig.find(p => p.code === code);
+    return { value: code, label: meta?.name ? `${code} - ${meta.name}` : code };
+  });
   const materialOptions = allMaterials.map(m => {
     const record = inspectionLotRecords.find(r => r.materialCode === m);
     return { value: m, label: record?.materialDescription ? `${m} - ${record.materialDescription}` : m };
