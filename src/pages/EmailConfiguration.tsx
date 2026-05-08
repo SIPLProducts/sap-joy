@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Mail, Server, Info, Copy } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface SmtpConfig {
   id: string;
@@ -126,6 +127,7 @@ export default function EmailConfiguration() {
   const [smtpConfigs, setSmtpConfigs] = useState<SmtpConfig[]>([]);
   const [smtpDialogOpen, setSmtpDialogOpen] = useState(false);
   const [editingSmtp, setEditingSmtp] = useState<SmtpConfig | null>(null);
+  const [smtpDeleteTarget, setSmtpDeleteTarget] = useState<SmtpConfig | null>(null);
   const [smtpForm, setSmtpForm] = useState({
     plant: '' as string,
     sender_email: '',
@@ -243,10 +245,17 @@ export default function EmailConfiguration() {
     fetchSmtpConfigs();
   };
 
-  const deleteSmtp = async (id: string) => {
-    const { error } = await supabase.from('smtp_config').delete().eq('id', id);
-    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Deleted', description: 'SMTP configuration removed' });
+  const deleteSmtp = async (target: SmtpConfig) => {
+    const { error } = await supabase.from('smtp_config').delete().eq('id', target.id);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({
+      title: 'Deleted successfully',
+      description: `SMTP configuration for ${target.sender_email} (${target.plant ? `Plant ${target.plant}` : 'All Plants'}) removed.`,
+    });
+    setSmtpDeleteTarget(null);
     fetchSmtpConfigs();
   };
 
@@ -414,7 +423,7 @@ export default function EmailConfiguration() {
                           <TooltipContent>Send Test Email</TooltipContent>
                         </Tooltip>
                         <Button size="icon" variant="ghost" onClick={() => openSmtpDialog(smtp)}><Pencil className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteSmtp(smtp.id)}><Trash2 className="h-4 w-4" /></Button>
+                        <Button size="icon" variant="ghost" className="text-destructive" onClick={() => setSmtpDeleteTarget(smtp)}><Trash2 className="h-4 w-4" /></Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -715,6 +724,26 @@ export default function EmailConfiguration() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!smtpDeleteTarget} onOpenChange={(open) => { if (!open) setSmtpDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete SMTP Configuration</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the SMTP configuration for <strong>{smtpDeleteTarget?.sender_email}</strong> ({smtpDeleteTarget?.plant ? `Plant ${smtpDeleteTarget.plant}` : 'All Plants'})? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => smtpDeleteTarget && deleteSmtp(smtpDeleteTarget)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,23 +1,23 @@
-## Problem
+## Goal
+Add a confirmation step before deleting an SMTP configuration on the Email Configuration screen, and show a clear success toast after deletion.
 
-On `/inward/inprocess`, the **Plant** filter dropdown is built from `inspectionLotRecords` (records already synced into `zmrb_inward_report`). A user logged into plant **1100** sees an empty Plant filter because no 1100 rows have been synced yet, even though 1100 is their assigned plant.
+## Changes (single file: `src/pages/EmailConfiguration.tsx`)
 
-## Fix
+1. **Import AlertDialog primitives** from `@/components/ui/alert-dialog` (project standard for destructive confirmations per memory rule).
 
-Change the `plantOptions` source on `src/pages/InwardInProcessReport.tsx` so the Plant dropdown always reflects the user's accessible plants, independent of whether data has been synced.
+2. **Add state** `smtpDeleteTarget: SmtpConfig | null` to track which SMTP row is pending deletion.
 
-### Source-of-truth rules (mirroring `AppHeader`)
-- **Admin / Executive**: show all plants from `usePlants()` (the `plants` table).
-- **All other roles**: show only the plants assigned to the user via `useUserPlants()` (intersected with the `plants` table for valid codes/labels).
-- Fallback: if the resolved list is empty, fall back to plants currently present in records (existing behaviour) so nothing regresses.
+3. **Replace the trash icon's direct call** (line 417) `onClick={() => deleteSmtp(smtp.id)}` with `onClick={() => setSmtpDeleteTarget(smtp)}` so it opens the confirmation dialog instead of deleting immediately.
 
-### Implementation outline
-1. In `InwardInProcessReport.tsx`:
-   - Import `useAuth`, `useUserPlants`, and `usePlants`.
-   - Compute `accessiblePlants` using the same logic as `AppHeader` (admin/executive → all plants; others → assigned plants).
-   - Replace `const allPlants = [...new Set(inspectionLotRecords.map(r => r.plant))]` with `accessiblePlants` (codes), and build `plantOptions` as `{ value: code, label: name ? \`${code} - ${name}\` : code }`.
-   - Keep the data-derived list as fallback only when `accessiblePlants` is empty.
-2. No backend / RLS / sync changes. Material, Vendor, Storage Location, Inspection Lot filters remain data-derived (those genuinely depend on existing records).
+4. **Refactor `deleteSmtp`** to accept the full config (or use the target from state), perform the delete, and on success show:
+   - `toast({ title: 'Deleted', description: 'SMTP configuration for <plant/sender> removed successfully' })` (success variant style).
+   - On error, show a destructive toast with the error message (currently silent on error).
 
-### Out of scope
-- Why the SAP sync hasn't produced any 1100 rows yet (`scheduler_plants=[1100]`, `zmrb_inward_report` has 0 rows for 1100). That's a separate sync investigation; the user opted for the UI fix only.
+5. **Render `<AlertDialog>`** at the bottom of the component, controlled by `smtpDeleteTarget`:
+   - Title: "Delete SMTP Configuration"
+   - Description: "Are you sure you want to delete the SMTP configuration for <sender_email> (plant <plant or 'All Plants'>)? This action cannot be undone."
+   - Cancel button + Delete action button styled with `bg-destructive text-destructive-foreground`.
+
+## Out of scope
+- Email template deletion (line 469) — user only mentioned SMTP. Will leave unchanged unless requested.
+- No backend or schema changes.
