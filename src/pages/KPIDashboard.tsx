@@ -6,7 +6,7 @@ import { useInwardMRB } from '@/contexts/InwardMRBContext';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleMatrix } from '@/hooks/useRoleMatrix';
-import { useVisiblePlants } from '@/hooks/useVisiblePlants';
+import { useActivePlant } from '@/hooks/useActivePlant';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -79,14 +79,9 @@ export default function KPIDashboard() {
   const { hasAccess, loading: permissionsLoading } = useRoleMatrix();
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
-  // Strict plant scoping: dropdown lists only plants assigned to the user.
-  const { visiblePlants: plants } = useVisiblePlants();
-
-  // Filters State
+  // Filters State (plant filter syncs to header active plant)
   const [selectedPlant, setSelectedPlant] = useState<string>('all');
-  useEffect(() => {
-    if (plants.length === 1) setSelectedPlant(plants[0]);
-  }, [plants.join('|')]);
+  const { visiblePlants: plants } = useActivePlant(setSelectedPlant);
   const [selectedSource, setSelectedSource] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);

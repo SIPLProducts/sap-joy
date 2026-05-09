@@ -16,10 +16,12 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useMRB } from '@/contexts/MRBContext';
+import { useActivePlant } from '@/hooks/useActivePlant';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   BarChart, 
   Bar, 
@@ -65,8 +67,15 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function MRBAnalyticsDashboard() {
-  const { mrbRecords, isLoading, refreshData } = useMRB();
+  const { mrbRecords: rawMrbRecords, isLoading, refreshData } = useMRB();
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [selectedPlant, setSelectedPlant] = useState<string>('all');
+  const { plantOptions } = useActivePlant(setSelectedPlant);
+
+  const mrbRecords = useMemo(() => {
+    if (selectedPlant === 'all') return rawMrbRecords;
+    return (rawMrbRecords || []).filter((m: any) => m.plant === selectedPlant);
+  }, [rawMrbRecords, selectedPlant]);
 
   useEffect(() => {
     const interval = setInterval(() => setLastRefresh(new Date()), 30000);
@@ -266,6 +275,17 @@ export default function MRBAnalyticsDashboard() {
               <p className="text-muted-foreground">Aging and SLA compliance metrics for management oversight</p>
             </div>
             <div className="flex items-center gap-2">
+              <Select value={selectedPlant} onValueChange={setSelectedPlant}>
+                <SelectTrigger className="w-[160px] h-9">
+                  <SelectValue placeholder="Plant" />
+                </SelectTrigger>
+                <SelectContent>
+                  {plantOptions.length > 1 && <SelectItem value="all">All Plants</SelectItem>}
+                  {plantOptions.map(p => (
+                    <SelectItem key={p.code} value={p.code}>{p.code} — {p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Badge variant="outline" className="text-sm bg-green-500/10 border-green-500/30">
                 <Activity className="h-3 w-3 mr-1 text-green-500" />
                 Live Data
