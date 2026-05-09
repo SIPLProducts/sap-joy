@@ -1,131 +1,78 @@
 ## Goal
 
-Make the **Active Plant** the single source of truth across the app — UI screens, manual SAP sync, the 5-min background scheduler, and backend RLS — so users never see or sync data for plants they're not working in.
+Users see data from **all plants assigned to them** by default on every screen, with an in-screen Plant filter to narrow down. The header **Active Plant** becomes a *default* (for new record creation and SAP posts), not a data filter. Manual SAP sync covers all assigned plants. SAP transactional posts (block/unblock/stock update) use the **plant of the record being acted on**.
 
-## Scope (expanded per user direction)
-
-1. UI screens scoped to Active Plant
-2. Manual SAP sync scoped to Active Plant
-3. Background 5-min scheduler scoped to actively-used plants
-4. Backend RLS hardened to enforce plant boundaries
-5. Other screens (Worklist, Pending Actions, Dashboards) also scoped
+This supersedes the previous "Active Plant only" scoping.
 
 ---
 
-## 1. UI screens scoped to Active Plant (always)
+## 1. Data scoping — all assigned plants
 
-In these contexts, drop the role-based gate and always filter by `profile.plant`. Re-fetch on plant switch:
+Replace `eq('plant', profile.plant)` with `in('plant', userPlants)` in:
 
+- `src/contexts/MRBContext.tsx` (Worklist, Pending Actions, Dashboard, KPI, role dashboards, MRB Print list)
 - `src/contexts/InwardMRBContext.tsx`
 - `src/contexts/InwardInProcessMRBContext.tsx`
-- `src/contexts/MRBContext.tsx` (used by Worklist, Pending Actions, Dashboards)
 
-Effect: Inward, In-Process, Worklist, Pending Actions and all role dashboards instantly narrow to the active plant for every user, including admin/executive.
+Source of `userPlants`:
+- Use `useUserPlants()` hook (already exists). For `admin` / `executive`, fall back to **all plants** from `usePlants()` so they keep global visibility.
+- Real-time listeners filter payloads with `userPlants.includes(payload.new.plant)` instead of equality.
+- Re-fetch when `userPlants` changes.
 
-The in-page Plant multi-select on Inward / In-Process becomes a no-op (single plant in data) — hide it when only one plant is present.
+Direct queries in dashboards that bypass context (KPI, MRB Analytics, Quality/Plant/Purchase/Engineering Head, Executive Summary): replace any `.eq('plant', …)` with `.in('plant', userPlants)`.
 
-## 2. Manual SAP sync scoped to Active Plant
+## 2. In-screen Plant filter (multi-select)
 
-### MRB - Inward Materials & MRB In-Process Materials
+For every list screen, show a Plant multi-select chip populated from `userPlants` (hidden when user has only one plant). Default selection = all assigned. Filter the in-memory rows by the selection.
 
-Change the **Refresh Data** button on `InwardReport.tsx` and `InwardInProcessReport.tsx`:
+Screens:
+- Worklist
+- Pending Actions
+- Inward Materials (`InwardReport`)
+- Inward In-Process (`InwardInProcessReport`)
+- Shop Floor – Material Blocking (`ShopFloorStockSelection`) — replaces the current locked-to-Active-Plant dropdown with a multi-select; live MB52 fetch is then run per selected plant and results merged
+- KPI / role dashboards — Plant filter scopes the KPI cards and charts
 
-- Resolve the active SAP config that maps to `inward_inspection_lots` (plus the In-Process equivalent — its config is identified by `config_name` containing "process").
-- Call `invokeSapSync({ action: 'fetch_and_store', config_id, search_params: { WERKS: profile.plant, ART: '01' | '04' } })`.
-- Then re-run `refreshData()` to reload from DB.
-- Show toasts: "Syncing plant {WERKS}…" → success (records inserted/updated) → failure. Disable button while running.
+`MultiSelectFilter` component already exists; reuse it.
 
-### Shop Floor – Material Blocking
+## 3. Manual SAP sync — all assigned plants
 
-In `ShopFloorStockSelection.tsx`:
-- Initialize `selectedPlant` from `profile.plant`; reset whenever Active Plant changes.
-- MB52 already sends `WERKS: selectedPlant`, so SAP returns only that plant's stock. No backend change needed.
-- For non-admin users, lock the Plant dropdown to the Active Plant (read-only).
+`InwardReport` and `InwardInProcessReport` **Refresh Data**:
+- Resolve the active SAP config.
+- Loop `userPlants` and call `invokeSapSync({ action: 'fetch_and_store', config_id, search_params: { WERKS, ART } })` for each.
+- Show a single combined toast (`Synced N plants, X records updated`). Aggregate per-plant failures.
+- Disable button while running.
 
-## 3. Background 5-min auto-sync scoped to actively used plants
+`ShopFloorStockSelection` live MB52: when user selects multiple plants in the filter, issue one MB52 call per plant and concatenate results.
 
-Currently `sap-sync-scheduler` iterates `sap_api_config.scheduler_plants` (a per-config JSON array). This works but is decoupled from real usage and can drift.
+## 4. Header switcher → "Default plant" only
 
-Change:
-- Compute the **effective plant set** at run time as the union of:
-  - `sap_api_config.scheduler_plants` (admin override list — stays authoritative when set), AND
-  - `SELECT DISTINCT plant FROM user_plants` (plants assigned to at least one active user).
-- If `scheduler_plants` is non-empty, intersect with the `user_plants` set so disabled / unassigned plants aren't synced.
-- If `scheduler_plants` is empty, fall back to the `user_plants` set instead of skipping.
-- Skip plants with zero assigned users — no point pulling SAP data nobody can see.
-- Per-plant sync history rows continue to be written (already in place).
+`AppHeader` keeps the Plant dropdown but its label changes from **Active Plant** to **Default Plant** (used for new record creation and as the pre-selected plant on create forms / SAP posts). It no longer filters the list views.
 
-This guarantees the scheduler never syncs a plant that no user is working in, and automatically follows whatever plants the admin assigns going forward.
+## 5. Create & SAP transactional posts use the record's plant
 
-### New admin UI
+- `CreateMRBQuality`, `CreateMRBShopFloor`, `CreateInwardMRB`, `CreateInwardInProcessMRB`: add a Plant dropdown limited to `userPlants`, defaulting to `profile.plant`. The chosen plant is stored on the record.
+- Block/Unblock/Stock-update SAP calls (`ShopFloorMaterialBlocking`, `MRBDetail`, `InwardMRBDetail`, `ShopFloorMRBDetail`): always use `mrb.plant` / `stock.plant` for `WERKS`. Do not derive from header.
+- Edge function `sap-sync` plant-assignment guard stays — it now checks the caller is assigned to the requested `WERKS` (admin/executive bypass kept).
 
-In `SAPApiSettings.tsx`, add a small "Active Plants for Scheduler" panel showing:
-- Plants currently assigned to users (read-only, sourced from `user_plants`).
-- The intersected list that the next scheduler run will actually process.
+## 6. Background scheduler
 
-## 4. Backend / RLS hardening (plant isolation)
+No change to the recently shipped logic — it already runs for the union of `scheduler_plants` ∩ `user_plants`, which is correct for multi-plant.
 
-Today the RLS on `mrb_records`, `inward_inspection_lots`, `shop_floor_stock`, `mrb_attachments`, `mrb_approval_history` allows any authenticated user to read every row regardless of plant. We will tighten SELECT (and where appropriate INSERT/UPDATE) so users only see rows whose `plant` is in their `user_plants` set, with admin/executive bypass.
+## 7. RLS
 
-### New SECURITY DEFINER helpers (migration)
-
-```sql
--- Returns true if the user is assigned to the given plant.
-create or replace function public.user_has_plant(_user_id uuid, _plant text)
-returns boolean language sql stable security definer set search_path = public as $$
-  select exists (
-    select 1 from public.user_plants where user_id = _user_id and plant_code = _plant
-  ) or public.has_role(_user_id, 'admin') or public.has_role(_user_id, 'executive');
-$$;
-```
-
-### Policy rewrites (migration)
-
-For each of these tables, replace the current "anyone authenticated can SELECT" policy with one gated by `public.user_has_plant(auth.uid(), plant)`:
-
-- `mrb_records` — SELECT, UPDATE WITH CHECK
-- `inward_inspection_lots` — SELECT, INSERT WITH CHECK, UPDATE
-- `shop_floor_stock` — SELECT, INSERT WITH CHECK, UPDATE
-- `mrb_attachments` — SELECT (joined via `mrb_records.plant`)
-- `mrb_approval_history` — SELECT (joined via `mrb_records.plant`)
-- `zmrb_inward_report` — SELECT, INSERT, UPDATE
-
-Admin/executive bypass is built into `user_has_plant`, so existing admin tooling keeps working.
-
-### Edge functions
-
-- `sap-sync` (manual fetch from screens) — accepts `search_params.WERKS` from the client; verify the caller is assigned to that plant before calling SAP. Reject with `{ ok: false, error: 'plant_not_assigned' }` (HTTP 200 per project convention) if not.
-- `sap-sync-scheduler` — uses service role, so no per-user check; it relies on the new effective-plant-set logic above.
-
-## 5. Other screens scoped to Active Plant
-
-- **Worklist** (`Worklist.tsx`) — already reads via `MRBContext`; the context change in §1 handles it. Verify the Plant filter chip defaults to the active plant.
-- **Pending Actions** (`PendingActions.tsx`) — same context, same effect.
-- **Dashboards** (KPI, MRB Analytics, Quality / Plant / Purchase / Engineering Head, Executive Summary) — confirm each pulls from `mrb_records` via the context (or a hook) and is scoped by the new context filter. Where a dashboard queries directly, add `.eq('plant', profile.plant)` (admin/executive use the Active Plant from the header switcher).
-- All KPI counts, charts and SLA buckets recompute per active plant on switch.
-
----
+No change. The `user_has_plant()` helper already returns true for any plant in the user's `user_plants` set (and admins/executives bypass), so multi-plant SELECT works under the existing policies.
 
 ## Out of scope
 
-- Cross-plant aggregated views (none exist today; would need a separate "All Plants" toggle for executives if requested later).
-- Search across plants for a single material/MRB (kept at one plant at a time).
+- Cross-plant aggregated KPIs (we filter, we don't pre-aggregate).
+- Changing the workflow / approval logic per plant.
 
 ## Technical notes
 
-- `useAuth().profile.plant` already drives the header switcher and persists via `updatePlant()`.
-- `invokeSapSync` already supports `search_params` overrides (used by Shop Floor MB52).
-- `inward_inspection_lots.plant`, `mrb_records.plant`, `shop_floor_stock.plant` columns exist and are indexed; no schema changes needed beyond RLS + helper function.
-- The scheduler change is contained to `supabase/functions/sap-sync-scheduler/index.ts` plant-set computation block (around lines 142–152).
-- All edge function responses keep the `{ ok, error, data }` HTTP 200 contract per project memory.
-
----
-
-## Status: implemented
-
-- Contexts (`MRBContext`, `InwardMRBContext`, `InwardInProcessMRBContext`) now always filter by `profile.plant`.
-- `InwardReport` and `InwardInProcessReport` Refresh Data triggers SAP sync with `WERKS = profile.plant`.
-- `ShopFloorStockSelection` defaults `selectedPlant` to active plant and locks dropdown for non-admin.
-- `sap-sync-scheduler` now intersects `scheduler_plants` with active `user_plants` (or falls back to user plants).
-- `sap-sync` rejects calls when caller's plant doesn't match `WERKS` (admin/executive bypass).
-- Migration adds `user_has_plant()` and tightens RLS on `mrb_records`, `inward_inspection_lots`, `shop_floor_stock`, `zmrb_inward_report`, `mrb_attachments`, `mrb_approval_history`.
+- `useUserPlants()` already returns the array of plant codes; for admin/executive, expand to `usePlants().map(p => p.code)` to preserve global visibility.
+- `MultiSelectFilter` already used on Inward — extend its usage and default state to "all".
+- `invokeSapSync` already accepts `search_params` overrides; loop client-side.
+- `MRBContext` real-time channel filters: switch to a `Set` membership check.
+- Header label change is cosmetic; logic of `updatePlant()` stays so the chosen plant persists as the create-form default.
+- All edge functions keep the `{ ok, error, data }` 200-OK contract.
