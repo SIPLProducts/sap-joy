@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 import { useToast } from '@/hooks/use-toast';
 import { useDepartments } from '@/hooks/useDepartments';
-import { usePlants } from '@/hooks/usePlantConfig';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -60,7 +60,9 @@ export default function UserManagement() {
   const { userRole } = useAuth();
   const { toast } = useToast();
   const { departments: dbDepartments } = useDepartments();
-  const allPlants = usePlants();
+  // Master Admin can assign any plant; everyone else can only assign plants
+  // they themselves are assigned to.
+  const { plantOptions: assignablePlants } = useVisiblePlants();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -607,7 +609,7 @@ export default function UserManagement() {
             <div className="space-y-2">
               <Label>Assign Plants *</Label>
               <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
-                {allPlants.map(p => (
+                {assignablePlants.map(p => (
                   <label key={p.code} className="flex items-center gap-2 text-sm cursor-pointer">
                     <Checkbox
                       checked={newUserPlants.includes(p.code)}
@@ -670,7 +672,18 @@ export default function UserManagement() {
             <div className="space-y-2">
               <Label>Assigned Plants</Label>
               <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
-                {allPlants.map(p => (
+                {(() => {
+                  // Show plants the current admin can assign + any plants the
+                  // user already has assigned (so out-of-scope assignments are
+                  // visible and not silently dropped on save).
+                  const seen = new Set<string>();
+                  const merged: { code: string; name: string }[] = [];
+                  for (const p of assignablePlants) { if (!seen.has(p.code)) { seen.add(p.code); merged.push(p); } }
+                  for (const code of (selectedUser?.plants || [])) {
+                    if (!seen.has(code)) { seen.add(code); merged.push({ code, name: code }); }
+                  }
+                  return merged;
+                })().map(p => (
                   <label key={p.code} className="flex items-center gap-2 text-sm cursor-pointer">
                     <Checkbox
                       checked={selectedPlants.includes(p.code)}

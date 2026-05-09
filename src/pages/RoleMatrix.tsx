@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
 import { useRoleMatrix } from '@/hooks/useRoleMatrix';
 import { useDepartments } from '@/hooks/useDepartments';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -59,13 +60,22 @@ interface PermRow {
 }
 
 export default function RoleMatrix() {
-  const { userRole } = useAuth();
+  const { userRole, profile } = useAuth();
   const { departments } = useDepartments();
   const { hasAccess, loading: permLoading } = useRoleMatrix();
   const isAdmin = userRole === 'admin' || hasAccess('role_access');
   const [permissions, setPermissions] = useState<PermRow[]>([]);
-  const [plants, setPlants] = useState<{ code: string; name: string }[]>([]);
-  const [selectedPlant, setSelectedPlant] = useState('1300');
+  const { plantOptions: plants } = useVisiblePlants();
+  const [selectedPlant, setSelectedPlant] = useState<string>('');
+
+  useEffect(() => {
+    if (selectedPlant && plants.some(p => p.code === selectedPlant)) return;
+    if (plants.length === 0) return;
+    const preferred = profile?.plant && plants.find(p => p.code === profile.plant)
+      ? profile.plant
+      : plants[0].code;
+    setSelectedPlant(preferred);
+  }, [plants, profile?.plant, selectedPlant]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -96,13 +106,13 @@ export default function RoleMatrix() {
   }, [ROLES, selectedRole]);
 
   const fetchData = async () => {
+    if (!selectedPlant) return;
     setLoading(true);
-    const [permRes, plantRes] = await Promise.all([
-      supabase.from('role_permissions').select('*').eq('plant', selectedPlant).order('module_key'),
-      supabase.from('plants').select('code, name').order('code'),
-    ]);
-
-    if (plantRes.data) setPlants(plantRes.data);
+    const permRes = await supabase
+      .from('role_permissions')
+      .select('*')
+      .eq('plant', selectedPlant)
+      .order('module_key');
 
     const dbPerms = (permRes.data || []) as PermRow[];
     const dense: PermRow[] = [];
@@ -130,7 +140,7 @@ export default function RoleMatrix() {
     setHasChanges(false);
   };
 
-  useEffect(() => { if (ROLES.length > 0) fetchData(); }, [selectedPlant, ROLES.length]);
+  useEffect(() => { if (ROLES.length > 0 && selectedPlant) fetchData(); }, [selectedPlant, ROLES.length]);
 
   const togglePermission = (role: string, moduleKey: string) => {
     setHasChanges(true);

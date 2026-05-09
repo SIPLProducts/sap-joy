@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleMatrix } from '@/hooks/useRoleMatrix';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,11 +23,12 @@ interface Plant {
 }
 
 export default function PlantManagement() {
-  const [plants, setPlants] = useState<Plant[]>([]);
+  const [allPlants, setAllPlants] = useState<Plant[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const { userRole } = useAuth();
+  const { visiblePlants, isMaster } = useVisiblePlants();
   
   const [isOpen, setIsOpen] = useState(false);
   const [editingPlant, setEditingPlant] = useState<Plant | null>(null);
@@ -35,6 +37,13 @@ export default function PlantManagement() {
 
   const { hasAccess, loading: permLoading } = useRoleMatrix();
   const isAdmin = userRole === 'admin' || hasAccess('plant_management');
+
+  // Master Admin sees & manages all plants. Everyone else is restricted to
+  // plants explicitly assigned to them (mirrors strict plant scoping rule).
+  const plants = useMemo(
+    () => (isMaster ? allPlants : allPlants.filter(p => visiblePlants.includes(p.code))),
+    [allPlants, visiblePlants, isMaster]
+  );
 
   const fetchPlants = async () => {
     setLoading(true);
@@ -45,7 +54,7 @@ export default function PlantManagement() {
         .order('code', { ascending: true });
         
       if (error) throw error;
-      setPlants(data || []);
+      setAllPlants(data || []);
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {

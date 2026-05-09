@@ -11,10 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User, Mail, Building2, Briefcase, Phone, Save, Loader2 } from 'lucide-react';
 import { getRoleDisplayName } from '@/contexts/RoleContext';
-
-const PLANTS = [
-  '1300',
-];
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 
 const DEPARTMENTS = [
   'Quality',
@@ -28,6 +25,7 @@ const DEPARTMENTS = [
 export default function UserProfile() {
   const { user, profile, userRole } = useAuth();
   const { toast } = useToast();
+  const { plantOptions } = useVisiblePlants();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   
@@ -253,9 +251,9 @@ export default function UserProfile() {
                   </div>
                 </SelectTrigger>
                 <SelectContent>
-                  {PLANTS.map((plant) => (
-                    <SelectItem key={plant} value={plant}>
-                      {plant}
+                  {plantOptions.map((p) => (
+                    <SelectItem key={p.code} value={p.code}>
+                      {p.code}{p.name ? ` - ${p.name}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>

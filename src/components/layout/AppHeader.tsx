@@ -1,14 +1,12 @@
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
-import { useUserPlants } from '@/hooks/useUserPlants';
-import { usePlants } from '@/hooks/usePlantConfig';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Building2 } from 'lucide-react';
 
 export function AppHeader() {
   const { profile, updatePlant, isLoading } = useAuth();
-  const { userPlants } = useUserPlants();
-  const allPlants = usePlants();
+  const { plantOptions } = useVisiblePlants();
 
   if (isLoading || !profile) {
     return (
@@ -18,8 +16,9 @@ export function AppHeader() {
     );
   }
 
-  // Strict scoping: dropdown lists ONLY the plants assigned to this user.
-  const availablePlants = allPlants.filter(p => userPlants.includes(p.code));
+  // Strict scoping: dropdown lists ONLY the plants visible to this user
+  // (Master Admin sees all; everyone else sees only assigned plants).
+  const availablePlants = plantOptions;
   const showPlantSwitcher = availablePlants.length > 1;
 
   return (

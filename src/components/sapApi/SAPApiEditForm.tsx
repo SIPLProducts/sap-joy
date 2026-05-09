@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Save, Loader2, Eye, EyeOff, Link2, ChevronDown, Plus, Trash2, GripVertical } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 
 interface SAPConfig {
   id?: string;
@@ -68,6 +69,9 @@ interface Props {
 }
 
 export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
+  // Plant scoping for scheduler picker. Master Admin → all plants;
+  // everyone else → only assigned plants.
+  const { plantOptions: allPlants } = useVisiblePlants();
   // API Details state
   const [name, setName] = useState(config?.config_name || '');
   const [description, setDescription] = useState(config?.description || '');
@@ -116,16 +120,8 @@ export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
   const [schedulerPlants, setSchedulerPlants] = useState<string[]>(
     Array.isArray(config?.scheduler_plants) ? config.scheduler_plants : []
   );
-  const [allPlants, setAllPlants] = useState<{ code: string; name: string }[]>([]);
   const [retryCount, setRetryCount] = useState(String(config?.retry_count || 3));
   const [retryDelayMs, setRetryDelayMs] = useState(String(config?.retry_delay_ms || 5000));
-
-  // Load plants for scheduler selection
-  useEffect(() => {
-    supabase.from('plants').select('code, name').order('code').then(({ data }) => {
-      if (data) setAllPlants(data);
-    });
-  }, []);
 
   // Settings state
   const [maxRecords, setMaxRecords] = useState(String(config?.max_records || 1000));

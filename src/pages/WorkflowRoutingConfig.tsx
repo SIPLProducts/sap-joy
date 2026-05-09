@@ -3,8 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleMatrix } from '@/hooks/useRoleMatrix';
 import { useDepartments } from '@/hooks/useDepartments';
-import { usePlants } from '@/hooks/usePlantConfig';
-import { useUserPlants } from '@/hooks/useUserPlants';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,14 +14,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Shield, RefreshCw, ArrowDown, ArrowUp, Save, GitBranch } from 'lucide-react';
 
 export default function WorkflowRoutingConfig() {
-  const { userRole } = useAuth();
+  const { userRole, profile } = useAuth();
   const { toast } = useToast();
-  const allPlants = usePlants();
-  const { userPlants } = useUserPlants();
-  const plants = useMemo(
-    () => allPlants.filter(p => userPlants.includes(p.code)),
-    [allPlants, userPlants]
-  );
+  const { plantOptions: plants } = useVisiblePlants();
   const { departments } = useDepartments();
   
   // All workflow-enabled roles from Role Management
@@ -37,7 +31,17 @@ export default function WorkflowRoutingConfig() {
     [departments]
   );
   
-  const [selectedPlant, setSelectedPlant] = useState('1300');
+  const [selectedPlant, setSelectedPlant] = useState<string>('');
+
+  // Default selected plant: profile.plant if visible, else first visible
+  useEffect(() => {
+    if (selectedPlant && plants.some(p => p.code === selectedPlant)) return;
+    if (plants.length === 0) return;
+    const preferred = profile?.plant && plants.find(p => p.code === profile.plant)
+      ? profile.plant
+      : plants[0].code;
+    setSelectedPlant(preferred);
+  }, [plants, profile?.plant, selectedPlant]);
   const [steps, setSteps] = useState<{ role_key: string; name: string; workflow_step: number; is_active: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
