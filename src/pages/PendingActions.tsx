@@ -2,11 +2,13 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useActivePlant } from '@/hooks/useActivePlant';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Eye, Clock, AlertTriangle } from 'lucide-react';
 import { getStatusDisplayName, getStatusColor, getRoleDisplayName } from '@/data/mockData';
 import type { Database } from '@/integrations/supabase/types';
@@ -18,6 +20,8 @@ export default function PendingActions() {
   const { mrbRecords, isLoading } = useMRBDatabase();
   const { userRole } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPlant, setSelectedPlant] = useState<string>('all');
+  const { plantOptions } = useActivePlant(setSelectedPlant);
 
   // Filter MRBs with no action for 7+ days (#28)
   const pendingRecords = useMemo(() => {
@@ -28,13 +32,13 @@ export default function PendingActions() {
       .filter(mrb => {
         // Only include non-final statuses
         if (['approved', 'rejected', 'closed'].includes(mrb.status)) return false;
-        
+        if (selectedPlant !== 'all' && mrb.plant !== selectedPlant) return false;
         // Check if pending for 7+ days
         const updatedAt = new Date(mrb.updated_at);
         return (now.getTime() - updatedAt.getTime()) >= sevenDaysMs;
       })
       .sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime());
-  }, [mrbRecords]);
+  }, [mrbRecords, selectedPlant]);
 
   const filteredRecords = pendingRecords.filter(mrb =>
     !searchTerm ||
@@ -67,9 +71,22 @@ export default function PendingActions() {
           </h1>
           <p className="text-muted-foreground mt-1">MRBs with no action taken for 7 or more days</p>
         </div>
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search MRBs..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
+        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+          <Select value={selectedPlant} onValueChange={setSelectedPlant}>
+            <SelectTrigger className="w-full sm:w-[160px]">
+              <SelectValue placeholder="Plant" />
+            </SelectTrigger>
+            <SelectContent>
+              {plantOptions.length > 1 && <SelectItem value="all">All Plants</SelectItem>}
+              {plantOptions.map(p => (
+                <SelectItem key={p.code} value={p.code}>{p.code} — {p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="relative w-full md:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search MRBs..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
+          </div>
         </div>
       </div>
 
