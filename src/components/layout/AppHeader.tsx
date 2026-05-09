@@ -40,7 +40,7 @@ export function AppHeader() {
         <div className="flex items-center gap-3">
           <div className="flex items-center text-xs text-muted-foreground bg-muted/50 px-2 py-1.5 rounded-md border border-border/50">
             <Building2 className="w-3.5 h-3.5 mr-2 text-primary" />
-            <span className="font-medium mr-2 hidden sm:inline">Default Plant:</span>
+            <span className="font-medium mr-2 hidden sm:inline">Active Plant:</span>
             <Select 
               value={profile.plant || '1300'} 
               onValueChange={(val) => updatePlant(val)}
