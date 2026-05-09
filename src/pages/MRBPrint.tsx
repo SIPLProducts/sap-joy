@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { PrintPreviewModal } from '@/components/print/PrintPreviewModal';
 import hblLogo from '@/assets/hbl-logo.png';
 import { supabase } from '@/integrations/supabase/client';
+import { useActivePlant } from '@/hooks/useActivePlant';
 import type { Database } from '@/integrations/supabase/types';
 
 type MRBRecord = Database['public']['Tables']['mrb_records']['Row'];
@@ -228,6 +229,7 @@ const MRBPrint = () => {
   const [selectedMRBId, setSelectedMRBId] = useState<string>('');
   const [selectedMRB, setSelectedMRB] = useState<MRBRecord | null>(null);
   const [approverNames, setApproverNames] = useState<ApproverInfo>({});
+  const { activePlant } = useActivePlant();
 
   const [showPreview, setShowPreview] = useState(false);
   const [previewContent, setPreviewContent] = useState('');
@@ -241,14 +243,19 @@ const MRBPrint = () => {
 
   useEffect(() => {
     const loadMRBList = async () => {
-      const { data } = await supabase
+      let q = supabase
         .from('mrb_records')
         .select('id, mrb_number, material_description')
         .order('created_at', { ascending: false });
+      if (activePlant) q = q.eq('plant', activePlant);
+      const { data } = await q;
       if (data) setMrbList(data);
     };
     loadMRBList();
-  }, []);
+    // Reset any selection from a previous plant
+    setSelectedMRBId('');
+    setSelectedMRB(null);
+  }, [activePlant]);
 
   const fetchMRBFromDB = async (id: string) => {
     try {
