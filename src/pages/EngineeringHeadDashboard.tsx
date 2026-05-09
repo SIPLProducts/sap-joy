@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
 import { KPICard } from '@/components/dashboard/KPICard';
-import { useVisiblePlants } from '@/hooks/useVisiblePlants';
+import { useActivePlant } from '@/hooks/useActivePlant';
 import {
   Wrench,
   Clock,
@@ -37,11 +37,8 @@ const SLA_DAYS = 3;
 
 export default function EngineeringHeadDashboard() {
   const { mrbRecords, isLoading, refreshData } = useMRB();
-  const { visiblePlants } = useVisiblePlants();
   const [selectedPlant, setSelectedPlant] = useState('all');
-  useEffect(() => {
-    if (visiblePlants.length === 1) setSelectedPlant(visiblePlants[0]);
-  }, [visiblePlants.join('|')]);
+  const { visiblePlants } = useActivePlant(setSelectedPlant);
   const [selectedMaterial, setSelectedMaterial] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
