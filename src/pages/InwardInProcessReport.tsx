@@ -49,7 +49,7 @@ const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 export default function InwardReport() {
   const navigate = useNavigate();
   const { inspectionLotRecords, filters, setFilters, getFilteredRecords, refreshData, isLoading, uploadInspectionLots, createBatchMRBs, updateTransactionQuantity } = useInwardInProcessMRB();
-  const { userRole } = useAuth();
+  const { userRole, profile } = useAuth();
   const { userPlants } = useUserPlants();
   const allPlantsConfig = usePlants();
   const { extraFields } = useExtraDynamicFields('zmrb_inward_report');
@@ -445,10 +445,16 @@ export default function InwardReport() {
 
     setIsSyncing(true);
     try {
+      const activePlant = profile?.plant;
+      if (!activePlant) {
+        toast.error('No Active Plant set. Please select a plant in the header.');
+        return;
+      }
+      toast.info(`Syncing in-process data for plant ${activePlant}…`);
       const { data: syncData, error: syncError } = await invokeSapSync({
         action: 'sync',
         config_id: sapConfigId,
-        request_overrides: { ART: '04' },
+        request_overrides: { ART: '04', WERKS: activePlant },
       });
 
       if (syncError) {
@@ -473,7 +479,7 @@ export default function InwardReport() {
       }
 
       setSelectedIds(new Set());
-      toast.success('SAP sync successful');
+      toast.success(`SAP sync successful for plant ${activePlant}`);
     } catch (error) {
       console.error('Sync error:', error);
       toast.error(error instanceof Error ? error.message : 'Sync failed. Please try again.');
