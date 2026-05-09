@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPlants } from '@/hooks/useUserPlants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,22 +20,21 @@ export default function CreateMRBShopFloor() {
   const { createMRB, getNextMRBNumber } = useMRBDatabase();
   const { currentUser } = useRole();
   const { user, profile } = useAuth();
+  const { userPlants } = useUserPlants();
   const { toast } = useToast();
 
   const [materials, setMaterials] = useState<{number: string; description: string}[]>([]);
   const [vendors, setVendors] = useState<{code: string; name: string}[]>([]);
-  const [plants, setPlants] = useState<string[]>([]);
+  const plants = userPlants;
 
   useEffect(() => {
     const fetchData = async () => {
-      const [matRes, venRes, plantRes] = await Promise.all([
+      const [matRes, venRes] = await Promise.all([
         supabase.from('materials').select('material_number, description'),
         supabase.from('vendors').select('code, name').eq('is_active', true),
-        supabase.from('plants').select('code'),
       ]);
       if (matRes.data) setMaterials(matRes.data.map(m => ({ number: m.material_number, description: m.description })));
       if (venRes.data) setVendors(venRes.data.map(v => ({ code: v.code, name: v.name })));
-      if (plantRes.data) setPlants(plantRes.data.map(p => p.code));
     };
     fetchData();
   }, []);
