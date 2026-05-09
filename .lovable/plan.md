@@ -1,49 +1,48 @@
-## Goal
+## Issue
 
-Across **every screen with a Plant filter**, the Plant dropdown must list only the plants the logged-in user is assigned to in `user_plants`. No "All Plants" leakage to plants the user isn't assigned to, no fallback to the full `plants` table.
+In Shop Floor → **Material Blocking** (`ShopFloorStockSelection.tsx`), the **Plant (WERKS)** dropdown still shows all plants for admin users. The screenshot proves it: the logged-in admin is assigned only to plant `1100`, but the dropdown also lists `1300 - HBL Plant 1300`.
 
-The header switcher and create-MRB / inward report screens already do this (previous round). The remaining offenders are the dashboard filters and KPI dashboard.
+This is the last admin-bypass that was missed in the previous "strict plant scoping" pass.
 
-## Screens to fix
+## Root cause
 
-### 1. Dashboard filters — currently empty, need feeding from `useVisiblePlants`
-These screens render `<DashboardFilters />` but don't pass a `plants` prop, so the dropdown only shows "All Plants" with no individual plant options:
-- `src/pages/QualityHeadDashboard.tsx`
-- `src/pages/PurchaseHeadDashboard.tsx`
-- `src/pages/EngineeringHeadDashboard.tsx`
-- `src/pages/PlantHeadDashboard.tsx`
-- `src/pages/ExecutiveSummaryDashboard.tsx`
+`src/pages/ShopFloorStockSelection.tsx` lines 41–59:
 
-Fix: in each, call `useVisiblePlants()` and pass `plants={visiblePlants}` to `<DashboardFilters />`. If `visiblePlants.length === 1`, default `selectedPlant` to that single code (instead of `'all'`) so the user immediately sees scoped data.
+```ts
+const isAdmin = userRole === 'admin';
+useEffect(() => {
+  if (isAdmin) {
+    supabase.from('plants').select('code, name').then(({ data }) => {
+      if (data) setAllSystemPlants(data);   // ← fetches the FULL plants table
+    });
+  }
+}, [isAdmin]);
 
-### 2. `src/pages/KPIDashboard.tsx`
-Today (line 82): `const plants = useMemo(() => [...new Set(mrbRecords.map(r => r.plant))], [mrbRecords]);`
-This is records-derived (RLS-scoped) so it's already safe, but it's inconsistent and shows `'all'` as default.
-Fix: replace with `useVisiblePlants()` so the dropdown matches the assignment list exactly. If only one assigned plant, default `selectedPlant` to that plant.
+const availablePlants = useMemo(() => {
+  if (isAdmin) {
+    return allSystemPlants.map(...);        // ← admin sees all plants
+  }
+  return userPlants.map(p => ({ value: p, label: p }));
+}, [isAdmin, allSystemPlants, userPlants]);
+```
 
-### 3. `src/components/dashboard/DashboardFilters.tsx`
-No structural change. Add a tiny safeguard: if the `plants` prop has exactly one entry, hide the "All Plants" option (or render the single plant as a non-interactive label) so users cannot pick a wider scope than their assignment.
+This directly violates the project rule **"Admin scoping: Always restrict to assigned plants"** (mem://features/strict-plant-scoping).
 
-### 4. Already correct (no change)
-- `AppHeader` — assigned-only.
-- `CreateMRBQuality.tsx`, `CreateMRBShopFloor.tsx` — use `useUserPlants()`.
-- `InwardReport.tsx`, `InwardInProcessReport.tsx` — assigned-scoped.
-- `ShopFloorStockSelection.tsx` — uses `useVisiblePlants()`.
-- `WorkflowRoutingConfig.tsx` — assigned-scoped (previous round).
-- `Worklist`, `SAPSyncMonitor`, `ShopFloorMaterialBlocking`, `MRBAnalyticsDashboard`, `Dashboard` — no plant dropdown filter.
-- Admin management screens (`UserManagement`, `PlantManagement`, `RoleMatrix`, `UserPermissionMatrix`, `EmailConfiguration`) — these manage cross-plant config and intentionally show the full plant list. Excluded.
+## Fix
 
-## Out of scope
-- No DB / RLS changes (already strict via `user_has_plant`).
-- No changes to admin/configuration screens.
-- No changes to scheduler or SAP transactional posts.
+In `src/pages/ShopFloorStockSelection.tsx`:
+
+1. Remove the `isAdmin` branch entirely. Drop `allSystemPlants`, the `useEffect` that fetches `plants`, and the `isAdmin` check inside `availablePlants`.
+2. Always derive `availablePlants` from `useUserPlants()`. Use plant name from the `plants` table for the label so the dropdown reads "1100 - Vizag plant" (the same labels shown today), but only for assigned plants. Use `usePlants()` (already loaded once globally via `usePlantConfig`) and filter to `userPlants`.
+3. Keep the existing `disabled={availablePlants.length <= 1}` behavior so single-plant users see a locked dropdown.
+
+After the fix, the admin assigned only to `1100` will see exactly one option: `1100 - Vizag plant`, and the dropdown will be locked to it.
 
 ## Files to touch
-- `src/pages/QualityHeadDashboard.tsx`
-- `src/pages/PurchaseHeadDashboard.tsx`
-- `src/pages/EngineeringHeadDashboard.tsx`
-- `src/pages/PlantHeadDashboard.tsx`
-- `src/pages/ExecutiveSummaryDashboard.tsx`
-- `src/pages/KPIDashboard.tsx`
-- `src/components/dashboard/DashboardFilters.tsx`
-- Memory: extend `mem://features/strict-plant-scoping` — "every Plant filter dropdown sources from `useVisiblePlants()`; if user has 1 assigned plant, default selection to it and hide the All Plants option."
+- `src/pages/ShopFloorStockSelection.tsx` (only)
+- Memory: append note to `mem://features/strict-plant-scoping` — "Material Blocking (`ShopFloorStockSelection`) admin bypass removed; uses `useUserPlants` for the WERKS dropdown."
+
+## Out of scope
+- No DB / RLS changes.
+- No changes to other screens (already covered).
+- No changes to admin management screens (User/Plant/Role/Email config).

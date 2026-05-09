@@ -30,6 +30,7 @@ import { useShopFloorStock, ShopFloorStockRecord } from '@/hooks/useShopFloorSto
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPlants } from '@/hooks/useUserPlants';
 import { supabase } from '@/integrations/supabase/client';
+import { usePlants } from '@/hooks/usePlantConfig';
 import { invokeSapSync } from '@/lib/sapSyncClient';
 
 export default function ShopFloorStockSelection() {
@@ -37,26 +38,15 @@ export default function ShopFloorStockSelection() {
   
   const { userRole, profile } = useAuth();
   const { userPlants } = useUserPlants();
-  
-  // All plants for admin dropdown
-  const [allSystemPlants, setAllSystemPlants] = useState<{ code: string; name: string }[]>([]);
-  const isAdmin = userRole === 'admin';
+  const allPlants = usePlants();
 
-  useEffect(() => {
-    if (isAdmin) {
-      supabase.from('plants').select('code, name').then(({ data }) => {
-        if (data) setAllSystemPlants(data);
-      });
-    }
-  }, [isAdmin]);
-
-  // Plants available in dropdown based on role
+  // Strict plant scoping: dropdown lists ONLY the plants assigned to this user.
   const availablePlants = useMemo(() => {
-    if (isAdmin) {
-      return allSystemPlants.map(p => ({ value: p.code, label: `${p.code} - ${p.name}` }));
-    }
-    return userPlants.map(p => ({ value: p, label: p }));
-  }, [isAdmin, allSystemPlants, userPlants]);
+    return userPlants.map(code => {
+      const meta = allPlants.find(p => p.code === code);
+      return { value: code, label: meta?.name ? `${code} - ${meta.name}` : code };
+    });
+  }, [userPlants, allPlants]);
 
   // Database hook
   const {
