@@ -11,10 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User, Mail, Building2, Briefcase, Phone, Save, Loader2 } from 'lucide-react';
 import { getRoleDisplayName } from '@/contexts/RoleContext';
-
-const PLANTS = [
-  '1300',
-];
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 
 const DEPARTMENTS = [
   'Quality',
