@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 import { useToast } from '@/hooks/use-toast';
 import { useDepartments } from '@/hooks/useDepartments';
-import { usePlants } from '@/hooks/usePlantConfig';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -60,7 +60,9 @@ export default function UserManagement() {
   const { userRole } = useAuth();
   const { toast } = useToast();
   const { departments: dbDepartments } = useDepartments();
-  const allPlants = usePlants();
+  // Master Admin can assign any plant; everyone else can only assign plants
+  // they themselves are assigned to.
+  const { plantOptions: assignablePlants } = useVisiblePlants();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
