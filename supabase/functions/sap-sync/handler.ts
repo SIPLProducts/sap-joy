@@ -40,6 +40,39 @@ export default async (req: Request) => {
     const body = await req.json()
     const { action, config_id } = body
 
+    // ── Plant-assignment guard ──
+    // If the caller supplied a WERKS override (request_overrides or search_params),
+    // verify they are assigned to that plant. Admin / executive / Master Admin bypass.
+    try {
+      const overrides = (body as any)?.request_overrides ?? {}
+      const sp = (body as any)?.search_params ?? {}
+      const requestedPlant: string | null =
+        overrides?.WERKS ?? overrides?.werks ?? overrides?.plant ??
+        sp?.WERKS ?? sp?.werks ?? sp?.plant ?? null
+      if (requestedPlant) {
+        const isMasterAdmin = userEmail === 'masteradmin@sharviinfotech.com'
+        if (!isMasterAdmin) {
+          const [{ data: roles }, { data: plantRows }] = await Promise.all([
+            supabase.from('user_roles').select('role').eq('user_id', userData.user.id),
+            supabase.from('user_plants').select('plant_code').eq('user_id', userData.user.id),
+          ])
+          const roleSet = new Set((roles || []).map((r: any) => r.role))
+          const isPrivileged = roleSet.has('admin') || roleSet.has('executive')
+          const assigned = new Set((plantRows || []).map((r: any) => r.plant_code))
+          if (!isPrivileged && !assigned.has(String(requestedPlant))) {
+            return new Response(JSON.stringify({
+              ok: false,
+              success: false,
+              error: 'plant_not_assigned',
+              details: `User is not assigned to plant ${requestedPlant}.`,
+            }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+          }
+        }
+      }
+    } catch (guardErr) {
+      console.warn('Plant guard check failed (continuing):', (guardErr as Error)?.message)
+    }
+
     if (action === 'unblock') {
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
