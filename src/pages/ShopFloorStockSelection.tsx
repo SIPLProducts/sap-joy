@@ -35,7 +35,7 @@ import { invokeSapSync } from '@/lib/sapSyncClient';
 export default function ShopFloorStockSelection() {
   const navigate = useNavigate();
   
-  const { userRole } = useAuth();
+  const { userRole, profile } = useAuth();
   const { userPlants } = useUserPlants();
   
   // All plants for admin dropdown
@@ -66,8 +66,12 @@ export default function ShopFloorStockSelection() {
     fetchStockRecords,
   } = useShopFloorStock();
   
-  // Search form states (SAP payload fields)
-  const [selectedPlant, setSelectedPlant] = useState('');
+  // Search form states (SAP payload fields) — default to the Active Plant.
+  const [selectedPlant, setSelectedPlant] = useState(profile?.plant ?? '');
+  // Re-sync selectedPlant whenever the user switches Active Plant in the header.
+  useEffect(() => {
+    if (profile?.plant) setSelectedPlant(profile.plant);
+  }, [profile?.plant]);
   const [storageLocation, setStorageLocation] = useState('');
   const [materialCode, setMaterialCode] = useState('');
   const [materialType, setMaterialType] = useState('');
