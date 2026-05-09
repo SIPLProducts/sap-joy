@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useVisiblePlants } from '@/hooks/useVisiblePlants';
+import { useActivePlant } from '@/hooks/useActivePlant';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -66,6 +67,8 @@ export default function UserManagement() {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [plantFilter, setPlantFilter] = useState<string>('all');
+  const { plantOptions: filterPlantOptions } = useActivePlant(setPlantFilter);
   const [selectedUser, setSelectedUser] = useState<UserWithRole | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -406,12 +409,15 @@ export default function UserManagement() {
   };
 
   const filteredUsers = users.filter(user =>
+    (plantFilter === 'all' || user.plants.includes(plantFilter) || user.plant === plantFilter) &&
+    (
     user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (user.employee_id?.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (user.plant?.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (user.department?.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (user.role?.toLowerCase().includes(searchQuery.toLowerCase()))
+    )
   );
 
   if (permLoading) {
@@ -493,9 +499,22 @@ export default function UserManagement() {
         <CardHeader>
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div><CardTitle>Users</CardTitle><CardDescription>View and manage user roles</CardDescription></div>
-            <div className="relative w-full md:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search users..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              <Select value={plantFilter} onValueChange={setPlantFilter}>
+                <SelectTrigger className="w-full sm:w-[160px]">
+                  <SelectValue placeholder="Plant" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filterPlantOptions.length > 1 && <SelectItem value="all">All Plants</SelectItem>}
+                  {filterPlantOptions.map(p => (
+                    <SelectItem key={p.code} value={p.code}>{p.code} — {p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="relative w-full md:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Search users..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
+              </div>
             </div>
           </div>
         </CardHeader>
