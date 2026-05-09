@@ -1,29 +1,24 @@
 ## Plan
 
-Fix plant filtering so the active plant in the top header drives the inward-material screens consistently.
+Scope MRB Worklist to the active plant from the top header and add a Plant filter dropdown that mirrors the same Inward-screens behavior.
 
 ### What will change
 
-1. **MRB - Inward Materials**
-   - When the header plant is `1100`, the Plant filter will automatically show/select only `1100`.
-   - The records table will immediately show only `1100` records.
-   - Changing the header plant to `1300` will update the Plant filter to `1300` and reload/search only `1300` records.
-   - Reset will return the page to the current header plant, not blank/all plants.
+1. **MRB Worklist (`src/pages/Worklist.tsx`)**
+   - Derive `activePlant` from `profile.plant`, validated against `useVisiblePlants()` (Master Admin sees all plants, others restricted to assigned plants).
+   - Filter `mrbRecords` by `activePlant` so only that plant's MRBs appear in the table, KPIs, batch SAP unblock list, and Excel export.
+   - Add a new **Plant** dropdown in the filter row, alongside Status / Source / Pending With.
+     - For non-master users: dropdown lists only their assigned plants (via `useVisiblePlants`).
+     - For Master Admin: dropdown lists all plants.
+     - Default selection mirrors the header's active plant; changing the header switches the Worklist's plant filter automatically.
+   - When the header plant changes, refresh the visible records and reset selected row IDs (so stale selections from another plant don't get batch-synced).
 
-2. **MRB Inprocess Materials**
-   - Apply the same active-plant synchronization and record filtering behavior.
+2. **Behavior consistency**
+   - Same active-plant pattern already used in `InwardReport.tsx` and `InwardInProcessReport.tsx`.
+   - RLS on `mrb_records` already restricts non-master users to assigned plants — this is purely a UI-side filter to align with the active plant chosen in the header.
 
-3. **Dropdown behavior**
-   - The Plant filter dropdown on these pages will only expose the current active plant, so it cannot show both `1100` and `1300` while the header is set to one plant.
-   - Non-master users remain restricted to assigned plants through `useVisiblePlants()` and backend RLS.
-   - Master Admin can still switch active plant in the header, but each screen view is scoped to the selected active plant.
+### Out of scope
 
-### Technical details
-
-- Update `InwardReport.tsx` and `InwardInProcessReport.tsx` to derive an `activePlant` from `profile.plant`, validated against `useVisiblePlants()`.
-- Add an effect that keeps `filters.plants` synchronized as `[activePlant]` whenever the header plant changes.
-- Make auto-loaded `searchResults` use `getFilteredRecords()` instead of raw `inspectionLotRecords`, so visible records respect the synchronized plant filter.
-- Make Reset set `plants: [activePlant]` instead of `plants: []`.
-- Adjust the Plant `MultiSelectFilter` options on these screens to include only the active plant.
-
-No database changes are needed for this fix.
+- No DB / RLS changes.
+- No changes to status, source, or pending-with filter logic (those work as-is once the plant scope is correct).
+- No changes to other screens.
