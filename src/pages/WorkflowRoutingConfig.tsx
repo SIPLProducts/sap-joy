@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRoleMatrix } from '@/hooks/useRoleMatrix';
 import { useDepartments } from '@/hooks/useDepartments';
 import { usePlants } from '@/hooks/usePlantConfig';
+import { useUserPlants } from '@/hooks/useUserPlants';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,12 @@ import { Shield, RefreshCw, ArrowDown, ArrowUp, Save, GitBranch } from 'lucide-r
 export default function WorkflowRoutingConfig() {
   const { userRole } = useAuth();
   const { toast } = useToast();
-  const plants = usePlants();
+  const allPlants = usePlants();
+  const { userPlants } = useUserPlants();
+  const plants = useMemo(
+    () => allPlants.filter(p => userPlants.includes(p.code)),
+    [allPlants, userPlants]
+  );
   const { departments } = useDepartments();
   
   // All workflow-enabled roles from Role Management
