@@ -672,7 +672,18 @@ export default function UserManagement() {
             <div className="space-y-2">
               <Label>Assigned Plants</Label>
               <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
-                {assignablePlants.map(p => (
+                {(() => {
+                  // Show plants the current admin can assign + any plants the
+                  // user already has assigned (so out-of-scope assignments are
+                  // visible and not silently dropped on save).
+                  const seen = new Set<string>();
+                  const merged: { code: string; name: string }[] = [];
+                  for (const p of assignablePlants) { if (!seen.has(p.code)) { seen.add(p.code); merged.push(p); } }
+                  for (const code of (selectedUser?.plants || [])) {
+                    if (!seen.has(code)) { seen.add(code); merged.push({ code, name: code }); }
+                  }
+                  return merged;
+                })().map(p => (
                   <label key={p.code} className="flex items-center gap-2 text-sm cursor-pointer">
                     <Checkbox
                       checked={selectedPlants.includes(p.code)}
