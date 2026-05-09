@@ -308,14 +308,16 @@ export default function InwardReport() {
   // Auto-load all records on mount and when data refreshes
   useEffect(() => {
     if (!isLoading) {
-      setSearchResults(inspectionLotRecords.filter(r => r.status !== 'mrb_created'));
+      setSearchResults(
+        getFilteredRecords().filter(r => r.status !== 'mrb_created')
+      );
       if (!hasSearched) setHasSearched(true);
     }
-  }, [isLoading, inspectionLotRecords, hasSearched]);
+  }, [isLoading, inspectionLotRecords, hasSearched, filters]);
 
   const handleReset = () => {
     setFilters({
-      plants: [],
+      plants: activePlant ? [activePlant] : [],
       materialCodes: [],
       vendors: [],
       storageLocations: [],
