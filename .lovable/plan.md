@@ -1,78 +1,88 @@
 ## Goal
 
-Users see data from **all plants assigned to them** by default on every screen, with an in-screen Plant filter to narrow down. The header **Active Plant** becomes a *default* (for new record creation and SAP posts), not a data filter. Manual SAP sync covers all assigned plants. SAP transactional posts (block/unblock/stock update) use the **plant of the record being acted on**.
+Reverse the recent multi-plant visibility change. Each user sees data **only for the plant currently selected in the header** (their Active Plant). This applies uniformly across every screen — Dashboard, Worklist, Pending Actions, Material Blocking, Inward, In-Process, MRB Print, KPI dashboards, role dashboards, and SAP sync flows.
 
-This supersedes the previous "Active Plant only" scoping.
+This supersedes the "All assigned plants" model.
 
 ---
 
-## 1. Data scoping — all assigned plants
+## 1. Scoping model — single Active Plant
 
-Replace `eq('plant', profile.plant)` with `in('plant', userPlants)` in:
+- Restore the header label from **"Default Plant"** back to **"Active Plant"**.
+- The header switcher remains the single source of truth for what the user sees.
+  - Users with one assigned plant: locked to that plant.
+  - Users with multiple assigned plants: switcher lets them pick one at a time; only that plant's data is loaded.
+  - Admin / Executive: switcher shows all plants; one active plant at a time (no global "all plants" view).
+- `updatePlant()` continues to persist the selection on `profiles.plant`.
 
-- `src/contexts/MRBContext.tsx` (Worklist, Pending Actions, Dashboard, KPI, role dashboards, MRB Print list)
+## 2. Replace `useVisiblePlants` with `useActivePlant`
+
+- `useVisiblePlants` returned an array. Replace its usage with the single `profile.plant` (string).
+- Either:
+  - **(a)** Delete `src/hooks/useVisiblePlants.ts` and switch every consumer to read `profile.plant` from `useAuth()`, **or**
+  - **(b)** Keep the file but change it to return `{ activePlant: profile.plant }` for minimal call-site churn.
+- Plan choice: **(b)** — less diff, single rename of the returned property.
+
+## 3. Data scoping — `.eq('plant', activePlant)`
+
+Switch every `.in('plant', visiblePlants)` back to `.eq('plant', activePlant)` in:
+
+- `src/contexts/MRBContext.tsx`
 - `src/contexts/InwardMRBContext.tsx`
 - `src/contexts/InwardInProcessMRBContext.tsx`
+- All dashboard direct queries (KPI, MRB Analytics, Quality/Plant/Purchase/Engineering Head, Executive Summary) — audit and convert any remaining multi-plant filter.
+- Real-time channel handlers: filter payloads with `payload.new.plant === activePlant` (replace `Set` membership check).
+- Re-fetch when `profile.plant` changes (effect dependency on `activePlant`).
 
-Source of `userPlants`:
-- Use `useUserPlants()` hook (already exists). For `admin` / `executive`, fall back to **all plants** from `usePlants()` so they keep global visibility.
-- Real-time listeners filter payloads with `userPlants.includes(payload.new.plant)` instead of equality.
-- Re-fetch when `userPlants` changes.
+## 4. In-screen Plant filter — remove
 
-Direct queries in dashboards that bypass context (KPI, MRB Analytics, Quality/Plant/Purchase/Engineering Head, Executive Summary): replace any `.eq('plant', …)` with `.in('plant', userPlants)`.
+- Drop the multi-select Plant chip on Worklist, Pending Actions, Inward Materials, Inward In-Process, Shop Floor Material Blocking, and KPI dashboards.
+- `MultiSelectFilter` for plant is no longer needed (other filters that use it stay).
+- Shop Floor Stock Selection: lock the Plant dropdown to the active plant (no multi-select); only show as a read-only display for non-admin if they have one plant.
 
-## 2. In-screen Plant filter (multi-select)
+## 5. Manual SAP sync — Active Plant only
 
-For every list screen, show a Plant multi-select chip populated from `userPlants` (hidden when user has only one plant). Default selection = all assigned. Filter the in-memory rows by the selection.
-
-Screens:
-- Worklist
-- Pending Actions
-- Inward Materials (`InwardReport`)
-- Inward In-Process (`InwardInProcessReport`)
-- Shop Floor – Material Blocking (`ShopFloorStockSelection`) — replaces the current locked-to-Active-Plant dropdown with a multi-select; live MB52 fetch is then run per selected plant and results merged
-- KPI / role dashboards — Plant filter scopes the KPI cards and charts
-
-`MultiSelectFilter` component already exists; reuse it.
-
-## 3. Manual SAP sync — all assigned plants
-
-`InwardReport` and `InwardInProcessReport` **Refresh Data**:
-- Resolve the active SAP config.
-- Loop `userPlants` and call `invokeSapSync({ action: 'fetch_and_store', config_id, search_params: { WERKS, ART } })` for each.
-- Show a single combined toast (`Synced N plants, X records updated`). Aggregate per-plant failures.
-- Disable button while running.
-
-`ShopFloorStockSelection` live MB52: when user selects multiple plants in the filter, issue one MB52 call per plant and concatenate results.
-
-## 4. Header switcher → "Default plant" only
-
-`AppHeader` keeps the Plant dropdown but its label changes from **Active Plant** to **Default Plant** (used for new record creation and as the pre-selected plant on create forms / SAP posts). It no longer filters the list views.
-
-## 5. Create & SAP transactional posts use the record's plant
-
-- `CreateMRBQuality`, `CreateMRBShopFloor`, `CreateInwardMRB`, `CreateInwardInProcessMRB`: add a Plant dropdown limited to `userPlants`, defaulting to `profile.plant`. The chosen plant is stored on the record.
-- Block/Unblock/Stock-update SAP calls (`ShopFloorMaterialBlocking`, `MRBDetail`, `InwardMRBDetail`, `ShopFloorMRBDetail`): always use `mrb.plant` / `stock.plant` for `WERKS`. Do not derive from header.
-- Edge function `sap-sync` plant-assignment guard stays — it now checks the caller is assigned to the requested `WERKS` (admin/executive bypass kept).
+- `InwardReport` and `InwardInProcessReport` **Refresh Data**: stop looping `userPlants`. Issue a single `invokeSapSync({ search_params: { WERKS: activePlant, ART } })`.
+- `ShopFloorStockSelection` live MB52: single call for the active plant.
+- Combined-toast logic from the multi-plant loop is removed.
 
 ## 6. Background scheduler
 
-No change to the recently shipped logic — it already runs for the union of `scheduler_plants` ∩ `user_plants`, which is correct for multi-plant.
+- No code change required — `scheduler_plants` already drives plant iteration on the server side, independent of the per-user UI scope.
+- Operationally, `scheduler_plants` should still cover every plant the org needs synced (unchanged behavior).
 
-## 7. RLS
+## 7. MRB creation & SAP transactional posts
 
-No change. The `user_has_plant()` helper already returns true for any plant in the user's `user_plants` set (and admins/executives bypass), so multi-plant SELECT works under the existing policies.
+- Create forms (`CreateMRBQuality`, `CreateMRBShopFloor`, `CreateInwardMRB`, `CreateInwardInProcessMRB`): the Plant field is fixed to the Active Plant (no per-form picker). If a user wants to create for a different assigned plant, they switch the header first.
+- Block / Unblock / Stock-update SAP calls keep using **the record's `plant`** (`mrb.plant` / `stock.plant`) — already correct, no change needed.
+- `sap-sync` edge function `user_has_plant` guard stays (admin/executive bypass kept).
+
+## 8. RLS
+
+- No SQL change. `user_has_plant()` already permits any plant in the user's `user_plants` set, so single-plant SELECT continues to work for whichever plant is active.
+
+## 9. Memory
+
+- Update `mem://features/multi-plant-visibility` (or replace it with `mem://features/active-plant-scope`) to record the new rule: "User sees only the Active Plant's data across all screens; switcher narrows scope, not just default."
+
+---
+
+## Files to edit
+
+- `src/hooks/useVisiblePlants.ts` — return single `activePlant` string (or delete)
+- `src/components/layout/AppHeader.tsx` — label back to "Active Plant"
+- `src/contexts/AuthContext.tsx` — toast text "Active plant changed to ..."
+- `src/contexts/MRBContext.tsx`
+- `src/contexts/InwardMRBContext.tsx`
+- `src/contexts/InwardInProcessMRBContext.tsx`
+- `src/pages/InwardReport.tsx` — single-plant sync, remove plant multi-select
+- `src/pages/InwardInProcessReport.tsx` — same
+- `src/pages/ShopFloorStockSelection.tsx` — lock plant to active
+- `src/pages/Worklist.tsx`, `PendingActions.tsx`, `KPIDashboard.tsx`, `MRBAnalyticsDashboard.tsx`, `ExecutiveSummaryDashboard.tsx`, `QualityHeadDashboard.tsx`, `PlantHeadDashboard.tsx`, `PurchaseHeadDashboard.tsx`, `EngineeringHeadDashboard.tsx`, `Dashboard.tsx`, `MRBPrint.tsx`, `ShopFloorMaterialBlocking.tsx` — remove any Plant multi-select; ensure data hooks use Active Plant
+- Memory file update
 
 ## Out of scope
 
-- Cross-plant aggregated KPIs (we filter, we don't pre-aggregate).
-- Changing the workflow / approval logic per plant.
-
-## Technical notes
-
-- `useUserPlants()` already returns the array of plant codes; for admin/executive, expand to `usePlants().map(p => p.code)` to preserve global visibility.
-- `MultiSelectFilter` already used on Inward — extend its usage and default state to "all".
-- `invokeSapSync` already accepts `search_params` overrides; loop client-side.
-- `MRBContext` real-time channel filters: switch to a `Set` membership check.
-- Header label change is cosmetic; logic of `updatePlant()` stays so the chosen plant persists as the create-form default.
-- All edge functions keep the `{ ok, error, data }` 200-OK contract.
+- Cross-plant aggregated KPIs (intentionally not supported under single-plant scope).
+- Workflow / approval logic per plant (unchanged).
+- RLS changes.
