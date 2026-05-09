@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import type { Database } from '@/integrations/supabase/types';
 
 type MRBRecord = Database['public']['Tables']['mrb_records']['Row'];
@@ -37,10 +38,9 @@ export function MRBProvider({ children }: { children: ReactNode }) {
   const [filters, setFilters] = useState<MRBFilters>({});
   const [isLoading, setIsLoading] = useState(true);
   const { profile } = useAuth();
-
-  // Always scope to the Active Plant (set via header switcher).
-  // Admin/executive switch the active plant from the header; they no longer see all plants here.
-  const userPlant = profile?.plant;
+  const { visiblePlants } = useVisiblePlants();
+  // Stable key for re-running effects when the user's plant set changes
+  const visiblePlantsKey = visiblePlants.slice().sort().join(',');
 
   const fetchData = useCallback(async () => {
     try {
@@ -50,8 +50,8 @@ export function MRBProvider({ children }: { children: ReactNode }) {
         .from('mrb_records')
         .select('*')
         .order('created_at', { ascending: false });
-      if (userPlant) {
-        mrbQuery = mrbQuery.eq('plant', userPlant);
+      if (visiblePlants.length > 0) {
+        mrbQuery = mrbQuery.in('plant', visiblePlants);
       }
       const [mrbResult, emailResult] = await Promise.all([
         mrbQuery,
@@ -67,7 +67,7 @@ export function MRBProvider({ children }: { children: ReactNode }) {
       if (mrbResult.data) {
         const filtered = mrbResult.data;
         console.log(
-          `[MRBContext] Loaded ${filtered.length} mrb_records for plant=${userPlant ?? 'ALL'}. ` +
+          `[MRBContext] Loaded ${filtered.length} mrb_records for plants=[${visiblePlantsKey || 'ALL'}]. ` +
           `shop_floor=${filtered.filter((r: any) => r.source === 'shop_floor').length}, ` +
           `quality_inspection=${filtered.filter((r: any) => r.source === 'quality_inspection').length}`
         );
@@ -81,10 +81,11 @@ export function MRBProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [userPlant]);
+  }, [visiblePlantsKey]);
 
   useEffect(() => {
     fetchData();
+    const plantSet = new Set(visiblePlants);
 
     // Subscribe to real-time updates for MRB records
     const mrbChannel = supabase
@@ -100,7 +101,7 @@ export function MRBProvider({ children }: { children: ReactNode }) {
           console.log('Real-time MRB context update:', payload);
           const recPlant = (payload.new as MRBRecord | undefined)?.plant
             ?? (payload.old as MRBRecord | undefined)?.plant;
-          if (userPlant && recPlant && recPlant !== userPlant) return;
+          if (plantSet.size > 0 && recPlant && !plantSet.has(recPlant)) return;
           if (payload.eventType === 'INSERT') {
             setMRBRecords((prev) => [payload.new as MRBRecord, ...prev]);
           } else if (payload.eventType === 'UPDATE') {

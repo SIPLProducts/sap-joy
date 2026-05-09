@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { supabase } from '@/integrations/supabase/client';
 import { invokeSapSync } from '@/lib/sapSyncClient';
 import { useAuth } from '@/contexts/AuthContext';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import type { Database } from '@/integrations/supabase/types';
 import { ParsedInspectionLot } from '@/lib/csvTemplates';
 
@@ -96,8 +97,8 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
   const [inwardMRBRecords, setInwardMRBRecords] = useState<MRBRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { profile, userRole } = useAuth();
-  // Always scope by Active Plant for every user (admin/executive switch via header).
-  const userPlant = profile?.plant;
+  const { visiblePlants } = useVisiblePlants();
+  const visiblePlantsKey = visiblePlants.slice().sort().join(',');
   const [filters, setFilters] = useState<InwardReportFilters>({
     plants: [],
     materialCodes: [],
@@ -118,7 +119,7 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (userPlant) lotsQuery = lotsQuery.eq('plant', userPlant);
+      if (visiblePlants.length > 0) lotsQuery = lotsQuery.in('plant', visiblePlants);
 
       const { data: uploadedLots, error: uploadError } = await lotsQuery;
 
@@ -133,7 +134,7 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
         .eq('source', 'inprocess' as any)
         .order('created_at', { ascending: false });
 
-      if (userPlant) mrbQuery = mrbQuery.eq('plant', userPlant);
+      if (visiblePlants.length > 0) mrbQuery = mrbQuery.in('plant', visiblePlants);
 
       const { data: mrbData, error: mrbError } = await mrbQuery;
 
@@ -205,7 +206,7 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
     } finally {
       setIsLoading(false);
     }
-  }, [userPlant]);
+  }, [visiblePlantsKey]);
 
   useEffect(() => {
     fetchData();

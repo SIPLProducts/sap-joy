@@ -445,25 +445,27 @@ export default function InwardReport() {
 
     setIsSyncing(true);
     try {
-      const activePlant = profile?.plant;
-      if (!activePlant) {
-        toast.error('No Active Plant set. Please select a plant in the header.');
+      const plantsToSync = (userPlants && userPlants.length > 0)
+        ? userPlants
+        : (profile?.plant ? [profile.plant] : []);
+      if (plantsToSync.length === 0) {
+        toast.error('No plants assigned to your account. Contact an administrator.');
         return;
       }
-      toast.info(`Syncing in-process data for plant ${activePlant}…`);
-      const { data: syncData, error: syncError } = await invokeSapSync({
-        action: 'sync',
-        config_id: sapConfigId,
-        request_overrides: { ART: '04', WERKS: activePlant },
-      });
-
-      if (syncError) {
-        throw new Error(syncError.message || 'SAP sync failed');
-      }
-
-      if (!syncData?.success) {
-        toast.error(`SAP sync failed: ${syncData?.error || 'Unknown error'}`);
-        return;
+      toast.info(`Syncing in-process data for ${plantsToSync.length} plant(s): ${plantsToSync.join(', ')}…`);
+      const failures: string[] = [];
+      for (const werks of plantsToSync) {
+        try {
+          const { data: syncData, error: syncError } = await invokeSapSync({
+            action: 'sync',
+            config_id: sapConfigId,
+            request_overrides: { ART: '04', WERKS: werks },
+          });
+          if (syncError) throw new Error(syncError.message || 'SAP sync failed');
+          if (!syncData?.success) throw new Error(syncData?.error || 'Unknown error');
+        } catch (err) {
+          failures.push(`${werks}: ${err instanceof Error ? err.message : 'Failed'}`);
+        }
       }
 
       await refreshData();
@@ -479,7 +481,13 @@ export default function InwardReport() {
       }
 
       setSelectedIds(new Set());
-      toast.success(`SAP sync successful for plant ${activePlant}`);
+      if (failures.length === 0) {
+        toast.success(`SAP sync successful for ${plantsToSync.length} plant(s)`);
+      } else if (failures.length < plantsToSync.length) {
+        toast.warning(`Partial sync: ${plantsToSync.length - failures.length} succeeded, ${failures.length} failed (${failures.join('; ')})`);
+      } else {
+        toast.error(`Sync failed for all plants: ${failures.join('; ')}`);
+      }
     } catch (error) {
       console.error('Sync error:', error);
       toast.error(error instanceof Error ? error.message : 'Sync failed. Please try again.');

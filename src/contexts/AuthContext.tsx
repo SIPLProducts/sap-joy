@@ -178,7 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(prev => prev ? { ...prev, plant: newPlant } : null);
       toast({
         title: "Plant Updated",
-        description: `Active plant changed to ${newPlant}.`,
+        description: `Default plant changed to ${newPlant}.`,
       });
       return { error: null };
     } catch (error: any) {
