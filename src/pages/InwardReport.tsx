@@ -241,12 +241,28 @@ export default function InwardReport() {
     }
   }, [editingQtyValue, sapConfigId, updateTransactionQuantity]);
 
-  // Plant filter options come from the user's assigned plants (Master Admin = all),
-  // not from currently loaded records — so the dropdown is correct even when no
-  // data has loaded yet for the selected plant.
-  const allPlants = visiblePlantOptions.length > 0
-    ? visiblePlantOptions.map(p => p.code)
-    : [...new Set(inspectionLotRecords.map(r => r.plant))];
+  // The header's Active Plant drives this screen. Validate it against the
+  // user's visible plants so non-master users can never escape their scope.
+  const activePlant = useMemo(() => {
+    const headerPlant = profile?.plant;
+    if (visiblePlantOptions.length === 0) return headerPlant || '';
+    if (headerPlant && visiblePlantOptions.some(p => p.code === headerPlant)) {
+      return headerPlant;
+    }
+    return visiblePlantOptions[0].code;
+  }, [profile?.plant, visiblePlantOptions]);
+
+  // Keep the Plant filter pinned to the Active Plant whenever it changes.
+  useEffect(() => {
+    if (!activePlant) return;
+    if (filters.plants.length === 1 && filters.plants[0] === activePlant) return;
+    setFilters({ ...filters, plants: [activePlant] });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlant]);
+
+  // Plant filter dropdown exposes ONLY the Active Plant — it cannot show
+  // sibling plants while the header is locked to one.
+  const allPlants = activePlant ? [activePlant] : [];
   const allMaterials = [...new Set(inspectionLotRecords.map(r => r.materialCode))];
   const allVendors = [...new Set(inspectionLotRecords.map(r => r.vendorCode).filter(Boolean))];
   const allSlocs = [...new Set(inspectionLotRecords.map(r => r.storageLocation).filter(Boolean))];
@@ -292,14 +308,16 @@ export default function InwardReport() {
   // Auto-load all records on mount and when data refreshes
   useEffect(() => {
     if (!isLoading) {
-      setSearchResults(inspectionLotRecords.filter(r => r.status !== 'mrb_created'));
+      setSearchResults(
+        getFilteredRecords().filter(r => r.status !== 'mrb_created')
+      );
       if (!hasSearched) setHasSearched(true);
     }
-  }, [isLoading, inspectionLotRecords, hasSearched]);
+  }, [isLoading, inspectionLotRecords, hasSearched, filters]);
 
   const handleReset = () => {
     setFilters({
-      plants: [],
+      plants: activePlant ? [activePlant] : [],
       materialCodes: [],
       vendors: [],
       storageLocations: [],
