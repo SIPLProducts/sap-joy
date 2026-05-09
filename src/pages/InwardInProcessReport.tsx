@@ -19,6 +19,7 @@ import { useInwardInProcessMRB, InspectionLotRecord } from '@/contexts/InwardInP
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPlants } from '@/hooks/useUserPlants';
 import { usePlants } from '@/hooks/usePlantConfig';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import { Input } from '@/components/ui/input';
 import { MultiSelectFilter } from '@/components/inward/MultiSelectFilter';
 import {} from '@/data/mockData';
@@ -52,6 +53,7 @@ export default function InwardReport() {
   const { userRole, profile } = useAuth();
   const { userPlants } = useUserPlants();
   const allPlantsConfig = usePlants();
+  const { plantOptions: visiblePlantOptions } = useVisiblePlants();
   const { extraFields } = useExtraDynamicFields('zmrb_inward_report');
 
   // Role-based permissions
@@ -241,9 +243,10 @@ export default function InwardReport() {
     }
   }, [editingQtyValue, sapConfigId, updateTransactionQuantity]);
 
-  // Build options for filters from real DB data only
-  const accessiblePlantsList = allPlantsConfig.filter(p => userPlants.includes(p.code));
-  const accessiblePlantCodes = accessiblePlantsList.map(p => p.code);
+  // Plant filter options come from the user's visible plants
+  // (Master Admin = all, others = assigned). Falls back to data only
+  // if visibility hasn't resolved yet.
+  const accessiblePlantCodes = visiblePlantOptions.map(p => p.code);
   const dataPlants = [...new Set(inspectionLotRecords.map(r => r.plant))];
   const allPlants = accessiblePlantCodes.length > 0 ? accessiblePlantCodes : dataPlants;
   const allMaterials = [...new Set(inspectionLotRecords.map(r => r.materialCode))];
