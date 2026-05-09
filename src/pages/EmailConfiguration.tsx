@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleMatrix } from '@/hooks/useRoleMatrix';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -120,7 +121,7 @@ export default function EmailConfiguration() {
   const { hasAccess, loading: permLoading } = useRoleMatrix();
   const isAdmin = userRole === 'admin' || hasAccess('email_config');
 
-  const [plants, setPlants] = useState<{ code: string; name: string }[]>([]);
+  const { plantOptions: plants } = useVisiblePlants();
   const [departments, setDepartments] = useState<{ role_key: string; name: string }[]>([]);
 
   // SMTP state
@@ -164,16 +165,10 @@ export default function EmailConfiguration() {
   const [testSending, setTestSending] = useState(false);
 
   useEffect(() => {
-    fetchPlants();
     fetchDepartments();
     fetchSmtpConfigs();
     fetchTemplates();
   }, []);
-
-  const fetchPlants = async () => {
-    const { data } = await supabase.from('plants').select('code, name').order('code');
-    if (data) setPlants(data);
-  };
 
   const fetchDepartments = async () => {
     const { data } = await supabase.from('departments').select('role_key, name').eq('is_active', true).order('name');
