@@ -609,7 +609,7 @@ export default function UserManagement() {
             <div className="space-y-2">
               <Label>Assign Plants *</Label>
               <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
-                {allPlants.map(p => (
+                {assignablePlants.map(p => (
                   <label key={p.code} className="flex items-center gap-2 text-sm cursor-pointer">
                     <Checkbox
                       checked={newUserPlants.includes(p.code)}
@@ -672,7 +672,7 @@ export default function UserManagement() {
             <div className="space-y-2">
               <Label>Assigned Plants</Label>
               <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
-                {allPlants.map(p => (
+                {assignablePlants.map(p => (
                   <label key={p.code} className="flex items-center gap-2 text-sm cursor-pointer">
                     <Checkbox
                       checked={selectedPlants.includes(p.code)}
