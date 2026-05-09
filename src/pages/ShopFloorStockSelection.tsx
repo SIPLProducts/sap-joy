@@ -396,6 +396,7 @@ export default function ShopFloorStockSelection() {
                   <div className={validationErrors.includes('plant') ? 'ring-2 ring-destructive rounded-md' : ''}>
                     <Select
                       value={selectedPlant}
+                      disabled={!isAdmin}
                       onValueChange={(val) => {
                         setSelectedPlant(val);
                         if (val) setValidationErrors(prev => prev.filter(e => e !== 'plant'));
