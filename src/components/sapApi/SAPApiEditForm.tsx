@@ -116,16 +116,8 @@ export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
   const [schedulerPlants, setSchedulerPlants] = useState<string[]>(
     Array.isArray(config?.scheduler_plants) ? config.scheduler_plants : []
   );
-  const [allPlants, setAllPlants] = useState<{ code: string; name: string }[]>([]);
   const [retryCount, setRetryCount] = useState(String(config?.retry_count || 3));
   const [retryDelayMs, setRetryDelayMs] = useState(String(config?.retry_delay_ms || 5000));
-
-  // Load plants for scheduler selection
-  useEffect(() => {
-    supabase.from('plants').select('code, name').order('code').then(({ data }) => {
-      if (data) setAllPlants(data);
-    });
-  }, []);
 
   // Settings state
   const [maxRecords, setMaxRecords] = useState(String(config?.max_records || 1000));
