@@ -25,6 +25,7 @@ const DEPARTMENTS = [
 export default function UserProfile() {
   const { user, profile, userRole } = useAuth();
   const { toast } = useToast();
+  const { plantOptions } = useVisiblePlants();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   
