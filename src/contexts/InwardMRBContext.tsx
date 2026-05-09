@@ -88,7 +88,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
   const [inwardMRBRecords, setInwardMRBRecords] = useState<MRBRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { profile, userRole } = useAuth();
-  const shouldFilterByPlant = userRole && !['admin', 'executive'].includes(userRole);
+  // Always scope by Active Plant for every user (admin/executive switch via header).
   const userPlant = profile?.plant;
   const [filters, setFilters] = useState<InwardReportFilters>({
     plants: [],
@@ -110,10 +110,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Apply plant filter if needed
-      if (shouldFilterByPlant && userPlant) {
-        lotsQuery = lotsQuery.eq('plant', userPlant);
-      }
+      if (userPlant) lotsQuery = lotsQuery.eq('plant', userPlant);
 
       const { data: uploadedLots, error: uploadError } = await lotsQuery;
 
@@ -128,9 +125,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
         .eq('source', 'quality_inspection')
         .order('created_at', { ascending: false });
 
-      if (shouldFilterByPlant && userPlant) {
-        mrbQuery = mrbQuery.eq('plant', userPlant);
-      }
+      if (userPlant) mrbQuery = mrbQuery.eq('plant', userPlant);
 
       const { data: mrbData, error: mrbError } = await mrbQuery;
 
@@ -194,7 +189,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [shouldFilterByPlant, userPlant]);
+  }, [userPlant]);
 
   useEffect(() => {
     fetchData();

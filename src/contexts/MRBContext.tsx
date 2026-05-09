@@ -36,21 +36,25 @@ export function MRBProvider({ children }: { children: ReactNode }) {
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
   const [filters, setFilters] = useState<MRBFilters>({});
   const [isLoading, setIsLoading] = useState(true);
-  const { profile, userRole } = useAuth();
+  const { profile } = useAuth();
 
-  // Plant-based filtering: admin and executive see all plants, others see only their plant
-  const shouldFilterByPlant = userRole && !['admin', 'executive'].includes(userRole);
+  // Always scope to the Active Plant (set via header switcher).
+  // Admin/executive switch the active plant from the header; they no longer see all plants here.
   const userPlant = profile?.plant;
 
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
       
+      let mrbQuery = supabase
+        .from('mrb_records')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (userPlant) {
+        mrbQuery = mrbQuery.eq('plant', userPlant);
+      }
       const [mrbResult, emailResult] = await Promise.all([
-        supabase
-          .from('mrb_records')
-          .select('*')
-          .order('created_at', { ascending: false }),
+        mrbQuery,
         supabase
           .from('email_logs')
           .select('*')
@@ -61,12 +65,9 @@ export function MRBProvider({ children }: { children: ReactNode }) {
         console.error('[MRBContext] mrb_records fetch error:', mrbResult.error);
       }
       if (mrbResult.data) {
-        // Apply plant-based filtering on client side
-        const filtered = shouldFilterByPlant && userPlant
-          ? mrbResult.data.filter(r => r.plant === userPlant)
-          : mrbResult.data;
+        const filtered = mrbResult.data;
         console.log(
-          `[MRBContext] Loaded ${mrbResult.data.length} mrb_records (after plant filter: ${filtered.length}). ` +
+          `[MRBContext] Loaded ${filtered.length} mrb_records for plant=${userPlant ?? 'ALL'}. ` +
           `shop_floor=${filtered.filter((r: any) => r.source === 'shop_floor').length}, ` +
           `quality_inspection=${filtered.filter((r: any) => r.source === 'quality_inspection').length}`
         );
@@ -80,7 +81,7 @@ export function MRBProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [shouldFilterByPlant, userPlant]);
+  }, [userPlant]);
 
   useEffect(() => {
     fetchData();
@@ -97,7 +98,9 @@ export function MRBProvider({ children }: { children: ReactNode }) {
         },
         (payload) => {
           console.log('Real-time MRB context update:', payload);
-          
+          const recPlant = (payload.new as MRBRecord | undefined)?.plant
+            ?? (payload.old as MRBRecord | undefined)?.plant;
+          if (userPlant && recPlant && recPlant !== userPlant) return;
           if (payload.eventType === 'INSERT') {
             setMRBRecords((prev) => [payload.new as MRBRecord, ...prev]);
           } else if (payload.eventType === 'UPDATE') {
