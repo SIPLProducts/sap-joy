@@ -47,7 +47,7 @@ const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 export default function InwardReport() {
   const navigate = useNavigate();
   const { inspectionLotRecords, filters, setFilters, getFilteredRecords, refreshData, isLoading, uploadInspectionLots, createBatchMRBs, updateTransactionQuantity } = useInwardMRB();
-  const { userRole } = useAuth();
+  const { userRole, profile } = useAuth();
   const { extraFields } = useExtraDynamicFields('inward_inspection_lots');
 
   // Role-based permissions
@@ -432,10 +432,16 @@ export default function InwardReport() {
 
     setIsSyncing(true);
     try {
+      const activePlant = profile?.plant;
+      if (!activePlant) {
+        toast.error('No Active Plant set. Please select a plant in the header.');
+        return;
+      }
+      toast.info(`Syncing inward data for plant ${activePlant}…`);
       const { data: syncData, error: syncError } = await invokeSapSync({
         action: 'sync',
         config_id: sapConfigId,
-        request_overrides: { ART: '01' },
+        request_overrides: { ART: '01', WERKS: activePlant },
       });
 
       if (syncError) {
@@ -460,7 +466,7 @@ export default function InwardReport() {
       }
 
       setSelectedIds(new Set());
-      toast.success('SAP sync successful');
+      toast.success(`SAP sync successful for plant ${activePlant}`);
     } catch (error) {
       console.error('Sync error:', error);
       toast.error(error instanceof Error ? error.message : 'Sync failed. Please try again.');
