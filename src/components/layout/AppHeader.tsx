@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Building2 } from 'lucide-react';
 
 export function AppHeader() {
-  const { profile, updatePlant, isLoading, userRole } = useAuth();
+  const { profile, updatePlant, isLoading } = useAuth();
   const { userPlants } = useUserPlants();
   const allPlants = usePlants();
 
@@ -18,14 +18,9 @@ export function AppHeader() {
     );
   }
 
-  // Show plant switcher if user has multiple plants OR is admin/executive
-  const isAdminOrExec = userRole === 'admin' || userRole === 'executive';
-  const showPlantSwitcher = isAdminOrExec || userPlants.length > 1;
-
-  // For admin/executive, show all plants. For others, show only assigned plants.
-  const availablePlants = isAdminOrExec
-    ? allPlants
-    : allPlants.filter(p => userPlants.includes(p.code));
+  // Strict scoping: dropdown lists ONLY the plants assigned to this user.
+  const availablePlants = allPlants.filter(p => userPlants.includes(p.code));
+  const showPlantSwitcher = availablePlants.length > 1;
 
   return (
     <header className="sticky top-0 z-50 flex h-12 items-center justify-between border-b bg-background px-4 shadow-sm">
