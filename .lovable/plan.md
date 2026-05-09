@@ -118,3 +118,14 @@ Admin/executive bypass is built into `user_has_plant`, so existing admin tooling
 - `inward_inspection_lots.plant`, `mrb_records.plant`, `shop_floor_stock.plant` columns exist and are indexed; no schema changes needed beyond RLS + helper function.
 - The scheduler change is contained to `supabase/functions/sap-sync-scheduler/index.ts` plant-set computation block (around lines 142–152).
 - All edge function responses keep the `{ ok, error, data }` HTTP 200 contract per project memory.
+
+---
+
+## Status: implemented
+
+- Contexts (`MRBContext`, `InwardMRBContext`, `InwardInProcessMRBContext`) now always filter by `profile.plant`.
+- `InwardReport` and `InwardInProcessReport` Refresh Data triggers SAP sync with `WERKS = profile.plant`.
+- `ShopFloorStockSelection` defaults `selectedPlant` to active plant and locks dropdown for non-admin.
+- `sap-sync-scheduler` now intersects `scheduler_plants` with active `user_plants` (or falls back to user plants).
+- `sap-sync` rejects calls when caller's plant doesn't match `WERKS` (admin/executive bypass).
+- Migration adds `user_has_plant()` and tightens RLS on `mrb_records`, `inward_inspection_lots`, `shop_floor_stock`, `zmrb_inward_report`, `mrb_attachments`, `mrb_approval_history`.
