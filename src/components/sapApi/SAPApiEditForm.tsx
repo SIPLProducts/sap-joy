@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Save, Loader2, Eye, EyeOff, Link2, ChevronDown, Plus, Trash2, GripVertical } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 
 interface SAPConfig {
   id?: string;
