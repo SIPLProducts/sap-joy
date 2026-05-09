@@ -1655,6 +1655,10 @@ export type Database = {
         Returns: undefined
       }
       reset_failed_login: { Args: { _user_id: string }; Returns: undefined }
+      user_has_plant: {
+        Args: { _plant: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       defect_category:
