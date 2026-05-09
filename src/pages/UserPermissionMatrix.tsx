@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useDepartments } from '@/hooks/useDepartments';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -32,9 +34,19 @@ const ROLE_COLOR_MAP: Record<string, { bg: string; text: string; dot: string }> 
 };
 
 export default function UserPermissionMatrix() {
+  const { profile } = useAuth();
   const [permissions, setPermissions] = useState<Permission[]>([]);
-  const [plants, setPlants] = useState<{ code: string; name: string }[]>([]);
-  const [selectedPlant, setSelectedPlant] = useState('1300');
+  const { plantOptions: plants } = useVisiblePlants();
+  const [selectedPlant, setSelectedPlant] = useState<string>('');
+
+  useEffect(() => {
+    if (selectedPlant && plants.some(p => p.code === selectedPlant)) return;
+    if (plants.length === 0) return;
+    const preferred = profile?.plant && plants.find(p => p.code === profile.plant)
+      ? profile.plant
+      : plants[0].code;
+    setSelectedPlant(preferred);
+  }, [plants, profile?.plant, selectedPlant]);
   const [selectedRole, setSelectedRole] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -64,18 +76,19 @@ export default function UserPermissionMatrix() {
   }, [ALL_ROLES, selectedRole]);
 
   const fetchData = async () => {
+    if (!selectedPlant) return;
     setLoading(true);
-    const [permRes, plantRes] = await Promise.all([
-      supabase.from('role_permissions').select('*').eq('plant', selectedPlant).order('module_key'),
-      supabase.from('plants').select('code, name').order('code'),
-    ]);
+    const permRes = await supabase
+      .from('role_permissions')
+      .select('*')
+      .eq('plant', selectedPlant)
+      .order('module_key');
     if (permRes.data) setPermissions(permRes.data as Permission[]);
-    if (plantRes.data) setPlants(plantRes.data);
     setLoading(false);
     setDirty(false);
   };
 
-  useEffect(() => { fetchData(); }, [selectedPlant]);
+  useEffect(() => { if (selectedPlant) fetchData(); }, [selectedPlant]);
 
   const rolePermissions = permissions.filter(p => p.role === selectedRole);
   const currentRoleMeta = ALL_ROLES.find(r => r.key === selectedRole);
