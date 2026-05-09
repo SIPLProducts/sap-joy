@@ -139,17 +139,49 @@ Deno.serve({ port }, async (req) => {
         (f: any) => ['WERKS', 'WERK', 'werks', 'werk'].includes(f.sap_field_name || f.field_name)
       )
 
-      // Only sync plants explicitly selected in scheduler_plants
+      // Only sync plants that are actually in use:
+      //   schedulerPlants  = admin override list on the SAP config (may be empty)
+      //   activeUserPlants = DISTINCT plant_code from user_plants (plants assigned to >=1 user)
+      // Effective set = intersection when scheduler list is non-empty, else fallback to user plants.
       const configPlants: string[] = Array.isArray(config.scheduler_plants) && config.scheduler_plants.length > 0
         ? config.scheduler_plants
         : []
 
-      if (hasPlantField && configPlants.length === 0) {
-        results.push({ config_id: config.id, config_name: config.config_name, skipped: true, reason: 'No plants selected for scheduler sync' })
+      let activeUserPlants: string[] = []
+      if (hasPlantField) {
+        const { data: upRows } = await supabase
+          .from('user_plants')
+          .select('plant_code')
+        activeUserPlants = Array.from(
+          new Set((upRows || []).map((r: any) => r.plant_code).filter(Boolean))
+        )
+      }
+
+      let effectivePlants: string[] = []
+      if (hasPlantField) {
+        if (configPlants.length > 0 && activeUserPlants.length > 0) {
+          const userSet = new Set(activeUserPlants)
+          effectivePlants = configPlants.filter(p => userSet.has(p))
+        } else if (configPlants.length > 0) {
+          // No user assignments yet — honour admin override.
+          effectivePlants = configPlants
+        } else {
+          // No admin override — sync everything users actually work in.
+          effectivePlants = activeUserPlants
+        }
+      }
+
+      if (hasPlantField && effectivePlants.length === 0) {
+        results.push({
+          config_id: config.id,
+          config_name: config.config_name,
+          skipped: true,
+          reason: 'No active plants to sync (scheduler_plants ∩ user_plants is empty)'
+        })
         continue
       }
 
-      const plantsToProcess = hasPlantField ? configPlants : ['ALL']
+      const plantsToProcess = hasPlantField ? effectivePlants : ['ALL']
 
       for (const plantCode of plantsToProcess) {
         const plantLabel = plantCode === 'ALL' ? 'All Plants' : plantCode
