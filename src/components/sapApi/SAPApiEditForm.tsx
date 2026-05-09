@@ -69,6 +69,9 @@ interface Props {
 }
 
 export function SAPApiEditForm({ config, onSave, onCancel }: Props) {
+  // Plant scoping for scheduler picker. Master Admin → all plants;
+  // everyone else → only assigned plants.
+  const { plantOptions: allPlants } = useVisiblePlants();
   // API Details state
   const [name, setName] = useState(config?.config_name || '');
   const [description, setDescription] = useState(config?.description || '');
