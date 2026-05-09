@@ -251,9 +251,9 @@ export default function UserProfile() {
                   </div>
                 </SelectTrigger>
                 <SelectContent>
-                  {PLANTS.map((plant) => (
-                    <SelectItem key={plant} value={plant}>
-                      {plant}
+                  {plantOptions.map((p) => (
+                    <SelectItem key={p.code} value={p.code}>
+                      {p.code}{p.name ? ` - ${p.name}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
