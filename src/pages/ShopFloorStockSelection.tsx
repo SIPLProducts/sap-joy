@@ -50,14 +50,13 @@ export default function ShopFloorStockSelection() {
     }
   }, [isAdmin]);
 
-  // Single Active Plant scope: dropdown is locked to the user's active plant.
-  // Switching plants is done via the header switcher.
+  // Plants available in dropdown based on role
   const availablePlants = useMemo(() => {
-    const code = profile?.plant;
-    if (!code) return [] as { value: string; label: string }[];
-    const meta = isAdmin ? allSystemPlants.find(p => p.code === code) : null;
-    return [{ value: code, label: meta ? `${meta.code} - ${meta.name}` : code }];
-  }, [isAdmin, allSystemPlants, profile?.plant]);
+    if (isAdmin) {
+      return allSystemPlants.map(p => ({ value: p.code, label: `${p.code} - ${p.name}` }));
+    }
+    return userPlants.map(p => ({ value: p, label: p }));
+  }, [isAdmin, allSystemPlants, userPlants]);
 
   // Database hook
   const {
