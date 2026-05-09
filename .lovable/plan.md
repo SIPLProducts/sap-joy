@@ -1,48 +1,70 @@
-## Issue
+## Goal
 
-In Shop Floor → **Material Blocking** (`ShopFloorStockSelection.tsx`), the **Plant (WERKS)** dropdown still shows all plants for admin users. The screenshot proves it: the logged-in admin is assigned only to plant `1100`, but the dropdown also lists `1300 - HBL Plant 1300`.
+Make plant scoping uniform across the entire app:
 
-This is the last admin-bypass that was missed in the previous "strict plant scoping" pass.
+- **Master Admin** (`masteradmin@sharviinfotech.com`) — sees and can pick **every plant** in the system.
+- **Everyone else** (including role `admin`) — sees only the plants explicitly assigned to them in `user_plants`, in **every** plant dropdown, filter, and management screen.
 
-## Root cause
+The existing `useVisiblePlants()` already enforces "assigned plants only", but several screens still bypass it by querying `supabase.from('plants').select(...)` directly. Those bypasses are the source of the issue.
 
-`src/pages/ShopFloorStockSelection.tsx` lines 41–59:
+## Changes
 
-```ts
-const isAdmin = userRole === 'admin';
-useEffect(() => {
-  if (isAdmin) {
-    supabase.from('plants').select('code, name').then(({ data }) => {
-      if (data) setAllSystemPlants(data);   // ← fetches the FULL plants table
-    });
-  }
-}, [isAdmin]);
+### 1. Central hook — single source of truth
 
-const availablePlants = useMemo(() => {
-  if (isAdmin) {
-    return allSystemPlants.map(...);        // ← admin sees all plants
-  }
-  return userPlants.map(p => ({ value: p, label: p }));
-}, [isAdmin, allSystemPlants, userPlants]);
-```
+**`src/hooks/useVisiblePlants.ts`**
+- Detect Master Admin via `useAuth()` (`profile?.email` / `user?.email` === `masteradmin@sharviinfotech.com`).
+- If Master Admin → return **all plants** from `usePlants()` (codes + names).
+- Otherwise → return only `user_plants` joined with the global plants list (so labels like "1100 - Vizag plant" still work).
+- Return shape: `{ visiblePlants: string[], plantOptions: { code, name }[], isMaster: boolean, loading }`.
 
-This directly violates the project rule **"Admin scoping: Always restrict to assigned plants"** (mem://features/strict-plant-scoping).
+This becomes the only place that decides "what plants can this user see".
 
-## Fix
+### 2. Replace direct `from('plants')` calls in admin/config screens
 
-In `src/pages/ShopFloorStockSelection.tsx`:
+Each of these currently fetches the **entire** plants table — they will be switched to `useVisiblePlants()` so non‑master admins see only their assigned plants:
 
-1. Remove the `isAdmin` branch entirely. Drop `allSystemPlants`, the `useEffect` that fetches `plants`, and the `isAdmin` check inside `availablePlants`.
-2. Always derive `availablePlants` from `useUserPlants()`. Use plant name from the `plants` table for the label so the dropdown reads "1100 - Vizag plant" (the same labels shown today), but only for assigned plants. Use `usePlants()` (already loaded once globally via `usePlantConfig`) and filter to `userPlants`.
-3. Keep the existing `disabled={availablePlants.length <= 1}` behavior so single-plant users see a locked dropdown.
+- `src/pages/RoleMatrix.tsx` (plant selector for role‑permission matrix)
+- `src/pages/UserPermissionMatrix.tsx` (plant selector)
+- `src/pages/WorkflowRoutingConfig.tsx` (plant selector)
+- `src/pages/EmailConfiguration.tsx` (SMTP + template plant selectors)
+- `src/pages/PlantManagement.tsx` (list of plants the admin can manage — non‑master admins see/edit only their assigned plants; Master Admin sees all)
+- `src/pages/UserManagement.tsx` — when assigning plants to a user, the admin can only pick from his own visible plants (Master Admin can pick any). Display of already‑assigned plants on existing users is unchanged.
+- `src/components/sapApi/SAPApiEditForm.tsx` (scheduler plant multi‑select)
+- `src/pages/UserProfile.tsx` (default‑plant picker)
 
-After the fix, the admin assigned only to `1100` will see exactly one option: `1100 - Vizag plant`, and the dropdown will be locked to it.
+### 3. Default selected plant
 
-## Files to touch
-- `src/pages/ShopFloorStockSelection.tsx` (only)
-- Memory: append note to `mem://features/strict-plant-scoping` — "Material Blocking (`ShopFloorStockSelection`) admin bypass removed; uses `useUserPlants` for the WERKS dropdown."
+Screens that hard‑code `useState('1300')` (RoleMatrix, UserPermissionMatrix, WorkflowRoutingConfig) will default to:
+- `profile.plant` if it is in `visiblePlants`, else
+- `visiblePlants[0]`.
+
+When `visiblePlants.length === 1` the dropdown is auto‑selected and disabled (same pattern already used in dashboards and Material Blocking).
+
+### 4. Header plant switcher
+
+`AppHeader.tsx` already uses `useUserPlants` directly. Switch it to `useVisiblePlants()` so Master Admin sees **all** plants in the header switcher and can change the active plant globally.
+
+### 5. Memory
+
+Update `mem://features/strict-plant-scoping`:
+- "Master Admin (`masteradmin@sharviinfotech.com`) is the only role that sees all plants. Every other user — including `admin` — is restricted to `user_plants` in every dropdown, filter, and management screen. The decision lives in `useVisiblePlants()`."
 
 ## Out of scope
-- No DB / RLS changes.
-- No changes to other screens (already covered).
-- No changes to admin management screens (User/Plant/Role/Email config).
+
+- No DB / RLS changes. RLS already enforces `user_has_plant`; this is purely a UI scoping pass.
+- No changes to data fetched for MRB / Inward / Stock lists — those are already RLS‑filtered.
+- No removal of admin functionality; admins keep full CRUD on their assigned plants.
+
+## Files to touch
+
+- `src/hooks/useVisiblePlants.ts` (rewrite)
+- `src/components/layout/AppHeader.tsx`
+- `src/pages/RoleMatrix.tsx`
+- `src/pages/UserPermissionMatrix.tsx`
+- `src/pages/WorkflowRoutingConfig.tsx`
+- `src/pages/EmailConfiguration.tsx`
+- `src/pages/PlantManagement.tsx`
+- `src/pages/UserManagement.tsx` (only the "assign plants" picker)
+- `src/pages/UserProfile.tsx`
+- `src/components/sapApi/SAPApiEditForm.tsx`
+- Memory file `mem://features/strict-plant-scoping`
