@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVisiblePlants } from '@/hooks/useVisiblePlants';
@@ -6,7 +7,18 @@ import { Building2 } from 'lucide-react';
 
 export function AppHeader() {
   const { profile, updatePlant, isLoading } = useAuth();
-  const { plantOptions } = useVisiblePlants();
+  const { plantOptions, loading: plantsLoading } = useVisiblePlants();
+
+  // If the user's default plant isn't in their visible plants, auto-switch
+  // to the first allowed one so all screens fetch the right data.
+  useEffect(() => {
+    if (plantsLoading || !profile || plantOptions.length === 0) return;
+    const current = profile.plant;
+    const isAllowed = current && plantOptions.some(p => p.code === current);
+    if (!isAllowed) {
+      updatePlant(plantOptions[0].code);
+    }
+  }, [plantsLoading, profile?.plant, plantOptions.map(p => p.code).join('|')]);
 
   if (isLoading || !profile) {
     return (

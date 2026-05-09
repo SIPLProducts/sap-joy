@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { useInwardMRB, InspectionLotRecord } from '@/contexts/InwardMRBContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPlants } from '@/hooks/useUserPlants';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import { Input } from '@/components/ui/input';
 import { MultiSelectFilter } from '@/components/inward/MultiSelectFilter';
 import {} from '@/data/mockData';
@@ -50,6 +51,7 @@ export default function InwardReport() {
   const { inspectionLotRecords, filters, setFilters, getFilteredRecords, refreshData, isLoading, uploadInspectionLots, createBatchMRBs, updateTransactionQuantity } = useInwardMRB();
   const { userRole, profile } = useAuth();
   const { userPlants } = useUserPlants();
+  const { plantOptions: visiblePlantOptions } = useVisiblePlants();
   const { extraFields } = useExtraDynamicFields('inward_inspection_lots');
 
   // Role-based permissions
@@ -239,13 +241,20 @@ export default function InwardReport() {
     }
   }, [editingQtyValue, sapConfigId, updateTransactionQuantity]);
 
-  // Build options for filters from real DB data only
-  const allPlants = [...new Set(inspectionLotRecords.map(r => r.plant))];
+  // Plant filter options come from the user's assigned plants (Master Admin = all),
+  // not from currently loaded records — so the dropdown is correct even when no
+  // data has loaded yet for the selected plant.
+  const allPlants = visiblePlantOptions.length > 0
+    ? visiblePlantOptions.map(p => p.code)
+    : [...new Set(inspectionLotRecords.map(r => r.plant))];
   const allMaterials = [...new Set(inspectionLotRecords.map(r => r.materialCode))];
   const allVendors = [...new Set(inspectionLotRecords.map(r => r.vendorCode).filter(Boolean))];
   const allSlocs = [...new Set(inspectionLotRecords.map(r => r.storageLocation).filter(Boolean))];
   
-  const plantOptions = allPlants.map(p => ({ value: p, label: p }));
+  const plantOptions = allPlants.map(code => {
+    const meta = visiblePlantOptions.find(p => p.code === code);
+    return { value: code, label: meta?.name ? `${code} - ${meta.name}` : code };
+  });
   const materialOptions = allMaterials.map(m => {
     const record = inspectionLotRecords.find(r => r.materialCode === m);
     return { value: m, label: record?.materialDescription ? `${m} - ${record.materialDescription}` : m };

@@ -1,70 +1,76 @@
 ## Goal
 
-Make plant scoping uniform across the entire app:
+Make plant-based segregation work consistently across the application:
 
-- **Master Admin** (`masteradmin@sharviinfotech.com`) — sees and can pick **every plant** in the system.
-- **Everyone else** (including role `admin`) — sees only the plants explicitly assigned to them in `user_plants`, in **every** plant dropdown, filter, and management screen.
+- **Master Admin** (`masteradmin@sharviinfotech.com`) can access all plants and all plant data.
+- **All other users**, including users with `admin` role, can access only plants assigned in `user_plants`.
+- Plant dropdowns/filters must list only allowed plants.
+- Selecting the header plant or screen plant filter must actually show that plant’s records.
+- Users assigned to plant `1300` must see `1300` records instead of “No records available”.
 
-The existing `useVisiblePlants()` already enforces "assigned plants only", but several screens still bypass it by querying `supabase.from('plants').select(...)` directly. Those bypasses are the source of the issue.
+## Key fixes
 
-## Changes
+### 1. Fix backend plant access rule for Master Admin
 
-### 1. Central hook — single source of truth
+Current database function `user_has_plant()` only checks `user_plants`, so Master Admin is still restricted by assignments at RLS level. I will update it so:
 
-**`src/hooks/useVisiblePlants.ts`**
-- Detect Master Admin via `useAuth()` (`profile?.email` / `user?.email` === `masteradmin@sharviinfotech.com`).
-- If Master Admin → return **all plants** from `usePlants()` (codes + names).
-- Otherwise → return only `user_plants` joined with the global plants list (so labels like "1100 - Vizag plant" still work).
-- Return shape: `{ visiblePlants: string[], plantOptions: { code, name }[], isMaster: boolean, loading }`.
+- Master Admin email bypasses plant assignment and can read all plant rows.
+- Everyone else must have a matching `user_plants.plant_code`.
 
-This becomes the only place that decides "what plants can this user see".
+This fixes cases where Master Admin selects another plant but RLS returns no rows.
 
-### 2. Replace direct `from('plants')` calls in admin/config screens
+### 2. Make `useVisiblePlants()` wait for assignments before querying data
 
-Each of these currently fetches the **entire** plants table — they will be switched to `useVisiblePlants()` so non‑master admins see only their assigned plants:
+Several contexts fetch records while `visiblePlants` is still empty. Because empty currently means “no frontend plant filter”, screens may briefly fetch wrong scope or show no rows.
 
-- `src/pages/RoleMatrix.tsx` (plant selector for role‑permission matrix)
-- `src/pages/UserPermissionMatrix.tsx` (plant selector)
-- `src/pages/WorkflowRoutingConfig.tsx` (plant selector)
-- `src/pages/EmailConfiguration.tsx` (SMTP + template plant selectors)
-- `src/pages/PlantManagement.tsx` (list of plants the admin can manage — non‑master admins see/edit only their assigned plants; Master Admin sees all)
-- `src/pages/UserManagement.tsx` — when assigning plants to a user, the admin can only pick from his own visible plants (Master Admin can pick any). Display of already‑assigned plants on existing users is unchanged.
-- `src/components/sapApi/SAPApiEditForm.tsx` (scheduler plant multi‑select)
-- `src/pages/UserProfile.tsx` (default‑plant picker)
+I will make plant-dependent data loading wait until plant visibility is resolved:
 
-### 3. Default selected plant
+- Master Admin: visible plants = all configured plants.
+- Other users: visible plants = assigned plants only.
+- If a non-master user has no assigned plants, return no records and show the empty state correctly.
 
-Screens that hard‑code `useState('1300')` (RoleMatrix, UserPermissionMatrix, WorkflowRoutingConfig) will default to:
-- `profile.plant` if it is in `visiblePlants`, else
-- `visiblePlants[0]`.
+### 3. Apply plant scoping inside core data hooks
 
-When `visiblePlants.length === 1` the dropdown is auto‑selected and disabled (same pattern already used in dashboards and Material Blocking).
+Update these central data providers/hooks to enforce visible plants consistently:
 
-### 4. Header plant switcher
+- `src/contexts/MRBContext.tsx`
+- `src/contexts/InwardMRBContext.tsx`
+- `src/contexts/InwardInProcessMRBContext.tsx`
+- `src/hooks/useMRBDatabase.ts`
 
-`AppHeader.tsx` already uses `useUserPlants` directly. Switch it to `useVisiblePlants()` so Master Admin sees **all** plants in the header switcher and can change the active plant globally.
+This covers MRB Worklist, dashboards, inward materials, pending actions, and MRB detail flows that rely on these sources.
 
-### 5. Memory
+### 4. Fix Inward Materials plant filter options
 
-Update `mem://features/strict-plant-scoping`:
-- "Master Admin (`masteradmin@sharviinfotech.com`) is the only role that sees all plants. Every other user — including `admin` — is restricted to `user_plants` in every dropdown, filter, and management screen. The decision lives in `useVisiblePlants()`."
+The Inward Material screens currently build plant filter options from loaded data, and one screen still uses `useUserPlants()` instead of the centralized visible-plant hook.
 
-## Out of scope
+I will update:
 
-- No DB / RLS changes. RLS already enforces `user_has_plant`; this is purely a UI scoping pass.
-- No changes to data fetched for MRB / Inward / Stock lists — those are already RLS‑filtered.
-- No removal of admin functionality; admins keep full CRUD on their assigned plants.
+- `src/pages/InwardReport.tsx`
+- `src/pages/InwardInProcessReport.tsx`
 
-## Files to touch
+So plant filter options come from `useVisiblePlants()` and not from records already loaded. This means plant `1300` appears for a `1300` user even before data is loaded or after filters change.
 
-- `src/hooks/useVisiblePlants.ts` (rewrite)
-- `src/components/layout/AppHeader.tsx`
-- `src/pages/RoleMatrix.tsx`
-- `src/pages/UserPermissionMatrix.tsx`
-- `src/pages/WorkflowRoutingConfig.tsx`
-- `src/pages/EmailConfiguration.tsx`
-- `src/pages/PlantManagement.tsx`
-- `src/pages/UserManagement.tsx` (only the "assign plants" picker)
-- `src/pages/UserProfile.tsx`
-- `src/components/sapApi/SAPApiEditForm.tsx`
-- Memory file `mem://features/strict-plant-scoping`
+### 5. Fix header plant switcher behavior
+
+If the user’s current default plant is not in allowed plants, the header can keep an invalid plant value. I will make it normalize safely:
+
+- Master Admin can switch to any configured plant.
+- Other users can switch only to assigned plants.
+- If current default plant is invalid, switch to the first assigned plant.
+
+### 6. Fix role access checks to not rely on only `profile.plant`
+
+Some screen access logic checks permissions against only `profile.plant`. With multi-plant users and header switching, this can block screens incorrectly.
+
+I will update access checks to consider the active/default plant if it is allowed, and avoid showing false “No Access”/empty states for users assigned to `1300`.
+
+## Validation
+
+After implementation I will verify:
+
+- Database has records for plants `1100` and `1300`.
+- Master Admin can query all plant-scoped tables.
+- A normal user assigned to `1300` gets `1300` records.
+- Inward Materials plant dropdown options are based on assigned plants, not loaded rows.
+- MRB Worklist and dashboards use the same plant scope.
