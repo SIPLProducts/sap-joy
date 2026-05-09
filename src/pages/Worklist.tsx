@@ -1090,6 +1090,21 @@ export default function Worklist() {
                   ))}
                 </SelectContent>
               </Select>
+              <Select value={plantFilter} onValueChange={setPlantFilter}>
+                <SelectTrigger className="w-full sm:w-[140px]">
+                  <SelectValue placeholder="Plant" />
+                </SelectTrigger>
+                <SelectContent>
+                  {visiblePlantOptions.length > 1 && (
+                    <SelectItem value="all">All Plants</SelectItem>
+                  )}
+                  {visiblePlantOptions.map(p => (
+                    <SelectItem key={p.code} value={p.code}>
+                      {p.code} — {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
