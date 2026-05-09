@@ -36,6 +36,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeSapSync } from '@/lib/sapSyncClient';
 import { useAuth } from '@/contexts/AuthContext';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import { getWorkflowReviewLabel } from '@/lib/mrbWorkflowDisplay';
 import type { Database } from '@/integrations/supabase/types';
 import * as XLSX from 'xlsx';
@@ -131,6 +132,7 @@ export default function Worklist() {
   const { userRole, user, profile } = useAuth();
   const { departments } = useDepartments();
   const { roleDisplayNames } = useDepartmentMap();
+  const { plantOptions: visiblePlantOptions } = useVisiblePlants();
   const workflowRoles = useMemo(() =>
     departments
       .filter(d => d.is_active && d.is_workflow_enabled && d.role_key)
@@ -141,6 +143,7 @@ export default function Worklist() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<SourceType>('all');
   const [pendingWithFilter, setPendingWithFilter] = useState<string>('all');
+  const [plantFilter, setPlantFilter] = useState<string>('all');
   const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBatchSyncing, setIsBatchSyncing] = useState(false);
@@ -156,6 +159,25 @@ export default function Worklist() {
   const [postingDate, setPostingDate] = useState(new Date().toISOString().split('T')[0]);
   const [pendingSAPSyncId, setPendingSAPSyncId] = useState<string | null>(null);
   const [pendingSAPSyncNumber, setPendingSAPSyncNumber] = useState<string>('');
+
+  // Active plant comes from the header switcher (profile.plant), validated
+  // against the user's visible/assigned plants.
+  const activePlant = useMemo(() => {
+    const headerPlant = profile?.plant;
+    if (visiblePlantOptions.length === 0) return headerPlant || '';
+    if (headerPlant && visiblePlantOptions.some(p => p.code === headerPlant)) {
+      return headerPlant;
+    }
+    return visiblePlantOptions[0].code;
+  }, [profile?.plant, visiblePlantOptions]);
+
+  // Whenever the header active plant changes, sync the in-page Plant filter
+  // and clear stale row selections from the previous plant scope.
+  useEffect(() => {
+    if (!activePlant) return;
+    setPlantFilter(activePlant);
+    setSelectedIds(new Set());
+  }, [activePlant]);
 
   // RBAC: SAP unblock access is limited to Master Admin, Admin, and Quality.
   const isMasterAdmin = profile?.email === MASTER_ADMIN_EMAIL || user?.email === MASTER_ADMIN_EMAIL;
@@ -295,8 +317,9 @@ export default function Worklist() {
     const matchesStatus = statusFilter === 'all' || mrb.status === statusFilter;
     const matchesSource = sourceFilter === 'all' || mrb.source === sourceFilter;
     const matchesPendingWith = pendingWithFilter === 'all' || mrb.pendingWith === pendingWithFilter;
-    
-    return matchesSearch && matchesStatus && matchesSource && matchesPendingWith;
+    const matchesPlant = plantFilter === 'all' || mrb.plant === plantFilter;
+
+    return matchesSearch && matchesStatus && matchesSource && matchesPendingWith && matchesPlant;
   });
 
   // Sort by created date descending
@@ -1064,6 +1087,21 @@ export default function Worklist() {
                   <SelectItem value="all">All Roles</SelectItem>
                   {workflowRoles.map(role => (
                     <SelectItem key={role.role_key} value={role.role_key}>{role.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={plantFilter} onValueChange={setPlantFilter}>
+                <SelectTrigger className="w-full sm:w-[140px]">
+                  <SelectValue placeholder="Plant" />
+                </SelectTrigger>
+                <SelectContent>
+                  {visiblePlantOptions.length > 1 && (
+                    <SelectItem value="all">All Plants</SelectItem>
+                  )}
+                  {visiblePlantOptions.map(p => (
+                    <SelectItem key={p.code} value={p.code}>
+                      {p.code} — {p.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
