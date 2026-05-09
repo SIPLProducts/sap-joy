@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
 import { KPICard } from '@/components/dashboard/KPICard';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import {
   FileSpreadsheet,
   TrendingDown,
@@ -42,7 +43,11 @@ const CHART_COLORS = ['hsl(210, 85%, 35%)', 'hsl(160, 60%, 40%)', 'hsl(38, 92%, 
 export default function QualityHeadDashboard() {
   const { mrbRecords, isLoading: mrbLoading, refreshData: refreshMRB } = useMRB();
   const { inwardMRBRecords, inspectionLotRecords, isLoading: inwardLoading, refreshData: refreshInward } = useInwardMRB();
+  const { visiblePlants } = useVisiblePlants();
   const [selectedPlant, setSelectedPlant] = useState('all');
+  useEffect(() => {
+    if (visiblePlants.length === 1) setSelectedPlant(visiblePlants[0]);
+  }, [visiblePlants.join('|')]);
   const [selectedVendor, setSelectedVendor] = useState('all');
   const [selectedMaterial, setSelectedMaterial] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
@@ -252,6 +257,7 @@ export default function QualityHeadDashboard() {
           setSelectedMaterial={setSelectedMaterial}
           showVendor
           showMaterial
+          plants={visiblePlants}
           onClear={clearFilters}
         />
       </div>

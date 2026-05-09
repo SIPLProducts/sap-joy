@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
 import { KPICard } from '@/components/dashboard/KPICard';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import {
   ClipboardList,
   AlertTriangle,
@@ -39,7 +40,11 @@ const SLA_DAYS = 5;
 export default function PlantHeadDashboard() {
   const { mrbRecords } = useMRB();
   const { inwardMRBRecords } = useInwardMRB();
+  const { visiblePlants } = useVisiblePlants();
   const [selectedPlant, setSelectedPlant] = useState('all');
+  useEffect(() => {
+    if (visiblePlants.length === 1) setSelectedPlant(visiblePlants[0]);
+  }, [visiblePlants.join('|')]);
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [lastRefresh, setLastRefresh] = useState(new Date());
@@ -188,6 +193,7 @@ export default function PlantHeadDashboard() {
           setDateFrom={setDateFrom}
           dateTo={dateTo}
           setDateTo={setDateTo}
+          plants={visiblePlants}
           onClear={clearFilters}
         />
       </div>

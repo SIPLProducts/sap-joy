@@ -1,47 +1,49 @@
 ## Goal
 
-Across **every screen**, any "Plant" dropdown / filter must show only the plants the logged-in user is assigned to in `user_plants`. A user assigned to plant `1100` must see only `1100` in every selector — no other plants, no admin/executive bypass.
+Across **every screen with a Plant filter**, the Plant dropdown must list only the plants the logged-in user is assigned to in `user_plants`. No "All Plants" leakage to plants the user isn't assigned to, no fallback to the full `plants` table.
 
-The header switcher already does this. The remaining offenders are the create/report screens that build their own plant lists.
+The header switcher and create-MRB / inward report screens already do this (previous round). The remaining offenders are the dashboard filters and KPI dashboard.
 
 ## Screens to fix
 
-### 1. `src/pages/CreateMRBQuality.tsx` and `src/pages/CreateMRBShopFloor.tsx`
-Today they fetch the full `plants` table:
-```ts
-const [plants, setPlants] = useState<string[]>([]);
-... supabase.from('plants').select('code')
-```
-Replace with `useUserPlants()` (or `useVisiblePlants()`), so the dropdown lists only assigned plant codes. Default the form's plant field to `profile.plant` only if it's in the assigned set; otherwise fall back to the first assigned plant.
+### 1. Dashboard filters — currently empty, need feeding from `useVisiblePlants`
+These screens render `<DashboardFilters />` but don't pass a `plants` prop, so the dropdown only shows "All Plants" with no individual plant options:
+- `src/pages/QualityHeadDashboard.tsx`
+- `src/pages/PurchaseHeadDashboard.tsx`
+- `src/pages/EngineeringHeadDashboard.tsx`
+- `src/pages/PlantHeadDashboard.tsx`
+- `src/pages/ExecutiveSummaryDashboard.tsx`
 
-### 2. `src/pages/InwardInProcessReport.tsx`
-Today (lines ~245–251):
-```ts
-const isAdminOrExec = userRole === 'admin' || userRole === 'executive';
-const accessiblePlantsList = isAdminOrExec ? allPlantsConfig : allPlantsConfig.filter(...)
-```
-Drop the admin/executive branch. Always filter `allPlantsConfig` by `userPlants` so the Plant multi-select only offers assigned plants.
+Fix: in each, call `useVisiblePlants()` and pass `plants={visiblePlants}` to `<DashboardFilters />`. If `visiblePlants.length === 1`, default `selectedPlant` to that single code (instead of `'all'`) so the user immediately sees scoped data.
 
-### 3. `src/pages/WorkflowRoutingConfig.tsx`
-`const plants = usePlants();` feeds the plant dropdown. Replace with `useUserPlants()`-filtered list so non-master-admin users only see their plants. (Master admin's `user_plants` is already seeded with all plants, so they're unaffected.)
+### 2. `src/pages/KPIDashboard.tsx`
+Today (line 82): `const plants = useMemo(() => [...new Set(mrbRecords.map(r => r.plant))], [mrbRecords]);`
+This is records-derived (RLS-scoped) so it's already safe, but it's inconsistent and shows `'all'` as default.
+Fix: replace with `useVisiblePlants()` so the dropdown matches the assignment list exactly. If only one assigned plant, default `selectedPlant` to that plant.
 
-### 4. `src/components/dashboard/DashboardFilters.tsx`
-The component takes `plants` as a prop and currently defaults to `[]`. Where parent dashboards (Quality/Purchase/Engineering/PlantHead/Executive) call it, they don't pass plants today, so the dropdown is empty and harmless. No change required, but we'll verify and, if a future dashboard does pass plants, document that the source must be `useVisiblePlants()`.
+### 3. `src/components/dashboard/DashboardFilters.tsx`
+No structural change. Add a tiny safeguard: if the `plants` prop has exactly one entry, hide the "All Plants" option (or render the single plant as a non-interactive label) so users cannot pick a wider scope than their assignment.
 
-### 5. Already correct (no change)
-- `AppHeader` plant switcher — already filters by `user_plants`.
-- `InwardReport.tsx` — derives plant options from records, which RLS already scopes.
+### 4. Already correct (no change)
+- `AppHeader` — assigned-only.
+- `CreateMRBQuality.tsx`, `CreateMRBShopFloor.tsx` — use `useUserPlants()`.
+- `InwardReport.tsx`, `InwardInProcessReport.tsx` — assigned-scoped.
 - `ShopFloorStockSelection.tsx` — uses `useVisiblePlants()`.
-- `UserManagement.tsx`, `PlantManagement.tsx` — admin-only management screens; these legitimately need the full plant list and stay unchanged. (Only the master admin / users with `user_management` / `plant_management` access reach them anyway.)
+- `WorkflowRoutingConfig.tsx` — assigned-scoped (previous round).
+- `Worklist`, `SAPSyncMonitor`, `ShopFloorMaterialBlocking`, `MRBAnalyticsDashboard`, `Dashboard` — no plant dropdown filter.
+- Admin management screens (`UserManagement`, `PlantManagement`, `RoleMatrix`, `UserPermissionMatrix`, `EmailConfiguration`) — these manage cross-plant config and intentionally show the full plant list. Excluded.
 
 ## Out of scope
-- No DB / RLS changes (already strict).
+- No DB / RLS changes (already strict via `user_has_plant`).
+- No changes to admin/configuration screens.
 - No changes to scheduler or SAP transactional posts.
-- No change to admin management screens (User/Plant/Role management) where seeing all plants is the whole point.
 
-## Files touched
-- `src/pages/CreateMRBQuality.tsx`
-- `src/pages/CreateMRBShopFloor.tsx`
-- `src/pages/InwardInProcessReport.tsx`
-- `src/pages/WorkflowRoutingConfig.tsx`
-- Memory: extend `mem://features/strict-plant-scoping` with the rule "every plant dropdown sources from `user_plants`, except admin management screens (User/Plant/Role Management)".
+## Files to touch
+- `src/pages/QualityHeadDashboard.tsx`
+- `src/pages/PurchaseHeadDashboard.tsx`
+- `src/pages/EngineeringHeadDashboard.tsx`
+- `src/pages/PlantHeadDashboard.tsx`
+- `src/pages/ExecutiveSummaryDashboard.tsx`
+- `src/pages/KPIDashboard.tsx`
+- `src/components/dashboard/DashboardFilters.tsx`
+- Memory: extend `mem://features/strict-plant-scoping` — "every Plant filter dropdown sources from `useVisiblePlants()`; if user has 1 assigned plant, default selection to it and hide the All Plants option."

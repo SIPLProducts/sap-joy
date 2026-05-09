@@ -55,7 +55,7 @@ export function DashboardFilters({
               <SelectValue placeholder="All Plants" />
             </SelectTrigger>
             <SelectContent className="bg-popover border border-border shadow-lg z-50">
-              <SelectItem value="all">All Plants</SelectItem>
+              {plants.length !== 1 && <SelectItem value="all">All Plants</SelectItem>}
               {plants.map(plant => (
                 <SelectItem key={plant} value={plant}>{plant}</SelectItem>
               ))}
