@@ -1,52 +1,46 @@
-## Plan
+## Fix: FK error when seeding `zmrb_inward_report` mappings
 
-Apply the same active-plant scoping pattern (already used on Worklist + Inward screens) to nine more screens so every page reflects the plant chosen in the top header.
+### Root cause
+Your INSERTs into `sap_api_response_fields` and `sap_api_request_fields` use `config_id = f1ac85d4-ca04-497a-bed6-1f509d10b4c2`, which does not exist in `sap_api_config` on production. The existing ZMRB config id on production is **`a1000001-0001-0001-0001-000000000004`** (`ZMRB_Inward_Inspection`).
 
-### Pattern recap
+### Fix
+Reuse the existing config id. No new `sap_api_config` row is needed. Just replace every occurrence of `f1ac85d4-ca04-497a-bed6-1f509d10b4c2` in your migration with `a1000001-0001-0001-0001-000000000004`.
 
-For each screen:
-1. Read `profile.plant` and validate against `useVisiblePlants()` to get an `activePlant`.
-2. Add (or reuse) a Plant dropdown in the page filter bar.
-   - Master Admin → all plants.
-   - Other users → only their assigned plants (no "All Plants" option when the user has just one assigned plant).
-3. Sync the in-page Plant filter to the header active plant via a `useEffect`, so switching plants in the header updates records and KPIs immediately.
-4. Filter records / KPIs / charts / exports by the selected plant.
+### Optional safety
+Before the field inserts, add a guard so the migration self-validates:
 
-### Per-screen changes
+```sql
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.sap_api_config
+                 WHERE id = 'a1000001-0001-0001-0001-000000000004') THEN
+    RAISE EXCEPTION 'ZMRB_Inward_Inspection sap_api_config row missing';
+  END IF;
+END $$;
+```
 
-1. **KPI Dashboard (`KPIDashboard.tsx`)**
-   - Already has `selectedPlant`. Initialize from `activePlant` and re-sync on header change. Restrict the dropdown to `useVisiblePlants` (currently uses `visiblePlants: plants`). Remove the "All Plants" label fallback in the title when a single plant is active.
+### Cleanup note
+If your earlier failed run partially inserted rows under the old id, clean them with:
 
-2. **Pending Actions (`PendingActions.tsx`)**
-   - Add `useVisiblePlants` + `activePlant`. Add a Plant dropdown. Filter the pending-MRB list by selected plant. Sync to header.
+```sql
+DELETE FROM public.sap_api_response_fields WHERE config_id = 'f1ac85d4-ca04-497a-bed6-1f509d10b4c2';
+DELETE FROM public.sap_api_request_fields  WHERE config_id = 'f1ac85d4-ca04-497a-bed6-1f509d10b4c2';
+```
+(Likely none, since the FK error rolled the transaction back — but safe to run.)
 
-3. **MRB Print (`MRBPrint.tsx`)**
-   - This page prints a single MRB, but the print header / company config is plant-driven. Ensure the plant context used for `plant_print_config` lookup is the active plant of the MRB record (already record-bound) — no filter needed. Add a guard: if the MRB's plant isn't in the user's `useVisiblePlants`, show a "No Access" card. (No new dropdown; this is a detail screen.)
+### Also recommended
+Add `ON CONFLICT (config_id, sap_field_name) DO NOTHING` only if you have such a unique index; otherwise plain `ON CONFLICT DO NOTHING` is a no-op (no constraint matches). To make the seed truly idempotent, consider:
 
-4. **MRB Analytics (`MRBAnalyticsDashboard.tsx`)**
-   - Add `useVisiblePlants` + `activePlant`. Add a Plant dropdown. Filter all aggregations (counts, charts, trend tables) by selected plant. Sync to header.
+```sql
+ALTER TABLE public.sap_api_response_fields
+  ADD CONSTRAINT sap_api_response_fields_config_field_key
+  UNIQUE (config_id, field_name);
 
-5. **Quality Head Dashboard (`QualityHeadDashboard.tsx`)**
-   - Already has `selectedPlant`. Initialize from `activePlant`, sync on header change, restrict dropdown options to `useVisiblePlants` (with "All Plants" only when user has multiple).
-
-6. **Purchase Head Dashboard (`PurchaseHeadDashboard.tsx`)**
-   - Same treatment as Quality Head.
-
-7. **Engineering Head Dashboard (`EngineeringHeadDashboard.tsx`)**
-   - Same treatment as Quality Head.
-
-8. **Executive Summary (`ExecutiveSummaryDashboard.tsx`)**
-   - Same treatment as Quality Head.
-
-9. **User Management (`UserManagement.tsx`)**
-   - Add a Plant filter dropdown above the users table (options = `useVisiblePlants`).
-   - Default to header `activePlant`; sync via `useEffect`.
-   - Filter the users grid to those assigned to the selected plant (`user_plants.plant_code` overlap).
-   - Master Admin can switch / pick "All Plants"; non-master users see only assigned plants.
-   - Existing assignable-plants list in the Add/Edit User dialog already uses `useVisiblePlants` — keep as is.
+ALTER TABLE public.sap_api_request_fields
+  ADD CONSTRAINT sap_api_request_fields_config_field_key
+  UNIQUE (config_id, field_name);
+```
+Then `ON CONFLICT (config_id, field_name) DO NOTHING` will properly skip duplicates on re-runs.
 
 ### Out of scope
-
-- No DB / RLS changes (RLS already restricts non-master users by `user_has_plant`).
-- No changes to other screens (Inward, Worklist, etc. — already done).
-- No change to MRB detail pages beyond the optional Print access guard.
+Table creation block for `zmrb_inward_report` already exists in production schema (visible in current schema dump) — re-running it with `IF NOT EXISTS` is harmless. No app code changes needed.
