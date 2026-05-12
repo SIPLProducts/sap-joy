@@ -461,14 +461,14 @@ export default function InwardReport() {
 
     setIsSyncing(true);
     try {
-      const plantsToSync = (userPlants && userPlants.length > 0)
-        ? userPlants
-        : (profile?.plant ? [profile.plant] : []);
-      if (plantsToSync.length === 0) {
-        toast.error('No plants assigned to your account. Contact an administrator.');
+      // Sync ONLY the active plant selected in the global header.
+      const activePlant = profile?.plant;
+      if (!activePlant) {
+        toast.error('No active plant selected. Choose a plant in the header.');
         return;
       }
-      toast.info(`Syncing in-process data for ${plantsToSync.length} plant(s): ${plantsToSync.join(', ')}…`);
+      const plantsToSync = [activePlant];
+      toast.info(`Syncing in-process data for plant ${activePlant}…`);
       const failures: string[] = [];
       for (const werks of plantsToSync) {
         try {
@@ -498,11 +498,9 @@ export default function InwardReport() {
 
       setSelectedIds(new Set());
       if (failures.length === 0) {
-        toast.success(`SAP sync successful for ${plantsToSync.length} plant(s)`);
-      } else if (failures.length < plantsToSync.length) {
-        toast.warning(`Partial sync: ${plantsToSync.length - failures.length} succeeded, ${failures.length} failed (${failures.join('; ')})`);
+        toast.success(`SAP sync successful for plant ${activePlant}`);
       } else {
-        toast.error(`Sync failed for all plants: ${failures.join('; ')}`);
+        toast.error(`Sync failed for plant ${activePlant}: ${failures.join('; ')}`);
       }
     } catch (error) {
       console.error('Sync error:', error);

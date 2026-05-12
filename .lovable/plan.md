@@ -1,46 +1,33 @@
-## Fix: FK error when seeding `zmrb_inward_report` mappings
+## Problem
 
-### Root cause
-Your INSERTs into `sap_api_response_fields` and `sap_api_request_fields` use `config_id = f1ac85d4-ca04-497a-bed6-1f509d10b4c2`, which does not exist in `sap_api_config` on production. The existing ZMRB config id on production is **`a1000001-0001-0001-0001-000000000004`** (`ZMRB_Inward_Inspection`).
+In **MRB → Inward Materials**, clicking **Refresh Data** currently loops over **all plants assigned to the user** (`userPlants`) and triggers a SAP sync for each one. The user expects it to sync **only the active plant** selected in the main header (`profile.plant`).
 
-### Fix
-Reuse the existing config id. No new `sap_api_config` row is needed. Just replace every occurrence of `f1ac85d4-ca04-497a-bed6-1f509d10b4c2` in your migration with `a1000001-0001-0001-0001-000000000004`.
+Same issue exists on **Inward In-Process Report** (`InwardInProcessReport.tsx`).
 
-### Optional safety
-Before the field inserts, add a guard so the migration self-validates:
+## Fix
 
-```sql
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM public.sap_api_config
-                 WHERE id = 'a1000001-0001-0001-0001-000000000004') THEN
-    RAISE EXCEPTION 'ZMRB_Inward_Inspection sap_api_config row missing';
-  END IF;
-END $$;
-```
+Replace the `plantsToSync` array logic in `handleAPISync` so it uses the single active plant from the header (resolved via the existing `useActivePlant` hook for safety against unassigned plants).
 
-### Cleanup note
-If your earlier failed run partially inserted rows under the old id, clean them with:
+### Files to edit
 
-```sql
-DELETE FROM public.sap_api_response_fields WHERE config_id = 'f1ac85d4-ca04-497a-bed6-1f509d10b4c2';
-DELETE FROM public.sap_api_request_fields  WHERE config_id = 'f1ac85d4-ca04-497a-bed6-1f509d10b4c2';
-```
-(Likely none, since the FK error rolled the transaction back — but safe to run.)
+1. **`src/pages/InwardReport.tsx`** (around lines 464–472)
+   - Import `useActivePlant`.
+   - Replace:
+     ```ts
+     const plantsToSync = (userPlants && userPlants.length > 0)
+       ? userPlants
+       : (profile?.plant ? [profile.plant] : []);
+     ```
+     with:
+     ```ts
+     const plantsToSync = activePlant ? [activePlant] : [];
+     ```
+   - Update toast message to singular: `Syncing inward data for plant ${activePlant}…`.
+   - Adjust success/failure messages for single plant.
 
-### Also recommended
-Add `ON CONFLICT (config_id, sap_field_name) DO NOTHING` only if you have such a unique index; otherwise plain `ON CONFLICT DO NOTHING` is a no-op (no constraint matches). To make the seed truly idempotent, consider:
-
-```sql
-ALTER TABLE public.sap_api_response_fields
-  ADD CONSTRAINT sap_api_response_fields_config_field_key
-  UNIQUE (config_id, field_name);
-
-ALTER TABLE public.sap_api_request_fields
-  ADD CONSTRAINT sap_api_request_fields_config_field_key
-  UNIQUE (config_id, field_name);
-```
-Then `ON CONFLICT (config_id, field_name) DO NOTHING` will properly skip duplicates on re-runs.
+2. **`src/pages/InwardInProcessReport.tsx`** (same handler, same change).
 
 ### Out of scope
-Table creation block for `zmrb_inward_report` already exists in production schema (visible in current schema dump) — re-running it with `IF NOT EXISTS` is harmless. No app code changes needed.
+
+- Auto-refresh interval, upload, MRB creation, and table fetch logic remain untouched (table fetch already filters by `visiblePlants`; if you want that scoped to active plant too, say so and I'll extend).
+- No DB or edge function changes.
