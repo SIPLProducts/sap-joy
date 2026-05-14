@@ -18,15 +18,16 @@ export interface PlantOption {
  *   assigned in `user_plants`. Mirrors the RLS `public.user_has_plant` rule.
  */
 export function useVisiblePlants() {
-  const { profile, user } = useAuth();
+  const { profile, user, userRole } = useAuth();
   const { userPlants, loading: userPlantsLoading } = useUserPlants();
   const allPlants = usePlants();
 
   const isMaster =
     profile?.email === MASTER_ADMIN_EMAIL || user?.email === MASTER_ADMIN_EMAIL;
+  const isSuperAdmin = userRole === 'superadmin';
 
   const plantOptions = useMemo<PlantOption[]>(() => {
-    if (isMaster) {
+    if (isMaster || isSuperAdmin) {
       return allPlants.map(p => ({ code: p.code, name: p.name }));
     }
     const assigned = new Set(userPlants);

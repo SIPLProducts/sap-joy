@@ -1,58 +1,49 @@
-## Issue
+## Goal
+Introduce a new hardcoded `superadmin` role:
+- Sees **all plants** automatically (like Master Admin) — no `user_plants` assignment needed.
+- **Cannot** access **SAP API Settings** or **SAP Sync Monitor** (those remain Master-Admin-only).
+- Access to every other screen is governed by the **Role Access Matrix** (so admin can grant/revoke).
 
-`InwardInProcessReport` reads `customer_code`, `customer_name`, `sales_order`, `sales_item` from `zmrb_inward_report`, but those columns are empty in the database.
+## Changes
 
-## Root Cause
-
-The active SAP config `a1000001-0001-0001-0001-000000000004` (ZMRB_Inward_Inspection) is missing the required response-field mappings:
-
-| SAP Field | Target Column | Status in active config |
-|---|---|---|
-| KUNNR | customer_code | missing |
-| Name1_cust | customer_name | missing |
-| KDAUF (or VBELN) | sales_order | row exists but `map_to_table` and `map_to_column` are NULL |
-| POSNR | sales_item | missing entirely |
-
-The scheduler skips any field where `map_to_table` or `map_to_column` is NULL, so even when SAP returns these values, they never reach `zmrb_inward_report`. (A second orphan config `f1ac85d4-…` has partial mappings, but the live sync uses `a1000001-…-0004`.)
-
-The remaining columns (vendor, PO, batch, dates, etc.) populate correctly because their mappings exist on the active config.
-
-## Fix Plan
-
-### 1. Database migration (the only change required)
-
-Insert / update mappings on `sap_api_response_fields` for `config_id = a1000001-0001-0001-0001-000000000004`:
+### 1. Database — RLS plant scoping
+Update `public.user_has_plant(_user_id, _plant)` to also return `true` when the user has the `superadmin` role in `user_roles`. This automatically grants all-plant visibility on `mrb_records`, `mrb_attachments`, `mrb_approval_history`, `inward_inspection_lots`, `zmrb_inward_report`, `shop_floor_stock`.
 
 ```sql
--- Fix the existing KDAUF row (currently has NULL map_to_table/column)
-UPDATE public.sap_api_response_fields
-SET map_to_table = 'zmrb_inward_report', map_to_column = 'sales_order'
-WHERE config_id = 'a1000001-0001-0001-0001-000000000004' AND field_name = 'KDAUF';
-
--- Add missing rows
-INSERT INTO public.sap_api_response_fields
-  (config_id, field_name, field_type, sap_field_name, json_path, map_to_table, map_to_column, display_order)
-VALUES
-  ('a1000001-0001-0001-0001-000000000004','KUNNR','string','KUNNR',NULL,'zmrb_inward_report','customer_code', 30),
-  ('a1000001-0001-0001-0001-000000000004','Name1_cust','string','Name1_cust',NULL,'zmrb_inward_report','customer_name', 31),
-  ('a1000001-0001-0001-0001-000000000004','POSNR','string','POSNR',NULL,'zmrb_inward_report','sales_item', 32)
-ON CONFLICT DO NOTHING;
+CREATE OR REPLACE FUNCTION public.user_has_plant(_user_id uuid, _plant text)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT
+    _plant IS NULL
+    OR EXISTS (SELECT 1 FROM public.profiles p
+               WHERE p.user_id = _user_id
+                 AND p.email = 'masteradmin@sharviinfotech.com')
+    OR EXISTS (SELECT 1 FROM public.user_roles ur
+               WHERE ur.user_id = _user_id AND ur.role = 'superadmin')
+    OR EXISTS (SELECT 1 FROM public.user_plants up
+               WHERE up.user_id = _user_id AND up.plant_code = _plant);
+$$;
 ```
 
-Existing rows that target `inward_inspection_lots` (vendor/PO/etc.) will be left untouched — they continue to feed the legacy table; the manual-sync path already writes the same data into `zmrb_inward_report`.
+### 2. Frontend — plant visibility
+`src/hooks/useVisiblePlants.ts`: treat `userRole === 'superadmin'` the same as Master Admin → return all plants from `usePlants()`. Plant switcher in the header will then list every plant for superadmins.
 
-### 2. Verify
+### 3. Frontend — role gating
+- `src/hooks/useRoleMatrix.ts` `hasAccess`: keep matrix-driven (do NOT auto-grant for superadmin — admin must configure permissions via the Role Access Matrix). Same for `canEdit`.
+- `src/components/layout/AppSidebar.tsx`: `isMasterAdmin` stays unchanged so SAP API Settings & SAP Sync Monitor remain master-only. Admin section already filters by `hasAccess(matrixKey)` for non-`admin` roles, so superadmin will only see admin items the matrix grants.
+- `src/contexts/RoleContext.tsx` `mapAppRoleToUserRole`: map `superadmin` → `plant_head` (legacy compatibility).
 
-After the migration runs:
-- Trigger a sync from "MRB Inward Materials → Refresh data" for the active plant.
-- Re-query `zmrb_inward_report` to confirm `customer_code`, `customer_name`, `sales_order`, `sales_item` now populate.
-- Reload the In-Process screen — the 4 columns should show values.
+### 4. Seed the new role
+Insert `superadmin` into `departments` (so it appears in Role Management UI / matrix dropdowns) and pre-seed Role Access Matrix entries (`role_permissions`) with `can_view=true` for all screens **except** `sap_api_settings` and `sap_sync_monitor`, across all existing plants.
 
-### Open Question
+### 5. Master Admin guard for SAP screens
+`/admin/sap-api` and `/admin/sap-sync` already render under `MasterAdminGuard` (via `masterOnly: true` in sidebar) — confirm route-level guard. If routes are not wrapped in `MasterAdminGuard`, wrap them in `src/App.tsx` so a superadmin typing the URL still gets blocked.
 
-The migration assumes SAP actually returns these keys with the names **KUNNR**, **Name1_cust**, **KDAUF**, **POSNR**. If your SAP/ZMRB04 endpoint uses different keys (for example `VBELN` instead of `KDAUF`, or `NAME1_CUST` upper-case), let me know and I'll adjust. The scheduler matches keys case-insensitively, so casing differences are not an issue, but the underlying field name must match.
+## Technical notes
+- Role key is hardcoded `superadmin`; assigned to a user via existing User Management UI by inserting into `user_roles`.
+- No schema additions needed — `user_roles.role` is already free-form text.
+- RLS function change is the single source of truth for "all plants" — no app code needs to union plants.
+- Master Admin behavior is unchanged.
 
-## Out of Scope
-
-- No frontend changes — `InwardInProcessReport.tsx` and `InwardInProcessMRBContext.tsx` already read these columns.
-- No edge function changes — the existing scheduler/manual-sync mapping engines already understand these target columns.
+## Out of scope
+- No new edge functions.
+- No UI for managing the `superadmin` role itself beyond the existing Role Access Matrix.
