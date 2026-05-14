@@ -24,9 +24,10 @@ export function useVisiblePlants() {
 
   const isMaster =
     profile?.email === MASTER_ADMIN_EMAIL || user?.email === MASTER_ADMIN_EMAIL;
+  const isSuperAdmin = (profile as any)?.role === 'superadmin';
 
   const plantOptions = useMemo<PlantOption[]>(() => {
-    if (isMaster) {
+    if (isMaster || isSuperAdmin) {
       return allPlants.map(p => ({ code: p.code, name: p.name }));
     }
     const assigned = new Set(userPlants);
