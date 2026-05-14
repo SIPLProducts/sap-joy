@@ -231,9 +231,9 @@ export default function UserManagement() {
         employee_id: editEmployeeId.trim(),
       }).eq('user_id', selectedUser.user_id);
 
-      // Update multi-plant assignments
+      // Update multi-plant assignments (superadmin: no per-plant rows — has all-plant access via RLS)
       await supabase.from('user_plants').delete().eq('user_id', selectedUser.user_id);
-      if (selectedPlants.length > 0) {
+      if (selectedRole !== 'superadmin' && selectedPlants.length > 0) {
         const plantRows = selectedPlants.map(pc => ({ user_id: selectedUser.user_id, plant_code: pc }));
         await supabase.from('user_plants').upsert(plantRows, { onConflict: 'user_id,plant_code' });
       }
