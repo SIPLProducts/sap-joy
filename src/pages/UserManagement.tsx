@@ -231,9 +231,9 @@ export default function UserManagement() {
         employee_id: editEmployeeId.trim(),
       }).eq('user_id', selectedUser.user_id);
 
-      // Update multi-plant assignments
+      // Update multi-plant assignments (superadmin: no per-plant rows — has all-plant access via RLS)
       await supabase.from('user_plants').delete().eq('user_id', selectedUser.user_id);
-      if (selectedPlants.length > 0) {
+      if (selectedRole !== 'superadmin' && selectedPlants.length > 0) {
         const plantRows = selectedPlants.map(pc => ({ user_id: selectedUser.user_id, plant_code: pc }));
         await supabase.from('user_plants').upsert(plantRows, { onConflict: 'user_id,plant_code' });
       }
@@ -384,8 +384,8 @@ export default function UserManagement() {
 
       const newUserId = createData.user_id;
 
-      // Handle multi-plant assignment (not handled by edge function)
-      if (newUserPlants.length > 0) {
+      // Handle multi-plant assignment (superadmin: skip — has all-plant access via RLS)
+      if (newUserRole !== 'superadmin' && newUserPlants.length > 0) {
         const plantRows = newUserPlants.map(pc => ({ user_id: newUserId, plant_code: pc }));
         await supabase.from('user_plants').upsert(plantRows, { onConflict: 'user_id,plant_code' });
       }
@@ -617,7 +617,9 @@ export default function UserManagement() {
                     <SelectItem key={role.value} value={role.value}>
                       <div className="flex flex-col">
                         <span>{role.label}</span>
-                        {role.description && <span className="text-xs text-muted-foreground">{role.description}</span>}
+                        {role.description && role.value !== 'superadmin' && (
+                          <span className="text-xs text-muted-foreground">{role.description}</span>
+                        )}
                       </div>
                     </SelectItem>
                   ))}
@@ -625,23 +627,32 @@ export default function UserManagement() {
               </Select>
               <p className="text-xs text-muted-foreground">Roles are managed in Role Management</p>
             </div>
-            <div className="space-y-2">
-              <Label>Assign Plants *</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
-                {assignablePlants.map(p => (
-                  <label key={p.code} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Checkbox
-                      checked={newUserPlants.includes(p.code)}
-                      onCheckedChange={(checked) => {
-                        setNewUserPlants(prev => checked ? [...prev, p.code] : prev.filter(c => c !== p.code));
-                      }}
-                    />
-                    <span className="font-mono">{p.code}</span>
-                    {p.name && <span className="text-muted-foreground text-xs truncate">- {p.name}</span>}
-                  </label>
-                ))}
+            {newUserRole === 'superadmin' ? (
+              <div className="space-y-2">
+                <Label>Plant Access</Label>
+                <div className="text-xs text-muted-foreground border rounded-md p-2">
+                  Super Administrator has access to all plants automatically.
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Assign Plants *</Label>
+                <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
+                  {assignablePlants.map(p => (
+                    <label key={p.code} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={newUserPlants.includes(p.code)}
+                        onCheckedChange={(checked) => {
+                          setNewUserPlants(prev => checked ? [...prev, p.code] : prev.filter(c => c !== p.code));
+                        }}
+                      />
+                      <span className="font-mono">{p.code}</span>
+                      {p.name && <span className="text-muted-foreground text-xs truncate">- {p.name}</span>}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
@@ -680,7 +691,9 @@ export default function UserManagement() {
                     <SelectItem key={role.value} value={role.value}>
                       <div className="flex flex-col">
                         <span>{role.label}</span>
-                        {role.description && <span className="text-xs text-muted-foreground">{role.description}</span>}
+                        {role.description && role.value !== 'superadmin' && (
+                          <span className="text-xs text-muted-foreground">{role.description}</span>
+                        )}
                       </div>
                     </SelectItem>
                   ))}
@@ -688,9 +701,17 @@ export default function UserManagement() {
               </Select>
               <p className="text-xs text-muted-foreground">Roles are managed in Role Management</p>
             </div>
-            <div className="space-y-2">
-              <Label>Assigned Plants</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
+            {selectedRole === 'superadmin' ? (
+              <div className="space-y-2">
+                <Label>Plant Access</Label>
+                <div className="text-xs text-muted-foreground border rounded-md p-2">
+                  Super Administrator has access to all plants automatically.
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Assigned Plants</Label>
+                <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
                 {(() => {
                   // Show plants the current admin can assign + any plants the
                   // user already has assigned (so out-of-scope assignments are
@@ -714,8 +735,9 @@ export default function UserManagement() {
                     {p.name && <span className="text-muted-foreground text-xs truncate">- {p.name}</span>}
                   </label>
                 ))}
+                </div>
               </div>
-            </div>
+            )}
             <div className="space-y-2">
               <Label className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> Reset Password <span className="text-xs text-muted-foreground">(8-10 chars)</span></Label>
               <Input type="password" placeholder="Leave blank to keep current" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} />
