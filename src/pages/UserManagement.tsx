@@ -384,8 +384,8 @@ export default function UserManagement() {
 
       const newUserId = createData.user_id;
 
-      // Handle multi-plant assignment (not handled by edge function)
-      if (newUserPlants.length > 0) {
+      // Handle multi-plant assignment (superadmin: skip — has all-plant access via RLS)
+      if (newUserRole !== 'superadmin' && newUserPlants.length > 0) {
         const plantRows = newUserPlants.map(pc => ({ user_id: newUserId, plant_code: pc }));
         await supabase.from('user_plants').upsert(plantRows, { onConflict: 'user_id,plant_code' });
       }
