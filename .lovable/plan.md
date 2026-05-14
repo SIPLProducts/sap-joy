@@ -1,25 +1,47 @@
-## Goal
-Refine the User Management create/edit dialogs for the `superadmin` role:
+# Fix: Master Admin auto-logout on sign-in
 
-1. Show the role label as **"Super Administrator"** only — hide the description text (which currently shows "Cross-plant administrator (excludes SAP API & Sync screens)" in parentheses).
-2. Hide the **Assign Plants** section entirely when the selected role is `superadmin`, since superadmin already has access to every plant via the RLS function.
+## Root cause
+`profiles.masteradmin@sharviinfotech.com` has `user_security.last_password_change = 2026-03-30` and `password_expiry_days = 45`. As of today that evaluates to **exactly 45 days → `password_expired = true`**.
 
-## Changes — `src/pages/UserManagement.tsx`
+In `src/pages/Login.tsx` (lines 122–131), right after a successful `signIn`, the app calls `check_login_security`. When `password_expired` is true it:
+1. Shows "Your password has expired. Please contact your administrator to reset it."
+2. Calls `supabase.auth.signOut()` and clears storage.
+3. Returns before navigation.
 
-### Create User dialog (~line 616)
-- In the role `<SelectItem>` render, suppress the `role.description` line when `role.value === 'superadmin'`.
-- Wrap the **Assign Plants** block (~line 628–644) with `{newUserRole !== 'superadmin' && (...)}`.
-- In `handleCreateUser`, skip the `user_plants` insert when `newUserRole === 'superadmin'` (set/clear `newUserPlants` to `[]` for that role).
-- Remove `Assign Plants` from the form's required validation when role is superadmin (it isn't required today, but keep create button enabled regardless).
+This matches the auth logs showing rapid login → logout cycles for `masteradmin@sharviinfotech.com`. Since masteradmin **is** the administrator, there is no one to "contact", so they're permanently locked out by their own policy.
 
-### Edit User dialog (~line 679)
-- Same change to the `<SelectItem>` description suppression.
-- Wrap the **Assigned Plants** block (~line 691–718) with `{selectedRole !== 'superadmin' && (...)}`.
-- In `handleSaveUser`, when `selectedRole === 'superadmin'`, delete any existing `user_plants` rows for that user (so prior assignments don't linger) and skip the insert.
+## Fix
+Exempt the master admin account from the expiry-forced logout, and refresh its password timestamp so the warning stops recurring.
 
-### Display polish
-- Optional: in the user list table, when role is `superadmin`, show the role badge as "Super Administrator" with no plant chips (already driven by `selectedUser.plants`, which will be empty after save). No extra change needed beyond the save logic.
+### 1. `src/pages/Login.tsx`
+Skip the expiry-forced sign-out when the resolved login email is `masteradmin@sharviinfotech.com`:
+
+```ts
+if (loginEmail.toLowerCase() !== 'masteradmin@sharviinfotech.com'
+    && secData?.password_expired) {
+  // existing expired branch (signOut + error + return)
+}
+```
+
+Master admin still gets `reset_failed_login` and proceeds to navigate normally.
+
+### 2. Refresh masteradmin's `last_password_change` (one-off migration)
+Update the existing row so the expiry resets immediately for the current production account:
+
+```sql
+UPDATE public.user_security
+SET last_password_change = now(), updated_at = now()
+WHERE user_id = (
+  SELECT user_id FROM public.profiles
+  WHERE email = 'masteradmin@sharviinfotech.com'
+);
+```
 
 ## Out of scope
-- No DB migration. The existing `superadmin` department row and `user_has_plant()` function continue to work.
-- Master Admin behavior unchanged.
+- Changing the global 45-day policy or password complexity rules.
+- Changing behavior for any other role (superadmin, admin, etc.) — they still see the expiry message and must have their password reset by master admin.
+- UI changes on the Login screen.
+
+## Verification
+- Sign in as masteradmin → lands on dashboard, no immediate logout.
+- Sign in as a normal user with an expired password → still sees the expiry message and is signed out (unchanged).

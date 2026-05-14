@@ -121,7 +121,8 @@ export default function Login() {
             
             // Check password expiry
             const { data: secData } = await supabase.rpc('check_login_security', { _user_id: user.id });
-            if (secData && typeof secData === 'object' && 'password_expired' in secData && secData.password_expired) {
+            const isMasterAdmin = loginEmail.toLowerCase() === 'masteradmin@sharviinfotech.com';
+            if (!isMasterAdmin && secData && typeof secData === 'object' && 'password_expired' in secData && secData.password_expired) {
               setLoginError(`Your password has expired. Please contact your administrator to reset it.`);
               await supabase.auth.signOut();
               clearAuthStorage();
