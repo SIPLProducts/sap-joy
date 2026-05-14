@@ -691,7 +691,9 @@ export default function UserManagement() {
                     <SelectItem key={role.value} value={role.value}>
                       <div className="flex flex-col">
                         <span>{role.label}</span>
-                        {role.description && <span className="text-xs text-muted-foreground">{role.description}</span>}
+                        {role.description && role.value !== 'superadmin' && (
+                          <span className="text-xs text-muted-foreground">{role.description}</span>
+                        )}
                       </div>
                     </SelectItem>
                   ))}
@@ -699,9 +701,17 @@ export default function UserManagement() {
               </Select>
               <p className="text-xs text-muted-foreground">Roles are managed in Role Management</p>
             </div>
-            <div className="space-y-2">
-              <Label>Assigned Plants</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
+            {selectedRole === 'superadmin' ? (
+              <div className="space-y-2">
+                <Label>Plant Access</Label>
+                <div className="text-xs text-muted-foreground border rounded-md p-2">
+                  Super Administrator has access to all plants automatically.
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Assigned Plants</Label>
+                <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
                 {(() => {
                   // Show plants the current admin can assign + any plants the
                   // user already has assigned (so out-of-scope assignments are
@@ -725,8 +735,9 @@ export default function UserManagement() {
                     {p.name && <span className="text-muted-foreground text-xs truncate">- {p.name}</span>}
                   </label>
                 ))}
+                </div>
               </div>
-            </div>
+            )}
             <div className="space-y-2">
               <Label className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> Reset Password <span className="text-xs text-muted-foreground">(8-10 chars)</span></Label>
               <Input type="password" placeholder="Leave blank to keep current" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} />
