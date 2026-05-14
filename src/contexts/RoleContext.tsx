@@ -33,7 +33,7 @@ const mapAppRoleToUserRole = (appRole: AppRole | null): UserRole => {
   if (appRole.includes('purchase')) return 'purchase';
   if (appRole.includes('engineering')) return 'engineering';
   if (appRole === 'shop_floor') return 'shop_floor';
-  if (appRole === 'executive' || appRole === 'admin') return 'plant_head';
+  if (appRole === 'executive' || appRole === 'admin' || appRole === 'superadmin') return 'plant_head';
   return 'quality';
 };
 
