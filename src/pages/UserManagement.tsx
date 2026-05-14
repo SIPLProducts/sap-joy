@@ -617,7 +617,9 @@ export default function UserManagement() {
                     <SelectItem key={role.value} value={role.value}>
                       <div className="flex flex-col">
                         <span>{role.label}</span>
-                        {role.description && <span className="text-xs text-muted-foreground">{role.description}</span>}
+                        {role.description && role.value !== 'superadmin' && (
+                          <span className="text-xs text-muted-foreground">{role.description}</span>
+                        )}
                       </div>
                     </SelectItem>
                   ))}
@@ -625,23 +627,32 @@ export default function UserManagement() {
               </Select>
               <p className="text-xs text-muted-foreground">Roles are managed in Role Management</p>
             </div>
-            <div className="space-y-2">
-              <Label>Assign Plants *</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
-                {assignablePlants.map(p => (
-                  <label key={p.code} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Checkbox
-                      checked={newUserPlants.includes(p.code)}
-                      onCheckedChange={(checked) => {
-                        setNewUserPlants(prev => checked ? [...prev, p.code] : prev.filter(c => c !== p.code));
-                      }}
-                    />
-                    <span className="font-mono">{p.code}</span>
-                    {p.name && <span className="text-muted-foreground text-xs truncate">- {p.name}</span>}
-                  </label>
-                ))}
+            {newUserRole === 'superadmin' ? (
+              <div className="space-y-2">
+                <Label>Plant Access</Label>
+                <div className="text-xs text-muted-foreground border rounded-md p-2">
+                  Super Administrator has access to all plants automatically.
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Assign Plants *</Label>
+                <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-md p-2">
+                  {assignablePlants.map(p => (
+                    <label key={p.code} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={newUserPlants.includes(p.code)}
+                        onCheckedChange={(checked) => {
+                          setNewUserPlants(prev => checked ? [...prev, p.code] : prev.filter(c => c !== p.code));
+                        }}
+                      />
+                      <span className="font-mono">{p.code}</span>
+                      {p.name && <span className="text-muted-foreground text-xs truncate">- {p.name}</span>}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
