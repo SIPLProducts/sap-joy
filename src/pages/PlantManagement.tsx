@@ -37,6 +37,7 @@ export default function PlantManagement() {
 
   const { hasAccess, loading: permLoading } = useRoleMatrix();
   const isAdmin = userRole === 'admin' || hasAccess('plant_management');
+  const canAddPlant = isMaster || userRole === 'superadmin';
 
   // Master Admin sees & manages all plants. Everyone else is restricted to
   // plants explicitly assigned to them (mirrors strict plant scoping rule).
@@ -155,9 +156,11 @@ export default function PlantManagement() {
           <Button onClick={fetchPlants} variant="outline" disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
-          <Button onClick={handleOpenCreate} className="gap-2">
-            <Plus className="h-4 w-4" /> Add Plant
-          </Button>
+          {canAddPlant && (
+            <Button onClick={handleOpenCreate} className="gap-2">
+              <Plus className="h-4 w-4" /> Add Plant
+            </Button>
+          )}
         </div>
       </div>
 
@@ -185,7 +188,9 @@ export default function PlantManagement() {
                 {plants.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                      No plants configured yet. Click "Add Plant" to create one.
+                      {canAddPlant
+                        ? 'No plants configured yet. Click "Add Plant" to create one.'
+                        : 'No plants configured yet.'}
                     </TableCell>
                   </TableRow>
                 ) : (
