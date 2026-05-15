@@ -28,6 +28,8 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   updatePlant: (newPlant: string) => Promise<{ error: Error | null }>;
   isAuthenticated: boolean;
+  isAllPlantsView: boolean;
+  setAllPlantsView: (v: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,6 +41,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const [isAllPlantsView, setIsAllPlantsView] = useState<boolean>(() => {
+    try {
+      return typeof window !== 'undefined' && window.localStorage.getItem('mrb.allPlantsView') === '1';
+    } catch { return false; }
+  });
+  const setAllPlantsView = (v: boolean) => {
+    setIsAllPlantsView(v);
+    try { window.localStorage.setItem('mrb.allPlantsView', v ? '1' : '0'); } catch {}
+  };
 
   // Fetch user profile
   const fetchProfile = async (userId: string) => {
