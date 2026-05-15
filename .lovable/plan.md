@@ -1,28 +1,43 @@
-## Why it's missing
+## Goal
 
-The role dropdown in the Create/Edit User dialog is populated from the `departments` table (active rows whose `role_key` is set). On this backend there is **no row** with `role_key = 'superadmin'`, so the option doesn't render. All the frontend wiring for `superadmin` is already in place:
+Persist the superadmin database changes as a versioned migration in `supabase/migrations/` so they apply automatically:
+- On Lovable Cloud (via the migration tool)
+- On the self-hosted Linux server (picked up by `deploy/setup-db.sh` which iterates `supabase/migrations/*.sql` and tracks them in `_migrations`)
 
-- Dropdown auto-lists every active department (`UserManagement.tsx`)
-- Plant picker is hidden when `superadmin` is selected; per-plant rows are skipped on save
-- `superadmin` is filtered out of Role Management, Role Access Matrix, and User Permission Matrix screens
-- Full access except `sap_api_settings` and `sap_sync_monitor` (in `useRoleMatrix`)
+## New migration file
 
-## Fix
+`supabase/migrations/<timestamp>_superadmin_full_access.sql` containing:
 
-Insert the missing department row:
+1. **Insert `Super Administrator` department** (idempotent via `ON CONFLICT (role_key) DO NOTHING`, falling back to `WHERE NOT EXISTS` if no unique constraint).
+   ```sql
+   INSERT INTO public.departments
+     (name, role_key, description, is_active, is_workflow_enabled, workflow_status)
+   SELECT 'Super Administrator', 'superadmin',
+          'Full system access with all-plant visibility',
+          true, false, NULL
+   WHERE NOT EXISTS (
+     SELECT 1 FROM public.departments WHERE role_key = 'superadmin'
+   );
+   ```
 
-```sql
-INSERT INTO public.departments
-  (name, role_key, description, is_active, is_workflow_enabled, workflow_status)
-VALUES
-  ('Super Administrator', 'superadmin',
-   'Full system access with all-plant visibility',
-   true, false, NULL)
-ON CONFLICT DO NOTHING;
-```
+2. **`CREATE OR REPLACE FUNCTION public.has_role`** — superadmin satisfies any role check.
 
-After this runs, **Super Administrator** appears in both Create User and Edit User role dropdowns. No code changes are required.
+3. **`CREATE OR REPLACE FUNCTION public.has_screen_access`** — superadmin gets every screen except `sap_api_settings` and `sap_sync_monitor`.
 
-## Note for self-hosted server
+4. **`CREATE OR REPLACE FUNCTION public.user_has_plant`** — superadmin sees every plant (in addition to existing masteradmin/user_plants checks).
 
-The same `INSERT` must be executed on your Linux server's database — Lovable Cloud and your self-hosted Postgres are separate databases, so inserting here does not affect the deployed instance.
+All four steps are idempotent and safe to re-run.
+
+## Why this works on the self-hosted server
+
+`deploy/setup-db.sh` already:
+- Reads `$APP_DIR/supabase/migrations/*.sql` in sorted order
+- Skips files already recorded in `public._migrations`
+- Applies new ones in a single transaction and records them
+
+So once this file is committed and the server is updated (rsync + `setup-db.sh`), the migration runs automatically. No manual SQL needed.
+
+## Out of scope
+
+- No code changes (frontend already handles superadmin correctly).
+- No edits to existing migration files (they are read-only by convention).
