@@ -58,7 +58,7 @@ const getRoleBadgeVariant = (role: AppRole | null): "default" | "secondary" | "d
 };
 
 export default function UserManagement() {
-  const { userRole } = useAuth();
+  const { userRole, isAllPlantsView } = useAuth();
   const { toast } = useToast();
   const { departments: dbDepartments } = useDepartments();
   // Master Admin can assign any plant; everyone else can only assign plants
@@ -68,7 +68,12 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [plantFilter, setPlantFilter] = useState<string>('all');
-  const { plantOptions: filterPlantOptions } = useActivePlant(setPlantFilter);
+  const { plantOptions: filterPlantOptions } = useActivePlant(
+    isAllPlantsView ? undefined : setPlantFilter
+  );
+  useEffect(() => {
+    if (isAllPlantsView) setPlantFilter('all');
+  }, [isAllPlantsView]);
   const [selectedUser, setSelectedUser] = useState<UserWithRole | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
