@@ -220,7 +220,7 @@ export default function DepartmentManagement() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  departments.map((dept) => (
+                  departments.filter(d => d.role_key !== 'superadmin').map((dept) => (
                     <TableRow key={dept.id}>
                       <TableCell className="font-medium">{dept.name}</TableCell>
                       <TableCell className="text-muted-foreground text-sm max-w-[300px] truncate">{dept.description || '—'}</TableCell>

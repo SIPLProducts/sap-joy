@@ -84,7 +84,7 @@ export default function RoleMatrix() {
   // Include ALL active departments — use role_key if set, otherwise generate from name
   const ROLES = useMemo(() => 
     departments
-      .filter(d => d.is_active)
+      .filter(d => d.is_active && d.role_key !== 'superadmin')
       .map(d => {
         const key = d.role_key || d.name.toLowerCase().replace(/\s+/g, '_');
         return {

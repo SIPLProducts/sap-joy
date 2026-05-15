@@ -59,7 +59,7 @@ export default function UserPermissionMatrix() {
   // Build ALL_ROLES dynamically from active departments
   const ALL_ROLES = useMemo(() =>
     departments
-      .filter(d => d.is_active)
+      .filter(d => d.is_active && d.role_key !== 'superadmin')
       .map(d => {
         const key = d.role_key || d.name.toLowerCase().replace(/\s+/g, '_');
         const colors = ROLE_COLOR_MAP[key] || DEFAULT_COLORS;
