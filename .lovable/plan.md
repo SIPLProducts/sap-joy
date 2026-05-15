@@ -1,29 +1,44 @@
-## Issue
+## Goal
 
-The Create MRB button on **Inward Materials** and **In-Process Materials** is gated by a hardcoded role list:
+Let any user assigned to **2 or more plants** opt into an "All Plants" view from the header switcher, so the **MRB Worklist** and **User Management** screens show data across every plant they're allowed to see — instead of being locked to a single active plant at a time.
 
-```ts
-const canCreateMRB = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
-```
+## Behavior
 
-`superadmin` is not in this list, so the button (and per-row "Create MRB" action) never renders for superadmin users — even though superadmin already has full backend access via `has_role()` and `has_screen_access()` (which treat superadmin as universal except for `sap_api_settings` / `sap_sync_monitor`).
+- Header switcher shows a new top entry **"All Plants"** whenever the user has 2+ visible plants (Master Admin / Superadmin already see all; other multi-plant users now get the same option).
+- Selecting "All Plants":
+  - **MRB Worklist** — lists MRBs from every plant the user can see; in‑page Plant filter defaults to "All" and is fully usable to narrow down.
+  - **User Management** — lists users from every visible plant; Plant filter defaults to "All".
+  - **Other screens** (Inward, In‑Process, dashboards, MRB detail, Shop Floor, etc.) keep working against the user's last real plant — unchanged scope.
+- RLS already restricts data to plants in `user_plants`, so "All Plants" naturally cannot leak data the user isn't assigned to.
 
-The same hardcoded check also gates `canEditQuantity` on the In-Process screen.
+## Implementation
 
-## Fix
+### 1. `AuthContext`
+- Add a non‑persisted flag `isAllPlantsView: boolean` + setter `setAllPlantsView(v)`.
+- Persist the user's preference in `localStorage` (`mrb.allPlantsView`) so it survives reloads, but never write the sentinel into `profiles.plant`.
+- `profile.plant` continues to hold a real plant code (used by every other screen).
 
-Add `superadmin` to the allowed role lists in both pages — frontend-only, two files.
+### 2. `AppHeader`
+- If `plantOptions.length >= 2`, prepend an **"All Plants"** item with sentinel value `__ALL__`.
+- Select `value` = `__ALL__` when `isAllPlantsView`, else `profile.plant`.
+- `onValueChange`:
+  - `__ALL__` → `setAllPlantsView(true)` (don't touch `profile.plant`).
+  - real code → `setAllPlantsView(false)` + existing `updatePlant(code)`.
+- Keep the auto‑switch effect (when stored plant isn't allowed) but skip it while `isAllPlantsView`.
 
-### 1. `src/pages/InwardReport.tsx`
-- Update `canCreateMRB` to include `'superadmin'`:
-  ```ts
-  const canCreateMRB = userRole && ['quality', 'quality_head', 'admin', 'superadmin'].includes(userRole);
-  ```
+### 3. `Worklist.tsx`
+- Read `isAllPlantsView` from auth context.
+- `activePlant` logic: when `isAllPlantsView`, treat scope as "all visible plants" (no single active code).
+- Effect that resets `plantFilter` to active plant: when "all plants" is on, set `plantFilter = 'all'` instead.
+- Existing in‑page Plant dropdown already supports `'all'` + per‑plant filtering — no further change.
 
-### 2. `src/pages/InwardInProcessReport.tsx`
-- Update `canCreateMRB` to include `'superadmin'`.
-- Update `canEditQuantity` to include `'superadmin'` (so superadmin can also edit transaction quantities, consistent with "all access except SAP API/Sync screens").
+### 4. `UserManagement.tsx`
+- Same pattern: when `isAllPlantsView`, force `plantFilter = 'all'` on mount/active‑plant change.
+- The `useActivePlant(setPlantFilter)` hook currently re-pins to the active plant; gate it so it doesn't override the "all" choice when `isAllPlantsView` is true (either skip the hook call or pass a no‑op setter).
+
+### 5. No DB / RLS changes
+- All RLS policies for `mrb_records`, `profiles`, `user_plants` already enforce `user_has_plant(...)` (or are universally readable), so opening the UI to "All Plants" is safe — users only ever see their assigned plants' data.
 
 ## Out of scope
-- No backend / RLS changes (already permit superadmin).
-- No changes to other role gates elsewhere; this plan only addresses the two reported screens. If you'd like a broader sweep replacing all hardcoded role checks with `superadmin`-aware logic across the app, say so and I'll do a separate pass.
+- Other screens (dashboards, Inward, In‑Process, MRB detail, Shop Floor, KPI, etc.) intentionally remain pinned to a single active plant — `Active Plant Scope` memory is preserved everywhere except Worklist and User Management.
+- No change to who can be assigned multiple plants; eligibility is purely "user already has 2+ plant assignments".
