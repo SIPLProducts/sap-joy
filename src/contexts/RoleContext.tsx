@@ -107,7 +107,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const canEdit = (stage: 'quality' | 'purchase' | 'engineering' | 'final_approval'): boolean => {
     // Check against the actual AppRole from auth
     if (!userRole) return false;
-    if (userRole === 'admin') return true;
+    if (userRole === 'admin' || userRole === 'superadmin') return true;
     
     // Dynamic: check if role contains the stage keyword, or is a head role for final_approval
     if (stage === 'final_approval') {
@@ -118,7 +118,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   const canCreate = (source: 'quality_inspection' | 'shop_floor'): boolean => {
     if (!userRole) return false;
-    if (userRole === 'admin') return true;
+    if (userRole === 'admin' || userRole === 'superadmin') return true;
     
     if (source === 'quality_inspection') {
       return userRole.includes('quality');
