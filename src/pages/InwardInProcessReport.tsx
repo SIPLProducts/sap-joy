@@ -57,9 +57,9 @@ export default function InwardReport() {
   const { extraFields } = useExtraDynamicFields('zmrb_inward_report');
 
   // Role-based permissions
-  const canCreateMRB = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
+  const canCreateMRB = userRole && ['quality', 'quality_head', 'admin', 'superadmin'].includes(userRole);
   
-  const canEditQuantity = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
+  const canEditQuantity = userRole && ['quality', 'quality_head', 'admin', 'superadmin'].includes(userRole);
   const [hasSearched, setHasSearched] = useState(false);
   const [searchResults, setSearchResults] = useState<InspectionLotRecord[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
