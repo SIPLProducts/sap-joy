@@ -1,29 +1,29 @@
-## Goal
+## Issue
 
-Default the **Posting Date From / To** filters on the Inward Materials and Inward In-Process Materials screens to:
-- **From** = today − 15 days
-- **To** = today
+The Create MRB button on **Inward Materials** and **In-Process Materials** is gated by a hardcoded role list:
 
-## Changes
-
-Two files, same pattern (YYYY-MM-DD strings to match the date inputs):
-
-1. `src/contexts/InwardMRBContext.tsx` — replace `postingDateFrom: ''` and `postingDateTo: ''` (line ~100) with computed defaults.
-2. `src/contexts/InwardInProcessMRBContext.tsx` — same change at line ~108.
-
-Add a small helper at the top of each file:
 ```ts
-const today = new Date();
-const fifteenDaysAgo = new Date();
-fifteenDaysAgo.setDate(today.getDate() - 15);
-const toISO = (d: Date) => d.toISOString().slice(0, 10);
+const canCreateMRB = userRole && ['quality', 'quality_head', 'admin'].includes(userRole);
 ```
 
-Use `toISO(fifteenDaysAgo)` and `toISO(today)` as the initial values.
+`superadmin` is not in this list, so the button (and per-row "Create MRB" action) never renders for superadmin users — even though superadmin already has full backend access via `has_role()` and `has_screen_access()` (which treat superadmin as universal except for `sap_api_settings` / `sap_sync_monitor`).
 
-3. `src/pages/InwardReport.tsx` and `src/pages/InwardInProcessReport.tsx` — `handleReset()` currently sets these back to `''`. Update both to reset to the same 15-day window so Reset matches the default behaviour.
+The same hardcoded check also gates `canEditQuantity` on the In-Process screen.
+
+## Fix
+
+Add `superadmin` to the allowed role lists in both pages — frontend-only, two files.
+
+### 1. `src/pages/InwardReport.tsx`
+- Update `canCreateMRB` to include `'superadmin'`:
+  ```ts
+  const canCreateMRB = userRole && ['quality', 'quality_head', 'admin', 'superadmin'].includes(userRole);
+  ```
+
+### 2. `src/pages/InwardInProcessReport.tsx`
+- Update `canCreateMRB` to include `'superadmin'`.
+- Update `canEditQuantity` to include `'superadmin'` (so superadmin can also edit transaction quantities, consistent with "all access except SAP API/Sync screens").
 
 ## Out of scope
-
-- No backend, schema, or business-logic changes.
-- Date column display, filtering logic, and other filter fields stay as they are.
+- No backend / RLS changes (already permit superadmin).
+- No changes to other role gates elsewhere; this plan only addresses the two reported screens. If you'd like a broader sweep replacing all hardcoded role checks with `superadmin`-aware logic across the app, say so and I'll do a separate pass.
