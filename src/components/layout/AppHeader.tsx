@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVisiblePlants } from '@/hooks/useVisiblePlants';
@@ -8,6 +9,9 @@ import { Building2 } from 'lucide-react';
 export function AppHeader() {
   const { profile, updatePlant, isLoading, isAllPlantsView, setAllPlantsView } = useAuth();
   const { plantOptions, loading: plantsLoading } = useVisiblePlants();
+  const { pathname } = useLocation();
+  const isSinglePlantScreen =
+    pathname.startsWith('/inward/report') || pathname.startsWith('/inward/inprocess');
 
   // If the user's default plant isn't in their visible plants, auto-switch
   // to the first allowed one so all screens fetch the right data.
@@ -34,7 +38,8 @@ export function AppHeader() {
   const availablePlants = plantOptions;
   const showPlantSwitcher = availablePlants.length > 1;
   const ALL_PLANTS = '__ALL__';
-  const offerAllPlants = availablePlants.length >= 2;
+  const offerAllPlants = availablePlants.length >= 2 && !isSinglePlantScreen;
+  const showAsAllPlants = isAllPlantsView && !isSinglePlantScreen;
 
   return (
     <header className="sticky top-0 z-50 flex h-12 items-center justify-between border-b bg-background px-4 shadow-sm">
@@ -51,7 +56,7 @@ export function AppHeader() {
             <Building2 className="w-3.5 h-3.5 mr-2 text-primary" />
             <span className="font-medium mr-2 hidden sm:inline">Default Plant:</span>
             <Select 
-              value={isAllPlantsView ? ALL_PLANTS : (profile.plant || '1300')}
+              value={showAsAllPlants ? ALL_PLANTS : (profile.plant || availablePlants[0]?.code || '1300')}
               onValueChange={(val) => {
                 if (val === ALL_PLANTS) {
                   setAllPlantsView(true);
