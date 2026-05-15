@@ -67,7 +67,7 @@ export function AppSidebar() {
   // Admin items filtered by permission matrix + master status
   const visibleAdminItems = adminItems.filter(item => {
     if (item.masterOnly && !isMasterAdmin) return false;
-    if (userRole === 'admin') return true;
+    if (userRole === 'admin' || userRole === 'superadmin') return true;
     return hasAccess(item.matrixKey);
   });
 
