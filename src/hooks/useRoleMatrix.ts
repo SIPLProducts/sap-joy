@@ -51,7 +51,7 @@ export function useRoleMatrix() {
   const hasAccess = useCallback(
     (screenKey: string): boolean => {
       if (!userRole) return false;
-      if (userRole === 'admin') return true;
+      if (userRole === 'admin' || userRole === 'superadmin') return true;
       if (permissions.length === 0) return false;
 
       const matching = permissions.filter(
@@ -76,7 +76,7 @@ export function useRoleMatrix() {
   const canEdit = useCallback(
     (screenKey: string): boolean => {
       if (!userRole) return false;
-      if (userRole === 'admin') return true;
+      if (userRole === 'admin' || userRole === 'superadmin') return true;
       if (permissions.length === 0) return false;
 
       const matching = permissions.filter(
