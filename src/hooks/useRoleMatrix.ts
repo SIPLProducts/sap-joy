@@ -12,6 +12,8 @@ export interface RolePermission {
   plant?: string;
 }
 
+const SUPERADMIN_DENIED_SCREENS = new Set(['sap_api_settings', 'sap_sync_monitor']);
+
 export function useRoleMatrix() {
   const [permissions, setPermissions] = useState<RolePermission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,7 +53,8 @@ export function useRoleMatrix() {
   const hasAccess = useCallback(
     (screenKey: string): boolean => {
       if (!userRole) return false;
-      if (userRole === 'admin' || userRole === 'superadmin') return true;
+      if (userRole === 'superadmin') return !SUPERADMIN_DENIED_SCREENS.has(screenKey);
+      if (userRole === 'admin') return true;
       if (permissions.length === 0) return false;
 
       const matching = permissions.filter(
@@ -76,7 +79,8 @@ export function useRoleMatrix() {
   const canEdit = useCallback(
     (screenKey: string): boolean => {
       if (!userRole) return false;
-      if (userRole === 'admin' || userRole === 'superadmin') return true;
+      if (userRole === 'superadmin') return !SUPERADMIN_DENIED_SCREENS.has(screenKey);
+      if (userRole === 'admin') return true;
       if (permissions.length === 0) return false;
 
       const matching = permissions.filter(
