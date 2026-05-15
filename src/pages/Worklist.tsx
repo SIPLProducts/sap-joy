@@ -129,7 +129,7 @@ export default function Worklist() {
   const navigate = useNavigate();
   const { mrbRecords, isLoading, updateMRB } = useMRBDatabase();
   const { toast } = useToast();
-  const { userRole, user, profile } = useAuth();
+  const { userRole, user, profile, isAllPlantsView } = useAuth();
   const { departments } = useDepartments();
   const { roleDisplayNames } = useDepartmentMap();
   const { plantOptions: visiblePlantOptions } = useVisiblePlants();
@@ -175,9 +175,9 @@ export default function Worklist() {
   // and clear stale row selections from the previous plant scope.
   useEffect(() => {
     if (!activePlant) return;
-    setPlantFilter(activePlant);
+    setPlantFilter(isAllPlantsView ? 'all' : activePlant);
     setSelectedIds(new Set());
-  }, [activePlant]);
+  }, [activePlant, isAllPlantsView]);
 
   // RBAC: SAP unblock access is limited to Master Admin, Admin, and Quality.
   const isMasterAdmin = profile?.email === MASTER_ADMIN_EMAIL || user?.email === MASTER_ADMIN_EMAIL;
