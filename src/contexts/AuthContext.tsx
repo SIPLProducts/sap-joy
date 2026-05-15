@@ -230,6 +230,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOut,
         updatePlant,
         isAuthenticated: !!session,
+        isAllPlantsView,
+        setAllPlantsView,
       }}
     >
       {children}
