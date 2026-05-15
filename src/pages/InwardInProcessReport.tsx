@@ -316,14 +316,23 @@ export default function InwardReport() {
   }, [isLoading, inspectionLotRecords, hasSearched, filters]);
 
   const handleReset = () => {
+    const today = new Date();
+    const from = new Date();
+    from.setDate(today.getDate() - 15);
+    const toISO = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
     setFilters({
       plants: activePlant ? [activePlant] : [],
       materialCodes: [],
       vendors: [],
       storageLocations: [],
       inspectionLots: [],
-      postingDateFrom: '',
-      postingDateTo: '',
+      postingDateFrom: toISO(from),
+      postingDateTo: toISO(today),
     });
     setSearchResults([]);
     setHasSearched(false);

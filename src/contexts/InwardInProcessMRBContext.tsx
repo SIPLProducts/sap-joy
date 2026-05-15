@@ -9,6 +9,19 @@ import { ParsedInspectionLot } from '@/lib/csvTemplates';
 type MRBRecord = Database['public']['Tables']['mrb_records']['Row'];
 type MRBInsert = Database['public']['Tables']['mrb_records']['Insert'];
 
+const toISODate = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+const getDefaultPostingDateRange = () => {
+  const today = new Date();
+  const from = new Date();
+  from.setDate(today.getDate() - 15);
+  return { postingDateFrom: toISODate(from), postingDateTo: toISODate(today) };
+};
+
 export interface InspectionLotRecord {
   id: string;
   inspectionLot: string;
@@ -105,8 +118,7 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
     vendors: [],
     storageLocations: [],
     inspectionLots: [],
-    postingDateFrom: '',
-    postingDateTo: '',
+    ...getDefaultPostingDateRange(),
   });
 
   const fetchData = useCallback(async () => {
