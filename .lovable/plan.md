@@ -1,15 +1,28 @@
-# Restrict "Add Plant" to master admin and superadmin
+## Why it's missing
 
-## Scope
-Hide the **Add Plant** button on the Plant Management screen for everyone except master admin and superadmin. View / Edit / Delete behavior is unchanged.
+The role dropdown in the Create/Edit User dialog is populated from the `departments` table (active rows whose `role_key` is set). On this backend there is **no row** with `role_key = 'superadmin'`, so the option doesn't render. All the frontend wiring for `superadmin` is already in place:
 
-## Changes (UI only)
+- Dropdown auto-lists every active department (`UserManagement.tsx`)
+- Plant picker is hidden when `superadmin` is selected; per-plant rows are skipped on save
+- `superadmin` is filtered out of Role Management, Role Access Matrix, and User Permission Matrix screens
+- Full access except `sap_api_settings` and `sap_sync_monitor` (in `useRoleMatrix`)
 
-### `src/pages/PlantManagement.tsx`
-- Compute `canAddPlant = isMaster || userRole === 'superadmin'` (using existing `isMaster` from `useVisiblePlants` and `userRole` from `useAuth` — both already in scope).
-- Wrap the **Add Plant** button (line 158–160) so it only renders when `canAddPlant` is true.
-- Update the empty-state message (line 187–188) to drop the "Click Add Plant to create one." hint when `canAddPlant` is false; show a neutral "No plants configured yet." instead.
+## Fix
 
-## Out of scope
-- Edit / Delete buttons remain available to anyone whose role matrix grants `plant_management` (existing behavior).
-- No DB / RLS changes — the `plants` insert policy already allows admins and `plant_management`-granted roles, which includes superadmin.
+Insert the missing department row:
+
+```sql
+INSERT INTO public.departments
+  (name, role_key, description, is_active, is_workflow_enabled, workflow_status)
+VALUES
+  ('Super Administrator', 'superadmin',
+   'Full system access with all-plant visibility',
+   true, false, NULL)
+ON CONFLICT DO NOTHING;
+```
+
+After this runs, **Super Administrator** appears in both Create User and Edit User role dropdowns. No code changes are required.
+
+## Note for self-hosted server
+
+The same `INSERT` must be executed on your Linux server's database — Lovable Cloud and your self-hosted Postgres are separate databases, so inserting here does not affect the deployed instance.
