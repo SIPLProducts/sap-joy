@@ -869,6 +869,22 @@ async function directSync(
       return { data: { success: false, error: 'Response is not valid JSON', sync_id: syncRecord.id }, error: null };
     }
 
+    {
+      const innerText = extractInnerBodyText(jsonData);
+      if (isDataNotAvailableBody(innerText)) {
+        await supabase.from('sap_stock_sync_history').update({
+          status: 'success',
+          records_processed: 0,
+          error_message: null,
+          completed_at: new Date().toISOString(),
+        }).eq('id', syncRecord.id);
+        return {
+          data: { success: true, records: [], total: 0, message: 'Data not available', sync_id: syncRecord.id },
+          error: null,
+        };
+      }
+    }
+
     const records = jsonData?.d?.results || jsonData?.value || jsonData?.data || (Array.isArray(jsonData) ? jsonData : [jsonData]);
     console.log(`${debugLabel} Extracted records:`, records?.length || 0);
     if (Array.isArray(records) && records.length > 0) {
