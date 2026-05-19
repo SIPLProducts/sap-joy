@@ -2,6 +2,9 @@ import { supabase } from '@/integrations/supabase/client';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 
+const isDataNotAvailableBody = (text: string) =>
+  /data\s*not\s*available|no\s+data\s+(found|available)|no\s+records?\s+found/i.test(text || '');
+
 function normalizeAuthType(authType: string | null | undefined): string {
   return (authType || 'none').toLowerCase().trim();
 }
