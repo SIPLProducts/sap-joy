@@ -1377,6 +1377,13 @@ async function directFetchLive(
       return { data: { success: false, error: 'Response is not valid JSON' }, error: null };
     }
 
+    {
+      const innerText = extractInnerBodyText(jsonData);
+      if (isDataNotAvailableBody(innerText)) {
+        return { data: { success: true, records: [], total: 0, message: 'Data not available' }, error: null };
+      }
+    }
+
     const records = jsonData?.d?.results || jsonData?.value || jsonData?.data || (Array.isArray(jsonData) ? jsonData : [jsonData]);
     console.log(`${debugLabel} Fetched ${records?.length || 0} records from SAP`);
 
