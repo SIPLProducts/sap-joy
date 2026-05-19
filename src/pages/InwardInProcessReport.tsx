@@ -480,8 +480,8 @@ export default function InwardReport() {
       toast.info(`Syncing in-process data for plant ${activePlant}…`);
 
       // Resolve posting-date SAP keys from API Settings (sap_api_request_fields).
-      // Admin marks two rows with reserved field_name values: POSTING_DATE_FROM / POSTING_DATE_TO.
-      // The page reads them to discover the actual SAP payload keys (e.g. BUDAT_FROM/BUDAT_TO).
+      // Accepts either direct rows (field_name = BUDAT_FROM / BUDAT_TO) or
+      // the reserved alias rows (POSTING_DATE_FROM / POSTING_DATE_TO -> sap_field_name).
       const postingDateOverrides: Record<string, string> = {};
       try {
         const { data: reqFields } = await supabase
@@ -489,21 +489,25 @@ export default function InwardReport() {
           .select('field_name, sap_field_name')
           .eq('config_id', sapConfigId);
         const toSapDate = (iso: string) => (iso || '').replace(/-/g, '').slice(0, 8);
-        const fromRow = reqFields?.find(
-          (r: any) => String(r.field_name).toUpperCase() === 'POSTING_DATE_FROM'
-        );
-        const toRow = reqFields?.find(
-          (r: any) => String(r.field_name).toUpperCase() === 'POSTING_DATE_TO'
-        );
-        if (fromRow?.sap_field_name && filters.postingDateFrom) {
-          postingDateOverrides[fromRow.sap_field_name] = toSapDate(filters.postingDateFrom);
+        const matchRow = (aliases: string[]) =>
+          reqFields?.find((r: any) => {
+            const fn = String(r.field_name || '').toUpperCase();
+            const sfn = String(r.sap_field_name || '').toUpperCase();
+            return aliases.includes(fn) || aliases.includes(sfn);
+          });
+        const fromRow = matchRow(['BUDAT_FROM', 'POSTING_DATE_FROM']);
+        const toRow = matchRow(['BUDAT_TO', 'POSTING_DATE_TO']);
+        const fromKey = fromRow?.sap_field_name || fromRow?.field_name;
+        const toKey = toRow?.sap_field_name || toRow?.field_name;
+        if (fromKey && filters.postingDateFrom) {
+          postingDateOverrides[fromKey] = toSapDate(filters.postingDateFrom);
         }
-        if (toRow?.sap_field_name && filters.postingDateTo) {
-          postingDateOverrides[toRow.sap_field_name] = toSapDate(filters.postingDateTo);
+        if (toKey && filters.postingDateTo) {
+          postingDateOverrides[toKey] = toSapDate(filters.postingDateTo);
         }
         if (!fromRow && !toRow) {
           toast.info(
-            'Posting-date filters are not wired in API Settings. Add request fields named POSTING_DATE_FROM / POSTING_DATE_TO to enable date-scoped sync.'
+            'Posting-date filters are not wired in API Settings. Add request fields BUDAT_FROM / BUDAT_TO to enable date-scoped sync.'
           );
         }
       } catch (e) {
