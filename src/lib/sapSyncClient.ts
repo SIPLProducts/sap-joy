@@ -809,6 +809,18 @@ async function directSync(
     
     if (!response.ok) {
       console.error(`${debugLabel} HTTP failure body:`, bodyText);
+      if (isDataNotAvailableBody(bodyText)) {
+        await supabase.from('sap_stock_sync_history').update({
+          status: 'success',
+          records_processed: 0,
+          error_message: null,
+          completed_at: new Date().toISOString(),
+        }).eq('id', syncRecord.id);
+        return {
+          data: { success: true, records: [], total: 0, message: 'Data not available', sync_id: syncRecord.id },
+          error: null,
+        };
+      }
       await supabase.from('sap_stock_sync_history').update({
         status: 'failed',
         error_message: `SAP API returned ${response.status} (attempt: ${selectedAttempt}): ${bodyText.substring(0, 500)}`,
@@ -826,6 +838,18 @@ async function directSync(
       jsonData = JSON.parse(bodyText);
     } catch {
       console.error(`${debugLabel} Response is not valid JSON. Raw body:`, bodyText);
+      if (isDataNotAvailableBody(bodyText)) {
+        await supabase.from('sap_stock_sync_history').update({
+          status: 'success',
+          records_processed: 0,
+          error_message: null,
+          completed_at: new Date().toISOString(),
+        }).eq('id', syncRecord.id);
+        return {
+          data: { success: true, records: [], total: 0, message: 'Data not available', sync_id: syncRecord.id },
+          error: null,
+        };
+      }
       await supabase.from('sap_stock_sync_history').update({
         status: 'failed',
         error_message: 'Response is not valid JSON',
