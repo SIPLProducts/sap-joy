@@ -3,7 +3,17 @@ import { supabase } from '@/integrations/supabase/client';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 
 const isDataNotAvailableBody = (text: string) =>
-  /data\s*not\s*available|no\s+data\s+(found|available)|no\s+records?\s+found/i.test(text || '');
+  /data\s+(is\s+|are\s+)?not\s*available|no\s+data\s+(found|available)|no\s+records?\.?\s+found/i.test(text || '');
+
+const extractInnerBodyText = (parsed: any): string => {
+  if (!parsed || typeof parsed !== 'object') return '';
+  const parts: string[] = [];
+  if (typeof parsed.body === 'string') parts.push(parsed.body);
+  if (typeof parsed.message === 'string') parts.push(parsed.message);
+  if (typeof parsed.error === 'string') parts.push(parsed.error);
+  if (parsed.error && typeof parsed.error?.message === 'string') parts.push(parsed.error.message);
+  return parts.join(' ');
+};
 
 function normalizeAuthType(authType: string | null | undefined): string {
   return (authType || 'none').toLowerCase().trim();
