@@ -515,6 +515,7 @@ export default function InwardReport() {
       }
 
       const failures: string[] = [];
+      let dataNotAvailable = false;
       for (const werks of plantsToSync) {
         try {
           const { data: syncData, error: syncError } = await invokeSapSync({
@@ -524,8 +525,16 @@ export default function InwardReport() {
           });
           if (syncError) throw new Error(syncError.message || 'SAP sync failed');
           if (!syncData?.success) throw new Error(syncData?.error || 'Unknown error');
+          if (typeof syncData?.message === 'string' && /data\s*not\s*available/i.test(syncData.message)) {
+            dataNotAvailable = true;
+          }
         } catch (err) {
-          failures.push(`${werks}: ${err instanceof Error ? err.message : 'Failed'}`);
+          const msg = err instanceof Error ? err.message : 'Failed';
+          if (/data\s*not\s*available|no\s+data\s+(found|available)|no\s+records?\s+found/i.test(msg)) {
+            dataNotAvailable = true;
+          } else {
+            failures.push(`${werks}: ${msg}`);
+          }
         }
       }
 
@@ -543,13 +552,26 @@ export default function InwardReport() {
 
       setSelectedIds(new Set());
       if (failures.length === 0) {
-        toast.success(`SAP sync successful for plant ${activePlant}`);
+        if (dataNotAvailable) {
+          toast.info('Data not available', {
+            description: 'SAP returned no records for the selected filters.',
+          });
+        } else {
+          toast.success(`SAP sync successful for plant ${activePlant}`);
+        }
       } else {
         toast.error(`Sync failed for plant ${activePlant}: ${failures.join('; ')}`);
       }
     } catch (error) {
       console.error('Sync error:', error);
-      toast.error(error instanceof Error ? error.message : 'Sync failed. Please try again.');
+      const msg = error instanceof Error ? error.message : 'Sync failed. Please try again.';
+      if (/data\s*not\s*available|no\s+data\s+(found|available)|no\s+records?\s+found/i.test(msg)) {
+        toast.info('Data not available', {
+          description: 'SAP returned no records for the selected filters.',
+        });
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setIsSyncing(false);
     }
