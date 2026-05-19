@@ -2,6 +2,9 @@ import { supabase } from '@/integrations/supabase/client';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 
+const isDataNotAvailableBody = (text: string) =>
+  /data\s*not\s*available|no\s+data\s+(found|available)|no\s+records?\s+found/i.test(text || '');
+
 function normalizeAuthType(authType: string | null | undefined): string {
   return (authType || 'none').toLowerCase().trim();
 }
@@ -806,6 +809,18 @@ async function directSync(
     
     if (!response.ok) {
       console.error(`${debugLabel} HTTP failure body:`, bodyText);
+      if (isDataNotAvailableBody(bodyText)) {
+        await supabase.from('sap_stock_sync_history').update({
+          status: 'success',
+          records_processed: 0,
+          error_message: null,
+          completed_at: new Date().toISOString(),
+        }).eq('id', syncRecord.id);
+        return {
+          data: { success: true, records: [], total: 0, message: 'Data not available', sync_id: syncRecord.id },
+          error: null,
+        };
+      }
       await supabase.from('sap_stock_sync_history').update({
         status: 'failed',
         error_message: `SAP API returned ${response.status} (attempt: ${selectedAttempt}): ${bodyText.substring(0, 500)}`,
@@ -823,6 +838,18 @@ async function directSync(
       jsonData = JSON.parse(bodyText);
     } catch {
       console.error(`${debugLabel} Response is not valid JSON. Raw body:`, bodyText);
+      if (isDataNotAvailableBody(bodyText)) {
+        await supabase.from('sap_stock_sync_history').update({
+          status: 'success',
+          records_processed: 0,
+          error_message: null,
+          completed_at: new Date().toISOString(),
+        }).eq('id', syncRecord.id);
+        return {
+          data: { success: true, records: [], total: 0, message: 'Data not available', sync_id: syncRecord.id },
+          error: null,
+        };
+      }
       await supabase.from('sap_stock_sync_history').update({
         status: 'failed',
         error_message: 'Response is not valid JSON',
@@ -1310,11 +1337,17 @@ async function directFetchLive(
     const bodyText = await response.text();
 
     if (!response.ok) {
+      if (isDataNotAvailableBody(bodyText)) {
+        return { data: { success: true, records: [], total: 0, message: 'Data not available' }, error: null };
+      }
       return { data: { success: false, error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}` }, error: null };
     }
 
     let jsonData: any;
     try { jsonData = JSON.parse(bodyText); } catch {
+      if (isDataNotAvailableBody(bodyText)) {
+        return { data: { success: true, records: [], total: 0, message: 'Data not available' }, error: null };
+      }
       return { data: { success: false, error: 'Response is not valid JSON' }, error: null };
     }
 

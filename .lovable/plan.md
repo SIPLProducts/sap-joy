@@ -1,33 +1,51 @@
-## What I found
+# Friendlier "Data not available" alert for in-process refresh
 
-The current in-process refresh code only looks for request-field rows named `POSTING_DATE_FROM` and `POSTING_DATE_TO`. Your API settings currently have the rows directly as:
+When SAP returns a response body containing the text `Data not available` (typical when no records match the posting-date / plant filter), the JSON parse fails and the UI currently surfaces `Response is not valid JSON`. Replace that with a clear, user-friendly message.
 
-```text
-field_name      sap_field_name
-BUDAT_FROM      BUDAT_FROM
-BUDAT_TO        BUDAT_TO
+## Changes
+
+### 1. `src/lib/sapSyncClient.ts` — detect "Data not available" in raw body
+
+Add a tiny helper near the top of the file:
+
+```ts
+const isDataNotAvailableBody = (text: string) =>
+  /data\s*not\s*available|no\s+data\s+(found|available)|no\s+records?\s+found/i.test(text || '');
 ```
 
-So the app does not resolve those rows as posting-date mappings, and the alert still mentions the old reserved names.
+Update the three JSON-parse `catch` blocks (around lines 823, 1057, 1317) so that, before returning the generic "not valid JSON" error, they check the raw body:
 
-## Plan
-
-1. Update `src/pages/InwardInProcessReport.tsx` so posting-date mapping accepts both formats:
-   - Preferred/direct format: `BUDAT_FROM` and `BUDAT_TO`
-   - Backward-compatible format: `POSTING_DATE_FROM` and `POSTING_DATE_TO`
-
-2. When filters are selected, build `request_overrides` like this:
-
-```text
-ART: '04'
-WERKS: selected plant
-BUDAT_FROM: selected posting date from in YYYYMMDD
-BUDAT_TO: selected posting date to in YYYYMMDD
+```ts
+} catch {
+  if (isDataNotAvailableBody(bodyText)) {
+    // (where applicable) mark sync history as success-with-no-records
+    return {
+      data: { success: true, records: [], total: 0, message: 'Data not available' },
+      error: null,
+    };
+  }
+  // ...existing "Response is not valid JSON" path
+}
 ```
 
-3. Update the alert/toast text so it refers to `BUDAT_FROM` and `BUDAT_TO`, not only `POSTING_DATE_FROM` / `POSTING_DATE_TO`.
+Also apply the same check in the `!response.ok` branch (~line 807) so that an HTTP-200-with-error-body or 4xx body carrying "Data not available" still yields the friendly message rather than `SAP API returned 4xx: ...`.
 
-4. Keep behavior safe:
-   - If a date filter is empty, omit that key.
-   - If mapping is missing, show a clear info message.
-   - No database migration is needed because the rows already exist in your API settings.
+For the sync-history row (line 823 path), record `status: 'success'`, `records_processed: 0`, `error_message: null` instead of `failed`.
+
+### 2. `src/pages/InwardInProcessReport.tsx` — friendlier toast
+
+In `handleAPISync` / `invokeSapSync`, when the returned `data.error` (or thrown error message) matches the same `Data not available` pattern, show:
+
+```ts
+toast.info('Data not available', {
+  description: 'SAP returned no records for the selected filters.',
+});
+```
+
+instead of the raw error. Keep all other errors unchanged.
+
+### Out of scope
+
+- No backend / SQL changes.
+- No change to posting-date payload behavior (already fixed).
+- No change to other sync screens — only the in-process refresh path.
