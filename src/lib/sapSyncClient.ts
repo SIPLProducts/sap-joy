@@ -1337,11 +1337,17 @@ async function directFetchLive(
     const bodyText = await response.text();
 
     if (!response.ok) {
+      if (isDataNotAvailableBody(bodyText)) {
+        return { data: { success: true, records: [], total: 0, message: 'Data not available' }, error: null };
+      }
       return { data: { success: false, error: `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}` }, error: null };
     }
 
     let jsonData: any;
     try { jsonData = JSON.parse(bodyText); } catch {
+      if (isDataNotAvailableBody(bodyText)) {
+        return { data: { success: true, records: [], total: 0, message: 'Data not available' }, error: null };
+      }
       return { data: { success: false, error: 'Response is not valid JSON' }, error: null };
     }
 
