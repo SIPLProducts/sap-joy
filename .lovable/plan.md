@@ -1,51 +1,54 @@
-# Friendlier "Data not available" alert for in-process refresh
+## Problem
 
-When SAP returns a response body containing the text `Data not available` (typical when no records match the posting-date / plant filter), the JSON parse fails and the UI currently surfaces `Response is not valid JSON`. Replace that with a clear, user-friendly message.
+SAP middleware returns a valid JSON envelope like:
 
-## Changes
+```json
+{ "statusCode": 200, "headers": {...}, "body": "Data is not available" }
+```
 
-### 1. `src/lib/sapSyncClient.ts` — detect "Data not available" in raw body
+Two bugs make the UI still show "invalid JSON":
 
-Add a tiny helper near the top of the file:
+1. The regex `isDataNotAvailableBody` doesn't match `Data is not available` (the word "is" between "data" and "not").
+2. The envelope IS valid JSON, so `JSON.parse(bodyText)` succeeds. The "not available" string lives in `jsonData.body`, but the current code never inspects that — it falls through to record extraction and downstream code reports the failure as invalid/empty payload.
+
+## Changes (only `src/lib/sapSyncClient.ts`)
+
+### 1. Broaden the regex (line 5–6)
 
 ```ts
 const isDataNotAvailableBody = (text: string) =>
-  /data\s*not\s*available|no\s+data\s+(found|available)|no\s+records?\s+found/i.test(text || '');
+  /data\s+(is\s+|are\s+)?not\s*available|no\s+data\s+(found|available)|no\s+records?\.?\s+found/i.test(text || '');
 ```
 
-Update the three JSON-parse `catch` blocks (around lines 823, 1057, 1317) so that, before returning the generic "not valid JSON" error, they check the raw body:
+### 2. Detect "not available" inside parsed JSON envelope
+
+Right after each successful `JSON.parse(bodyText)` (3 sites: ~line 838, ~line 1072, ~line 1332 — same pattern as existing `isDataNotAvailableBody` call sites), add:
 
 ```ts
-} catch {
-  if (isDataNotAvailableBody(bodyText)) {
-    // (where applicable) mark sync history as success-with-no-records
-    return {
-      data: { success: true, records: [], total: 0, message: 'Data not available' },
-      error: null,
-    };
-  }
-  // ...existing "Response is not valid JSON" path
+const innerBody = typeof jsonData?.body === 'string' ? jsonData.body : '';
+const envelopeMessage = typeof jsonData?.message === 'string' ? jsonData.message : '';
+if (isDataNotAvailableBody(innerBody) || isDataNotAvailableBody(envelopeMessage)) {
+  await supabase.from('sap_stock_sync_history').update({
+    status: 'success',
+    records_processed: 0,
+    error_message: null,
+    completed_at: new Date().toISOString(),
+  }).eq('id', syncRecord.id);
+  return {
+    data: { success: true, records: [], total: 0, message: 'Data not available', sync_id: syncRecord.id },
+    error: null,
+  };
 }
 ```
 
-Also apply the same check in the `!response.ok` branch (~line 807) so that an HTTP-200-with-error-body or 4xx body carrying "Data not available" still yields the friendly message rather than `SAP API returned 4xx: ...`.
+(Use the correct history table name per site — `sap_stock_sync_history` / `sap_sync_history` matching the existing block above it.)
 
-For the sync-history row (line 823 path), record `status: 'success'`, `records_processed: 0`, `error_message: null` instead of `failed`.
+### 3. UI toast (already in place)
 
-### 2. `src/pages/InwardInProcessReport.tsx` — friendlier toast
+`InwardInProcessReport.tsx` already converts `message: 'Data not available'` into a friendly `toast.info('Data not available', …)`, so no UI change needed.
 
-In `handleAPISync` / `invokeSapSync`, when the returned `data.error` (or thrown error message) matches the same `Data not available` pattern, show:
+## Out of scope
 
-```ts
-toast.info('Data not available', {
-  description: 'SAP returned no records for the selected filters.',
-});
-```
-
-instead of the raw error. Keep all other errors unchanged.
-
-### Out of scope
-
-- No backend / SQL changes.
-- No change to posting-date payload behavior (already fixed).
-- No change to other sync screens — only the in-process refresh path.
+- Posting-date payload logic
+- Other sync screens
+- Backend / SQL
