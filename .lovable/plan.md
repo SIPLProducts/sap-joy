@@ -1,21 +1,35 @@
 ## Goal
 
-On **MRB Inward Materials** (`/inward/report`) and **MRB In-Process Materials** (`/inward/inprocess`), hide the **"All Plants"** entry from the header plant switcher. Those two screens are inherently single-plant (their data fetch and Create MRB flows operate on one active plant), so showing "All Plants" there is misleading.
+When the user clicks **Refresh Data** on **MRB → In-Process Materials**, the SAP request payload must include the **Posting Date From** and **Posting Date To** values currently selected in the page filters. The exact SAP field keys used in the payload must come from **SAP API Settings** (not hardcoded), so admins can rename them per SAP API contract.
+
+## How the keys are configured
+
+In `SAP API Settings → Request Fields` for the in-process config (`ZMRB_Inward_Process`, ART=04), the admin marks two existing/new request fields with reserved `field_name` semantics:
+
+- `field_name = POSTING_DATE_FROM`  → `sap_field_name` (e.g., `BUDAT_FROM` / `DATUB_FROM`)
+- `field_name = POSTING_DATE_TO`    → `sap_field_name` (e.g., `BUDAT_TO`   / `DATUB_TO`)
+
+The page does not care what `sap_field_name` is — it only looks up rows by the reserved `field_name` to discover the SAP key.
 
 ## Behavior
 
-- On routes `/inward/report` and `/inward/inprocess`, the header switcher only lists real plant codes — no "All Plants" item.
-- If the user already had "All Plants" active when navigating into one of these screens, the header transparently falls back to the user's last real plant (`profile.plant`) so the screen has a valid scope. The preference is restored when they leave to a different screen.
-- All other screens (Worklist, User Management, etc.) continue to offer "All Plants" exactly as today.
+1. On **Refresh Data** (`handleAPISync` in `src/pages/InwardInProcessReport.tsx`):
+   - Read `filters.postingDateFrom` and `filters.postingDateTo` (already in `YYYY-MM-DD`).
+   - Load `sap_api_request_fields` for the active `sapConfigId`, find the two rows whose `field_name` is `POSTING_DATE_FROM` / `POSTING_DATE_TO`.
+   - Convert filter values to the SAP date standard (`YYYYMMDD`, per existing memory).
+   - Add to `request_overrides` keyed by each row's `sap_field_name`, alongside the existing `ART: '04'` and `WERKS: activePlant`.
+2. If a filter value is empty, that key is omitted from the override (SAP gets nothing — fall back to its default).
+3. If the admin has not configured either reserved field, the refresh proceeds without those keys and a one-time `toast.info` hints that posting-date filtering is not configured in API settings. No hardcoded fallback like `BUDAT_FROM`.
+4. Auto-refresh (5-min interval) uses the same logic so background syncs respect the visible filter window.
 
-## Implementation
+## Files to change
 
-**`src/components/layout/AppHeader.tsx`** (single file)
-- Read the current pathname via `useLocation()` from `react-router-dom`.
-- Compute `isSinglePlantScreen = pathname.startsWith('/inward/report') || pathname.startsWith('/inward/inprocess')`.
-- Gate the "All Plants" menu item: `offerAllPlants = availablePlants.length >= 2 && !isSinglePlantScreen`.
-- When `isSinglePlantScreen && isAllPlantsView`, render the Select `value` as `profile.plant || availablePlants[0].code` (don't flip the persisted flag — leaving the screen restores All Plants).
+- `src/pages/InwardInProcessReport.tsx`
+  - New helper `buildPostingDateOverrides(sapConfigId, from, to)` that queries `sap_api_request_fields` (cached in a `useRef`/state for the session) and returns `{ [sapKey]: 'YYYYMMDD' }`.
+  - Merge result into `request_overrides` in both `handleAPISync` and the auto-refresh `setInterval` callback.
 
 ## Out of scope
-- No change to `setAllPlantsView` persistence, RLS, or data fetching in either page.
-- Other inward sub-routes (e.g. `/inward/inprocess/create-mrb`, `/inward/inprocess/mrb/:id`) are also single-plant by nature and will be covered by the same `startsWith` check.
+
+- No DB migration or seed change. Admins add/update the two request-field rows themselves in SAP API Settings.
+- No change to the backend edge function — it already forwards `request_overrides` verbatim into the SAP call.
+- No change to `InwardReport.tsx` (Inward Materials) unless you also want it; this plan covers In-Process only as requested.
