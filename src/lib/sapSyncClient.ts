@@ -3,7 +3,17 @@ import { supabase } from '@/integrations/supabase/client';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 
 const isDataNotAvailableBody = (text: string) =>
-  /data\s*not\s*available|no\s+data\s+(found|available)|no\s+records?\s+found/i.test(text || '');
+  /data\s+(is\s+|are\s+)?not\s*available|no\s+data\s+(found|available)|no\s+records?\.?\s+found/i.test(text || '');
+
+const extractInnerBodyText = (parsed: any): string => {
+  if (!parsed || typeof parsed !== 'object') return '';
+  const parts: string[] = [];
+  if (typeof parsed.body === 'string') parts.push(parsed.body);
+  if (typeof parsed.message === 'string') parts.push(parsed.message);
+  if (typeof parsed.error === 'string') parts.push(parsed.error);
+  if (parsed.error && typeof parsed.error?.message === 'string') parts.push(parsed.error.message);
+  return parts.join(' ');
+};
 
 function normalizeAuthType(authType: string | null | undefined): string {
   return (authType || 'none').toLowerCase().trim();
@@ -859,6 +869,22 @@ async function directSync(
       return { data: { success: false, error: 'Response is not valid JSON', sync_id: syncRecord.id }, error: null };
     }
 
+    {
+      const innerText = extractInnerBodyText(jsonData);
+      if (isDataNotAvailableBody(innerText)) {
+        await supabase.from('sap_stock_sync_history').update({
+          status: 'success',
+          records_processed: 0,
+          error_message: null,
+          completed_at: new Date().toISOString(),
+        }).eq('id', syncRecord.id);
+        return {
+          data: { success: true, records: [], total: 0, message: 'Data not available', sync_id: syncRecord.id },
+          error: null,
+        };
+      }
+    }
+
     const records = jsonData?.d?.results || jsonData?.value || jsonData?.data || (Array.isArray(jsonData) ? jsonData : [jsonData]);
     console.log(`${debugLabel} Extracted records:`, records?.length || 0);
     if (Array.isArray(records) && records.length > 0) {
@@ -1349,6 +1375,13 @@ async function directFetchLive(
         return { data: { success: true, records: [], total: 0, message: 'Data not available' }, error: null };
       }
       return { data: { success: false, error: 'Response is not valid JSON' }, error: null };
+    }
+
+    {
+      const innerText = extractInnerBodyText(jsonData);
+      if (isDataNotAvailableBody(innerText)) {
+        return { data: { success: true, records: [], total: 0, message: 'Data not available' }, error: null };
+      }
     }
 
     const records = jsonData?.d?.results || jsonData?.value || jsonData?.data || (Array.isArray(jsonData) ? jsonData : [jsonData]);
