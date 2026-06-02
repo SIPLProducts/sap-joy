@@ -129,6 +129,10 @@ export function InwardInProcessMRBProvider({ children }: { children: ReactNode }
       let lotsQuery = supabase
         .from('zmrb_inward_report')
         .select('*')
+        // Defensive: In-Process (ART=04) rows always carry a production order.
+        // Filtering here prevents any ART=01 leakage (from misrouted mappings)
+        // from ever showing on the In-Process page.
+        .not('production_order_no', 'is', null)
         .order('created_at', { ascending: false });
 
       if (visiblePlants.length > 0) lotsQuery = lotsQuery.in('plant', visiblePlants);
