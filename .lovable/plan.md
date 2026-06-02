@@ -1,47 +1,32 @@
-## Root cause
+## Problem Summary
 
-The In-Process Materials page reads from `public.zmrb_inward_report` and shows everything in that table for the active plant. Two issues let ZMRB01 (ART=01 / Inward Inspection) data leak in:
+Two issues in the main header plant switcher:
 
-1. The `ZMRB_Inward_Inspection` SAP config (ART=01) has 4 response field mappings (`KDAUF`, `KUNNR`, `Name1_cust`, `POSNR`) whose `map_to_table` is set to `zmrb_inward_report` instead of `inward_inspection_lots`. The sync engine (`mapAndInsertClientSide` in `src/lib/sapSyncClient.ts`) writes per-mapping target table, so every ZMRB01 sync inserts partial rows (customer/sales columns only) into the In-Process table.
-2. There is no column on `zmrb_inward_report` that distinguishes ART=01 from ART=04, and the page query doesn't filter, so the polluted rows show up after Refresh and after the scheduler runs.
+1. **"All Plants" shows empty dashboard data**: The `useActivePlant` hook does not respect `isAllPlantsView`. When the user selects "All Plants" from the header dropdown, `profile.plant` is not updated, so the hook continues to return the previous single plant code. The KPI Dashboard then filters its data to that single plant instead of showing all plants.
 
-Cloud DB currently has 0 polluted rows, but the self-hosted production DB does — that matches what the user is seeing.
+2. **Dropdown UI is not user-friendly**: The plant switcher trigger is very small (`h-6`, `text-xs`), uses muted background colors (`bg-muted/50`), has cramped spacing, and the "Default Plant:" label is confusing when "All Plants" is selected.
 
-## Fix (3 small changes, surgical)
+## Proposed Changes
 
-### 1. Migration — fix the misrouted mappings and clean polluted rows
+### 1. Fix `useActivePlant` hook (`src/hooks/useActivePlant.ts`)
+- Import `isAllPlantsView` from `useAuth`
+- When `isAllPlantsView` is `true`, return `activePlant = 'all'` and call `setSelectedPlant('all')`
+- This ensures the KPI Dashboard and any page using `useActivePlant` correctly shows data across all plants when the header is set to "All Plants"
 
-New file under `supabase/migrations/`:
+### 2. Improve AppHeader plant switcher UI (`src/components/layout/AppHeader.tsx`)
+- **Size**: Increase trigger height to `h-8`, font to `text-sm`, and dropdown min-width to `min-w-[140px]`
+- **Colors**: Use a clearer background (`bg-background` or `bg-primary/10`), stronger border (`border-border`), and ensure the selected value uses `text-foreground` with `font-semibold`
+- **Alignment**: Keep right-aligned but add proper padding and spacing; improve the container wrapper with better rounded corners (`rounded-lg`) and shadow
+- **Label clarity**: Change "Default Plant:" label to just "Plant:" to work for both single-plant and all-plants selection
+- **Dropdown items**: Increase item padding, improve hover states (`hover:bg-primary/10 hover:text-primary`), and make the "All Plants" option visually distinct with an icon
 
-```sql
--- Remove the 4 ZMRB_Inward_Inspection (ART=01) field mappings that wrongly
--- target zmrb_inward_report. Those columns belong to the In-Process (ART=04)
--- config only.
-DELETE FROM public.sap_api_response_fields
-WHERE config_id = 'a1000001-0001-0001-0001-000000000004'
-  AND map_to_table = 'zmrb_inward_report'
-  AND field_name IN ('KDAUF','KUNNR','Name1_cust','POSNR');
+### Files to change
+- `src/hooks/useActivePlant.ts`
+- `src/components/layout/AppHeader.tsx`
 
--- Clean any ART=01 rows that previously leaked into the In-Process table.
--- Genuine ART=04 rows always carry production_order_no (AUFNR). ART=01 rows
--- inserted from the misrouted mappings had only customer/sales fields and
--- never have a production order, material_code, or inspection_lot from this
--- config's main payload — so we delete rows that don't match the ART=04 shape.
-DELETE FROM public.zmrb_inward_report
-WHERE production_order_no IS NULL
-  AND material_code IS NULL;
-```
-
-### 2. `src/contexts/InwardInProcessMRBContext.tsx` — defensive filter
-
-In `fetchData`, append `.not('production_order_no', 'is', null)` to the `zmrb_inward_report` query so that even if a future config ever writes ART=01-shaped rows again, they won't show on this page.
-
-### 3. `src/pages/InwardInProcessReport.tsx` — no change needed
-
-`handleAPISync` already forces `request_overrides: { ART: '04', WERKS: <activePlant>, ... }`, so manual Refresh only triggers ART=04 against the In-Process config. The leak was entirely from the ZMRB01 sync writing into the wrong table; #1 + #2 close it.
-
-## Out of scope
-
-- Posting-date payload logic (already in place)
-- "Data not available" toast handling (already in place)
-- Other screens (Inward Inspection / ZMRB01 page) — unaffected; ZMRB01 still writes its 19 legitimate fields into `inward_inspection_lots`.
+## Testing
+After implementation:
+1. Log in and go to Dashboard
+2. Select "All Plants" from the header dropdown — dashboard should show aggregated data from all visible plants (not empty)
+3. Select a specific plant — dashboard should filter to that plant
+4. Verify the dropdown looks cleaner with better size, color, and alignment
