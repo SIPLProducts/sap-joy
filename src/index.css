@@ -27,8 +27,8 @@
     --muted: 180 8% 96%;                 /* #F3F4F4 */
     --muted-foreground: 180 1% 35%;      /* #565959 */
 
-    --accent: 45 84% 62%;                /* #F0C14B Amazon yellow */
-    --accent-foreground: 0 0% 7%;
+    --accent: 210 100% 56%;              /* #1E90FF blue */
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 13 96% 35%;           /* #B12704 Amazon price red */
     --destructive-foreground: 0 0% 100%;
@@ -42,14 +42,14 @@
     /* Status Colors */
     --success: 170 90% 26%;              /* #067D62 Amazon in-stock green */
     --success-foreground: 0 0% 100%;
-    --warning: 36 100% 50%;              /* orange */
-    --warning-foreground: 0 0% 7%;
+    --warning: 210 90% 50%;              /* blue */
+    --warning-foreground: 0 0% 100%;
     --info: 189 100% 26%;                /* teal */
     --info-foreground: 0 0% 100%;
 
     /* SLA Traffic Light */
     --sla-green: 170 90% 26%;
-    --sla-yellow: 45 84% 50%;
+    --sla-yellow: 210 80% 55%;
     --sla-red: 13 96% 35%;
 
     /* Sidebar — Amazon navy nav */
@@ -89,8 +89,8 @@
     --muted: 212 20% 20%;
     --muted-foreground: 180 5% 70%;
 
-    --accent: 45 84% 62%;
-    --accent-foreground: 0 0% 7%;
+    --accent: 210 100% 56%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 13 80% 45%;
     --destructive-foreground: 0 0% 100%;
