@@ -51,10 +51,10 @@ export function AppHeader() {
       </div>
       
       {showPlantSwitcher && availablePlants.length > 0 && (
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 bg-primary/5 hover:bg-primary/10 transition-colors px-3 py-1.5 rounded-lg border border-primary/20 shadow-sm">
-            <Building2 className="w-4 h-4 text-primary shrink-0" />
-            <span className="text-sm font-medium text-muted-foreground hidden sm:inline">Plant:</span>
+        <div className="flex items-center">
+          <div className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors px-3 h-8 rounded-full shadow-sm">
+            <Building2 className="w-4 h-4 shrink-0" />
+            <span className="text-xs font-medium hidden sm:inline opacity-90">Plant</span>
             <Select
               value={showAsAllPlants ? ALL_PLANTS : (profile.plant || availablePlants[0]?.code || '1300')}
               onValueChange={(val) => {
@@ -66,29 +66,32 @@ export function AppHeader() {
                 }
               }}
             >
-              <SelectTrigger className="h-8 text-sm border-none bg-transparent shadow-none px-1 py-0 focus:ring-0 font-semibold text-foreground min-w-[110px] cursor-pointer hover:text-primary transition-colors">
-                <SelectValue placeholder="Select Plant" />
+              <SelectTrigger className="h-6 text-sm border-none bg-transparent shadow-none px-0 py-0 gap-1 focus:ring-0 focus:ring-offset-0 font-semibold text-primary-foreground min-w-[80px] cursor-pointer">
+                <SelectValue placeholder="Select" />
               </SelectTrigger>
-              <SelectContent align="end" className="text-sm min-w-[220px]">
+              <SelectContent align="end" className="text-sm min-w-[170px] p-1">
                 {offerAllPlants && (
-                  <SelectItem key={ALL_PLANTS} value={ALL_PLANTS} className="cursor-pointer py-2.5 focus:bg-primary/10 focus:text-primary">
+                  <SelectItem
+                    key={ALL_PLANTS}
+                    value={ALL_PLANTS}
+                    className="cursor-pointer py-1.5 rounded-md mb-1 border-b border-border/60 font-semibold text-primary focus:bg-primary focus:text-primary-foreground"
+                  >
                     <div className="flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-primary" />
-                      <div className="flex flex-col">
-                        <span className="font-semibold">All Plants</span>
-                        <span className="text-muted-foreground text-xs">View across all plants</span>
-                      </div>
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>All Plants</span>
                     </div>
                   </SelectItem>
                 )}
                 {availablePlants.map(p => (
-                  <SelectItem key={p.code} value={p.code} className="cursor-pointer py-2.5 focus:bg-primary/10 focus:text-primary">
+                  <SelectItem
+                    key={p.code}
+                    value={p.code}
+                    className="cursor-pointer py-1.5 rounded-md focus:bg-primary focus:text-primary-foreground"
+                  >
                     <div className="flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-muted-foreground" />
-                      <div className="flex flex-col">
-                        <span className="font-semibold">{p.code}</span>
-                        {p.name && <span className="text-muted-foreground text-xs">{p.name}</span>}
-                      </div>
+                      <Building2 className="w-3.5 h-3.5 opacity-70" />
+                      <span className="font-medium">{p.code}</span>
+                      {p.name && <span className="text-xs opacity-70 truncate max-w-[110px]">— {p.name}</span>}
                     </div>
                   </SelectItem>
                 ))}
