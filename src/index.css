@@ -16,9 +16,9 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 7%;
 
-    /* Amazon orange */
-    --primary: 36 100% 50%;              /* #FF9900 */
-    --primary-foreground: 0 0% 7%;       /* dark text on orange */
+    /* Primary blue */
+    --primary: 211 100% 45%;             /* #0066E6 */
+    --primary-foreground: 0 0% 100%;     /* white text on blue */
 
     /* Amazon link teal */
     --secondary: 189 100% 26%;           /* #007185 */
@@ -52,18 +52,17 @@
     --sla-yellow: 210 80% 55%;
     --sla-red: 13 96% 35%;
 
-    /* Sidebar — Amazon navy nav */
     --sidebar-background: 212 26% 11%;   /* #131A22 */
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 36 100% 50%;      /* orange highlight */
-    --sidebar-primary-foreground: 0 0% 7%;
+    --sidebar-primary: 211 100% 55%;     /* blue highlight */
+    --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 212 26% 19%;       /* #232F3E */
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 212 26% 22%;
-    --sidebar-ring: 36 100% 50%;
+    --sidebar-ring: 211 100% 55%;
 
-    /* Chart Colors — Amazon-ish */
-    --chart-1: 36 100% 50%;              /* orange */
+    /* Chart Colors */
+    --chart-1: 211 100% 45%;             /* blue */
     --chart-2: 212 26% 19%;              /* navy */
     --chart-3: 189 100% 26%;             /* teal */
     --chart-4: 170 90% 26%;              /* green */
@@ -80,8 +79,8 @@
     --popover: 212 26% 15%;
     --popover-foreground: 0 0% 95%;
 
-    --primary: 36 100% 50%;
-    --primary-foreground: 0 0% 7%;
+    --primary: 211 100% 55%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 189 80% 40%;
     --secondary-foreground: 0 0% 100%;
@@ -97,16 +96,16 @@
 
     --border: 212 20% 24%;
     --input: 212 20% 24%;
-    --ring: 36 100% 50%;
+    --ring: 211 100% 55%;
 
     --sidebar-background: 212 26% 9%;
     --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 36 100% 50%;
-    --sidebar-primary-foreground: 0 0% 7%;
+    --sidebar-primary: 211 100% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 212 26% 16%;
     --sidebar-accent-foreground: 0 0% 95%;
     --sidebar-border: 212 20% 20%;
-    --sidebar-ring: 36 100% 50%;
+    --sidebar-ring: 211 100% 55%;
   }
 }
 

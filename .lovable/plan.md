@@ -1,26 +1,27 @@
-## Change Yellowish Colors to Blueish
+## Replace Orange Primary with Blue
 
-### Scope
-Swap all yellow-tinted semantic tokens in `src/index.css` to blue equivalents. No component or layout changes — existing `bg-accent`, `text-warning`, `bg-sla-yellow` etc. classes will automatically pick up the new hues.
+The yellowish/orange look on login (hero gradient, Sign In button) and across the app (MRB number badges, dropdown highlights, focus rings, sidebar active item) all come from `--primary: 36 100% 50%` (#FF9900) in `src/index.css`. Swap this orange token to a strong blue — every `bg-primary`, `text-primary`, `from-primary`, `ring-primary`, and sidebar active accent updates automatically.
 
-### Tokens to Update
+### Token changes in `src/index.css`
+
 | Token | Current | New |
 |-------|---------|-----|
-| `--accent` | 45 84% 62% (yellow) | 210 100% 56% (#1E90FF blue) |
-| `--accent-foreground` | dark | white (blue is darker, needs light text) |
-| `--warning` | 36 100% 50% (orange) | 210 90% 50% (medium blue) |
-| `--sla-yellow` | 45 84% 50% (yellow) | 210 80% 55% (blue) |
-| Dark `--accent` | 45 84% 62% | 210 100% 56% |
+| `--primary` (light) | 36 100% 50% (orange) | 211 100% 45% (#0066E6 blue) |
+| `--primary-foreground` (light) | dark | white |
+| `--primary` (dark) | 36 100% 50% | 211 100% 55% |
+| `--primary-foreground` (dark) | dark | white |
+| `--sidebar-primary` (light + dark) | orange | 211 100% 55% blue |
+| `--sidebar-ring` (light + dark) | orange | 211 100% 55% blue |
+| `--ring` (dark) | orange | 211 100% 55% blue |
+| `--chart-1` | orange | 211 100% 45% blue |
+| `bg-amber-500` on Login health dot (line 364) | amber | `bg-primary` (now blue) |
 
-### What Stays the Same
-- `--primary` (Amazon orange) unchanged
-- `--secondary` (teal) unchanged
-- `--destructive` (red) unchanged
-- `--success` (green) unchanged
-- `--info` (teal) unchanged
-- Sidebar navy background unchanged
-- All component logic, flows, and functionality untouched
+### What stays
+- Secondary teal, success green, destructive red, sidebar navy background — unchanged
+- All component logic, layouts, flows — untouched
+- Hero `loginHeroImage` jpg is overlaid by `from-primary/90 via-primary/70` gradient, so changing `--primary` turns the hero blue without touching the image asset
 
 ### Verification
-- Preview login page, dashboard, worklist — accents, badges, and highlights should render in blue instead of yellow.
-- No console errors or broken styles.
+- Login page: hero gradient and Sign In button render blue
+- App shell: sidebar active item, MRB number links, dropdown focus rings render blue
+- No yellow/orange remains except intentional warnings if any
