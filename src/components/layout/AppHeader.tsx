@@ -4,7 +4,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2 } from 'lucide-react';
+import { Building2, Layers } from 'lucide-react';
 
 export function AppHeader() {
   const { profile, updatePlant, isLoading, isAllPlantsView, setAllPlantsView } = useAuth();
@@ -51,11 +51,11 @@ export function AppHeader() {
       </div>
       
       {showPlantSwitcher && availablePlants.length > 0 && (
-        <div className="flex items-center gap-3">
-          <div className="flex items-center text-xs text-muted-foreground bg-muted/50 px-2 py-1.5 rounded-md border border-border/50">
-            <Building2 className="w-3.5 h-3.5 mr-2 text-primary" />
-            <span className="font-medium mr-2 hidden sm:inline">Default Plant:</span>
-            <Select 
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 bg-primary/5 hover:bg-primary/10 transition-colors px-3 py-1.5 rounded-lg border border-primary/20 shadow-sm">
+            <Building2 className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-sm font-medium text-muted-foreground hidden sm:inline">Plant:</span>
+            <Select
               value={showAsAllPlants ? ALL_PLANTS : (profile.plant || availablePlants[0]?.code || '1300')}
               onValueChange={(val) => {
                 if (val === ALL_PLANTS) {
@@ -66,20 +66,30 @@ export function AppHeader() {
                 }
               }}
             >
-              <SelectTrigger className="h-6 text-xs border-none bg-transparent shadow-none px-0 py-0 focus:ring-0 font-bold text-foreground min-w-[60px] cursor-pointer hover:text-primary transition-colors">
-                <SelectValue placeholder="Plant" />
+              <SelectTrigger className="h-8 text-sm border-none bg-transparent shadow-none px-1 py-0 focus:ring-0 font-semibold text-foreground min-w-[110px] cursor-pointer hover:text-primary transition-colors">
+                <SelectValue placeholder="Select Plant" />
               </SelectTrigger>
-              <SelectContent align="end" className="text-sm">
+              <SelectContent align="end" className="text-sm min-w-[220px]">
                 {offerAllPlants && (
-                  <SelectItem key={ALL_PLANTS} value={ALL_PLANTS} className="cursor-pointer">
-                    <span className="font-bold">All Plants</span>
-                    <span className="ml-2 text-muted-foreground text-xs block sm:inline">View across plants</span>
+                  <SelectItem key={ALL_PLANTS} value={ALL_PLANTS} className="cursor-pointer py-2.5 focus:bg-primary/10 focus:text-primary">
+                    <div className="flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-primary" />
+                      <div className="flex flex-col">
+                        <span className="font-semibold">All Plants</span>
+                        <span className="text-muted-foreground text-xs">View across all plants</span>
+                      </div>
+                    </div>
                   </SelectItem>
                 )}
                 {availablePlants.map(p => (
-                  <SelectItem key={p.code} value={p.code} className="cursor-pointer">
-                    <span className="font-bold">{p.code}</span>
-                    {p.name && <span className="ml-2 text-muted-foreground text-xs block sm:inline">{p.name}</span>}
+                  <SelectItem key={p.code} value={p.code} className="cursor-pointer py-2.5 focus:bg-primary/10 focus:text-primary">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-muted-foreground" />
+                      <div className="flex flex-col">
+                        <span className="font-semibold">{p.code}</span>
+                        {p.name && <span className="text-muted-foreground text-xs">{p.name}</span>}
+                      </div>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
