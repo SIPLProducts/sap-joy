@@ -361,7 +361,7 @@ export default function Login() {
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className={`inline-block w-2 h-2 rounded-full ${
                   backendStatus === 'connected' ? 'bg-emerald-500 animate-pulse' :
-                  backendStatus === 'checking' ? 'bg-amber-500 animate-pulse' :
+                  backendStatus === 'checking' ? 'bg-primary animate-pulse' :
                   'bg-destructive'
                 }`} />
                 <span>
