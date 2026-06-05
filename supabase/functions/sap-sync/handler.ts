@@ -844,6 +844,21 @@ function isSapAuthError(bodyText: string): boolean {
 }
 
 function extractSapErrorHint(status: number, bodyText: string): string | null {
+  const lower = (bodyText || '').toLowerCase()
+  if (
+    lower.includes('self-signed certificate') ||
+    lower.includes('self signed certificate') ||
+    lower.includes('depth_zero_self_signed_cert') ||
+    lower.includes('self_signed_cert_in_chain') ||
+    lower.includes('unable to verify the first certificate') ||
+    lower.includes('cert_has_expired') ||
+    lower.includes('unable_to_get_issuer_cert')
+  ) {
+    return `SAP SSL certificate not trusted by middleware. Restart the Node.js middleware with rejectUnauthorized:false (or set NODE_TLS_REJECT_UNAUTHORIZED=0) so it accepts the SAP self-signed certificate, then retry.`
+  }
+  if (lower.includes('etimedout') || lower.includes('econnrefused') || lower.includes('ehostunreach') || lower.includes('enetunreach')) {
+    return `Middleware cannot reach SAP host (network error: ${bodyText.substring(0, 120)}). Check VPN/firewall and that the SAP host:port is reachable from the middleware machine.`
+  }
   if (isSapAuthError(bodyText)) {
     return `Transport OK. SAP rejected username/password or SAP client (HTTP ${status}). Check credentials in SAP API Settings.`
   }
