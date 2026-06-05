@@ -78,6 +78,36 @@ export function SAPConnectivityGuide() {
               </CardContent>
             </Card>
           </div>
+
+          <div className="space-y-3">
+            <h3 className="font-semibold text-lg">Self-Signed SAP Certificate</h3>
+            <Card className="bg-muted/30">
+              <CardContent className="pt-4 space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  On-premise SAP systems often use a self-signed HTTPS certificate. Node.js rejects these
+                  by default. If you see <code>self-signed certificate</code> or
+                  <code> DEPTH_ZERO_SELF_SIGNED_CERT</code> in the test result, configure the middleware
+                  to skip cert validation for SAP.
+                </p>
+                <div className="bg-background rounded-lg p-4 font-mono text-xs space-y-2">
+                  <p className="text-muted-foreground"># Option 1: axios — add an https agent</p>
+                  <p>const https = require('https');</p>
+                  <p>const sapAgent = new https.Agent({'{ rejectUnauthorized: false }'});</p>
+                  <p>axios({'{ method, url, data, headers, httpsAgent: sapAgent, timeout: 60000 }'});</p>
+                  <p className="text-muted-foreground mt-3"># Option 2: node-fetch v2</p>
+                  <p>fetch(url, {'{ agent: sapAgent, ... }'});</p>
+                  <p className="text-muted-foreground mt-3"># Option 3 (dev only): start middleware with env flag</p>
+                  <p>NODE_TLS_REJECT_UNAUTHORIZED=0 node index.js</p>
+                  <p className="text-muted-foreground mt-3"># Then restart PM2</p>
+                  <p>pm2 restart mrb-app</p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  This is standard for internal SAP behind a corporate network. For production, install
+                  the SAP cert into Node's trust store instead of disabling validation globally.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </CardContent>
       </Card>
     </div>
