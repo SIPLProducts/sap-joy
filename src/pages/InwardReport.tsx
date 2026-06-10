@@ -481,10 +481,14 @@ export default function InwardReport() {
       const failures: string[] = [];
       for (const werks of plantsToSync) {
         try {
+          const toSapDate = (iso?: string) => (iso ? iso.replace(/-/g, '') : '');
+          const overrides: Record<string, string> = { ART: '01', WERKS: werks };
+          if (filters.postingDateFrom) overrides.BUDAT_FROM = toSapDate(filters.postingDateFrom);
+          if (filters.postingDateTo) overrides.BUDAT_TO = toSapDate(filters.postingDateTo);
           const { data: syncData, error: syncError } = await invokeSapSync({
             action: 'sync',
             config_id: sapConfigId,
-            request_overrides: { ART: '01', WERKS: werks },
+            request_overrides: overrides,
           });
           if (syncError) throw new Error(syncError.message || 'SAP sync failed');
           if (!syncData?.success) throw new Error(syncData?.error || 'Unknown error');
