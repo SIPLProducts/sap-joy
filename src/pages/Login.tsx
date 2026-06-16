@@ -408,6 +408,24 @@ export default function Login() {
         </div>
       </div>
     </div>
+
+    <AlertDialog open={passwordExpiredOpen} onOpenChange={setPasswordExpiredOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="w-5 h-5" />
+            Password Expired
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            Your password has expired as per the 45-day security policy. Please contact your administrator to reset it before signing in again.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogAction onClick={() => setPasswordExpiredOpen(false)}>OK</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 
