@@ -1,43 +1,33 @@
-## Goal
+## Problem
 
-When clicking **Refresh Data** in MRB Inward Materials (ART=`01`), include `BUDAT_FROM` and `BUDAT_TO` in the SAP request body, sourced from the screen's **Posting Date From** and **Posting Date To** filters.
+After entering correct credentials, the user is signed in for a split second and bounced back to `/login` with no visible reason. The 45‑day expiry check in `src/pages/Login.tsx` is firing, signing them out, and only setting a small inline error that is easy to miss — so it looks like a silent redirect loop.
 
-## Change
+## Fix
 
-**File:** `src/pages/InwardReport.tsx` → `handleAPISync` (around line 484)
+Make the expiry case unmistakable and stop it from looking like a bounce.
 
-Currently the sync call sends only `ART` and `WERKS`:
-```ts
-request_overrides: { ART: '01', WERKS: werks }
-```
+1. **Check expiry BEFORE the app navigates in** (in `src/pages/Login.tsx`, around lines 115–142):
+   - Run `check_login_security` immediately after a successful `signIn`.
+   - If `password_expired` is true and the user is not master admin:
+     - Call `supabase.auth.signOut()` + `clearAuthStorage()` (already done).
+     - Open a blocking `AlertDialog` titled **"Password Expired"** with body: *"Your password has expired as per the 45‑day security policy. Please contact your administrator to reset it before signing in again."*
+     - Single **OK** button that closes the dialog and keeps the user on `/login`.
+     - Also set a persistent inline red banner above the form: *"Password expired — contact your administrator."*
+   - Only call `navigate(from)` when expiry check passes. This guarantees no flash into the app.
 
-Update it to also include the posting-date range pulled from `filters.postingDateFrom` / `filters.postingDateTo`, formatted as SAP's required `YYYYMMDD` string (per project memory `SAP Date Format Standard`). The filter values come from `<input type="date">` so they are already `YYYY-MM-DD` — we just strip the dashes.
+2. **No DB / RPC changes** — `check_login_security` already returns `password_expired` based on the 45‑day rule.
 
-```ts
-const toSapDate = (iso?: string) => (iso ? iso.replace(/-/g, '') : '');
+3. **Master admin** continues to bypass the check.
 
-const overrides: Record<string, string> = { ART: '01', WERKS: werks };
-if (filters.postingDateFrom) overrides.BUDAT_FROM = toSapDate(filters.postingDateFrom);
-if (filters.postingDateTo)   overrides.BUDAT_TO   = toSapDate(filters.postingDateTo);
+## Technical details
 
-const { data: syncData, error: syncError } = await invokeSapSync({
-  action: 'sync',
-  config_id: sapConfigId,
-  request_overrides: overrides,
-});
-```
-
-Only emit the keys when the corresponding filter has a value, so an empty filter does not push an empty string to SAP.
+- Add state: `const [passwordExpiredOpen, setPasswordExpiredOpen] = useState(false)`.
+- Import `AlertDialog`, `AlertDialogContent`, `AlertDialogHeader`, `AlertDialogTitle`, `AlertDialogDescription`, `AlertDialogFooter`, `AlertDialogAction` from `@/components/ui/alert-dialog`.
+- Replace the current expiry block (lines ~122–132) so it sets both `loginError` and `passwordExpiredOpen(true)` before returning.
+- Render the `<AlertDialog open={passwordExpiredOpen} onOpenChange={setPasswordExpiredOpen}>` near the bottom of the component JSX.
+- Keep `setIsLoading(false)` and the early `return` so `navigate()` never runs for expired users.
 
 ## Out of scope
 
-- No edge function / middleware / server.js changes — `request_overrides` is already forwarded through the existing sync pipeline.
-- No changes to auto-sync scheduler or other ART types.
-- No UI changes; the existing Posting Date From/To inputs are reused as-is.
-
-## Verification
-
-1. Set Posting Date From/To on the Inward Materials screen.
-2. Click **Refresh Data**.
-3. In the SAP middleware/proxy log, confirm the request body contains `ART`, `WERKS`, `BUDAT_FROM`, `BUDAT_TO` in `YYYYMMDD` format.
-4. Clear the date filters and refresh — confirm `BUDAT_FROM`/`BUDAT_TO` are omitted from the payload.
+- Self‑service password reset email flow (project policy is admin‑driven).
+- Changing the 45‑day window.
