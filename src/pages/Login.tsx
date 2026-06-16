@@ -201,6 +201,7 @@ export default function Login() {
 
 
   return (
+    <>
     <div className="min-h-screen w-full flex">
       {/* Left Side - Hero Image */}
       <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 relative overflow-hidden">
