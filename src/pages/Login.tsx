@@ -10,6 +10,15 @@ import { Shield, Factory, CheckCircle, ClipboardCheck, Award, Eye, EyeOff, WifiO
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHealthCheck, ConnectionStatus } from '@/hooks/useHealthCheck';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import { clearAuthStorage } from '@/lib/authStorage';
 import loginHeroImage from '@/assets/login-hero.jpg';
 import hblLogo from '@/assets/hbl-logo.png';
@@ -65,6 +74,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [passwordExpiredOpen, setPasswordExpiredOpen] = useState(false);
   const MAX_RETRIES = 3;
 
 
@@ -123,9 +133,10 @@ export default function Login() {
             const { data: secData } = await supabase.rpc('check_login_security', { _user_id: user.id });
             const isMasterAdmin = loginEmail.toLowerCase() === 'masteradmin@sharviinfotech.com';
             if (!isMasterAdmin && secData && typeof secData === 'object' && 'password_expired' in secData && secData.password_expired) {
-              setLoginError(`Your password has expired. Please contact your administrator to reset it.`);
               await supabase.auth.signOut();
               clearAuthStorage();
+              setLoginError('Password expired — please contact your administrator to reset it.');
+              setPasswordExpiredOpen(true);
               setIsLoading(false);
               setRetryCount(0);
               return;
