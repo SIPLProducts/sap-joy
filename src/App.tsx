@@ -19,6 +19,7 @@ import CreateMRBQuality from "@/pages/CreateMRBQuality";
 import CreateMRBShopFloor from "@/pages/CreateMRBShopFloor";
 import EmailLog from "@/pages/EmailLog";
 import InwardReport from "@/pages/InwardReport";
+import QualityInfo from "@/pages/QualityInfo";
 import CreateInwardMRB from "@/pages/CreateInwardMRB";
 import InwardMRBDetail from "@/pages/InwardMRBDetail";
 import InwardInProcessReport from "@/pages/InwardInProcessReport";
@@ -78,6 +79,7 @@ const App = () => (
                           <Route path="create/shop-floor" element={<CreateMRBShopFloor />} />
                           <Route path="emails" element={<EmailLog />} />
                           <Route path="inward/report" element={<InwardReport />} />
+                          <Route path="quality-info" element={<QualityInfo />} />
                           <Route path="inward/create-mrb" element={<CreateInwardMRB />} />
                           <Route path="inward/mrb/:id" element={<InwardMRBDetail />} />
                           <Route path="inward/mrb/:id/committee" element={<MRBCommitteeReview />} />

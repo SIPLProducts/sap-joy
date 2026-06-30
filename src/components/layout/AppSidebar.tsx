@@ -1,4 +1,4 @@
-import { ClipboardList, Mail, Wrench, FileSpreadsheet, BarChart3, LogOut, Package, Building2, Users, Settings, PieChart, Printer, UserCog, TrendingUp, HelpCircle, FileText, Shield, Layers, GitBranch, AlertTriangle } from 'lucide-react';
+import { ClipboardList, Mail, Wrench, FileSpreadsheet, BarChart3, LogOut, Package, Building2, Users, Settings, PieChart, Printer, UserCog, TrendingUp, HelpCircle, FileText, Shield, ShieldCheck, Layers, GitBranch, AlertTriangle } from 'lucide-react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useRole } from '@/contexts/RoleContext';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
@@ -27,6 +27,7 @@ const menuItems = [
   { title: 'Pending Actions', url: '/pending-actions', icon: AlertTriangle, matrixKey: 'pending_actions' },
   { title: 'Material Blocking', url: '/shop-floor/stock-selection', icon: Package, matrixKey: 'material_booking' },
   { title: 'MRB - Inward Materials', url: '/inward/report', icon: FileSpreadsheet, matrixKey: 'inward_materials' },
+  { title: 'Quality Info', url: '/quality-info', icon: ShieldCheck, matrixKey: 'quality_info' },
   { title: 'MRB Inprocess Materials', url: '/inward/inprocess', icon: Layers, matrixKey: 'inward_inprocess' },
   { title: 'MRB Print', url: '/mrb-print', icon: Printer, matrixKey: 'mrb_print' },
   { title: 'Email Log', url: '/emails', icon: Mail, matrixKey: 'email_log' },
