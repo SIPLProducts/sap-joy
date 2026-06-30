@@ -867,6 +867,45 @@ export type Database = {
           },
         ]
       }
+      quality_info: {
+        Row: {
+          created_at: string
+          id: string
+          inspection_lot: string | null
+          material_code: string
+          plant: string
+          submission_date: string
+          submitted_by: string | null
+          submitted_by_name: string | null
+          updated_at: string
+          vendor_code: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          inspection_lot?: string | null
+          material_code: string
+          plant: string
+          submission_date?: string
+          submitted_by?: string | null
+          submitted_by_name?: string | null
+          updated_at?: string
+          vendor_code?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          inspection_lot?: string | null
+          material_code?: string
+          plant?: string
+          submission_date?: string
+          submitted_by?: string | null
+          submitted_by_name?: string | null
+          updated_at?: string
+          vendor_code?: string | null
+        }
+        Relationships: []
+      }
       role_permissions: {
         Row: {
           can_edit: boolean
