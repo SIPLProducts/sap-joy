@@ -50,9 +50,9 @@ export default function QualityInfo() {
     try {
       const { data: lots, error: lotsErr } = await supabase
         .from('inward_inspection_lots')
-        .select('id, material_code, vendor_code, plant, inspection_lot_created_date, inspection_lot_no')
+        .select('id, material_code, vendor_code, plant, posting_date, inspection_date, created_at, inspection_lot')
         .eq('plant', activePlant)
-        .order('inspection_lot_created_date', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(500);
       if (lotsErr) throw lotsErr;
 
@@ -67,9 +67,9 @@ export default function QualityInfo() {
         materialCode: l.material_code || '',
         vendorCode: l.vendor_code || '',
         plant: l.plant || '',
-        date: l.inspection_lot_created_date || '',
-        inspectionLot: l.inspection_lot_no || null,
-        submitted: l.inspection_lot_no ? submittedSet.has(l.inspection_lot_no) : false,
+        date: l.posting_date || l.inspection_date || l.created_at || '',
+        inspectionLot: l.inspection_lot || null,
+        submitted: l.inspection_lot ? submittedSet.has(l.inspection_lot) : false,
       }));
       setRows(mapped);
     } catch (err: any) {
