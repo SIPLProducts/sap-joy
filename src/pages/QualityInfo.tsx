@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2, ShieldCheck, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActivePlant } from '@/hooks/useActivePlant';
+import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import { useRoleMatrix } from '@/hooks/useRoleMatrix';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -27,19 +29,25 @@ const todayISO = () => {
 export default function QualityInfo() {
   const { user, profile } = useAuth();
   const { activePlant } = useActivePlant();
+  const { plantOptions } = useVisiblePlants();
   const { hasAccess, loading: matrixLoading } = useRoleMatrix();
   const canView = hasAccess('quality_info');
 
   const [materialCode, setMaterialCode] = useState('');
   const [vendorCode, setVendorCode] = useState('');
   const [plant, setPlant] = useState('');
-  const releaseUntil = useMemo(() => todayISO(), []);
+  const [releaseUntil, setReleaseUntil] = useState<string>(todayISO());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (activePlant && activePlant !== 'all') setPlant(activePlant);
-  }, [activePlant]);
+    if (plant) return;
+    if (activePlant && activePlant !== 'all' && plantOptions.some(p => p.code === activePlant)) {
+      setPlant(activePlant);
+    } else if (plantOptions.length > 0) {
+      setPlant(plantOptions[0].code);
+    }
+  }, [activePlant, plantOptions, plant]);
 
   const canSubmit = materialCode.trim() && vendorCode.trim() && plant.trim() && !submitting;
 
@@ -50,7 +58,7 @@ export default function QualityInfo() {
         MATNR: materialCode.trim(),
         LIFNR: vendorCode.trim(),
         WERKS: plant.trim(),
-        REL_UDT: releaseUntil,
+        REL_UDT: releaseUntil || todayISO(),
       };
       const { data, error } = await invokeQInfoCreate(payload);
       if (error) {
@@ -152,18 +160,29 @@ export default function QualityInfo() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="werks">Plant <span className="text-destructive">*</span></Label>
-                <Input
-                  id="werks"
-                  value={plant}
-                  onChange={(e) => setPlant(e.target.value)}
-                  placeholder="e.g. 1100"
-                  maxLength={4}
-                />
+                <Select value={plant} onValueChange={setPlant}>
+                  <SelectTrigger id="werks">
+                    <SelectValue placeholder="Select plant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {plantOptions.map(p => (
+                      <SelectItem key={p.code} value={p.code}>
+                        {p.name && p.name !== p.code ? `${p.code} — ${p.name}` : p.code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="rel_udt">Release Until</Label>
-                <Input id="rel_udt" value={releaseUntil} readOnly disabled />
-                <p className="text-xs text-muted-foreground">Auto-set to today (YYYY-MM-DD)</p>
+                <Input
+                  id="rel_udt"
+                  type="date"
+                  value={releaseUntil}
+                  onChange={(e) => setReleaseUntil(e.target.value)}
+                  onBlur={() => { if (!releaseUntil) setReleaseUntil(todayISO()); }}
+                />
+                <p className="text-xs text-muted-foreground">Defaults to today; you can change it</p>
               </div>
             </div>
 
