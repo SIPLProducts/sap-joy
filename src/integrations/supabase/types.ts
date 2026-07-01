@@ -874,6 +874,7 @@ export type Database = {
           inspection_lot: string | null
           material_code: string
           plant: string
+          release_until: string | null
           submission_date: string
           submitted_by: string | null
           submitted_by_name: string | null
@@ -886,6 +887,7 @@ export type Database = {
           inspection_lot?: string | null
           material_code: string
           plant: string
+          release_until?: string | null
           submission_date?: string
           submitted_by?: string | null
           submitted_by_name?: string | null
@@ -898,6 +900,7 @@ export type Database = {
           inspection_lot?: string | null
           material_code?: string
           plant?: string
+          release_until?: string | null
           submission_date?: string
           submitted_by?: string | null
           submitted_by_name?: string | null
