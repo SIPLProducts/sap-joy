@@ -114,66 +114,68 @@ export default function QualityInfo() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="h-6 w-6 text-primary" />
-          <h1 className="text-xl md:text-2xl font-bold">Quality Info</h1>
+    <div className="min-h-full flex flex-col items-center justify-center p-4 md:p-6">
+      <div className="w-full max-w-3xl space-y-4">
+        <div className="flex flex-col items-center text-center gap-2">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-6 w-6 text-primary" />
+            <h1 className="text-xl md:text-2xl font-bold">Quality Info</h1>
+          </div>
           <Badge variant="outline">Plant: {activePlant || '—'}</Badge>
         </div>
+
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-base">Create Q-Info Record (SAP QI01)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="matnr">Material Code <span className="text-destructive">*</span></Label>
+                <Input
+                  id="matnr"
+                  value={materialCode}
+                  onChange={(e) => setMaterialCode(e.target.value)}
+                  placeholder="e.g. 1000000030"
+                  maxLength={40}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="lifnr">Vendor Code <span className="text-destructive">*</span></Label>
+                <Input
+                  id="lifnr"
+                  value={vendorCode}
+                  onChange={(e) => setVendorCode(e.target.value)}
+                  placeholder="e.g. 2000001"
+                  maxLength={10}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="werks">Plant <span className="text-destructive">*</span></Label>
+                <Input
+                  id="werks"
+                  value={plant}
+                  onChange={(e) => setPlant(e.target.value)}
+                  placeholder="e.g. 1100"
+                  maxLength={4}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rel_udt">Release Until</Label>
+                <Input id="rel_udt" value={releaseUntil} readOnly disabled />
+                <p className="text-xs text-muted-foreground">Auto-set to today (YYYY-MM-DD)</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <Button onClick={() => setConfirmOpen(true)} disabled={!canSubmit} className="gap-2">
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Submit
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-
-      <Card className="max-w-3xl">
-        <CardHeader>
-          <CardTitle className="text-base">Create Q-Info Record (SAP QI01)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="matnr">Material Code <span className="text-destructive">*</span></Label>
-              <Input
-                id="matnr"
-                value={materialCode}
-                onChange={(e) => setMaterialCode(e.target.value)}
-                placeholder="e.g. 1000000030"
-                maxLength={40}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="lifnr">Vendor Code <span className="text-destructive">*</span></Label>
-              <Input
-                id="lifnr"
-                value={vendorCode}
-                onChange={(e) => setVendorCode(e.target.value)}
-                placeholder="e.g. 2000001"
-                maxLength={10}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="werks">Plant <span className="text-destructive">*</span></Label>
-              <Input
-                id="werks"
-                value={plant}
-                onChange={(e) => setPlant(e.target.value)}
-                placeholder="e.g. 1100"
-                maxLength={4}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="rel_udt">Release Until</Label>
-              <Input id="rel_udt" value={releaseUntil} readOnly disabled />
-              <p className="text-xs text-muted-foreground">Auto-set to today (YYYY-MM-DD)</p>
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-2">
-            <Button onClick={() => setConfirmOpen(true)} disabled={!canSubmit} className="gap-2">
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              Submit
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
 
       <AlertDialog open={confirmOpen} onOpenChange={(open) => !submitting && setConfirmOpen(open)}>
         <AlertDialogContent>
