@@ -415,6 +415,77 @@ export default async (req: Request) => {
       }
     }
 
+    // Q-INFO CREATION (QI01) — POST { MATNR, LIFNR, WERKS, REL_UDT }
+    if (action === 'qinfo_create') {
+      const { MATNR, LIFNR, WERKS, REL_UDT } = body
+      const missing = ['MATNR','LIFNR','WERKS','REL_UDT'].filter(k => !body[k])
+      if (missing.length) {
+        return new Response(JSON.stringify({ ok: false, error: `Missing required fields: ${missing.join(', ')}` }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      try {
+        const url = buildUrl(config)
+        const headers = buildAuthHeaders(config)
+        const timeout = config.timeout_ms || 60000
+        const sapPayload = { MATNR: String(MATNR), LIFNR: String(LIFNR), WERKS: String(WERKS), REL_UDT: String(REL_UDT) }
+
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), timeout)
+        const response = await proxyAwareFetch(config, url, {
+          method: 'POST',
+          headers,
+          signal: controller.signal,
+          body: JSON.stringify(sapPayload),
+        })
+        clearTimeout(timer)
+        const bodyText = await response.text()
+        console.log('[qinfo_create] status:', response.status, 'body:', bodyText.substring(0, 500))
+
+        if (!response.ok) {
+          const hint = extractSapErrorHint(response.status, bodyText)
+          return new Response(JSON.stringify({
+            ok: false,
+            error: hint || `SAP API returned ${response.status}: ${bodyText.substring(0, 500)}`,
+            http_status: response.status,
+          }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        let parsed: any = null
+        try { parsed = bodyText ? JSON.parse(bodyText) : null } catch {
+          return new Response(JSON.stringify({ ok: false, error: 'SAP returned non-JSON response', raw: bodyText.substring(0, 500) }), {
+            status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        const messages = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : [])
+        const errMsg = messages.find((m: any) => (m?.MSGTYP || m?.msgtyp) === 'E')
+        if (errMsg) {
+          return new Response(JSON.stringify({
+            ok: false,
+            error: errMsg.TEXT || errMsg.text || 'SAP returned an error',
+            data: parsed,
+            request: sapPayload,
+          }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        const successText = messages.find((m: any) => m?.TEXT || m?.text)?.TEXT
+          || messages.find((m: any) => m?.TEXT || m?.text)?.text
+          || 'Quality Info created successfully'
+        return new Response(JSON.stringify({ ok: true, message: successText, data: parsed, request: sapPayload }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      } catch (err: any) {
+        const errMsg = err?.name === 'AbortError'
+          ? `SAP API timed out after ${config.timeout_ms || 60000}ms`
+          : `Network error: ${err?.message || 'unknown'}`
+        return new Response(JSON.stringify({ ok: false, error: errMsg }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    }
+
     // legacy unblock branch continues below
     if (action === 'unblock') {
       const { request_body, verify_config_id } = body
