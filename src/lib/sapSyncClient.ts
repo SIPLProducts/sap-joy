@@ -1804,3 +1804,44 @@ export async function invokeResultRecording(args: {
     insp_oper: args.inspOper || '0010',
   });
 }
+
+/**
+ * Resolve the SAP config used for Q-Info (QI01) creation.
+ */
+async function resolveQInfoConfigId(): Promise<string | null> {
+  const { data } = await supabase
+    .from('sap_api_config')
+    .select('id, config_name, endpoint_path, is_active')
+    .or('config_name.ilike.%qinfo%,config_name.ilike.%q-info%,endpoint_path.ilike.%qinfo%')
+    .order('is_active', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.id || null;
+}
+
+/**
+ * Create a Quality Info record in SAP via the QI01 endpoint.
+ */
+export async function invokeQInfoCreate(args: {
+  MATNR: string;
+  LIFNR: string;
+  WERKS: string;
+  REL_UDT: string;
+  configId?: string;
+}): Promise<{ data: any; error: any }> {
+  const configId = args.configId || (await resolveQInfoConfigId());
+  if (!configId) {
+    return {
+      data: null,
+      error: { message: 'No SAP API configuration found for Q-Info Creation. Please add one in SAP API Settings (name should contain "Q-Info").' },
+    };
+  }
+  return invokeSapSync({
+    action: 'qinfo_create',
+    config_id: configId,
+    MATNR: args.MATNR,
+    LIFNR: args.LIFNR,
+    WERKS: args.WERKS,
+    REL_UDT: args.REL_UDT,
+  });
+}
