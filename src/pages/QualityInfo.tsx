@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { format } from 'date-fns';
-import { Search, RotateCcw, Loader2, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Loader2, ShieldCheck, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActivePlant } from '@/hooks/useActivePlant';
@@ -8,25 +7,22 @@ import { useRoleMatrix } from '@/hooks/useRoleMatrix';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { invokeQInfoCreate } from '@/lib/sapSyncClient';
 
-interface QualityInfoRow {
-  id: string;
-  materialCode: string;
-  vendorCode: string | null;
-  plant: string;
-  date: string;
-  inspectionLot: string | null;
-  submitted: boolean;
-}
+const todayISO = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
 
 export default function QualityInfo() {
   const { user, profile } = useAuth();
@@ -34,89 +30,64 @@ export default function QualityInfo() {
   const { hasAccess, loading: matrixLoading } = useRoleMatrix();
   const canView = hasAccess('quality_info');
 
-  const [rows, setRows] = useState<QualityInfoRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [materialSearch, setMaterialSearch] = useState('');
-  const [vendorSearch, setVendorSearch] = useState('');
-  const [pendingRow, setPendingRow] = useState<QualityInfoRow | null>(null);
+  const [materialCode, setMaterialCode] = useState('');
+  const [vendorCode, setVendorCode] = useState('');
+  const [plant, setPlant] = useState('');
+  const releaseUntil = useMemo(() => todayISO(), []);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const loadData = async () => {
-    if (!activePlant || activePlant === 'all') {
-      setRows([]);
-      return;
-    }
-    setLoading(true);
-    try {
-      const { data: lots, error: lotsErr } = await supabase
-        .from('inward_inspection_lots')
-        .select('id, material_code, vendor_code, plant, posting_date, inspection_date, created_at, inspection_lot')
-        .eq('plant', activePlant)
-        .order('created_at', { ascending: false })
-        .limit(500);
-      if (lotsErr) throw lotsErr;
-
-      const { data: submissions } = await supabase
-        .from('quality_info')
-        .select('inspection_lot')
-        .eq('plant', activePlant);
-      const submittedSet = new Set((submissions || []).map((s: any) => s.inspection_lot).filter(Boolean));
-
-      const mapped: QualityInfoRow[] = (lots || []).map((l: any) => ({
-        id: l.id,
-        materialCode: l.material_code || '',
-        vendorCode: l.vendor_code || '',
-        plant: l.plant || '',
-        date: l.posting_date || l.inspection_date || l.created_at || '',
-        inspectionLot: l.inspection_lot || null,
-        submitted: l.inspection_lot ? submittedSet.has(l.inspection_lot) : false,
-      }));
-      setRows(mapped);
-    } catch (err: any) {
-      console.error('QualityInfo load failed', err);
-      toast.error('Failed to load quality info', { description: err?.message });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (canView) loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePlant, canView]);
+    if (activePlant && activePlant !== 'all') setPlant(activePlant);
+  }, [activePlant]);
 
-  const filtered = useMemo(() => {
-    return rows.filter((r) => {
-      if (materialSearch && !r.materialCode.toLowerCase().includes(materialSearch.toLowerCase())) return false;
-      if (vendorSearch && !(r.vendorCode || '').toLowerCase().includes(vendorSearch.toLowerCase())) return false;
-      return true;
-    });
-  }, [rows, materialSearch, vendorSearch]);
+  const canSubmit = materialCode.trim() && vendorCode.trim() && plant.trim() && !submitting;
 
   const handleSubmit = async () => {
-    if (!pendingRow || !user) return;
     setSubmitting(true);
     try {
-      const { error } = await supabase.from('quality_info').insert({
-        material_code: pendingRow.materialCode,
-        vendor_code: pendingRow.vendorCode,
-        plant: pendingRow.plant,
-        inspection_lot: pendingRow.inspectionLot,
-        submission_date: new Date().toISOString(),
-        submitted_by: user.id,
-        submitted_by_name: profile?.full_name || user.email || null,
+      const payload = {
+        MATNR: materialCode.trim(),
+        LIFNR: vendorCode.trim(),
+        WERKS: plant.trim(),
+        REL_UDT: releaseUntil,
+      };
+      const { data, error } = await invokeQInfoCreate(payload);
+      if (error) {
+        toast.error('Q-Info creation failed', { description: error.message });
+        return;
+      }
+      if (data && data.ok === false) {
+        toast.error('SAP rejected the request', { description: data.error || 'Unknown SAP error' });
+        return;
+      }
+
+      // Local audit trail
+      try {
+        await supabase.from('quality_info').insert({
+          material_code: payload.MATNR,
+          vendor_code: payload.LIFNR,
+          plant: payload.WERKS,
+          release_until: payload.REL_UDT,
+          submission_date: new Date().toISOString(),
+          submitted_by: user?.id,
+          submitted_by_name: profile?.full_name || user?.email || null,
+        } as any);
+      } catch (auditErr) {
+        console.warn('quality_info audit insert failed', auditErr);
+      }
+
+      toast.success('Quality Info created', {
+        description: data?.message || `Material ${payload.MATNR} submitted to SAP`,
       });
-      if (error) throw error;
-      toast.success('Quality info submitted', {
-        description: `Material ${pendingRow.materialCode}`,
-      });
-      setRows((prev) => prev.map((r) => (r.id === pendingRow.id ? { ...r, submitted: true } : r)));
-      setPendingRow(null);
+      setMaterialCode('');
+      setVendorCode('');
     } catch (err: any) {
-      console.error('Submit failed', err);
+      console.error('QInfo submit failed', err);
       toast.error('Submit failed', { description: err?.message });
     } finally {
       setSubmitting(false);
+      setConfirmOpen(false);
     }
   };
 
@@ -150,103 +121,71 @@ export default function QualityInfo() {
           <h1 className="text-xl md:text-2xl font-bold">Quality Info</h1>
           <Badge variant="outline">Plant: {activePlant || '—'}</Badge>
         </div>
-        <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
-          <RotateCcw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
       </div>
 
-      <Card>
+      <Card className="max-w-3xl">
         <CardHeader>
-          <CardTitle className="text-base">Filters</CardTitle>
+          <CardTitle className="text-base">Create Q-Info Record (SAP QI01)</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Material Code"
-              value={materialSearch}
-              onChange={(e) => setMaterialSearch(e.target.value)}
-              className="pl-9"
-            />
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="matnr">Material Code <span className="text-destructive">*</span></Label>
+              <Input
+                id="matnr"
+                value={materialCode}
+                onChange={(e) => setMaterialCode(e.target.value)}
+                placeholder="e.g. 1000000030"
+                maxLength={40}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="lifnr">Vendor Code <span className="text-destructive">*</span></Label>
+              <Input
+                id="lifnr"
+                value={vendorCode}
+                onChange={(e) => setVendorCode(e.target.value)}
+                placeholder="e.g. 2000001"
+                maxLength={10}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="werks">Plant <span className="text-destructive">*</span></Label>
+              <Input
+                id="werks"
+                value={plant}
+                onChange={(e) => setPlant(e.target.value)}
+                placeholder="e.g. 1100"
+                maxLength={4}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="rel_udt">Release Until</Label>
+              <Input id="rel_udt" value={releaseUntil} readOnly disabled />
+              <p className="text-xs text-muted-foreground">Auto-set to today (YYYY-MM-DD)</p>
+            </div>
           </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Vendor Code"
-              value={vendorSearch}
-              onChange={(e) => setVendorSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <div className="flex items-center text-sm text-muted-foreground">
-            Showing {filtered.length} of {rows.length} records
+
+          <div className="flex justify-end pt-2">
+            <Button onClick={() => setConfirmOpen(true)} disabled={!canSubmit} className="gap-2">
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Submit
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Material Code</TableHead>
-                  <TableHead>Vendor Code</TableHead>
-                  <TableHead>Plant</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-32 text-center">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
-                    </TableCell>
-                  </TableRow>
-                ) : filtered.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                      No records found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filtered.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-medium">{r.materialCode || '—'}</TableCell>
-                      <TableCell>{r.vendorCode || '—'}</TableCell>
-                      <TableCell>{r.plant || '—'}</TableCell>
-                      <TableCell>
-                        {r.date ? format(new Date(r.date), 'dd-MMM-yyyy') : '—'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {r.submitted ? (
-                          <Badge variant="secondary" className="gap-1">
-                            <CheckCircle2 className="h-3 w-3" /> Submitted
-                          </Badge>
-                        ) : (
-                          <Button size="sm" onClick={() => setPendingRow(r)}>
-                            Submit
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      <AlertDialog open={!!pendingRow} onOpenChange={(open) => !open && setPendingRow(null)}>
+      <AlertDialog open={confirmOpen} onOpenChange={(open) => !submitting && setConfirmOpen(open)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Submit Quality Info</AlertDialogTitle>
-            <AlertDialogDescription>
-              Submit quality info for material <strong>{pendingRow?.materialCode}</strong>
-              {pendingRow?.vendorCode ? <> from vendor <strong>{pendingRow.vendorCode}</strong></> : null}?
+            <AlertDialogTitle>Submit Quality Info to SAP</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-1 text-sm">
+                <div>Material Code: <strong>{materialCode}</strong></div>
+                <div>Vendor Code: <strong>{vendorCode}</strong></div>
+                <div>Plant: <strong>{plant}</strong></div>
+                <div>Release Until: <strong>{releaseUntil}</strong></div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
