@@ -70,12 +70,12 @@ export default function MRBAnalyticsDashboard() {
   const { mrbRecords: rawMrbRecords, isLoading, refreshData } = useMRB();
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [selectedPlant, setSelectedPlant] = useState<string>('all');
-  const { plantOptions } = useActivePlant(setSelectedPlant);
+  const { plantOptions, plantScope } = useActivePlant(setSelectedPlant);
 
   const mrbRecords = useMemo(() => {
-    if (selectedPlant === 'all') return rawMrbRecords;
-    return (rawMrbRecords || []).filter((m: any) => m.plant === selectedPlant);
-  }, [rawMrbRecords, selectedPlant]);
+    if (selectedPlant === 'all' && !plantScope) return rawMrbRecords;
+    return (rawMrbRecords || []).filter((m: any) => matchesPlantScope(m.plant, selectedPlant, plantScope));
+  }, [rawMrbRecords, selectedPlant, plantScope?.join('|')]);
 
   useEffect(() => {
     const interval = setInterval(() => setLastRefresh(new Date()), 30000);

@@ -40,8 +40,8 @@ const SLA_DAYS = 5;
 export default function PlantHeadDashboard() {
   const { mrbRecords } = useMRB();
   const { inwardMRBRecords } = useInwardMRB();
-  const { visiblePlants } = useVisiblePlants();
   const [selectedPlant, setSelectedPlant] = useState('all');
+  const { visiblePlants, plantScope } = useActivePlant();
   useEffect(() => {
     if (visiblePlants.length === 1) setSelectedPlant(visiblePlants[0]);
   }, [visiblePlants.join('|')]);
@@ -59,9 +59,7 @@ export default function PlantHeadDashboard() {
 
   const filteredMRBs = useMemo(() => {
     let filtered = [...allMRBs];
-    if (selectedPlant !== 'all') {
-      filtered = filtered.filter(mrb => mrb.plant === selectedPlant);
-    }
+    filtered = filtered.filter(mrb => matchesPlantScope(mrb.plant, selectedPlant, plantScope));
     if (dateFrom && dateTo) {
       filtered = filtered.filter(mrb => {
         if (!mrb.created_at) return false;
@@ -74,7 +72,7 @@ export default function PlantHeadDashboard() {
       filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) <= dateTo);
     }
     return filtered;
-  }, [allMRBs, selectedPlant, dateFrom, dateTo]);
+  }, [allMRBs, selectedPlant, plantScope?.join('|'), dateFrom, dateTo]);
 
   const kpis = useMemo(() => {
     const totalMRBs = filteredMRBs.length;
