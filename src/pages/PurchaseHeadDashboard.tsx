@@ -42,7 +42,7 @@ const CHART_COLORS = ['hsl(210, 85%, 35%)', 'hsl(160, 60%, 40%)', 'hsl(38, 92%, 
 export default function PurchaseHeadDashboard() {
   const { mrbRecords, isLoading, refreshData } = useMRB();
   const [selectedPlant, setSelectedPlant] = useState('all');
-  const { visiblePlants } = useActivePlant(setSelectedPlant);
+  const { visiblePlants, plantScope } = useActivePlant(setSelectedPlant);
   const [selectedVendor, setSelectedVendor] = useState('all');
   const [selectedMaterial, setSelectedMaterial] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
@@ -64,7 +64,7 @@ export default function PurchaseHeadDashboard() {
 
   const filteredMRBs = useMemo(() => {
     let filtered = [...allMRBs];
-    if (selectedPlant !== 'all') filtered = filtered.filter(mrb => mrb.plant === selectedPlant);
+    filtered = filtered.filter(mrb => matchesPlantScope(mrb.plant, selectedPlant, plantScope));
     if (selectedVendor !== 'all') filtered = filtered.filter(mrb => mrb.vendor_code === selectedVendor);
     if (selectedMaterial !== 'all') filtered = filtered.filter(mrb => mrb.material_number === selectedMaterial);
     if (dateFrom && dateTo) {
@@ -75,7 +75,7 @@ export default function PurchaseHeadDashboard() {
       filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) <= dateTo);
     }
     return filtered;
-  }, [allMRBs, selectedPlant, selectedVendor, selectedMaterial, dateFrom, dateTo]);
+  }, [allMRBs, selectedPlant, plantScope?.join('|'), selectedVendor, selectedMaterial, dateFrom, dateTo]);
 
   const kpis = useMemo(() => {
     const vendorMRBs = filteredMRBs.filter(mrb => mrb.vendor_responsibility);
