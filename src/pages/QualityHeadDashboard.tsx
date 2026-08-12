@@ -1,3 +1,4 @@
+import { matchesPlantScope } from '@/lib/plantScope';
 import { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { format, parseISO, isWithinInterval, differenceInDays, subMonths } from 'date-fns';
@@ -44,7 +45,7 @@ export default function QualityHeadDashboard() {
   const { mrbRecords, isLoading: mrbLoading, refreshData: refreshMRB } = useMRB();
   const { inwardMRBRecords, inspectionLotRecords, isLoading: inwardLoading, refreshData: refreshInward } = useInwardMRB();
   const [selectedPlant, setSelectedPlant] = useState('all');
-  const { visiblePlants } = useActivePlant(setSelectedPlant);
+  const { visiblePlants, plantScope } = useActivePlant(setSelectedPlant);
   const [selectedVendor, setSelectedVendor] = useState('all');
   const [selectedMaterial, setSelectedMaterial] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
@@ -69,7 +70,7 @@ export default function QualityHeadDashboard() {
 
   const filteredMRBs = useMemo(() => {
     let filtered = [...allMRBs];
-    if (selectedPlant !== 'all') filtered = filtered.filter(mrb => mrb.plant === selectedPlant);
+    filtered = filtered.filter(mrb => matchesPlantScope(mrb.plant, selectedPlant, plantScope));
     if (selectedVendor !== 'all') filtered = filtered.filter(mrb => mrb.vendor_code === selectedVendor);
     if (selectedMaterial !== 'all') filtered = filtered.filter(mrb => mrb.material_number === selectedMaterial);
     if (dateFrom && dateTo) {
@@ -84,14 +85,14 @@ export default function QualityHeadDashboard() {
       filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) <= dateTo);
     }
     return filtered;
-  }, [allMRBs, selectedPlant, selectedVendor, selectedMaterial, dateFrom, dateTo]);
+  }, [allMRBs, selectedPlant, plantScope?.join('|'), selectedVendor, selectedMaterial, dateFrom, dateTo]);
 
   const filteredLots = useMemo(() => {
     let lots = [...inspectionLotRecords];
-    if (selectedPlant !== 'all') lots = lots.filter(lot => lot.plant === selectedPlant);
+    lots = lots.filter(lot => matchesPlantScope(lot.plant, selectedPlant, plantScope));
     if (selectedVendor !== 'all') lots = lots.filter(lot => lot.vendorCode === selectedVendor);
     return lots;
-  }, [inspectionLotRecords, selectedPlant, selectedVendor]);
+  }, [inspectionLotRecords, selectedPlant, plantScope?.join('|'), selectedVendor]);
 
   const kpis = useMemo(() => {
     const totalLots = filteredLots.length;
