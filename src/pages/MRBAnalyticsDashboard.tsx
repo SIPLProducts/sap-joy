@@ -1,3 +1,4 @@
+import { matchesPlantScope } from '@/lib/plantScope';
 import { useMemo, useState, useEffect } from 'react';
 import { 
   BarChart3, 

@@ -1,3 +1,4 @@
+import { matchesPlantScope } from '@/lib/plantScope';
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
 import { useRoleMatrix } from '@/hooks/useRoleMatrix';

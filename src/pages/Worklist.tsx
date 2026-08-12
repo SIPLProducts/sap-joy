@@ -1,3 +1,5 @@
+import { useActivePlant } from '@/hooks/useActivePlant';
+import { matchesPlantScope } from '@/lib/plantScope';
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, AlertTriangle, Eye, Loader2, Unlock, RefreshCw, CheckSquare, Square, History, Clock, CheckCircle2, XCircle, Download, CalendarDays, ScanEye } from 'lucide-react';

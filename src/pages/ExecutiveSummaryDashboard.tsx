@@ -1,3 +1,4 @@
+import { matchesPlantScope } from '@/lib/plantScope';
 import { useMemo, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format, parseISO, isWithinInterval, differenceInDays, subMonths, getYear } from 'date-fns';

@@ -1,3 +1,5 @@
+import { useActivePlant } from '@/hooks/useActivePlant';
+import { matchesPlantScope } from '@/lib/plantScope';
 import { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { format, parseISO, isWithinInterval, differenceInDays } from 'date-fns';
