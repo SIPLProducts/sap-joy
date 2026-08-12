@@ -1,4 +1,3 @@
-import { matchesPlantScope } from '@/lib/plantScope';
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
@@ -22,7 +21,7 @@ export default function PendingActions() {
   const { userRole } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPlant, setSelectedPlant] = useState<string>('all');
-  const { plantOptions, plantScope } = useActivePlant(setSelectedPlant);
+  const { plantOptions } = useActivePlant(setSelectedPlant);
 
   // Filter MRBs with no action for 7+ days (#28)
   const pendingRecords = useMemo(() => {
@@ -33,13 +32,13 @@ export default function PendingActions() {
       .filter(mrb => {
         // Only include non-final statuses
         if (['approved', 'rejected', 'closed'].includes(mrb.status)) return false;
-        if (!matchesPlantScope(mrb.plant, selectedPlant, plantScope)) return false;
+        if (selectedPlant !== 'all' && mrb.plant !== selectedPlant) return false;
         // Check if pending for 7+ days
         const updatedAt = new Date(mrb.updated_at);
         return (now.getTime() - updatedAt.getTime()) >= sevenDaysMs;
       })
       .sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime());
-  }, [mrbRecords, selectedPlant, plantScope?.join('|')]);
+  }, [mrbRecords, selectedPlant]);
 
   const filteredRecords = pendingRecords.filter(mrb =>
     !searchTerm ||

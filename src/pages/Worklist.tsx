@@ -1,5 +1,3 @@
-import { useActivePlant } from '@/hooks/useActivePlant';
-import { matchesPlantScope } from '@/lib/plantScope';
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, AlertTriangle, Eye, Loader2, Unlock, RefreshCw, CheckSquare, Square, History, Clock, CheckCircle2, XCircle, Download, CalendarDays, ScanEye } from 'lucide-react';
@@ -135,7 +133,6 @@ export default function Worklist() {
   const { departments } = useDepartments();
   const { roleDisplayNames } = useDepartmentMap();
   const { plantOptions: visiblePlantOptions } = useVisiblePlants();
-  const { plantScope } = useActivePlant();
   const workflowRoles = useMemo(() =>
     departments
       .filter(d => d.is_active && d.is_workflow_enabled && d.role_key)
@@ -320,7 +317,7 @@ export default function Worklist() {
     const matchesStatus = statusFilter === 'all' || mrb.status === statusFilter;
     const matchesSource = sourceFilter === 'all' || mrb.source === sourceFilter;
     const matchesPendingWith = pendingWithFilter === 'all' || mrb.pendingWith === pendingWithFilter;
-    const matchesPlant = matchesPlantScope(mrb.plant, plantFilter, plantScope);
+    const matchesPlant = plantFilter === 'all' || mrb.plant === plantFilter;
 
     return matchesSearch && matchesStatus && matchesSource && matchesPendingWith && matchesPlant;
   });

@@ -1,4 +1,3 @@
-import { matchesPlantScope } from '@/lib/plantScope';
 import { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth, subMonths, parseISO, isWithinInterval } from 'date-fns';
@@ -82,7 +81,7 @@ export default function KPIDashboard() {
 
   // Filters State (plant filter syncs to header active plant)
   const [selectedPlant, setSelectedPlant] = useState<string>('all');
-  const { visiblePlants: plants, plantScope } = useActivePlant(setSelectedPlant);
+  const { visiblePlants: plants } = useActivePlant(setSelectedPlant);
   const [selectedSource, setSelectedSource] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
@@ -144,8 +143,10 @@ export default function KPIDashboard() {
   const filteredMRBs = useMemo(() => {
     let filtered = [...allMRBs];
 
-    // Filter by plant (respects the header multi-plant selection)
-    filtered = filtered.filter(mrb => matchesPlantScope(mrb.plant, selectedPlant, plantScope));
+    // Filter by plant
+    if (selectedPlant !== 'all') {
+      filtered = filtered.filter(mrb => mrb.plant === selectedPlant);
+    }
 
     // Filter by source (shop_floor / quality_inspection)
     if (selectedSource !== 'all') {
@@ -178,7 +179,7 @@ export default function KPIDashboard() {
     }
 
     return filtered;
-  }, [allMRBs, selectedPlant, plantScope?.join('|'), selectedSource, selectedMonth, dateFrom, dateTo]);
+  }, [allMRBs, selectedPlant, selectedSource, selectedMonth, dateFrom, dateTo]);
 
 
   // Calculate KPIs based on filtered data

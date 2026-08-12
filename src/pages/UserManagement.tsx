@@ -1,4 +1,3 @@
-import { matchesPlantScope } from '@/lib/plantScope';
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
 import { useRoleMatrix } from '@/hooks/useRoleMatrix';
@@ -69,7 +68,7 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [plantFilter, setPlantFilter] = useState<string>('all');
-  const { plantOptions: filterPlantOptions, plantScope } = useActivePlant(
+  const { plantOptions: filterPlantOptions } = useActivePlant(
     isAllPlantsView ? undefined : setPlantFilter
   );
   useEffect(() => {
@@ -415,9 +414,7 @@ export default function UserManagement() {
   };
 
   const filteredUsers = users.filter(user =>
-    (plantFilter !== 'all'
-      ? (user.plants.includes(plantFilter) || user.plant === plantFilter)
-      : (!plantScope || user.plants.some((p: string) => plantScope.includes(p)) || plantScope.includes(user.plant))) &&
+    (plantFilter === 'all' || user.plants.includes(plantFilter) || user.plant === plantFilter) &&
     (
     user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||

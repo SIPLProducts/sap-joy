@@ -1,4 +1,3 @@
-import { matchesPlantScope } from '@/lib/plantScope';
 import { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { format, parseISO, isWithinInterval, differenceInDays } from 'date-fns';
@@ -39,7 +38,7 @@ const SLA_DAYS = 3;
 export default function EngineeringHeadDashboard() {
   const { mrbRecords, isLoading, refreshData } = useMRB();
   const [selectedPlant, setSelectedPlant] = useState('all');
-  const { visiblePlants, plantScope } = useActivePlant(setSelectedPlant);
+  const { visiblePlants } = useActivePlant(setSelectedPlant);
   const [selectedMaterial, setSelectedMaterial] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
@@ -59,7 +58,7 @@ export default function EngineeringHeadDashboard() {
 
   const filteredMRBs = useMemo(() => {
     let filtered = [...allMRBs];
-    filtered = filtered.filter(mrb => matchesPlantScope(mrb.plant, selectedPlant, plantScope));
+    if (selectedPlant !== 'all') filtered = filtered.filter(mrb => mrb.plant === selectedPlant);
     if (selectedMaterial !== 'all') filtered = filtered.filter(mrb => mrb.material_number === selectedMaterial);
     if (dateFrom && dateTo) {
       filtered = filtered.filter(mrb => mrb.created_at && isWithinInterval(parseISO(mrb.created_at), { start: dateFrom, end: dateTo }));
@@ -69,7 +68,7 @@ export default function EngineeringHeadDashboard() {
       filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) <= dateTo);
     }
     return filtered;
-  }, [allMRBs, selectedPlant, plantScope?.join('|'), selectedMaterial, dateFrom, dateTo]);
+  }, [allMRBs, selectedPlant, selectedMaterial, dateFrom, dateTo]);
 
   const kpis = useMemo(() => {
     const pendingEngineering = filteredMRBs.filter(mrb => mrb.pending_with === 'engineering').length;
