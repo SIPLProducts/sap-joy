@@ -1,27 +1,20 @@
-## Quality Info form updates
+# Multi-Select Plant in the Top Bar
 
-Update `src/pages/QualityInfo.tsx` only. No backend changes.
+Turn the header Plant switcher into a multi-select so a user can view data for several of their plants at once, without changing any existing screen logic or workflows.
 
-### 1. Release Until — editable with today as default
-- Replace the readonly `Input` with an editable date input (`type="date"`).
-- Keep `useState` initialized to today's ISO date (`YYYY-MM-DD`) so it's pre-filled.
-- User can change it; if cleared, fall back to today on submit.
-- Remove the "Auto-set to today" helper text; replace with "Defaults to today; you can change it".
-- Continue sending `REL_UDT` in the same format to SAP (`YYYY-MM-DD` as currently used).
+## Behaviour
 
-### 2. Plant — dropdown scoped to user's visible plants
-- Import `useVisiblePlants` from `@/hooks/useVisiblePlants`.
-- Replace the Plant `Input` with a shadcn `Select` (SelectTrigger / SelectContent / SelectItem).
-- Options come from `plantOptions` returned by `useVisiblePlants`:
-  - Master Admin (`masteradmin@sharviinfotech.com`) and `superadmin` role → all plants (hook already returns all).
-  - Any other user → only plants assigned via `user_plants` (hook already scopes this).
-- Default selection logic (unchanged intent):
-  - If `activePlant` from header is a real plant (not `'all'`) and exists in options → use it.
-  - Otherwise → first option in `plantOptions`.
-- Display format in the trigger: `code — name` (fallback to just `code`).
-- Keep `WERKS` payload as the plant `code`.
+- The header control becomes a checkbox-style dropdown listing exactly the plants the user can see today (Master Admin / superadmin see all, others see only assigned plants).
+- Selecting multiple plants shows a summary like "Plant: 1300 +2". Selecting every plant is equivalent to the current "All Plants" view.
+- At least one plant must always stay selected; unchecking the last one is blocked.
+- The selection persists across reloads, same as the current All-Plants toggle.
+- List/report screens that already support an "all plants" mode (Worklist, dashboards, KPI, Pending Actions, User Management) now filter to the selected set instead of one plant or everything.
+- Screens that are inherently single-plant (Quality Info form, MRB creation, Inward and In-Process Refresh/SAP sync, MRB Print) keep their existing logic untouched: they continue to use the single active plant exactly as today.
 
-### 3. No other changes
-- Material Code, Vendor Code inputs unchanged.
-- Submit flow, confirm dialog, SAP call, and `quality_info` audit insert unchanged.
-- Access-control (`hasAccess('quality_info')`) unchanged.
+## Technical Notes
+
+- `AuthContext`: add `selectedPlants: string[]` plus a setter, persisted in localStorage. Keep `profile.plant`, `updatePlant`, `isAllPlantsView` and `setAllPlantsView` in place so no existing consumer breaks — `isAllPlantsView` is derived from "all visible plants selected".
+- `useActivePlant`: keep returning `activePlant` unchanged (single value, `'all'` when everything is selected) and add a new `selectedPlants` array for screens that opt in.
+- `AppHeader`: replace the `Select` with a `Popover` + checkbox list; the single-plant screens detected by the existing `isSinglePlantScreen` path keep the current single-choice behaviour.
+- Multi-plant filtering on list screens: replace `plant === filter` comparisons with membership in the selected set, keeping the existing `'all'` shortcut intact.
+- No database, RLS, or edge-function changes.
