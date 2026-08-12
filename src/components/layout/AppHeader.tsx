@@ -4,10 +4,20 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, Layers } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Building2, Layers, ChevronDown } from 'lucide-react';
 
 export function AppHeader() {
-  const { profile, updatePlant, isLoading, isAllPlantsView, setAllPlantsView } = useAuth();
+  const {
+    profile,
+    updatePlant,
+    isLoading,
+    isAllPlantsView,
+    setAllPlantsView,
+    selectedPlants,
+    setSelectedPlants,
+  } = useAuth();
   const { plantOptions, loading: plantsLoading } = useVisiblePlants();
   const { pathname } = useLocation();
   const isSinglePlantScreen =
