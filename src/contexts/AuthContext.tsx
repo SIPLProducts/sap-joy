@@ -30,6 +30,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAllPlantsView: boolean;
   setAllPlantsView: (v: boolean) => void;
+  selectedPlants: string[];
+  setSelectedPlants: (plants: string[]) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,6 +51,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setAllPlantsView = (v: boolean) => {
     setIsAllPlantsView(v);
     try { window.localStorage.setItem('mrb.allPlantsView', v ? '1' : '0'); } catch {}
+  };
+
+  // Additive: multi-plant selection from the header. Empty array => fall back
+  // to the single `profile.plant` behaviour (existing flows are untouched).
+  const [selectedPlants, setSelectedPlantsState] = useState<string[]>(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem('mrb.selectedPlants') : null;
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter((p): p is string => typeof p === 'string') : [];
+    } catch { return []; }
+  });
+  const setSelectedPlants = (plants: string[]) => {
+    setSelectedPlantsState(plants);
+    try { window.localStorage.setItem('mrb.selectedPlants', JSON.stringify(plants)); } catch {}
   };
 
   // Fetch user profile
@@ -232,6 +248,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!session,
         isAllPlantsView,
         setAllPlantsView,
+        selectedPlants,
+        setSelectedPlants,
       }}
     >
       {children}
