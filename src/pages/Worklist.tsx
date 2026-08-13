@@ -129,7 +129,7 @@ export default function Worklist() {
   const navigate = useNavigate();
   const { mrbRecords, isLoading, updateMRB } = useMRBDatabase();
   const { toast } = useToast();
-  const { userRole, user, profile, isAllPlantsView } = useAuth();
+  const { userRole, user, profile, isAllPlantsView, selectedPlants } = useAuth();
   const { departments } = useDepartments();
   const { roleDisplayNames } = useDepartmentMap();
   const { plantOptions: visiblePlantOptions } = useVisiblePlants();
@@ -162,22 +162,32 @@ export default function Worklist() {
 
   // Active plant comes from the header switcher (profile.plant), validated
   // against the user's visible/assigned plants.
+  const scopedPlants = useMemo<string[]>(() => {
+    const allowed = visiblePlantOptions.map(p => p.code);
+    if (isAllPlantsView) return allowed;
+    const picked = (selectedPlants || []).filter(c => allowed.includes(c));
+    return picked;
+  }, [visiblePlantOptions, selectedPlants, isAllPlantsView]);
+  const scopedPlantsKey = scopedPlants.join('|');
+
   const activePlant = useMemo(() => {
+    if (scopedPlants.length === 1) return scopedPlants[0];
+    if (scopedPlants.length > 1) return 'all';
     const headerPlant = profile?.plant;
     if (visiblePlantOptions.length === 0) return headerPlant || '';
     if (headerPlant && visiblePlantOptions.some(p => p.code === headerPlant)) {
       return headerPlant;
     }
     return visiblePlantOptions[0].code;
-  }, [profile?.plant, visiblePlantOptions]);
+  }, [profile?.plant, visiblePlantOptions, scopedPlantsKey]);
 
   // Whenever the header active plant changes, sync the in-page Plant filter
   // and clear stale row selections from the previous plant scope.
   useEffect(() => {
     if (!activePlant) return;
-    setPlantFilter(isAllPlantsView ? 'all' : activePlant);
+    setPlantFilter(isAllPlantsView || activePlant === 'all' ? 'all' : activePlant);
     setSelectedIds(new Set());
-  }, [activePlant, isAllPlantsView]);
+  }, [activePlant, isAllPlantsView, scopedPlantsKey]);
 
   // RBAC: SAP unblock access is limited to Master Admin, Admin, and Quality.
   const isMasterAdmin = profile?.email === MASTER_ADMIN_EMAIL || user?.email === MASTER_ADMIN_EMAIL;
@@ -317,7 +327,10 @@ export default function Worklist() {
     const matchesStatus = statusFilter === 'all' || mrb.status === statusFilter;
     const matchesSource = sourceFilter === 'all' || mrb.source === sourceFilter;
     const matchesPendingWith = pendingWithFilter === 'all' || mrb.pendingWith === pendingWithFilter;
-    const matchesPlant = plantFilter === 'all' || mrb.plant === plantFilter;
+    const matchesPlant =
+      plantFilter === 'all'
+        ? (scopedPlants.length === 0 || scopedPlants.includes(mrb.plant))
+        : mrb.plant === plantFilter;
 
     return matchesSearch && matchesStatus && matchesSource && matchesPendingWith && matchesPlant;
   });

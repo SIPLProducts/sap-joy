@@ -45,7 +45,7 @@ export default function ExecutiveSummaryDashboard() {
   const { mrbRecords, isLoading, refreshData: refreshMRB } = useMRB();
   const navigate = useNavigate();
   const [selectedPlant, setSelectedPlant] = useState('all');
-  const { visiblePlants } = useActivePlant(setSelectedPlant);
+  const { visiblePlants, activePlants, activePlantsKey } = useActivePlant(setSelectedPlant);
   const [selectedVendor, setSelectedVendor] = useState('all');
   const [selectedMaterial, setSelectedMaterial] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
@@ -67,6 +67,7 @@ export default function ExecutiveSummaryDashboard() {
   const filteredMRBs = useMemo(() => {
     let filtered = [...allMRBs];
     if (selectedPlant !== 'all') filtered = filtered.filter(mrb => mrb.plant === selectedPlant);
+    else if (activePlants.length > 0) filtered = filtered.filter(mrb => activePlants.includes(mrb.plant));
     if (selectedVendor !== 'all') filtered = filtered.filter(mrb => mrb.vendor_code === selectedVendor);
     if (selectedMaterial !== 'all') filtered = filtered.filter(mrb => mrb.material_number === selectedMaterial);
     if (dateFrom && dateTo) {
@@ -77,7 +78,7 @@ export default function ExecutiveSummaryDashboard() {
       filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) <= dateTo);
     }
     return filtered;
-  }, [allMRBs, selectedPlant, selectedVendor, selectedMaterial, dateFrom, dateTo]);
+  }, [allMRBs, selectedPlant, activePlantsKey, selectedVendor, selectedMaterial, dateFrom, dateTo]);
 
   // YTD MRBs
   const ytdMRBs = useMemo(() => {
