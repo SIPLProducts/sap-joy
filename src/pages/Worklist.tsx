@@ -129,7 +129,7 @@ export default function Worklist() {
   const navigate = useNavigate();
   const { mrbRecords, isLoading, updateMRB } = useMRBDatabase();
   const { toast } = useToast();
-  const { userRole, user, profile, isAllPlantsView } = useAuth();
+  const { userRole, user, profile, isAllPlantsView, selectedPlants } = useAuth();
   const { departments } = useDepartments();
   const { roleDisplayNames } = useDepartmentMap();
   const { plantOptions: visiblePlantOptions } = useVisiblePlants();
