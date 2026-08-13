@@ -44,7 +44,7 @@ export default function QualityHeadDashboard() {
   const { mrbRecords, isLoading: mrbLoading, refreshData: refreshMRB } = useMRB();
   const { inwardMRBRecords, inspectionLotRecords, isLoading: inwardLoading, refreshData: refreshInward } = useInwardMRB();
   const [selectedPlant, setSelectedPlant] = useState('all');
-  const { visiblePlants } = useActivePlant(setSelectedPlant);
+  const { visiblePlants, activePlants, activePlantsKey } = useActivePlant(setSelectedPlant);
   const [selectedVendor, setSelectedVendor] = useState('all');
   const [selectedMaterial, setSelectedMaterial] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
@@ -70,6 +70,7 @@ export default function QualityHeadDashboard() {
   const filteredMRBs = useMemo(() => {
     let filtered = [...allMRBs];
     if (selectedPlant !== 'all') filtered = filtered.filter(mrb => mrb.plant === selectedPlant);
+    else if (activePlants.length > 0) filtered = filtered.filter(mrb => activePlants.includes(mrb.plant));
     if (selectedVendor !== 'all') filtered = filtered.filter(mrb => mrb.vendor_code === selectedVendor);
     if (selectedMaterial !== 'all') filtered = filtered.filter(mrb => mrb.material_number === selectedMaterial);
     if (dateFrom && dateTo) {
@@ -84,14 +85,15 @@ export default function QualityHeadDashboard() {
       filtered = filtered.filter(mrb => mrb.created_at && parseISO(mrb.created_at) <= dateTo);
     }
     return filtered;
-  }, [allMRBs, selectedPlant, selectedVendor, selectedMaterial, dateFrom, dateTo]);
+  }, [allMRBs, selectedPlant, activePlantsKey, selectedVendor, selectedMaterial, dateFrom, dateTo]);
 
   const filteredLots = useMemo(() => {
     let lots = [...inspectionLotRecords];
     if (selectedPlant !== 'all') lots = lots.filter(lot => lot.plant === selectedPlant);
+    else if (activePlants.length > 0) lots = lots.filter(lot => activePlants.includes(lot.plant));
     if (selectedVendor !== 'all') lots = lots.filter(lot => lot.vendorCode === selectedVendor);
     return lots;
-  }, [inspectionLotRecords, selectedPlant, selectedVendor]);
+  }, [inspectionLotRecords, selectedPlant, activePlantsKey, selectedVendor]);
 
   const kpis = useMemo(() => {
     const totalLots = filteredLots.length;
