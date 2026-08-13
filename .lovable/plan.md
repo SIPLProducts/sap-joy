@@ -1,27 +1,26 @@
-## Quality Info form updates
+# Multi-Select Plant in Top Bar
 
-Update `src/pages/QualityInfo.tsx` only. No backend changes.
+## Goal
+Let users pick more than one plant from the header Plant control, show the selection in the top bar, and have screens load data for all selected plants — without changing any existing behaviour, flow, or business logic.
 
-### 1. Release Until — editable with today as default
-- Replace the readonly `Input` with an editable date input (`type="date"`).
-- Keep `useState` initialized to today's ISO date (`YYYY-MM-DD`) so it's pre-filled.
-- User can change it; if cleared, fall back to today on submit.
-- Remove the "Auto-set to today" helper text; replace with "Defaults to today; you can change it".
-- Continue sending `REL_UDT` in the same format to SAP (`YYYY-MM-DD` as currently used).
+## Approach
+Everything is additive. The current single-plant value (`profile.plant`) and the existing "All Plants" toggle keep working exactly as today; a multi-selection layer sits on top.
 
-### 2. Plant — dropdown scoped to user's visible plants
-- Import `useVisiblePlants` from `@/hooks/useVisiblePlants`.
-- Replace the Plant `Input` with a shadcn `Select` (SelectTrigger / SelectContent / SelectItem).
-- Options come from `plantOptions` returned by `useVisiblePlants`:
-  - Master Admin (`masteradmin@sharviinfotech.com`) and `superadmin` role → all plants (hook already returns all).
-  - Any other user → only plants assigned via `user_plants` (hook already scopes this).
-- Default selection logic (unchanged intent):
-  - If `activePlant` from header is a real plant (not `'all'`) and exists in options → use it.
-  - Otherwise → first option in `plantOptions`.
-- Display format in the trigger: `code — name` (fallback to just `code`).
-- Keep `WERKS` payload as the plant `code`.
+### 1. Auth context (additive only)
+- Add `selectedPlants: string[]` and `setSelectedPlants()`, persisted in localStorage (same pattern as the existing `mrb.allPlantsView` flag).
+- Selection is validated against the plants the user is allowed to see. An empty selection falls back to the current single plant, so users who never touch the control see no change.
 
-### 3. No other changes
-- Material Code, Vendor Code inputs unchanged.
-- Submit flow, confirm dialog, SAP call, and `quality_info` audit insert unchanged.
-- Access-control (`hasAccess('quality_info')`) unchanged.
+### 2. Top bar (AppHeader)
+- Turn the Plant pill into a multi-select popover: checkbox list of allowed plants plus "All Plants" and "Clear".
+- Label shows the plant code when one is picked, `N plants` (codes shown as chips in the popover) when several, `All Plants` when everything is selected.
+- Routes that are single-plant by design (Inward Report, In-Process Report — they sync per plant to SAP) keep today's single-select behaviour.
+- Picking exactly one plant still calls `updatePlant()`, so the saved default plant continues to work.
+
+### 3. Screen data
+- `useActivePlant` gains `activePlants: string[]`; `activePlant` keeps its current meaning (first selected plant, or `'all'`).
+- Plant-scoped screens switch their filter from `eq('plant', activePlant)` to `in('plant', activePlants)` only when more than one plant is selected. Single-plant and All-Plants paths are untouched.
+
+## Technical notes
+- Files touched: `src/contexts/AuthContext.tsx`, `src/components/layout/AppHeader.tsx`, `src/hooks/useActivePlant.ts`, and the plant-filter lines in plant-scoped pages (Worklist, Pending Actions, KPI / Analytics / Executive / Head dashboards, MRB Print, Quality Info).
+- Allowed plants still come from `useVisiblePlants` (master admin/superadmin see all, others only assigned plants), so RLS scoping is unchanged.
+- No workflow, SAP sync, RBAC, or edge-function changes.
