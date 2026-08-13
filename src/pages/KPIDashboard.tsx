@@ -81,7 +81,7 @@ export default function KPIDashboard() {
 
   // Filters State (plant filter syncs to header active plant)
   const [selectedPlant, setSelectedPlant] = useState<string>('all');
-  const { visiblePlants: plants } = useActivePlant(setSelectedPlant);
+  const { visiblePlants: plants, activePlants, activePlantsKey } = useActivePlant(setSelectedPlant);
   const [selectedSource, setSelectedSource] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
@@ -146,6 +146,8 @@ export default function KPIDashboard() {
     // Filter by plant
     if (selectedPlant !== 'all') {
       filtered = filtered.filter(mrb => mrb.plant === selectedPlant);
+    } else if (activePlants.length > 0) {
+      filtered = filtered.filter(mrb => activePlants.includes(mrb.plant));
     }
 
     // Filter by source (shop_floor / quality_inspection)
@@ -179,7 +181,7 @@ export default function KPIDashboard() {
     }
 
     return filtered;
-  }, [allMRBs, selectedPlant, selectedSource, selectedMonth, dateFrom, dateTo]);
+  }, [allMRBs, selectedPlant, activePlantsKey, selectedSource, selectedMonth, dateFrom, dateTo]);
 
 
   // Calculate KPIs based on filtered data
