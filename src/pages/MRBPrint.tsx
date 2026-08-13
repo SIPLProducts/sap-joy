@@ -229,7 +229,7 @@ const MRBPrint = () => {
   const [selectedMRBId, setSelectedMRBId] = useState<string>('');
   const [selectedMRB, setSelectedMRB] = useState<MRBRecord | null>(null);
   const [approverNames, setApproverNames] = useState<ApproverInfo>({});
-  const { activePlant } = useActivePlant();
+  const { activePlant, activePlants, activePlantsKey } = useActivePlant();
 
   const [showPreview, setShowPreview] = useState(false);
   const [previewContent, setPreviewContent] = useState('');
@@ -247,7 +247,11 @@ const MRBPrint = () => {
         .from('mrb_records')
         .select('id, mrb_number, material_description')
         .order('created_at', { ascending: false });
-      if (activePlant) q = q.eq('plant', activePlant);
+      if (activePlants.length > 1) {
+        q = q.in('plant', activePlants);
+      } else if (activePlant && activePlant !== 'all') {
+        q = q.eq('plant', activePlant);
+      }
       const { data } = await q;
       if (data) setMrbList(data);
     };
@@ -255,7 +259,7 @@ const MRBPrint = () => {
     // Reset any selection from a previous plant
     setSelectedMRBId('');
     setSelectedMRB(null);
-  }, [activePlant]);
+  }, [activePlant, activePlantsKey]);
 
   const fetchMRBFromDB = async (id: string) => {
     try {
