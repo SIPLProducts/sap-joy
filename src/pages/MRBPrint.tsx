@@ -283,10 +283,14 @@ const MRBPrint = () => {
 
       const { data: history } = await supabase
         .from('mrb_approval_history')
-        .select('id, stage, remarks, performed_by, performed_by_role, performed_at')
+        .select('id, stage, action, remarks, performed_by, performed_by_role, performed_at')
         .eq('mrb_id', mrb.id)
         .order('performed_at', { ascending: true });
-      const commentRows = (history || []).filter((h) => (h.remarks || '').trim().length > 0);
+      const commentRows = (history || []).filter(
+        (h) =>
+          (h.remarks || '').trim().length > 0 &&
+          !(h.stage === 'Creation' && h.action === 'created')
+      );
 
       const approverIds = [
         mrb.quality_approved_by,
