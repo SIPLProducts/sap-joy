@@ -181,6 +181,15 @@ export default function Worklist() {
     return visiblePlantOptions[0].code;
   }, [profile?.plant, visiblePlantOptions, scopedPlantsKey]);
 
+  // Plant dropdown options should only show the plants selected in the top bar.
+  const dropdownPlantOptions = useMemo(() => {
+    const codes = scopedPlants.length > 0 ? scopedPlants : [activePlant];
+    return codes.map(code => {
+      const p = visiblePlantOptions.find(opt => opt.code === code);
+      return { code, name: p?.name || code };
+    });
+  }, [scopedPlants, activePlant, visiblePlantOptions]);
+
   // Whenever the header active plant changes, sync the in-page Plant filter
   // and clear stale row selections from the previous plant scope.
   useEffect(() => {
@@ -188,6 +197,7 @@ export default function Worklist() {
     setPlantFilter(isAllPlantsView || activePlant === 'all' ? 'all' : activePlant);
     setSelectedIds(new Set());
   }, [activePlant, isAllPlantsView, scopedPlantsKey]);
+
 
   // RBAC: SAP unblock access is limited to Master Admin, Admin, and Quality.
   const isMasterAdmin = profile?.email === MASTER_ADMIN_EMAIL || user?.email === MASTER_ADMIN_EMAIL;
