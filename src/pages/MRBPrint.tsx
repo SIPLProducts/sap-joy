@@ -173,7 +173,7 @@ const FORM_STYLESHEET = `
     position: relative;
   }
   .disp-box.checked::after {
-    content: "✗";
+    content: "✓";
     position: absolute;
     inset: -3pt 0 0 1pt;
     text-align: center;
