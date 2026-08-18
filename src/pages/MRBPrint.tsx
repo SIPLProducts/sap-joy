@@ -23,6 +23,13 @@ interface ApproverInfo {
   committee?: string;
 }
 
+interface MRBComment {
+  id: string;
+  text: string;
+  author: string;
+  date: string | null;
+}
+
 // =====================================================================
 // SHARED EXACT-FORM STYLESHEET
 // Self-contained CSS — used identically by on-screen preview, browser
@@ -229,6 +236,7 @@ const MRBPrint = () => {
   const [selectedMRBId, setSelectedMRBId] = useState<string>('');
   const [selectedMRB, setSelectedMRB] = useState<MRBRecord | null>(null);
   const [approverNames, setApproverNames] = useState<ApproverInfo>({});
+  const [mrbComments, setMrbComments] = useState<MRBComment[]>([]);
   const { activePlant, activePlants, activePlantsKey } = useActivePlant();
 
   const [showPreview, setShowPreview] = useState(false);
@@ -259,6 +267,7 @@ const MRBPrint = () => {
     // Reset any selection from a previous plant
     setSelectedMRBId('');
     setSelectedMRB(null);
+    setMrbComments([]);
   }, [activePlant, activePlantsKey]);
 
   const fetchMRBFromDB = async (id: string) => {
@@ -272,20 +281,29 @@ const MRBPrint = () => {
       setSelectedMRBId(mrb.id);
       setSearchNumber(mrb.mrb_number);
 
+      const { data: history } = await supabase
+        .from('mrb_approval_history')
+        .select('id, stage, remarks, performed_by, performed_by_role, performed_at')
+        .eq('mrb_id', mrb.id)
+        .order('performed_at', { ascending: true });
+      const commentRows = (history || []).filter((h) => (h.remarks || '').trim().length > 0);
+
       const approverIds = [
         mrb.quality_approved_by,
         mrb.purchase_approved_by,
         mrb.engineering_approved_by,
         mrb.final_approved_by,
+        ...commentRows.map((h) => h.performed_by),
       ].filter(Boolean) as string[];
 
       const names: ApproverInfo = {};
+      let profileMap = new Map<string, string>();
       if (approverIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
           .select('user_id, full_name')
-          .in('user_id', approverIds);
-        const profileMap = new Map((profiles || []).map(p => [p.user_id, p.full_name]));
+          .in('user_id', Array.from(new Set(approverIds)));
+        profileMap = new Map((profiles || []).map(p => [p.user_id, p.full_name]));
         names.quality = profileMap.get(mrb.quality_approved_by || '') || '';
         names.purchase = profileMap.get(mrb.purchase_approved_by || '') || '';
         names.engineering = profileMap.get(mrb.engineering_approved_by || '') || '';
@@ -293,6 +311,15 @@ const MRBPrint = () => {
       }
       names.committee = mrb.mrb_committee_approved_by || '';
       setApproverNames(names);
+
+      setMrbComments(
+        commentRows.map((h) => ({
+          id: h.id,
+          text: (h.remarks || '').trim(),
+          author: profileMap.get(h.performed_by || '') || h.performed_by_role || '',
+          date: h.performed_at || null,
+        }))
+      );
 
       toast({ title: 'MRB Loaded', description: `Loaded ${mrb.mrb_number}` });
     } catch (error) {
@@ -511,6 +538,20 @@ html,body{margin:0;padding:0;background:#fff;}
             </thead>
             <tbody>
               {(() => {
+                if (mrbComments.length > 0) {
+                  const rows = mrbComments.map((c, i) => (
+                    <tr key={c.id}>
+                      <td className="center">{i + 1}</td>
+                      <td>{c.text}</td>
+                      <td>{c.author}</td>
+                      <td className="center">{formatDate(c.date) || formatDate(m?.expected_replacement_date)}</td>
+                    </tr>
+                  ));
+                  const pad = Array.from({ length: Math.max(0, 5 - mrbComments.length) }).map((_, i) => (
+                    <tr key={`b${i}`} className="empty"><td></td><td></td><td></td><td></td></tr>
+                  ));
+                  return [...rows, ...pad];
+                }
                 const instructions: string[] = [];
                 if (m?.engineering_remarks) instructions.push(m.engineering_remarks);
                 if (m?.purchase_remarks) instructions.push(m.purchase_remarks);
