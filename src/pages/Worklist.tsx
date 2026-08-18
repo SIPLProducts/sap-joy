@@ -1118,12 +1118,12 @@ export default function Worklist() {
                   <SelectValue placeholder="Plant" />
                 </SelectTrigger>
                 <SelectContent>
-                  {visiblePlantOptions.length > 1 && (
+                  {dropdownPlantOptions.length > 1 && (
                     <SelectItem value="all">All Plants</SelectItem>
                   )}
-                  {visiblePlantOptions.map(p => (
+                  {dropdownPlantOptions.map(p => (
                     <SelectItem key={p.code} value={p.code}>
-                      {p.code} — {p.name}
+                      {p.code} {p.name && p.name !== p.code ? `— ${p.name}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
