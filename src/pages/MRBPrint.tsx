@@ -236,6 +236,7 @@ const MRBPrint = () => {
   const [selectedMRBId, setSelectedMRBId] = useState<string>('');
   const [selectedMRB, setSelectedMRB] = useState<MRBRecord | null>(null);
   const [approverNames, setApproverNames] = useState<ApproverInfo>({});
+  const [mrbComments, setMrbComments] = useState<MRBComment[]>([]);
   const { activePlant, activePlants, activePlantsKey } = useActivePlant();
 
   const [showPreview, setShowPreview] = useState(false);
@@ -279,20 +280,29 @@ const MRBPrint = () => {
       setSelectedMRBId(mrb.id);
       setSearchNumber(mrb.mrb_number);
 
+      const { data: history } = await supabase
+        .from('mrb_approval_history')
+        .select('id, stage, remarks, performed_by, performed_by_role, performed_at')
+        .eq('mrb_id', mrb.id)
+        .order('performed_at', { ascending: true });
+      const commentRows = (history || []).filter((h) => (h.remarks || '').trim().length > 0);
+
       const approverIds = [
         mrb.quality_approved_by,
         mrb.purchase_approved_by,
         mrb.engineering_approved_by,
         mrb.final_approved_by,
+        ...commentRows.map((h) => h.performed_by),
       ].filter(Boolean) as string[];
 
       const names: ApproverInfo = {};
+      let profileMap = new Map<string, string>();
       if (approverIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
           .select('user_id, full_name')
-          .in('user_id', approverIds);
-        const profileMap = new Map((profiles || []).map(p => [p.user_id, p.full_name]));
+          .in('user_id', Array.from(new Set(approverIds)));
+        profileMap = new Map((profiles || []).map(p => [p.user_id, p.full_name]));
         names.quality = profileMap.get(mrb.quality_approved_by || '') || '';
         names.purchase = profileMap.get(mrb.purchase_approved_by || '') || '';
         names.engineering = profileMap.get(mrb.engineering_approved_by || '') || '';
@@ -300,6 +310,15 @@ const MRBPrint = () => {
       }
       names.committee = mrb.mrb_committee_approved_by || '';
       setApproverNames(names);
+
+      setMrbComments(
+        commentRows.map((h) => ({
+          id: h.id,
+          text: (h.remarks || '').trim(),
+          author: profileMap.get(h.performed_by || '') || h.performed_by_role || '',
+          date: h.performed_at || null,
+        }))
+      );
 
       toast({ title: 'MRB Loaded', description: `Loaded ${mrb.mrb_number}` });
     } catch (error) {
