@@ -537,6 +537,20 @@ html,body{margin:0;padding:0;background:#fff;}
             </thead>
             <tbody>
               {(() => {
+                if (mrbComments.length > 0) {
+                  const rows = mrbComments.map((c, i) => (
+                    <tr key={c.id}>
+                      <td className="center">{i + 1}</td>
+                      <td>{c.text}</td>
+                      <td>{c.author}</td>
+                      <td className="center">{formatDate(c.date) || formatDate(m?.expected_replacement_date)}</td>
+                    </tr>
+                  ));
+                  const pad = Array.from({ length: Math.max(0, 5 - mrbComments.length) }).map((_, i) => (
+                    <tr key={`b${i}`} className="empty"><td></td><td></td><td></td><td></td></tr>
+                  ));
+                  return [...rows, ...pad];
+                }
                 const instructions: string[] = [];
                 if (m?.engineering_remarks) instructions.push(m.engineering_remarks);
                 if (m?.purchase_remarks) instructions.push(m.purchase_remarks);
