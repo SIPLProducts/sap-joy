@@ -267,6 +267,7 @@ const MRBPrint = () => {
     // Reset any selection from a previous plant
     setSelectedMRBId('');
     setSelectedMRB(null);
+    setMrbComments([]);
   }, [activePlant, activePlantsKey]);
 
   const fetchMRBFromDB = async (id: string) => {
