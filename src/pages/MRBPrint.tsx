@@ -23,6 +23,13 @@ interface ApproverInfo {
   committee?: string;
 }
 
+interface MRBComment {
+  id: string;
+  text: string;
+  author: string;
+  date: string | null;
+}
+
 // =====================================================================
 // SHARED EXACT-FORM STYLESHEET
 // Self-contained CSS — used identically by on-screen preview, browser
