@@ -101,7 +101,7 @@ export function useMRBDatabase() {
   }, []);
 
   // Create new MRB with optional workflow routing
-  const createMRB = useCallback(async (mrb: MRBInsert, workflowRouting?: string[]): Promise<MRBRecord | null> => {
+  const createMRB = useCallback(async (mrb: MRBInsert, workflowRouting?: string[], alertRecipients?: Record<string, { user_id: string; email: string }[]>): Promise<MRBRecord | null> => {
     try {
       // Attach workflow_routing to the insert payload
       const insertData = {
@@ -126,6 +126,16 @@ export function useMRBDatabase() {
         performed_by_role: userRole || 'shop_floor',
         remarks: `MRB created from ${mrb.source}${workflowRouting ? ` — Routing: ${workflowRouting.join(' → ')}` : ''}`,
       });
+
+      // Save initiator-selected alert recipients (optional) before triggering email
+      if (alertRecipients) {
+        const rows = Object.entries(alertRecipients).flatMap(([role_key, list]) =>
+          (list || []).map(r => ({ mrb_id: data.id, role_key, user_id: r.user_id, email: r.email })));
+        if (rows.length > 0) {
+          const { error: arErr } = await supabase.from('mrb_alert_recipients' as any).insert(rows as any);
+          if (arErr) console.error('Saving alert recipients failed:', arErr);
+        }
+      }
 
       // Fire-and-forget email notification
       supabase.functions.invoke('send-mrb-email', {
