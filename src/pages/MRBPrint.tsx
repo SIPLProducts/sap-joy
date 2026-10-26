@@ -817,7 +817,7 @@ html,body{margin:0;padding:0;background:#fff;}
 
         <div className="mrb-page ncr3-page">
           <Header />
-          <div className="ncr3-lbl" style={{ marginTop: '2mm' }}>Material / Product disposition (by MRB):</div>
+          <div className="ncr3-lbl" style={{ marginTop: '9mm' }}>Material / Product disposition (by MRB):</div>
           <table className="ncr3-t ncr3-disp">
             <colgroup><col style={{ width: '5%' }} /><col style={{ width: '45%' }} /><col style={{ width: '5%' }} /><col /></colgroup>
             <tbody>
