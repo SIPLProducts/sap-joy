@@ -1,23 +1,14 @@
-require("dotenv").config();
-
-const express = require("express");
-const cors = require("cors");
-const bodyParser = require("body-parser");
-const axios = require("axios");
-const https = require("https");
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import bodyParser from "body-parser";
+import axios from "axios";
+import https from "https";
 
 const app = express();
 
 // Reusable HTTPS agent for SAP endpoints with self-signed certificates
 const sapAgent = new https.Agent({ rejectUnauthorized: false });
-
-// Load legacy SAP routes if they exist
-let sapRoutes;
-try {
-  sapRoutes = require("./routes/sapRoutes");
-} catch (e) {
-  sapRoutes = null;
-}
 
 app.use(cors());
 app.use(bodyParser.json({ limit: "50mb" }));
@@ -32,7 +23,7 @@ app.use((req, res, next) => {
 // Generic SAP proxy endpoint used by the frontend and edge functions
 app.post("/proxy", async (req, res) => {
   try {
-    const { url, method, body, auth } = req.body;
+    const { url, method, body, auth, timeout } = req.body;
 
     if (!url) {
       return res.status(400).json({ error: "Missing URL in request body" });
@@ -53,7 +44,8 @@ app.post("/proxy", async (req, res) => {
       url,
       headers: sapHeaders,
       data: body,
-      timeout: 30000,
+      // 0 = no limit (wait until SAP finishes); caller may pass a custom timeout in ms
+      timeout: Number(timeout) > 0 ? Number(timeout) : 0,
       validateStatus: () => true,
       httpsAgent: sapAgent,
     });
@@ -65,10 +57,13 @@ app.post("/proxy", async (req, res) => {
   }
 });
 
-// Legacy SAP routes (kept for backward compatibility)
-if (sapRoutes) {
+// Legacy SAP routes (optional, kept for backward compatibility)
+try {
+  const { default: sapRoutes } = await import("./routes/sapRoutes.js");
   app.use("/sap/api", sapRoutes);
   app.use("/api/sap", sapRoutes);
+} catch (e) {
+  // routes/sapRoutes.js not present — continue without legacy routes
 }
 
 // Root route

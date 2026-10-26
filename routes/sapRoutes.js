@@ -1,4 +1,5 @@
-const express = require("express");
+import express from "express";
+
 const router = express.Router();
 
 // Legacy SAP route placeholder
@@ -7,4 +8,4 @@ router.get("/", (req, res) => {
   res.json({ message: "Legacy SAP API root" });
 });
 
-module.exports = router;
+export default router;
