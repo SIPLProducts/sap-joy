@@ -141,6 +141,10 @@ export function useMRBDatabase() {
       supabase.functions.invoke('send-mrb-email', {
         body: { mrb_id: data.id, event_type: 'mrb_created', triggered_by: user?.id },
       }).catch(err => console.error('Email trigger failed:', err));
+      // Next-action alert to the department now holding the MRB
+      supabase.functions.invoke('send-next-action-email', {
+        body: { mrb_id: data.id },
+      }).catch(err => console.error('Next-action email failed:', err));
 
       await fetchMRBRecords();
       return data;
@@ -292,6 +296,11 @@ export function useMRBDatabase() {
       supabase.functions.invoke('send-mrb-email', {
         body: { mrb_id: id, event_type: emailEvent, triggered_by: user?.id },
       }).catch(err => console.error('Email trigger failed:', err));
+      if (effectiveStatus !== 'approved' && effectiveStatus !== 'rejected') {
+        supabase.functions.invoke('send-next-action-email', {
+          body: { mrb_id: id },
+        }).catch(err => console.error('Next-action email failed:', err));
+      }
 
       await fetchMRBRecords();
       return true;

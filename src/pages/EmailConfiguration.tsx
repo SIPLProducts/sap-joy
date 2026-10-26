@@ -50,6 +50,8 @@ const EVENT_TYPES = [
   { value: 'mrb_approved', label: 'MRB Approved' },
   { value: 'mrb_rejected', label: 'MRB Rejected' },
   { value: 'sla_warning', label: 'SLA Warning' },
+  { value: 'mrb_next_action', label: 'Next Action Alert' },
+  { value: 'mrb_reminder', label: 'Pending Reminder' },
 ];
 
 const MRB_VARIABLES = [
