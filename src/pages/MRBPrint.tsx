@@ -483,7 +483,7 @@ html,body{margin:0;padding:0;background:#fff;}
     document.body.appendChild(frame);
 
     try {
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas-pro'), import('jspdf')]);
       const doc = frame.contentDocument!;
       doc.open();
       doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><base href="${window.location.origin}/"/><style>${FORM_STYLESHEET} html,body{margin:0;padding:0;background:#fff;}</style></head><body>${getFormMarkup()}</body></html>`);
