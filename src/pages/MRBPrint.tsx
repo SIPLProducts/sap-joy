@@ -480,7 +480,8 @@ html,body{margin:0;padding:0;background:#fff;}
 
       // Plain, un-positioned element: html2pdf clones it into its own visible overlay for capture
       const container = document.createElement('div');
-      container.innerHTML = `<style>${FORM_STYLESHEET}</style>${getFormMarkup()}`;
+      // Tailwind's img{display:block} shifts text down in html2canvas; reset it for the capture
+      container.innerHTML = `<style>${FORM_STYLESHEET} .mrb-form img{display:inline-block;}</style>${getFormMarkup()}`;
       container.style.width = '182mm';
       container.style.background = '#fff';
 
