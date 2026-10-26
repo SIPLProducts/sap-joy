@@ -431,7 +431,7 @@ html,body{margin:0;padding:0;background:#fff;}
   @page{size:A4 portrait;margin:0;}
   body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
   .mrb-preview-wrap{width:210mm;padding:0!important;}
-  .mrb-preview-wrap .mrb-page{margin-top:12mm!important;}
+  .mrb-preview-wrap .mrb-page{padding-top:12mm!important;margin-top:0!important;}
   .mrb-preview-wrap .mrb-form{margin:0 14mm;}
 }
 </style></head><body><div class="mrb-preview-wrap">${innerHTML}</div></body></html>`;
