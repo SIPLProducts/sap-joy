@@ -267,7 +267,20 @@ Deno.serve(async (req) => {
 
       // Also resolve role-based emails for matching roles
       if (templateRoles.length > 0) {
-        const matchingRoles = templateRoles.filter(role => workflowRoles.includes(role));
+        let matchingRoles = templateRoles.filter(role => workflowRoles.includes(role));
+        // Initiator-selected recipients override the broad role lookup for their roles
+        const { data: chosen } = await supabase
+          .from('mrb_alert_recipients')
+          .select('role_key, email')
+          .eq('mrb_id', mrb.id)
+          .in('role_key', matchingRoles.length ? matchingRoles : ['__none__']);
+        if (chosen && chosen.length > 0) {
+          const chosenRoles = new Set(chosen.map((c: any) => c.role_key));
+          chosen.forEach((c: any) => {
+            if (isValidEmail(c.email) && !toEmails.includes(c.email)) toEmails.push(c.email);
+          });
+          matchingRoles = matchingRoles.filter(r => !chosenRoles.has(r));
+        }
         if (matchingRoles.length > 0) {
           const { data: roleUsers } = await supabase
             .from('user_roles')
