@@ -28,6 +28,7 @@ interface MRBComment {
   text: string;
   author: string;
   date: string | null;
+  stage?: string;
 }
 
 // =====================================================================
@@ -225,6 +226,17 @@ const FORM_STYLESHEET = `
     body { margin: 0; padding: 0; }
     .mrb-preview-wrap { box-shadow: none; padding: 0; }
   }
+
+  /* Unified NCR Rev 3 */
+  .ncr3-head { text-align: center; margin-bottom: 8pt; }
+  .ncr3-head .company { font-size: 15pt; font-weight: bold; }
+  .ncr3-head .division { font-size: 11pt; }
+  .ncr3-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 16pt; }
+  .ncr3-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; column-gap: 12pt; margin-top: 6pt; }
+  .ncr3-f { display: flex; gap: 4pt; padding: 3pt 0; font-size: 10.5pt; }
+  .ncr3-l { min-width: 100pt; font-weight: bold; }
+  .ncr3-v { flex: 1; border-bottom: 0.75pt dotted #666; min-height: 12pt; }
+  .ncr3-sign { display: flex; justify-content: space-between; margin-top: 4pt; font-size: 10.5pt; }
 `;
 
 const MRBPrint = () => {
@@ -242,6 +254,7 @@ const MRBPrint = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [previewContent, setPreviewContent] = useState('');
   const [previewTitle, setPreviewTitle] = useState('');
+  const [printFormat, setPrintFormat] = useState<'existing' | 'rev3'>('existing');
 
   const formType: 'inward_ncr' | 'shop_floor_ncr' =
     selectedMRB?.source === 'shop_floor' ? 'shop_floor_ncr' : 'inward_ncr';
@@ -322,6 +335,7 @@ const MRBPrint = () => {
           text: (h.remarks || '').trim(),
           author: profileMap.get(h.performed_by || '') || h.performed_by_role || '',
           date: h.performed_at || null,
+          stage: `${h.stage || ''} ${h.performed_by_role || ''}`,
         }))
       );
 
@@ -362,12 +376,16 @@ const MRBPrint = () => {
   });
 
   const getPdfFilename = () =>
-    formType === 'shop_floor_ncr'
+    printFormat === 'rev3'
+      ? `NCR_REV3_${selectedMRB?.mrb_number || 'MRB'}.pdf`
+      : formType === 'shop_floor_ncr'
       ? `NCR_EGQC_${selectedMRB?.mrb_number || 'MRB'}.pdf`
       : `NCR_IQC_${selectedMRB?.mrb_number || 'MRB'}.pdf`;
 
   const getReportTitle = () =>
-    formType === 'shop_floor_ncr'
+    printFormat === 'rev3'
+      ? `Non-Conformance Report (Rev 3) - ${selectedMRB?.mrb_number}`
+      : formType === 'shop_floor_ncr'
       ? `Non-Conformity Report - ${selectedMRB?.mrb_number}`
       : `Non-Conformance Report (IQC) - ${selectedMRB?.mrb_number}`;
 
@@ -649,6 +667,128 @@ html,body{margin:0;padding:0;background:#fff;}
   };
 
   // ===================================================================
+  // UNIFIED — NON-CONFORMANCE REPORT — EG-QC-FT-25 REV 3 (2 pages)
+  // ===================================================================
+  const UnifiedNCRReport = () => {
+    const m = selectedMRB;
+    const checked = getDispositionChecked(m?.final_decision || m?.engineering_decision);
+    const isClosed = m?.status === 'closed' || m?.status === 'approved' || m?.closure_status === 'close' || m?.closure_status === 'closed';
+    const commentsFor = (keys: string[]) =>
+      mrbComments.filter((c) => keys.some((k) => (c.stage || '').toLowerCase().includes(k)));
+    const reviewRows = [
+      { dept: 'Purchase', items: commentsFor(['purchase']) },
+      { dept: 'Engineering', items: commentsFor(['engineering', 'design']) },
+      { dept: 'Production', items: commentsFor(['production', 'shop']) },
+      { dept: 'Quality Control', items: commentsFor(['quality', 'committee', 'final']) },
+    ];
+    const approvals = [
+      { dept: 'Purchase', name: approverNames.purchase, date: m?.purchase_approved_at },
+      { dept: 'Engineering', name: approverNames.engineering, date: m?.engineering_approved_at },
+      { dept: 'Production', name: '', date: '' },
+      { dept: 'Quality Control', name: approverNames.quality, date: m?.quality_approved_at },
+    ];
+    const stores = [
+      m?.return_delivery_number && `Return Delivery No: ${m.return_delivery_number}`,
+      m?.rework_order_number && `Rework Order No: ${m.rework_order_number}`,
+      m?.scrap_document_number && `Scrap Document No: ${m.scrap_document_number}`,
+      m?.final_remarks,
+    ].filter(Boolean) as string[];
+    const F = ({ l, v }: { l: string; v?: string | number | null }) => (
+      <div className="ncr3-f"><span className="ncr3-l">{l}</span><span>:</span><span className="ncr3-v">{v ?? ''}</span></div>
+    );
+    const Header = () => (
+      <div className="ncr3-head">
+        <div className="company">HBL Engineering Limited</div>
+        <div className="division">Electronics Group</div>
+        <div className="mrb-title">NON-CONFORMANCE REPORT</div>
+      </div>
+    );
+    return (
+      <div ref={printRef} className="mrb-form">
+        <div className="mrb-page">
+          <Header />
+          <div className="ncr3-grid">
+            <F l="GRN No" v={m?.grn_number} /><F l="NC Report No" v={m?.mrb_number} />
+            <F l="GRN Date" v={formatDate(m?.grn_date)} /><F l="NC Report Date" v={formatDate(m?.created_at)} />
+            <F l="DC/INV No" v="" /><F l="WO No" v={m?.production_order_number} />
+            <F l="DC/INV Date" v="" /><F l="WO Date" v="" />
+            <F l="Vendor Code" v={m?.vendor_code} /><F l="PO No. & Date" v={m?.po_number} />
+            <F l="Vendor Name" v={m?.vendor_name} /><F l="Item Code" v={m?.material_number} />
+          </div>
+          <F l="Item Description" v={m?.material_description} />
+          <div className="ncr3-grid3">
+            <F l="Received QTY" v={m?.total_quantity} />
+            <F l="Accepted QTY" v={m?.accepted_quantity ?? m?.final_approved_quantity} />
+            <F l="Rejected QTY" v={m?.rejected_quantity ?? m?.final_rejected_quantity ?? m?.blocked_quantity} />
+          </div>
+          <F l="Rejected QTY Sl Nos" v={m?.batch} />
+
+          <div className="block-label" style={{ marginTop: '8pt' }}>Non-Conformance details:</div>
+          <div className="block-box" style={{ minHeight: '60pt' }}>
+            {[m?.defect_code, m?.defect_description || m?.issue_description].filter(Boolean).join(' - ')}
+          </div>
+          <div className="ncr3-sign"><span>Initiator Name: {m?.issue_identified_by || approverNames.quality || ''}</span><span>Signature:</span></div>
+
+          <div className="block-label" style={{ marginTop: '8pt' }}>Process QC Comments:</div>
+          <div className="block-box" style={{ minHeight: '50pt' }}>{m?.quality_remarks || ''}</div>
+          <div className="ncr3-sign"><span>Name: {approverNames.quality || ''}</span><span>Signature</span></div>
+
+          <div className="block-label" style={{ marginTop: '8pt' }}>REVIEW by Material Review Board (Root Cause Analysis &amp; CAPA)</div>
+          <table className="mrb-table">
+            <thead><tr><th style={{ width: '24%' }}>Department</th><th>Review comments by MRB</th></tr></thead>
+            <tbody>
+              {reviewRows.map((r) => (
+                <tr key={r.dept}>
+                  <td>{r.dept}</td>
+                  <td style={{ height: '36pt' }}>
+                    {r.items.map((c) => <div key={c.id}>{c.text}{c.author ? ` — ${c.author}` : ''}</div>)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="footer-doc"><span>EG-QC-FT-25 REV 3</span><span>Page 1 of 2</span></div>
+        </div>
+
+        <div className="mrb-page">
+          <Header />
+          <div className="block-label">Material / Product disposition (by MRB):</div>
+          <div className="disposition-grid">
+            <div className="disp-item"><span className={`disp-box${checked.accept_deviation || checked.use_as_is ? ' checked' : ''}`} />Accept under deviation</div>
+            <div className="disp-item"><span className={`disp-box${checked.return_to_vendor ? ' checked' : ''}`} />Return to supplier</div>
+            <div className="disp-item"><span className={`disp-box${checked.rework ? ' checked' : ''}`} />Rework</div>
+            <div className="disp-item"><span className={`disp-box${checked.sort ? ' checked' : ''}`} />Sort</div>
+            <div className="disp-item"><span className={`disp-box${checked.scrap ? ' checked' : ''}`} />Scrap</div>
+            <div className="disp-item"><span className={`disp-box${checked.others ? ' checked' : ''}`} />Others</div>
+          </div>
+
+          <div className="block-label" style={{ marginTop: '10pt' }}>Material Review Board Approvals:</div>
+          <table className="mrb-table">
+            <thead><tr><th style={{ width: '24%' }}>Department</th><th>Name</th><th style={{ width: '20%' }}>Sign</th><th style={{ width: '18%' }}>Date</th></tr></thead>
+            <tbody>
+              {approvals.map((r) => (
+                <tr key={r.dept}><td>{r.dept}</td><td>{r.name || ''}</td><td></td><td className="center">{formatDate(r.date) || ''}</td></tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="block-label" style={{ marginTop: '10pt' }}>Disposition of Non-Confirming Material (by STORES):</div>
+          <div className="block-box" style={{ minHeight: '80pt' }}>
+            {stores.map((s, i) => <div key={i}>{s}</div>)}
+          </div>
+
+          <div className="status-row">
+            <strong style={{ marginRight: '8pt' }}>NCR Status :</strong>
+            <span className={`status-pill${!isClosed ? ' active' : ''}`}>OPEN</span>
+            <span className={`status-pill${isClosed ? ' active' : ''}`}>CLOSED</span>
+          </div>
+          <div className="footer-doc"><span>EG-QC-FT-25 REV 3</span><span>Page 2 of 2</span></div>
+        </div>
+      </div>
+    );
+  };
+
+  // ===================================================================
   // SHOP FLOOR — NON-CONFORMITY REPORT — EG-QC-FT-502 Rev0 (1 page)
   // ===================================================================
   const ShopFloorNCRReport = () => {
@@ -824,13 +964,24 @@ html,body{margin:0;padding:0;background:#fff;}
           </CardHeader>
           <CardContent>
             <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <FileText className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Format:</span>
-                <Badge variant="secondary">{formLabel}</Badge>
-                <span className="text-xs text-muted-foreground">
-                  (auto-selected from source: {selectedMRB.source === 'shop_floor' ? 'Shop Floor' : 'Inward'})
-                </span>
+                <Select value={printFormat} onValueChange={(v) => setPrintFormat(v as 'existing' | 'rev3')}>
+                  <SelectTrigger className="h-8 w-[220px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="existing">Existing format</SelectItem>
+                    <SelectItem value="rev3">Unified NCR (EG-QC-FT-25 Rev 3)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {printFormat === 'existing' && (
+                  <>
+                    <Badge variant="secondary">{formLabel}</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      (auto-selected from source: {selectedMRB.source === 'shop_floor' ? 'Shop Floor' : 'Inward'})
+                    </span>
+                  </>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
@@ -851,7 +1002,9 @@ html,body{margin:0;padding:0;background:#fff;}
 
             <div className="overflow-auto rounded-lg border bg-muted/30 p-4 sm:p-8">
               <div className="mrb-preview-wrap">
-                {formType === 'shop_floor_ncr' ? <ShopFloorNCRReport /> : <InwardNCRReport />}
+                {printFormat === 'rev3'
+                  ? <UnifiedNCRReport />
+                  : formType === 'shop_floor_ncr' ? <ShopFloorNCRReport /> : <InwardNCRReport />}
               </div>
             </div>
           </CardContent>
