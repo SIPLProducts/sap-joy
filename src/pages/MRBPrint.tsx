@@ -237,6 +237,40 @@ const FORM_STYLESHEET = `
   .ncr3-l { min-width: 100pt; font-weight: bold; }
   .ncr3-v { flex: 1; border-bottom: 0.75pt dotted #666; min-height: 12pt; }
   .ncr3-sign { display: flex; justify-content: space-between; margin-top: 4pt; font-size: 10.5pt; }
+
+  /* Rev 3 exact layout */
+  .mrb-form.ncr3 { font-family: Calibri, Carlito, 'Segoe UI', Arial, sans-serif; font-size: 9.5pt; color: #000; }
+  .ncr3-page { position: relative; height: 270mm; overflow: hidden; padding: 0 4mm; }
+  .mrb-page.ncr3-page + .mrb-page.ncr3-page { margin-top: 0; page-break-before: always; break-before: page; }
+  .ncr3 .ncr3-head { position: relative; text-align: center; border-bottom: 0.8pt solid #000; padding-bottom: 1mm; margin-bottom: 0; }
+  .ncr3 .ncr3-head .company { font-size: 16pt; font-weight: bold; line-height: 1.15; }
+  .ncr3 .ncr3-head .division { font-size: 10.5pt; font-weight: bold; }
+  .ncr3 .ncr3-head .title { position: absolute; left: 0; right: 0; top: 100%; font-size: 10.5pt; font-weight: bold; padding-top: 1mm; }
+  .ncr3-logo { position: absolute; right: 0; top: 2mm; height: 9mm; }
+  .ncr3-t { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .ncr3-t td, .ncr3-t th { border: 0.6pt solid #000; padding: 0.4mm 1.2mm; vertical-align: middle; overflow: hidden; word-break: break-word; }
+  .ncr3-kv { margin-top: 9mm; }
+  .ncr3-kv td { height: 4.6mm; font-size: 9pt; }
+  .ncr3-kv td.c { width: 2.5%; text-align: left; }
+  .ncr3-gap { margin-top: 3mm; }
+  .ncr3-lbl { font-weight: bold; font-size: 9.5pt; margin-top: 5mm; margin-bottom: 1mm; }
+  .ncr3-area { position: relative; border: 0.6pt solid #000; padding: 1.5mm; overflow: hidden; }
+  .ncr3-area .txt { font-size: 9pt; white-space: pre-wrap; }
+  .ncr3-area .sig { position: absolute; left: 1.5mm; right: 1.5mm; bottom: 1mm; display: flex; font-size: 9pt; }
+  .ncr3-grid-t th { font-weight: bold; font-size: 8.5pt; text-align: center; height: 5mm; }
+  .ncr3-grid-t th.left { text-align: left; }
+  .ncr3-grid-t td { font-size: 9pt; }
+  .ncr3-grid-t td.small { font-size: 8pt; }
+  .ncr3-grid-t td.center { text-align: center; }
+  .ncr3-disp td { height: 5.5mm; font-size: 9pt; }
+  .ncr3-cb { text-align: center; }
+  .ncr3-box { display: inline-block; width: 3.6mm; height: 3.6mm; border: 0.6pt solid #000; position: relative; vertical-align: middle; }
+  .ncr3-box.on::after { content: "✓"; position: absolute; inset: -1.5mm 0 0 0.3mm; font-weight: bold; font-size: 11pt; line-height: 1; }
+  .ncr3-status { width: auto; margin-top: 12mm; }
+  .ncr3-status td { font-size: 9pt; height: 4.6mm; padding: 0 2mm; }
+  .ncr3-status td.bold { font-weight: bold; width: 25mm; }
+  .ncr3-status td.on { font-weight: bold; }
+  .ncr3-foot { position: absolute; left: 4mm; right: 4mm; bottom: 0; display: flex; justify-content: space-between; font-size: 7.5pt; }
 `;
 
 const MRBPrint = () => {
@@ -693,96 +727,113 @@ html,body{margin:0;padding:0;background:#fff;}
       m?.scrap_document_number && `Scrap Document No: ${m.scrap_document_number}`,
       m?.final_remarks,
     ].filter(Boolean) as string[];
-    const F = ({ l, v }: { l: string; v?: string | number | null }) => (
-      <div className="ncr3-f"><span className="ncr3-l">{l}</span><span>:</span><span className="ncr3-v">{v ?? ''}</span></div>
+    const D = (v?: string | number | null) => (v === null || v === undefined ? '' : String(v));
+    const Row2 = ({ l1, v1, l2, v2 }: { l1: string; v1?: string | number | null; l2: string; v2?: string | number | null }) => (
+      <tr><td className="l">{l1}</td><td className="c">:</td><td className="v">{D(v1)}</td><td className="l">{l2}</td><td className="c">:</td><td className="v">{D(v2)}</td></tr>
     );
     const Header = () => (
       <div className="ncr3-head">
+        <img src={hblLogo} alt="HBL" className="ncr3-logo" />
         <div className="company">HBL Engineering Limited</div>
         <div className="division">Electronics Group</div>
-        <div className="mrb-title">NON-CONFORMANCE REPORT</div>
+        <div className="title">NON-CONFORMANCE REPORT</div>
       </div>
     );
+    const Footer = ({ n }: { n: number }) => (
+      <div className="ncr3-foot"><span>EG-QC-FT-25 REV 3</span><span>Page {n} of 2</span></div>
+    );
+    const Box = ({ on }: { on?: boolean }) => <td className="ncr3-cb"><span className={`ncr3-box${on ? ' on' : ''}`} /></td>;
     return (
-      <div ref={printRef} className="mrb-form">
-        <div className="mrb-page">
+      <div ref={printRef} className="mrb-form ncr3">
+        <div className="mrb-page ncr3-page">
           <Header />
-          <div className="ncr3-grid">
-            <F l="GRN No" v={m?.grn_number} /><F l="NC Report No" v={m?.mrb_number} />
-            <F l="GRN Date" v={formatDate(m?.grn_date)} /><F l="NC Report Date" v={formatDate(m?.created_at)} />
-            <F l="DC/INV No" v="" /><F l="WO No" v={m?.production_order_number} />
-            <F l="DC/INV Date" v="" /><F l="WO Date" v="" />
-            <F l="Vendor Code" v={m?.vendor_code} /><F l="PO No. & Date" v={m?.po_number} />
-            <F l="Vendor Name" v={m?.vendor_name} /><F l="Item Code" v={m?.material_number} />
-          </div>
-          <F l="Item Description" v={m?.material_description} />
-          <div className="ncr3-grid3">
-            <F l="Received QTY" v={m?.total_quantity} />
-            <F l="Accepted QTY" v={m?.accepted_quantity ?? m?.final_approved_quantity} />
-            <F l="Rejected QTY" v={m?.rejected_quantity ?? m?.final_rejected_quantity ?? m?.blocked_quantity} />
-          </div>
-          <F l="Rejected QTY Sl Nos" v={m?.batch} />
+          <table className="ncr3-t ncr3-kv">
+            <colgroup><col style={{ width: '17%' }} /><col style={{ width: '3%' }} /><col style={{ width: '17%' }} /><col style={{ width: '17%' }} /><col style={{ width: '3%' }} /><col /></colgroup>
+            <tbody>
+              <Row2 l1="GRN No" v1={m?.grn_number} l2="NC Report No" v2={m?.mrb_number} />
+              <Row2 l1="GRN Date" v1={formatDate(m?.grn_date)} l2="NC Report Date" v2={formatDate(m?.created_at)} />
+              <Row2 l1="DC/INV No" v1="" l2="WO No" v2={m?.production_order_number} />
+              <Row2 l1="DC/INV Date" v1="" l2="WO Date" v2="" />
+              <Row2 l1="Vendor Code" v1={m?.vendor_code} l2="PO No. & Date" v2={m?.po_number} />
+              <Row2 l1="Vendor Name" v1={m?.vendor_name} l2="Item Code" v2={m?.material_number} />
+              <tr><td className="l">Item Description</td><td className="c">:</td><td className="v" colSpan={4}>{D(m?.material_description)}</td></tr>
+            </tbody>
+          </table>
+          <table className="ncr3-t ncr3-kv ncr3-gap">
+            <tbody><tr>
+              <td className="l">Received QTY</td><td className="c">:</td><td className="v">{D(m?.total_quantity)}</td>
+              <td className="l">Accepted QTY</td><td className="c">:</td><td className="v">{D(m?.accepted_quantity ?? m?.final_approved_quantity)}</td>
+              <td className="l">Rejected QTY</td><td className="c">:</td><td className="v">{D(m?.rejected_quantity ?? m?.final_rejected_quantity ?? m?.blocked_quantity)}</td>
+            </tr></tbody>
+          </table>
+          <table className="ncr3-t ncr3-kv ncr3-gap">
+            <tbody><tr><td className="l" style={{ width: '20%' }}>Rejected QTY Sl Nos</td><td className="c" style={{ width: '3%' }}>:</td><td className="v">{D(m?.batch)}</td></tr></tbody>
+          </table>
 
-          <div className="block-label" style={{ marginTop: '8pt' }}>Non-Conformance details:</div>
-          <div className="block-box" style={{ minHeight: '60pt' }}>
-            {[m?.defect_code, m?.defect_description || m?.issue_description].filter(Boolean).join(' - ')}
+          <div className="ncr3-lbl">Non-Conformance details:</div>
+          <div className="ncr3-area" style={{ height: '30mm' }}>
+            <div className="txt">{[m?.defect_code, m?.defect_description || m?.issue_description].filter(Boolean).join(' - ')}</div>
+            <div className="sig"><span style={{ width: '50%' }}>Initiator Name: {m?.issue_identified_by || approverNames.quality || ''}</span><span>Signature:</span></div>
           </div>
-          <div className="ncr3-sign"><span>Initiator Name: {m?.issue_identified_by || approverNames.quality || ''}</span><span>Signature:</span></div>
 
-          <div className="block-label" style={{ marginTop: '8pt' }}>Process QC Comments:</div>
-          <div className="block-box" style={{ minHeight: '50pt' }}>{m?.quality_remarks || ''}</div>
-          <div className="ncr3-sign"><span>Name: {approverNames.quality || ''}</span><span>Signature</span></div>
+          <div className="ncr3-lbl">Process QC Comments:</div>
+          <div className="ncr3-area" style={{ height: '28mm' }}>
+            <div className="txt">{m?.quality_remarks || ''}</div>
+            <div className="sig"><span style={{ width: '38%' }}>Name: {approverNames.quality || ''}</span><span>Signature</span></div>
+          </div>
 
-          <div className="block-label" style={{ marginTop: '8pt' }}>REVIEW by Material Review Board (Root Cause Analysis &amp; CAPA)</div>
-          <table className="mrb-table">
-            <thead><tr><th style={{ width: '24%' }}>Department</th><th>Review comments by MRB</th></tr></thead>
+          <div className="ncr3-lbl" style={{ marginTop: '6mm' }}>REVIEW by Material Review Board (Root Cause Analysis &amp; CAPA)</div>
+          <table className="ncr3-t ncr3-grid-t">
+            <colgroup><col style={{ width: '18%' }} /><col /></colgroup>
+            <thead><tr><th>Department</th><th className="left">Review comments by MRB</th></tr></thead>
             <tbody>
               {reviewRows.map((r) => (
-                <tr key={r.dept}>
+                <tr key={r.dept} style={{ height: '13mm' }}>
                   <td>{r.dept}</td>
-                  <td style={{ height: '36pt' }}>
-                    {r.items.map((c) => <div key={c.id}>{c.text}{c.author ? ` — ${c.author}` : ''}</div>)}
-                  </td>
+                  <td className="small">{r.items.map((c) => <div key={c.id}>{c.text}{c.author ? ` — ${c.author}` : ''}</div>)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div className="footer-doc"><span>EG-QC-FT-25 REV 3</span><span>Page 1 of 2</span></div>
+          <Footer n={1} />
         </div>
 
-        <div className="mrb-page">
+        <div className="mrb-page ncr3-page">
           <Header />
-          <div className="block-label">Material / Product disposition (by MRB):</div>
-          <div className="disposition-grid">
-            <div className="disp-item"><span className={`disp-box${checked.accept_deviation || checked.use_as_is ? ' checked' : ''}`} />Accept under deviation</div>
-            <div className="disp-item"><span className={`disp-box${checked.return_to_vendor ? ' checked' : ''}`} />Return to supplier</div>
-            <div className="disp-item"><span className={`disp-box${checked.rework ? ' checked' : ''}`} />Rework</div>
-            <div className="disp-item"><span className={`disp-box${checked.sort ? ' checked' : ''}`} />Sort</div>
-            <div className="disp-item"><span className={`disp-box${checked.scrap ? ' checked' : ''}`} />Scrap</div>
-            <div className="disp-item"><span className={`disp-box${checked.others ? ' checked' : ''}`} />Others</div>
-          </div>
+          <div className="ncr3-lbl" style={{ marginTop: '2mm' }}>Material / Product disposition (by MRB):</div>
+          <table className="ncr3-t ncr3-disp">
+            <colgroup><col style={{ width: '5%' }} /><col style={{ width: '45%' }} /><col style={{ width: '5%' }} /><col /></colgroup>
+            <tbody>
+              <tr><Box on={checked.accept_deviation || checked.use_as_is} /><td>Accept under deviation</td><Box on={checked.return_to_vendor} /><td>Return to spplier</td></tr>
+              <tr><Box on={checked.rework} /><td>Rework</td><Box on={checked.sort} /><td>Sort</td></tr>
+              <tr><Box on={checked.scrap} /><td>Scrap</td><Box on={checked.others} /><td>Others</td></tr>
+            </tbody>
+          </table>
 
-          <div className="block-label" style={{ marginTop: '10pt' }}>Material Review Board Approvals:</div>
-          <table className="mrb-table">
-            <thead><tr><th style={{ width: '24%' }}>Department</th><th>Name</th><th style={{ width: '20%' }}>Sign</th><th style={{ width: '18%' }}>Date</th></tr></thead>
+          <div className="ncr3-lbl">Material Review Board Approvals:</div>
+          <table className="ncr3-t ncr3-grid-t">
+            <colgroup><col style={{ width: '22%' }} /><col style={{ width: '30%' }} /><col style={{ width: '28%' }} /><col /></colgroup>
+            <thead><tr><th>Department</th><th>Name</th><th>Sign</th><th>Date</th></tr></thead>
             <tbody>
               {approvals.map((r) => (
-                <tr key={r.dept}><td>{r.dept}</td><td>{r.name || ''}</td><td></td><td className="center">{formatDate(r.date) || ''}</td></tr>
+                <tr key={r.dept} style={{ height: '8.5mm' }}><td>{r.dept}</td><td>{r.name || ''}</td><td></td><td className="center">{formatDate(r.date) || ''}</td></tr>
               ))}
             </tbody>
           </table>
 
-          <div className="block-label" style={{ marginTop: '10pt' }}>Disposition of Non-Confirming Material (by STORES):</div>
-          <div className="block-box" style={{ minHeight: '80pt' }}>
-            {stores.map((s, i) => <div key={i}>{s}</div>)}
+          <div className="ncr3-lbl" style={{ marginTop: '7mm' }}>Disposition of Non-Confirming Material (by STORES):</div>
+          <div className="ncr3-area" style={{ height: '34mm' }}>
+            <div className="txt">{stores.map((s, i) => <div key={i}>{s}</div>)}</div>
           </div>
 
-          <div className="status-row">
-            <strong style={{ marginRight: '8pt' }}>NCR Status :</strong>
-            <span className={`status-pill${!isClosed ? ' active' : ''}`}>OPEN</span>
-            <span className={`status-pill${isClosed ? ' active' : ''}`}>CLOSED</span>
-          </div>
-          <div className="footer-doc"><span>EG-QC-FT-25 REV 3</span><span>Page 2 of 2</span></div>
+          <table className="ncr3-t ncr3-status">
+            <tbody><tr>
+              <td className="bold">NCR Status</td><td className="c">:</td>
+              <td className={!isClosed ? 'on' : ''}>{!isClosed ? '✓ ' : ''}OPEN</td>
+              <td className={isClosed ? 'on' : ''}>{isClosed ? '✓ ' : ''}CLOSED</td>
+            </tr></tbody>
+          </table>
+          <Footer n={2} />
         </div>
       </div>
     );
