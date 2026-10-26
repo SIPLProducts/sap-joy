@@ -475,28 +475,34 @@ html,body{margin:0;padding:0;background:#fff;}
     const filename = getPdfFilename();
     toast({ title: 'Generating PDF', description: 'Please wait...' });
 
+    // Render the form inside an isolated frame (same markup as Print, no app styles),
+    // then capture each A4 page separately so the PDF matches the printed sheets.
+    const frame = document.createElement('iframe');
+    frame.setAttribute('aria-hidden', 'true');
+    Object.assign(frame.style, { position: 'fixed', left: '0', top: '0', width: '794px', height: '1123px', border: '0', opacity: '0', pointerEvents: 'none' });
+    document.body.appendChild(frame);
+
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
+      const doc = frame.contentDocument!;
+      doc.open();
+      doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><base href="${window.location.origin}/"/><style>${FORM_STYLESHEET} html,body{margin:0;padding:0;background:#fff;}</style></head><body>${getFormMarkup()}</body></html>`);
+      doc.close();
+      await waitForImages(doc);
+      if (doc.fonts?.ready) await doc.fonts.ready;
 
-      // Plain, un-positioned element: html2pdf clones it into its own visible overlay for capture
-      const container = document.createElement('div');
-      // Tailwind's img{display:block} shifts text down in html2canvas; reset it for the capture
-      container.innerHTML = `<style>${FORM_STYLESHEET} .mrb-form img{display:inline-block;}</style>${getFormMarkup()}`;
-      container.style.width = '182mm';
-      container.style.background = '#fff';
+      const pages = Array.from(doc.querySelectorAll<HTMLElement>('.mrb-page'));
+      const targets = pages.length ? pages : [doc.body];
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+      const contentW = 182; // A4 210mm minus 14mm side margins
 
-      await waitForImages(container);
-      await html2pdf()
-        .set({
-          margin: [12, 14, 12, 14],
-          filename,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0 },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-          pagebreak: { mode: ['css'] },
-        })
-        .from(container)
-        .save();
+      for (let i = 0; i < targets.length; i++) {
+        const canvas = await html2canvas(targets[i], { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 794 });
+        const imgH = Math.min((canvas.height * contentW) / canvas.width, 273);
+        if (i > 0) pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.98), 'JPEG', 14, 12, contentW, imgH);
+      }
+      pdf.save(filename);
 
       toast({ title: 'PDF Downloaded', description: `${filename} saved.` });
     } catch (error) {
