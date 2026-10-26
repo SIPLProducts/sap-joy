@@ -428,7 +428,11 @@ const MRBPrint = () => {
 <style>${FORM_STYLESHEET}
 html,body{margin:0;padding:0;background:#fff;}
 @media print{
+  @page{size:A4 portrait;margin:0;}
   body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+  .mrb-preview-wrap{width:210mm;padding:0!important;}
+  .mrb-preview-wrap .mrb-page{padding-top:12mm;}
+  .mrb-preview-wrap .mrb-form{margin:0 14mm;}
 }
 </style></head><body><div class="mrb-preview-wrap">${innerHTML}</div></body></html>`;
 
@@ -441,6 +445,9 @@ html,body{margin:0;padding:0;background:#fff;}
     })));
   };
 
+  // Use outerHTML so the form's own root (width + Rev 3 font rules) is included
+  const getFormMarkup = () => printRef.current?.outerHTML || '';
+
   const handlePrint = () => {
     if (!printRef.current) return;
     const w = window.open('', '_blank', 'width=900,height=1100');
@@ -448,7 +455,7 @@ html,body{margin:0;padding:0;background:#fff;}
       toast({ title: 'Print Blocked', description: 'Please allow popups to print.', variant: 'destructive' });
       return;
     }
-    w.document.write(buildStandaloneHTML(printRef.current.innerHTML, getReportTitle()));
+    w.document.write(buildStandaloneHTML(getFormMarkup(), getReportTitle()));
     w.document.close();
     let printed = false;
     const doPrint = async () => {
@@ -471,36 +478,26 @@ html,body{margin:0;padding:0;background:#fff;}
     try {
       const html2pdf = (await import('html2pdf.js')).default;
 
-      // Build a fully-styled container within the viewport (hidden behind the page) so html2canvas captures every page
+      // Plain, un-positioned element: html2pdf clones it into its own visible overlay for capture
       const container = document.createElement('div');
-      container.innerHTML = `<style>${FORM_STYLESHEET}</style><div class="mrb-preview-wrap">${printRef.current.innerHTML}</div>`;
-      container.style.position = 'fixed';
-      container.style.left = '0';
-      container.style.top = '0';
+      container.innerHTML = `<style>${FORM_STYLESHEET}</style>${getFormMarkup()}`;
       container.style.width = '182mm';
-      container.style.zIndex = '-9999';
-      container.style.pointerEvents = 'none';
       container.style.background = '#fff';
-      document.body.appendChild(container);
 
-      try {
-        await waitForImages(container);
-        await html2pdf()
-          .set({
-            margin: [12, 14, 12, 14],
-            filename,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0 },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak: { mode: ['css'] },
-          })
-          .from(container)
-          .save();
+      await waitForImages(container);
+      await html2pdf()
+        .set({
+          margin: [12, 14, 12, 14],
+          filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0 },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: ['css'] },
+        })
+        .from(container)
+        .save();
 
-        toast({ title: 'PDF Downloaded', description: `${filename} saved.` });
-      } finally {
-        document.body.removeChild(container);
-      }
+      toast({ title: 'PDF Downloaded', description: `${filename} saved.` });
     } catch (error) {
       console.error('PDF error:', error);
       toast({ title: 'PDF Error', description: 'Failed to generate PDF.', variant: 'destructive' });
