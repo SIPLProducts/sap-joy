@@ -313,6 +313,33 @@ export type Database = {
         }
         Relationships: []
       }
+      mrb_alert_recipients: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          mrb_id: string
+          role_key: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          mrb_id: string
+          role_key: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          mrb_id?: string
+          role_key?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       mrb_approval_history: {
         Row: {
           action: string
