@@ -432,6 +432,15 @@ html,body{margin:0;padding:0;background:#fff;}
 }
 </style></head><body><div class="mrb-preview-wrap">${innerHTML}</div></body></html>`;
 
+  const waitForImages = async (root: ParentNode) => {
+    const imgs = Array.from(root.querySelectorAll('img'));
+    await Promise.all(imgs.map((img) => img.complete ? Promise.resolve() : new Promise<void>((res) => {
+      img.addEventListener('load', () => res(), { once: true });
+      img.addEventListener('error', () => res(), { once: true });
+      setTimeout(res, 3000);
+    })));
+  };
+
   const handlePrint = () => {
     if (!printRef.current) return;
     const w = window.open('', '_blank', 'width=900,height=1100');
@@ -441,10 +450,17 @@ html,body{margin:0;padding:0;background:#fff;}
     }
     w.document.write(buildStandaloneHTML(printRef.current.innerHTML, getReportTitle()));
     w.document.close();
-    w.onload = () => {
-      setTimeout(() => { w.focus(); w.print(); w.close(); }, 300);
+    let printed = false;
+    const doPrint = async () => {
+      if (printed || w.closed) return;
+      printed = true;
+      await waitForImages(w.document);
+      w.addEventListener('afterprint', () => { try { w.close(); } catch { /* ignore */ } });
+      w.focus();
+      w.print();
     };
-    setTimeout(() => { if (!w.closed) { w.focus(); w.print(); w.close(); } }, 1200);
+    w.onload = () => { setTimeout(doPrint, 200); };
+    setTimeout(doPrint, 1500);
   };
 
   const handleDownloadPDF = async () => {
@@ -455,24 +471,28 @@ html,body{margin:0;padding:0;background:#fff;}
     try {
       const html2pdf = (await import('html2pdf.js')).default;
 
-      // Build a fully-styled offscreen container so PDF == print == preview
+      // Build a fully-styled container within the viewport (hidden behind the page) so html2canvas captures every page
       const container = document.createElement('div');
       container.innerHTML = `<style>${FORM_STYLESHEET}</style><div class="mrb-preview-wrap">${printRef.current.innerHTML}</div>`;
       container.style.position = 'fixed';
-      container.style.left = '-10000px';
+      container.style.left = '0';
       container.style.top = '0';
+      container.style.width = '182mm';
+      container.style.zIndex = '-9999';
+      container.style.pointerEvents = 'none';
       container.style.background = '#fff';
       document.body.appendChild(container);
 
       try {
+        await waitForImages(container);
         await html2pdf()
           .set({
             margin: [12, 14, 12, 14],
             filename,
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
+            html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0 },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak: { mode: ['css', 'legacy'] },
+            pagebreak: { mode: ['css'] },
           })
           .from(container)
           .save();
