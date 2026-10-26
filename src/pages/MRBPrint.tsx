@@ -428,7 +428,11 @@ const MRBPrint = () => {
 <style>${FORM_STYLESHEET}
 html,body{margin:0;padding:0;background:#fff;}
 @media print{
+  @page{size:A4 portrait;margin:0;}
   body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+  .mrb-preview-wrap{width:210mm;padding:0!important;}
+  .mrb-preview-wrap .mrb-page{padding-top:12mm!important;margin-top:0!important;}
+  .mrb-preview-wrap .mrb-form{margin:0 14mm;}
 }
 </style></head><body><div class="mrb-preview-wrap">${innerHTML}</div></body></html>`;
 
@@ -441,6 +445,9 @@ html,body{margin:0;padding:0;background:#fff;}
     })));
   };
 
+  // Use outerHTML so the form's own root (width + Rev 3 font rules) is included
+  const getFormMarkup = () => printRef.current?.outerHTML || '';
+
   const handlePrint = () => {
     if (!printRef.current) return;
     const w = window.open('', '_blank', 'width=900,height=1100');
@@ -448,7 +455,7 @@ html,body{margin:0;padding:0;background:#fff;}
       toast({ title: 'Print Blocked', description: 'Please allow popups to print.', variant: 'destructive' });
       return;
     }
-    w.document.write(buildStandaloneHTML(printRef.current.innerHTML, getReportTitle()));
+    w.document.write(buildStandaloneHTML(getFormMarkup(), getReportTitle()));
     w.document.close();
     let printed = false;
     const doPrint = async () => {
@@ -468,42 +475,41 @@ html,body{margin:0;padding:0;background:#fff;}
     const filename = getPdfFilename();
     toast({ title: 'Generating PDF', description: 'Please wait...' });
 
+    // Render the form inside an isolated frame (same markup as Print, no app styles),
+    // then capture each A4 page separately so the PDF matches the printed sheets.
+    const frame = document.createElement('iframe');
+    frame.setAttribute('aria-hidden', 'true');
+    Object.assign(frame.style, { position: 'fixed', left: '0', top: '0', width: '794px', height: '1123px', border: '0', opacity: '0', pointerEvents: 'none' });
+    document.body.appendChild(frame);
+
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas-pro'), import('jspdf')]);
+      const doc = frame.contentDocument!;
+      doc.open();
+      doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><base href="${window.location.origin}/"/><style>${FORM_STYLESHEET} html,body{margin:0;padding:0;background:#fff;}</style></head><body>${getFormMarkup()}</body></html>`);
+      doc.close();
+      await waitForImages(doc);
+      if (doc.fonts?.ready) await doc.fonts.ready;
 
-      // Build a fully-styled container within the viewport (hidden behind the page) so html2canvas captures every page
-      const container = document.createElement('div');
-      container.innerHTML = `<style>${FORM_STYLESHEET}</style><div class="mrb-preview-wrap">${printRef.current.innerHTML}</div>`;
-      container.style.position = 'fixed';
-      container.style.left = '0';
-      container.style.top = '0';
-      container.style.width = '182mm';
-      container.style.zIndex = '-9999';
-      container.style.pointerEvents = 'none';
-      container.style.background = '#fff';
-      document.body.appendChild(container);
+      const pages = Array.from(doc.querySelectorAll<HTMLElement>('.mrb-page'));
+      const targets = pages.length ? pages : [doc.body];
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+      const contentW = 182; // A4 210mm minus 14mm side margins
 
-      try {
-        await waitForImages(container);
-        await html2pdf()
-          .set({
-            margin: [12, 14, 12, 14],
-            filename,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0 },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak: { mode: ['css'] },
-          })
-          .from(container)
-          .save();
-
-        toast({ title: 'PDF Downloaded', description: `${filename} saved.` });
-      } finally {
-        document.body.removeChild(container);
+      for (let i = 0; i < targets.length; i++) {
+        const canvas = await html2canvas(targets[i], { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 794 });
+        const imgH = Math.min((canvas.height * contentW) / canvas.width, 273);
+        if (i > 0) pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.98), 'JPEG', 14, 12, contentW, imgH);
       }
+      pdf.save(filename);
+
+      toast({ title: 'PDF Downloaded', description: `${filename} saved.` });
     } catch (error) {
       console.error('PDF error:', error);
       toast({ title: 'PDF Error', description: 'Failed to generate PDF.', variant: 'destructive' });
+    } finally {
+      frame.remove();
     }
   };
 
@@ -820,7 +826,7 @@ html,body{margin:0;padding:0;background:#fff;}
 
         <div className="mrb-page ncr3-page">
           <Header />
-          <div className="ncr3-lbl" style={{ marginTop: '2mm' }}>Material / Product disposition (by MRB):</div>
+          <div className="ncr3-lbl" style={{ marginTop: '9mm' }}>Material / Product disposition (by MRB):</div>
           <table className="ncr3-t ncr3-disp">
             <colgroup><col style={{ width: '5%' }} /><col style={{ width: '45%' }} /><col style={{ width: '5%' }} /><col /></colgroup>
             <tbody>
