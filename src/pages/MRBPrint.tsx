@@ -254,7 +254,7 @@ const MRBPrint = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [previewContent, setPreviewContent] = useState('');
   const [previewTitle, setPreviewTitle] = useState('');
-  const [printFormat, setPrintFormat] = useState<'existing' | 'rev3'>('existing');
+  const [printFormat] = useState<'existing' | 'rev3'>('rev3');
 
   const formType: 'inward_ncr' | 'shop_floor_ncr' =
     selectedMRB?.source === 'shop_floor' ? 'shop_floor_ncr' : 'inward_ncr';
@@ -967,21 +967,7 @@ html,body{margin:0;padding:0;background:#fff;}
               <div className="flex flex-wrap items-center gap-2">
                 <FileText className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Format:</span>
-                <Select value={printFormat} onValueChange={(v) => setPrintFormat(v as 'existing' | 'rev3')}>
-                  <SelectTrigger className="h-8 w-[220px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="existing">Existing format</SelectItem>
-                    <SelectItem value="rev3">Unified NCR (EG-QC-FT-25 Rev 3)</SelectItem>
-                  </SelectContent>
-                </Select>
-                {printFormat === 'existing' && (
-                  <>
-                    <Badge variant="secondary">{formLabel}</Badge>
-                    <span className="text-xs text-muted-foreground">
-                      (auto-selected from source: {selectedMRB.source === 'shop_floor' ? 'Shop Floor' : 'Inward'})
-                    </span>
-                  </>
-                )}
+                <Badge variant="secondary">NCR — EG-QC-FT-25 Rev 3</Badge>
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
