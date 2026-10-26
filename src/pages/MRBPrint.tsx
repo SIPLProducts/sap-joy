@@ -508,6 +508,8 @@ html,body{margin:0;padding:0;background:#fff;}
     } catch (error) {
       console.error('PDF error:', error);
       toast({ title: 'PDF Error', description: 'Failed to generate PDF.', variant: 'destructive' });
+    } finally {
+      frame.remove();
     }
   };
 
