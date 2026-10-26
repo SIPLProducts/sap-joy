@@ -16,6 +16,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { useMRBDatabase } from '@/hooks/useMRBDatabase';
+import { AlertRecipientPicker, type AlertRecipientMap } from '@/components/mrb/AlertRecipientPicker';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -192,6 +193,7 @@ export default function CreateInwardMRB() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('inspection_report');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [alertRecipients, setAlertRecipients] = useState<AlertRecipientMap>({});
   const [lastSaved, setLastSaved] = useState<Date | null>(savedDraft ? new Date() : null);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
@@ -541,7 +543,7 @@ export default function CreateInwardMRB() {
         quality_remarks: formData.qualityInspectionComments,
         quality_approved_by: user?.id,
         quality_approved_at: new Date().toISOString(),
-      } as any, workflowRouting);
+      } as any, workflowRouting, Object.fromEntries(Object.entries(alertRecipients).filter(([k]) => workflowRouting.includes(k))));
 
       if (newMRB) {
         // Update the inspection lot status to 'mrb_created'
@@ -1102,6 +1104,14 @@ Quality Department`;
         </div>
 
         <Separator />
+
+        <AlertRecipientPicker
+          departments={formData.nextReviewDepartments}
+          plant={formData.plant}
+          getLabel={(k) => nextReviewDepartments.find(d => d.value === k)?.label || k}
+          value={alertRecipients}
+          onChange={setAlertRecipients}
+        />
 
         {/* Section 4: Workflow Routing */}
         <div className="bg-background rounded-lg border border-border shadow-sm">
