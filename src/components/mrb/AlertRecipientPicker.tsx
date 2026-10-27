@@ -99,9 +99,9 @@ export function AlertRecipientPicker({ departments, getLabel, value, onChange }:
                   className="h-8 text-sm"
                   value={drafts[role] || ''}
                   onChange={e => { setDrafts({ ...drafts, [role]: e.target.value }); setErrors({ ...errors, [role]: '' }); }}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addManual(role); } }}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addManual(role, list); } }}
                 />
-                <Button type="button" size="sm" variant="outline" onClick={() => addManual(role)}>Add</Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => addManual(role, list)}>Add</Button>
               </div>
               {errors[role] && <p className="text-xs text-destructive">{errors[role]}</p>}
             </div>
