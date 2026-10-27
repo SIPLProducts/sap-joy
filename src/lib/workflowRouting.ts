@@ -58,7 +58,8 @@ export function buildRoutingFromSelection(departments: string[]): string[] {
 export function getNextWorkflowStep(
   workflowRouting: string[],
   currentRole: string,
-  deptMaps?: { deptToRole: Record<string, string>; roleToDept: Record<string, string>; deptToStatus: Record<string, string> }
+  deptMaps?: { deptToRole: Record<string, string>; roleToDept: Record<string, string>; deptToStatus: Record<string, string> },
+  occurrence: number = 0
 ): { nextDept: string; nextRole: AppRole; nextStatus: MRBStatus; isLast: boolean } | null {
   if (!workflowRouting || workflowRouting.length === 0) return null;
 
@@ -66,11 +67,17 @@ export function getNextWorkflowStep(
   const deptToRole = deptMaps?.deptToRole || {};
   const deptToStatus = deptMaps?.deptToStatus || {};
 
-  // Find current position — match by department key or by role
+  // Find current position — match by department key or by role.
+  // When a role appears more than once (e.g. Quality Head + Second Quality Head),
+  // `occurrence` picks which appearance is the current one.
   const currentDept = roleToDept[currentRole] || currentRole;
-  const currentIndex = workflowRouting.findIndex(
-    (d) => d === currentDept || d === currentRole || deptToRole[d] === currentRole
-  );
+  const matches: number[] = [];
+  workflowRouting.forEach((d, i) => {
+    if (d === currentDept || d === currentRole || deptToRole[d] === currentRole) matches.push(i);
+  });
+  const currentIndex = matches.length === 0
+    ? -1
+    : matches[Math.min(Math.max(occurrence, 0), matches.length - 1)];
 
   if (currentIndex === -1) {
     // Current role not in the routing — might be the creator (quality)
