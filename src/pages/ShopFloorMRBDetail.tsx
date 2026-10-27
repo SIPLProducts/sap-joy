@@ -174,7 +174,7 @@ export default function ShopFloorMRBDetail() {
           additionalUpdates.pending_with = deptToRole[nextDept] || nextDept;
         }
         historyAction = 'approved';
-      } elseif (action === 'approve' || action === 'use_as_is') {
+      } else if (action === 'approve' || action === 'use_as_is') {
         newStatus = 'approved';
         additionalUpdates.pending_with = null;
         additionalUpdates.final_decision = action === 'approve' ? 'approved' : action;

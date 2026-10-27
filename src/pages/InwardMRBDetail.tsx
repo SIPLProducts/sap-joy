@@ -224,7 +224,7 @@ export default function InwardMRBDetail() {
           additionalUpdates.pending_with = deptToRole[nextDept] || nextDept;
         }
         historyAction = 'approved';
-      } elseif (action === 'approve') {
+      } else if (action === 'approve') {
         // Final approval — SAP sync becomes available
         newStatus = 'approved';
         additionalUpdates.pending_with = null;
