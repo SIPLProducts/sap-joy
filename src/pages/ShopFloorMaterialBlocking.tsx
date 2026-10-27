@@ -145,7 +145,7 @@ export default function ShopFloorMaterialBlocking() {
     }
   };
 
-  // Manual Routing defaults: Quality Head first, Second Quality Head before Stores, Stores last
+  // Manual Routing defaults: chosen steps, then Quality Head, then Stores (always last)
   useEffect(() => {
     if (workflowType !== 'manual') return;
     const normalized = buildManualRouting(nextReviewDepartments);
