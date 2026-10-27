@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Mail } from 'lucide-react';
+import { getHblContactsFor } from '@/lib/hblAlertContacts';
 
 export interface AlertRecipient { user_id: string; email: string; }
 export type AlertRecipientMap = Record<string, AlertRecipient[]>;
@@ -77,9 +78,9 @@ export function AlertRecipientPicker({ departments, plant, getLabel, value, onCh
               {list.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No users found for this department.</p>
               ) : list.map(p => (
-                <label key={p.user_id} className="flex items-center gap-2 text-sm cursor-pointer">
+                <label key={p.email} className="flex items-center gap-2 text-sm cursor-pointer">
                   <Checkbox
-                    checked={!!value[role]?.some(x => x.user_id === p.user_id)}
+                    checked={!!value[role]?.some(x => same(x, p))}
                     onCheckedChange={c => toggle(role, p, !!c)}
                   />
                   <span>{p.full_name}</span>
