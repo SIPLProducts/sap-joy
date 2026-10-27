@@ -189,8 +189,11 @@ async function fetchViaProxy(
   // Parse the proxy's wrapped response
   try {
     const proxyResult = JSON.parse(responseText);
-    const sapStatus = proxyResult.statusCode || 200;
-    const sapBody = typeof proxyResult.body === 'string' ? proxyResult.body : JSON.stringify(proxyResult.body || '');
+    const isWrapped = proxyResult && typeof proxyResult === 'object' && !Array.isArray(proxyResult) &&
+      ('statusCode' in proxyResult || 'body' in proxyResult || 'data' in proxyResult || 'response' in proxyResult);
+    const sapStatus = isWrapped ? (proxyResult.statusCode || proxyResult.status || 200) : 200;
+    const rawBody = isWrapped ? (proxyResult.body ?? proxyResult.data ?? proxyResult.response ?? '') : proxyResult;
+    const sapBody = typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody);
     return {
       ok: sapStatus >= 200 && sapStatus < 300,
       status: sapStatus,

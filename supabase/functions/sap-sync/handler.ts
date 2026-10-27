@@ -1038,8 +1038,10 @@ async function fetchViaProxy(
   try {
     const proxyResult = JSON.parse(responseText)
     console.log(`[fetchViaProxy] Proxy response keys: ${Object.keys(proxyResult).join(', ')}, statusCode: ${proxyResult.statusCode}`)
-    const sapStatus = proxyResult.statusCode || proxyResult.status || 200
-    const rawBody = proxyResult.body ?? proxyResult.data ?? proxyResult.response ?? ''
+    const isWrapped = proxyResult && typeof proxyResult === 'object' && !Array.isArray(proxyResult) &&
+      ('statusCode' in proxyResult || 'body' in proxyResult || 'data' in proxyResult || 'response' in proxyResult)
+    const sapStatus = isWrapped ? (proxyResult.statusCode || proxyResult.status || 200) : 200
+    const rawBody = isWrapped ? (proxyResult.body ?? proxyResult.data ?? proxyResult.response ?? '') : proxyResult
     const sapBody = typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody)
     console.log(`[fetchViaProxy] SAP status: ${sapStatus}, body length: ${sapBody.length}, body preview: ${sapBody.substring(0, 300)}`)
 
