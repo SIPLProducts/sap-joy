@@ -265,7 +265,7 @@ const FORM_STYLESHEET = `
   .ncr3-disp td { height: 5.5mm; font-size: 9pt; }
   .ncr3-cb { text-align: center; }
   .ncr3-box { display: inline-block; width: 3.6mm; height: 3.6mm; border: 0.6pt solid #000; position: relative; vertical-align: middle; }
-  .ncr3-box.on::after { content: "✓"; position: absolute; inset: -1.5mm 0 0 0.3mm; font-weight: bold; font-size: 11pt; line-height: 1; }
+  .ncr3-box.on::after { content: "✓"; position: absolute; inset: 0; font-weight: bold; font-size: 8.5pt; line-height: 3.4mm; text-align: center; }
   .ncr3-status { width: auto; margin-top: 12mm; }
   .ncr3-status td { font-size: 9pt; height: 4.6mm; padding: 0 2mm; }
   .ncr3-status td.bold { font-weight: bold; width: 25mm; }
