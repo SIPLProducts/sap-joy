@@ -401,12 +401,12 @@ const MRBPrint = () => {
 
   const getDispositionChecked = (decision: string | null | undefined) => ({
     use_as_is: decision === 'use_as_is' || decision === 'accept' || decision === 'approved',
-    sort: false,
-    return_to_vendor: decision === 'return_to_vendor',
-    rework: decision === 'rework_required',
-    scrap: decision === 'scrap_material' || decision === 'reject' || decision === 'rejected',
-    accept_deviation: decision === 'use_with_deviation' || decision === 'partial_accept',
-    others: false,
+    sort: decision === 'sort',
+    return_to_vendor: decision === 'return_to_vendor' || decision === 'return_to_supplier',
+    rework: decision === 'rework_required' || decision === 'rework',
+    scrap: decision === 'scrap_material' || decision === 'reject' || decision === 'rejected' || decision === 'scrap',
+    accept_deviation: decision === 'use_with_deviation' || decision === 'partial_accept' || decision === 'accept_under_deviation',
+    others: decision === 'others',
   });
 
   const getPdfFilename = () =>
