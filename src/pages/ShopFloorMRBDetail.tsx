@@ -548,7 +548,7 @@ export default function ShopFloorMRBDetail() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label>
-                      Action {isQualityHeadStep && <span className=\"text-destructive\">*</span>}
+                      Action {isQualityHeadStep && <span className="text-destructive">*</span>}
                     </Label>
                     <Select
                       value={isQualityHeadStep ? reviewData.action : ''}
