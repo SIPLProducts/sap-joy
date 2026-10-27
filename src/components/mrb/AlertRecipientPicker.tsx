@@ -23,6 +23,7 @@ const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 export function AlertRecipientPicker({ departments, getLabel, value, onChange }: Props) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [manualList, setManualList] = useState<Record<string, string[]>>({});
 
   if (departments.length === 0) return null;
 
@@ -34,14 +35,29 @@ export function AlertRecipientPicker({ departments, getLabel, value, onChange }:
     onChange({ ...value, [role]: checked ? [...cur, { user_id: null, email }] : cur });
   };
 
-  const addManual = (role: string) => {
+  const getManual = (role: string, list: string[]) => {
+    const saved = manualList[role] || [];
+    const fromValue = (value[role] || []).map(x => x.email.toLowerCase())
+      .filter(e => !list.includes(e) && !saved.includes(e));
+    return [...saved, ...fromValue];
+  };
+
+  const addManual = (role: string, list: string[]) => {
     const email = (drafts[role] || '').trim().toLowerCase();
     if (!email) return;
     if (!isValidEmail(email)) { setErrors({ ...errors, [role]: 'Please enter a valid email.' }); return; }
-    if (has(role, email)) { setErrors({ ...errors, [role]: 'This email is already added.' }); return; }
+    if (has(role, email) || list.includes(email) || getManual(role, list).includes(email)) {
+      setErrors({ ...errors, [role]: 'This email is already added.' }); return;
+    }
+    setManualList({ ...manualList, [role]: [...getManual(role, list), email] });
     setChecked(role, email, true);
     setDrafts({ ...drafts, [role]: '' });
     setErrors({ ...errors, [role]: '' });
+  };
+
+  const removeManual = (role: string, email: string, list: string[]) => {
+    setManualList({ ...manualList, [role]: getManual(role, list).filter(e => e !== email) });
+    setChecked(role, email, false);
   };
 
   return (
@@ -54,7 +70,7 @@ export function AlertRecipientPicker({ departments, getLabel, value, onChange }:
         {departments.map(role => {
           const label = getLabel?.(role) || role;
           const list = getHblContactsFor(role, label);
-          const manual = (value[role] || []).filter(x => !list.includes(x.email.toLowerCase()));
+          const manual = getManual(role, list);
           return (
             <div key={role} className="border rounded-md p-3 space-y-2">
               <div className="font-medium text-sm">{label}</div>
@@ -65,18 +81,17 @@ export function AlertRecipientPicker({ departments, getLabel, value, onChange }:
                   <span className="truncate">{email}</span>
                 </label>
               ))}
-              {manual.length > 0 && (
-                <div className="flex flex-wrap gap-1 pt-1">
-                  {manual.map(m => (
-                    <span key={m.email} className="inline-flex items-center gap-1 rounded bg-secondary text-secondary-foreground px-2 py-0.5 text-xs">
-                      {m.email}
-                      <button type="button" onClick={() => setChecked(role, m.email, false)} aria-label={`Remove ${m.email}`}>
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
+              {manual.map(email => (
+                <div key={email} className="flex items-center gap-2 text-sm">
+                  <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
+                    <Checkbox checked={has(role, email)} onCheckedChange={c => setChecked(role, email, !!c)} />
+                    <span className="truncate">{email}</span>
+                  </label>
+                  <button type="button" className="text-muted-foreground hover:text-destructive" onClick={() => removeManual(role, email, list)} aria-label={`Remove ${email}`}>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-              )}
+              ))}
               <div className="flex gap-2 pt-1">
                 <Input
                   type="email"
