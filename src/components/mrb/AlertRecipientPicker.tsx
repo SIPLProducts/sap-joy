@@ -45,9 +45,14 @@ export function AlertRecipientPicker({ departments, plant, getLabel, value, onCh
 
   if (departments.length === 0) return null;
 
+  const same = (a: { user_id: string | null; email: string }, p: Person) =>
+    a.email.toLowerCase() === p.email.toLowerCase();
+
   const toggle = (role: string, p: Person, checked: boolean) => {
     const cur = value[role] || [];
-    const next = checked ? [...cur, { user_id: p.user_id, email: p.email }] : cur.filter(x => x.user_id !== p.user_id);
+    const next = checked
+      ? [...cur.filter(x => !same(x, p)), { user_id: p.user_id || (null as any), email: p.email }]
+      : cur.filter(x => !same(x, p));
     onChange({ ...value, [role]: next });
   };
 
@@ -59,10 +64,16 @@ export function AlertRecipientPicker({ departments, plant, getLabel, value, onCh
       </CardHeader>
       <CardContent className="grid gap-4 md:grid-cols-2">
         {departments.map(role => {
-          const list = people.filter(p => p.role === role);
+          const label = getLabel?.(role) || role;
+          const list: Person[] = people.filter(p => p.role === role);
+          getHblContactsFor(role, label).forEach(email => {
+            if (!list.some(p => p.email.toLowerCase() === email)) {
+              list.push({ user_id: '', full_name: email.split('@')[0], email, role });
+            }
+          });
           return (
             <div key={role} className="border rounded-md p-3 space-y-2">
-              <div className="font-medium text-sm">{getLabel?.(role) || role}</div>
+              <div className="font-medium text-sm">{label}</div>
               {list.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No users found for this department.</p>
               ) : list.map(p => (
