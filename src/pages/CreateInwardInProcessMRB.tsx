@@ -28,6 +28,7 @@ import { useDepartments } from '@/hooks/useDepartments';
 import { useDepartmentMap } from '@/hooks/useDepartmentMap';
 import type { Database } from '@/integrations/supabase/types';
 import { fetchPlantWorkflow } from '@/lib/workflowRouting';
+import { buildManualRouting, isLockedManualStep, MANUAL_SECOND_LAST } from '@/lib/manualRoutingDefaults';
 
 type QualityDecision = Database['public']['Enums']['quality_decision'];
 type DefectCategory = Database['public']['Enums']['defect_category'];
@@ -257,6 +258,15 @@ export default function CreateInwardInProcessMRB() {
       setFormData(prev => ({ ...prev, nextReviewDepartments: [] }));
     }
   };
+
+  // Manual Routing defaults: Quality Head first, Second Quality Head before Stores, Stores last
+  useEffect(() => {
+    if (workflowType !== 'manual') return;
+    const normalized = buildManualRouting(formData.nextReviewDepartments);
+    if (normalized.join('|') !== formData.nextReviewDepartments.join('|')) {
+      setFormData(prev => ({ ...prev, nextReviewDepartments: buildManualRouting(prev.nextReviewDepartments) }));
+    }
+  }, [workflowType, formData.nextReviewDepartments]);
 
   // Manual routing reorder
   const moveRouteStep = (index: number, direction: 'up' | 'down') => {
@@ -1348,18 +1358,18 @@ Quality Department`;
                       {formData.nextReviewDepartments.map((dept, idx) => {
                         const deptInfo = nextReviewDepartments.find(d => d.value === dept);
                         return (
-                          <div key={dept} className="flex items-center gap-2 bg-background rounded-md border px-3 py-2">
+                          <div key={`${dept}-${idx}`} className="flex items-center gap-2 bg-background rounded-md border px-3 py-2">
                             <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">
                               {idx + 1}
                             </span>
-                            <span className="flex-1 text-sm font-medium">{deptInfo?.label || dept}</span>
+                            <span className="flex-1 text-sm font-medium">{workflowType === 'manual' && dept === MANUAL_SECOND_LAST && idx === formData.nextReviewDepartments.length - 2 ? 'Second Quality Head' : (deptInfo?.label || dept)}{workflowType === 'manual' && isLockedManualStep(dept) && <span className="ml-2 text-xs text-muted-foreground">(default)</span>}</span>
                             <div className="flex gap-1">
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
-                                disabled={idx === 0}
+                                disabled={idx === 0 || (workflowType === 'manual' && (isLockedManualStep(dept) || idx === 1))}
                                 onClick={() => moveRouteStep(idx, 'up')}
                               >
                                 <ArrowUp className="h-3.5 w-3.5" />
@@ -1369,7 +1379,7 @@ Quality Department`;
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
-                                disabled={idx === formData.nextReviewDepartments.length - 1}
+                                disabled={idx === formData.nextReviewDepartments.length - 1 || (workflowType === 'manual' && (isLockedManualStep(dept) || idx === formData.nextReviewDepartments.length - 3))}
                                 onClick={() => moveRouteStep(idx, 'down')}
                               >
                                 <ArrowDown className="h-3.5 w-3.5" />

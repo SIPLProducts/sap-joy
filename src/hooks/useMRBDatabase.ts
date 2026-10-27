@@ -196,7 +196,23 @@ export function useMRBDatabase() {
         newStatus !== 'approved' &&
         newStatus !== 'closed'
       ) {
-        const nextStep = getNextWorkflowStep(workflowRouting, actingRole, deptMaps);
+        // If this role appears more than once in the routing (e.g. Second Quality Head),
+        // count its earlier approvals to know which step is current.
+        let occurrence = 0;
+        const actingDept = deptMaps.roleToDept[actingRole] || actingRole;
+        const appearances = workflowRouting.filter(
+          d => d === actingDept || d === actingRole || deptMaps.deptToRole[d] === actingRole
+        ).length;
+        if (appearances > 1) {
+          const { count } = await supabase
+            .from('mrb_approval_history')
+            .select('id', { count: 'exact', head: true })
+            .eq('mrb_id', id)
+            .eq('action', 'approved')
+            .eq('stage', currentStageLabel);
+          occurrence = count || 0;
+        }
+        const nextStep = getNextWorkflowStep(workflowRouting, actingRole, deptMaps, occurrence);
 
         if (nextStep) {
           if (nextStep.isLast && nextStep.nextStatus === 'approved') {
