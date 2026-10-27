@@ -36,7 +36,7 @@ import { AvailableStockRecord, shopFloorBlockReasons, shopFloorAttachmentCategor
 import { useDepartments } from '@/hooks/useDepartments';
 import { useDepartmentMap } from '@/hooks/useDepartmentMap';
 import { fetchPlantWorkflow } from '@/lib/workflowRouting';
-import { buildManualRouting, isLockedManualStep, MANUAL_SECOND_LAST } from '@/lib/manualRoutingDefaults';
+import { buildManualRouting, isLockedManualStep } from '@/lib/manualRoutingDefaults';
 import { invokeSapSync } from '@/lib/sapSyncClient';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -850,14 +850,14 @@ export default function ShopFloorMaterialBlocking() {
                             <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">
                               {idx + 1}
                             </span>
-                            <span className="flex-1 text-sm font-medium">{workflowType === 'manual' && dept === MANUAL_SECOND_LAST && idx === nextReviewDepartments.length - 2 ? 'Second Quality Head' : (deptInfo?.label || dept)}{workflowType === 'manual' && isLockedManualStep(dept) && <span className="ml-2 text-xs text-muted-foreground">(default)</span>}</span>
+                            <span className="flex-1 text-sm font-medium">{deptInfo?.label || dept}{workflowType === 'manual' && isLockedManualStep(dept) && <span className="ml-2 text-xs text-muted-foreground">(default)</span>}</span>
                             <div className="flex gap-1">
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
-                                disabled={idx === 0 || (workflowType === 'manual' && (isLockedManualStep(dept) || idx === 1))}
+                                disabled={idx === 0 || (workflowType === 'manual' && isLockedManualStep(dept))}
                                 onClick={() => moveRouteStep(idx, 'up')}
                               >
                                 <ArrowUp className="h-3.5 w-3.5" />
