@@ -114,10 +114,21 @@ export default function ShopFloorMRBDetail() {
     userRole === 'admin' ||
     isMasterAdmin
   );
+  // Only Quality Head selects the Action; other departments must enter Review Comments
+  const isQualityHeadStep = (mrb.pending_with || userRole) === 'quality_head';
+  const QH_ACTIONS = ['accept_under_deviation', 'return_to_supplier', 'rework', 'sort', 'scrap', 'others'];
   const displayStatusLabel = getWorkflowReviewLabel(mrb.status, mrb.pending_with, roleDisplayNames);
 
   const handleOpenApprovalDialog = () => {
-    if (!reviewData.action) {
+    if (!isQualityHeadStep && !reviewData.reviewComments.trim()) {
+      toast({
+        title: 'Validation Error',
+        description: 'Review Comments are required',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (isQualityHeadStep && !reviewData.action) {
       toast({
         title: 'Validation Error',
         description: 'Please select an action',
@@ -135,7 +146,7 @@ export default function ShopFloorMRBDetail() {
     setIsSubmitting(true);
 
     try {
-      const action = reviewData.action;
+      const action = isQualityHeadStep ? reviewData.action : 'forward';
       const workflowRouting = Array.isArray(mrb.workflow_routing) ? (mrb.workflow_routing as string[]) : [];
 
       const currentRoutingRole = mrb.pending_with || userRole || '';
@@ -149,7 +160,21 @@ export default function ShopFloorMRBDetail() {
       let additionalUpdates: Partial<MRBRecord> = {};
       let historyAction: 'approved' | 'forwarded' | 'returned' | 'returned_for_clarification' = 'forwarded';
 
-      if (action === 'approve' || action === 'use_as_is') {
+      if (QH_ACTIONS.includes(action) || action === 'forward') {
+        const nextDept = currentIdx >= 0 ? workflowRouting[currentIdx + 1] : workflowRouting[0];
+        if (QH_ACTIONS.includes(action)) additionalUpdates.final_decision = action;
+        if (isLastStep || !nextDept) {
+          newStatus = 'approved';
+          additionalUpdates.pending_with = null;
+          if (!QH_ACTIONS.includes(action)) additionalUpdates.final_decision = 'approved';
+          additionalUpdates.final_approved_by = (profile as any)?.user_id || null;
+          additionalUpdates.final_approved_at = new Date().toISOString();
+        } else {
+          newStatus = getRoutedStatus(nextDept, deptToStatus, 'quality_review');
+          additionalUpdates.pending_with = deptToRole[nextDept] || nextDept;
+        }
+        historyAction = 'approved';
+      } elseif (action === 'approve' || action === 'use_as_is') {
         newStatus = 'approved';
         additionalUpdates.pending_with = null;
         additionalUpdates.final_decision = action === 'approve' ? 'approved' : action;
@@ -241,6 +266,13 @@ export default function ShopFloorMRBDetail() {
 
   const getActionLabel = (action: string) => {
     const labels: Record<string, string> = {
+      'accept_under_deviation': 'Accept under deviation',
+      'return_to_supplier': 'Return to supplier',
+      'rework': 'Rework',
+      'sort': 'Sort',
+      'scrap': 'Scrap',
+      'others': 'Others',
+      'forward': 'Reviewed',
       'approve': 'Approved',
       'return_for_clarification': 'Returned for Clarification',
       'approve_with_deviation': 'Approved with Deviation',
@@ -516,29 +548,36 @@ export default function ShopFloorMRBDetail() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label>
-                      Action <span className="text-destructive">*</span>
+                      Action {isQualityHeadStep && <span className=\"text-destructive\">*</span>}
                     </Label>
                     <Select
-                      value={reviewData.action}
+                      value={isQualityHeadStep ? reviewData.action : ''}
                       onValueChange={(value) => setReviewData({ ...reviewData, action: value })}
+                      disabled={!isQualityHeadStep}
                     >
                       <SelectTrigger className="bg-background">
-                        <SelectValue placeholder="Select Action" />
+                        <SelectValue placeholder={isQualityHeadStep ? "Select Action" : "Only Quality Head selects the Action"} />
                       </SelectTrigger>
                       <SelectContent className="bg-popover border-border z-50">
-                        <SelectItem value="approve">Approve</SelectItem>
-                        <SelectItem value="return_for_clarification">Return for Clarification</SelectItem>
-                        <SelectItem value="approve_with_deviation">Approve with Deviation</SelectItem>
-                        <SelectItem value="rework_required">Rework Required</SelectItem>
-                        <SelectItem value="use_as_is">Use As Is</SelectItem>
-                        <SelectItem value="scrap_material">Scrap Material</SelectItem>
+                        {isQualityHeadStep ? (
+                          <>
+                            <SelectItem value="accept_under_deviation">Accept under deviation</SelectItem>
+                            <SelectItem value="return_to_supplier">Return to supplier</SelectItem>
+                            <SelectItem value="rework">Rework</SelectItem>
+                            <SelectItem value="sort">Sort</SelectItem>
+                            <SelectItem value="scrap">Scrap</SelectItem>
+                            <SelectItem value="others">Others</SelectItem>
+                          </>
+                        ) : (
+                          <SelectItem value="forward">Forward to next step</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Review Comments</Label>
+                  <Label>Review Comments {!isQualityHeadStep && <span className="text-destructive">*</span>}</Label>
                   <Textarea
                     value={reviewData.reviewComments}
                     onChange={(e) => setReviewData({ ...reviewData, reviewComments: e.target.value })}
@@ -562,9 +601,9 @@ export default function ShopFloorMRBDetail() {
         <div className="sticky bottom-0 z-40 bg-background border-t border-border shadow-lg mt-auto">
           <div className="px-6 py-4 flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
-              {reviewData.action ? (
+              {(isQualityHeadStep ? reviewData.action : reviewData.reviewComments.trim()) ? (
                 <span>
-                  Selected action: <strong className="text-foreground">{getActionLabel(reviewData.action)}</strong>
+                  Selected action: <strong className="text-foreground">{getActionLabel(isQualityHeadStep ? reviewData.action : 'forward')}</strong>
                   {reviewData.forwardToNext && reviewData.nextDepartments.length > 0 && (
                     <span className="ml-2">
                       → Forward to: {reviewData.nextDepartments.map(d => 
@@ -574,12 +613,12 @@ export default function ShopFloorMRBDetail() {
                   )}
                 </span>
               ) : (
-                <span>Please select an action to proceed</span>
+                <span>{isQualityHeadStep ? 'Please select an action to proceed' : 'Please enter review comments to proceed'}</span>
               )}
             </div>
             <Button 
               onClick={handleOpenApprovalDialog} 
-              disabled={!reviewData.action}
+              disabled={isQualityHeadStep ? !reviewData.action : !reviewData.reviewComments.trim()}
               size="lg"
               className="min-w-[160px]"
             >
@@ -596,7 +635,7 @@ export default function ShopFloorMRBDetail() {
           <DialogHeader>
             <DialogTitle>Confirm Review Submission</DialogTitle>
             <DialogDescription>
-              You are about to submit your review with action: <strong>{getActionLabel(reviewData.action)}</strong>
+              You are about to submit your review with action: <strong>{getActionLabel(isQualityHeadStep ? reviewData.action : 'forward')}</strong>
               {reviewData.forwardToNext && reviewData.nextDepartments.length > 0 && (
                 <span> and forward to {reviewData.nextDepartments.map(d => 
                   roleDisplayNames[d] || d
