@@ -797,7 +797,22 @@ html,body{margin:0;padding:0;background:#fff;}
           );
           return rows;
         })()
-      : staticReviewRows;
+      : (() => {
+          const depts: string[] = [];
+          [...mrbComments].sort(sortByDate).forEach((c) => {
+            const d = deptOf(c);
+            if (d && !depts.includes(d)) depts.push(d);
+          });
+          if (depts.length === 0) return staticReviewRows;
+          return depts.map((d) => ({
+            dept: labelFor(d),
+            items: mrbComments.filter((c) => deptOf(c) === d).sort(sortByDate),
+          }));
+        })();
+    const cleanComment = (t?: string) =>
+      String(t || '')
+        .replace(/^\s*(return to supplier|accept under deviation|reviewed|rework|sort|scrap|others|accept|reject|approved|forwarded)\s*:\s*/i, '')
+        .trim();
     const approvals = [
       { dept: 'Purchase', name: approverNames.purchase, date: m?.purchase_approved_at },
       { dept: 'Engineering', name: approverNames.engineering, date: m?.engineering_approved_at },
@@ -887,7 +902,7 @@ html,body{margin:0;padding:0;background:#fff;}
               {reviewRows.map((r) => (
                 <tr key={r.dept} style={{ height: '13mm' }}>
                   <td>{r.dept}</td>
-                  <td className="small">{r.items.map((c) => <div key={c.id}>{c.text}{c.author ? ` — ${c.author}` : ''}</div>)}</td>
+                  <td className="small">{r.items.map((c) => ({ id: c.id, t: cleanComment(c.text) })).filter((x) => x.t).map((x) => <div key={x.id}>{x.t}</div>)}</td>
                 </tr>
               ))}
             </tbody>
