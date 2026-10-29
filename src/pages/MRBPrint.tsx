@@ -799,7 +799,12 @@ html,body{margin:0;padding:0;background:#fff;}
 
           <div className="ncr3-lbl">Non-Conformance details:</div>
           <div className="ncr3-area" style={{ height: '30mm' }}>
-            <div className="txt">{[m?.defect_code, m?.defect_description || m?.issue_description].filter(Boolean).join(' - ')}{initComment && <div style={{ marginTop: '1mm', whiteSpace: 'pre-wrap' }}>{initComment}</div>}</div>
+            {(() => {
+              const ncText = [m?.defect_code, m?.defect_description || m?.issue_description].filter(Boolean).join(' - ');
+              const ic = (initComment || '').trim();
+              const showIc = !!ic && !ncText.toLowerCase().includes(ic.toLowerCase());
+              return <div className="txt">{ncText}{showIc && <div style={{ marginTop: ncText ? '1mm' : 0, whiteSpace: 'pre-wrap' }}>{ic}</div>}</div>;
+            })()}
             <div className="sig"><span style={{ width: '50%' }}>Initiator Name: {m?.issue_identified_by || approverNames.quality || ''}</span><span>Signature:</span></div>
           </div>
 
