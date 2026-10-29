@@ -431,7 +431,8 @@ const MRBPrint = () => {
     scrap: decision === 'scrap_material' || decision === 'reject' || decision === 'rejected' || decision === 'scrap',
     accept_deviation: decision === 'use_with_deviation' || decision === 'partial_accept' || decision === 'accept_under_deviation',
     others: decision === 'others',
-  });
+    };
+  };
 
   const getPdfFilename = () =>
     printFormat === 'rev3'
