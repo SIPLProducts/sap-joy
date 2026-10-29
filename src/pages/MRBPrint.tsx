@@ -948,7 +948,13 @@ html,body{margin:0;padding:0;background:#fff;}
             <colgroup><col style={{ width: '22%' }} /><col style={{ width: '30%' }} /><col style={{ width: '28%' }} /><col /></colgroup>
             <thead><tr><th>Department</th><th>Name</th><th>Sign</th><th>Date</th></tr></thead>
             <tbody>
-              {approvals.map((r) => (
+              {(reviewRows !== staticReviewRows
+                ? reviewRows.map((r: any) => {
+                    const last = (r.items || [])[(r.items || []).length - 1];
+                    return { dept: r.dept, name: last?.author || '', date: last?.date || '' };
+                  })
+                : approvals
+              ).map((r) => (
                 <tr key={r.dept} style={{ height: '8.5mm' }}><td>{r.dept}</td><td>{r.name || ''}</td><td></td><td className="center">{formatDate(r.date) || ''}</td></tr>
               ))}
             </tbody>
