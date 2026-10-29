@@ -283,6 +283,7 @@ const MRBPrint = () => {
   const [selectedMRB, setSelectedMRB] = useState<MRBRecord | null>(null);
   const [approverNames, setApproverNames] = useState<ApproverInfo>({});
   const [mrbComments, setMrbComments] = useState<MRBComment[]>([]);
+  const [initiatorComment, setInitiatorComment] = useState('');
   const { activePlant, activePlants, activePlantsKey } = useActivePlant();
 
   const [showPreview, setShowPreview] = useState(false);
@@ -333,6 +334,8 @@ const MRBPrint = () => {
         .select('id, stage, action, remarks, performed_by, performed_by_role, performed_at')
         .eq('mrb_id', mrb.id)
         .order('performed_at', { ascending: true });
+      const creationRow = (history || []).find((h) => h.stage === 'Creation' && h.action === 'created');
+      setInitiatorComment((creationRow?.remarks || '').trim());
       const commentRows = (history || []).filter(
         (h) =>
           (h.remarks || '').trim().length > 0 &&
@@ -778,8 +781,8 @@ html,body{margin:0;padding:0;background:#fff;}
             <tbody>
               <Row2 l1="GRN No" v1={m?.grn_number} l2="NC Report No" v2={m?.mrb_number} />
               <Row2 l1="GRN Date" v1={formatDate(m?.grn_date)} l2="NC Report Date" v2={formatDate(m?.created_at)} />
-              <Row2 l1="DC/INV No" v1="" l2="WO No" v2={m?.production_order_number} />
-              <Row2 l1="DC/INV Date" v1="" l2="WO Date" v2="" />
+              <tr><td className="l">DC/INV No</td><td className="c">:</td><td className="v"></td><td className="l">WO No</td><td className="c">:</td><td className="v small" rowSpan={2} style={{ verticalAlign: 'top', whiteSpace: 'pre-wrap' }}>{initiatorComment}</td></tr>
+              <tr><td className="l">DC/INV Date</td><td className="c">:</td><td className="v"></td><td className="l">WO Date</td><td className="c">:</td></tr>
               <Row2 l1="Vendor Code" v1={m?.vendor_code} l2="PO No. & Date" v2={m?.po_number} />
               <Row2 l1="Vendor Name" v1={m?.vendor_name} l2="Item Code" v2={m?.material_number} />
               <tr><td className="l">Item Description</td><td className="c">:</td><td className="v" colSpan={4}>{D(m?.material_description)}</td></tr>
