@@ -735,12 +735,30 @@ html,body{margin:0;padding:0;background:#fff;}
     const isClosed = m?.status === 'closed' || m?.status === 'approved' || m?.closure_status === 'close' || m?.closure_status === 'closed';
     const commentsFor = (keys: string[]) =>
       mrbComments.filter((c) => keys.some((k) => (c.stage || '').toLowerCase().includes(k)));
-    const reviewRows = [
+    const staticReviewRows = [
       { dept: 'Purchase', items: commentsFor(['purchase']) },
       { dept: 'Engineering', items: commentsFor(['engineering', 'design']) },
       { dept: 'Production', items: commentsFor(['production', 'shop']) },
       { dept: 'Quality Control', items: commentsFor(['quality', 'committee', 'final']) },
     ];
+    const routingKeys: string[] = (() => {
+      const raw: any = m?.workflow_routing;
+      const arr: any[] = Array.isArray(raw) ? raw : Array.isArray(raw?.steps) ? raw.steps : Array.isArray(raw?.routing) ? raw.routing : [];
+      const keys = arr
+        .map((s) => (typeof s === 'string' ? s : s?.role || s?.role_key || s?.department || s?.key || ''))
+        .map((k) => String(k || '').trim().toLowerCase())
+        .filter(Boolean);
+      return keys.filter((k, i) => keys.indexOf(k) === i);
+    })();
+    const labelFor = (k: string) => k.split(/[_\s-]+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+    const reviewRows = routingKeys.length > 0
+      ? routingKeys.map((k) => ({
+          dept: labelFor(k),
+          items: mrbComments
+            .filter((c) => (c.stage || '').toLowerCase().replace(/[\s-]+/g, '_').replace(/_review$/, '') === k)
+            .sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime()),
+        }))
+      : staticReviewRows;
     const approvals = [
       { dept: 'Purchase', name: approverNames.purchase, date: m?.purchase_approved_at },
       { dept: 'Engineering', name: approverNames.engineering, date: m?.engineering_approved_at },
