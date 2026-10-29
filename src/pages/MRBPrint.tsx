@@ -808,11 +808,19 @@ html,body{margin:0;padding:0;background:#fff;}
             <div className="sig"><span style={{ width: '50%' }}>Initiator Name: {m?.issue_identified_by || approverNames.quality || ''}</span><span>Signature:</span></div>
           </div>
 
-          <div className="ncr3-lbl">Process QC Comments:</div>
-          <div className="ncr3-area" style={{ height: '28mm' }}>
-            <div className="txt">{m?.quality_remarks || ''}</div>
-            <div className="sig"><span style={{ width: '38%' }}>Name: {approverNames.quality || ''}</span><span>Signature</span></div>
-          </div>
+          {selectedMRB?.source === 'shop_floor' && (() => {
+            const qh = mrbComments.filter((c) => (c.stage || '').toLowerCase().includes('quality_head'));
+            const last = qh[qh.length - 1];
+            return (
+              <>
+                <div className="ncr3-lbl">Process QC Comments:</div>
+                <div className="ncr3-area" style={{ height: '28mm' }}>
+                  <div className="txt">{last?.text || m?.quality_remarks || ''}</div>
+                  <div className="sig"><span style={{ width: '38%' }}>Name: {last?.author || approverNames.quality || ''}</span><span>Signature</span></div>
+                </div>
+              </>
+            );
+          })()}
 
           <div className="ncr3-lbl" style={{ marginTop: '6mm' }}>REVIEW by Material Review Board (Root Cause Analysis &amp; CAPA)</div>
           <table className="ncr3-t ncr3-grid-t">
