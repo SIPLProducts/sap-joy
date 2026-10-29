@@ -840,11 +840,17 @@ html,body{margin:0;padding:0;background:#fff;}
       { dept: 'Production', name: '', date: '' },
       { dept: 'Quality Control', name: approverNames.quality, date: m?.quality_approved_at },
     ];
+    const storesComments = Array.from(new Set(
+      mrbComments
+        .filter((c) => deptOf(c) === 'stores')
+        .map((c) => cleanComment(c.text))
+        .filter(Boolean)
+    ));
     const stores = [
       m?.return_delivery_number && `Return Delivery No: ${m.return_delivery_number}`,
       m?.rework_order_number && `Rework Order No: ${m.rework_order_number}`,
       m?.scrap_document_number && `Scrap Document No: ${m.scrap_document_number}`,
-      m?.final_remarks,
+      ...(storesComments.length ? storesComments : [m?.final_remarks]),
     ].filter(Boolean) as string[];
     const D = (v?: string | number | null) => (v === null || v === undefined ? '' : String(v));
     const Row2 = ({ l1, v1, l2, v2 }: { l1: string; v1?: string | number | null; l2: string; v2?: string | number | null }) => (
@@ -887,16 +893,16 @@ html,body{margin:0;padding:0;background:#fff;}
             </tr></tbody>
           </table>
           <table className="ncr3-t ncr3-kv ncr3-gap">
-            <tbody><tr><td className="l" style={{ width: '20%' }}>Rejected QTY Sl Nos</td><td className="c" style={{ width: '3%' }}>:</td><td className="v">{D([m?.batch, initComment].filter(Boolean).join(' — '))}</td></tr></tbody>
+            <tbody><tr><td className="l" style={{ width: '20%' }}>Rejected QTY Sl Nos</td><td className="c" style={{ width: '3%' }}>:</td><td className="v">{D(m?.batch)}</td></tr></tbody>
           </table>
 
           <div className="ncr3-lbl">Non-Conformance details:</div>
           <div className="ncr3-area" style={{ height: '30mm' }}>
             {(() => {
-              const ncText = [m?.defect_code, m?.defect_description || m?.issue_description].filter(Boolean).join(' - ');
               const ic = (initComment || '').trim();
-              const showIc = !!ic && !ncText.toLowerCase().includes(ic.toLowerCase());
-              return <div className="txt">{ncText}{showIc && <div style={{ marginTop: ncText ? '1mm' : 0, whiteSpace: 'pre-wrap' }}>{ic}</div>}</div>;
+              const code = (m?.defect_code || '').trim();
+              const showCode = !!code && !ic.toLowerCase().includes(code.toLowerCase());
+              return <div className="txt" style={{ whiteSpace: 'pre-wrap' }}>{[showCode ? code : '', ic].filter(Boolean).join(' - ')}</div>;
             })()}
             <div className="sig"><span style={{ width: '50%' }}>Initiator Name: {m?.issue_identified_by || approverNames.quality || ''}</span><span>Signature:</span></div>
           </div>
