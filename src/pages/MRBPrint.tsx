@@ -779,8 +779,8 @@ html,body{margin:0;padding:0;background:#fff;}
             <tbody>
               <Row2 l1="GRN No" v1={m?.grn_number} l2="NC Report No" v2={m?.mrb_number} />
               <Row2 l1="GRN Date" v1={formatDate(m?.grn_date)} l2="NC Report Date" v2={formatDate(m?.created_at)} />
-              <tr><td className="l">DC/INV No</td><td className="c">:</td><td className="v"></td><td className="l">WO No</td><td className="c">:</td><td className="v small" rowSpan={2} style={{ verticalAlign: 'top', whiteSpace: 'pre-wrap' }}>{initComment}</td></tr>
-              <tr><td className="l">DC/INV Date</td><td className="c">:</td><td className="v"></td><td className="l">WO Date</td><td className="c">:</td></tr>
+              <tr><td className="l">DC/INV No</td><td className="c">:</td><td className="v"></td><td className="l">WO No</td><td className="c">:</td><td className="v">{D(m?.production_order_number)}</td></tr>
+              <tr><td className="l">DC/INV Date</td><td className="c">:</td><td className="v"></td><td className="l">WO Date</td><td className="c">:</td><td className="v">{m?.production_order_number ? formatDate(m?.created_at) : D(null)}</td></tr>
               <Row2 l1="Vendor Code" v1={m?.vendor_code} l2="PO No. & Date" v2={m?.po_number} />
               <Row2 l1="Vendor Name" v1={m?.vendor_name} l2="Item Code" v2={m?.material_number} />
               <tr><td className="l">Item Description</td><td className="c">:</td><td className="v" colSpan={4}>{D(m?.material_description)}</td></tr>
