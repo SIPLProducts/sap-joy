@@ -29,6 +29,8 @@ interface MRBComment {
   author: string;
   date: string | null;
   stage?: string;
+  rawStage?: string;
+  role?: string;
 }
 
 // =====================================================================
@@ -370,6 +372,8 @@ const MRBPrint = () => {
           author: profileMap.get(h.performed_by || '') || h.performed_by_role || '',
           date: h.performed_at || null,
           stage: `${h.stage || ''} ${h.performed_by_role || ''}`,
+          rawStage: h.stage || '',
+          role: h.performed_by_role || '',
         }))
       );
 
@@ -751,13 +755,48 @@ html,body{margin:0;padding:0;background:#fff;}
       return keys.filter((k, i) => keys.indexOf(k) === i);
     })();
     const labelFor = (k: string) => k.split(/[_\s-]+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+    const normDept = (s?: string) =>
+      String(s || '')
+        .toLowerCase()
+        .replace(/[\s-]+/g, '_')
+        .replace(/_(review|approval|approved|stage|department|dept)$/g, '')
+        .replace(/^_+|_+$/g, '');
+    const genericRoles = ['admin', 'superadmin', 'super_admin', 'masteradmin', 'master_admin'];
+    const deptOf = (c: MRBComment) => {
+      const fromStage = normDept(c.rawStage);
+      if (fromStage) return fromStage;
+      const r = normDept(c.role);
+      return genericRoles.includes(r) ? '' : r;
+    };
+    const sortByDate = (a: MRBComment, b: MRBComment) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime();
     const reviewRows = routingKeys.length > 0
-      ? routingKeys.map((k) => ({
-          dept: labelFor(k),
-          items: mrbComments
-            .filter((c) => (c.stage || '').toLowerCase().replace(/[\s-]+/g, '_').replace(/_review$/, '') === k)
-            .sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime()),
-        }))
+      ? (() => {
+          const normKeys = routingKeys.map(normDept);
+          const rows = routingKeys.map((k, i) => ({
+            dept: labelFor(k),
+            items: mrbComments
+              .filter((c) => {
+                const d = deptOf(c);
+                if (d === normKeys[i]) return true;
+                const r = normDept(c.role);
+                return !normKeys.includes(d) && r === normKeys[i];
+              })
+              .sort(sortByDate),
+          }));
+          const extras: string[] = [];
+          mrbComments.forEach((c) => {
+            const d = deptOf(c);
+            const r = normDept(c.role);
+            if (d && !normKeys.includes(d) && !normKeys.includes(r) && !extras.includes(d)) extras.push(d);
+          });
+          extras.forEach((d) =>
+            rows.push({
+              dept: labelFor(d),
+              items: mrbComments.filter((c) => deptOf(c) === d && !normKeys.includes(normDept(c.role))).sort(sortByDate),
+            })
+          );
+          return rows;
+        })()
       : staticReviewRows;
     const approvals = [
       { dept: 'Purchase', name: approverNames.purchase, date: m?.purchase_approved_at },
