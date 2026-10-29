@@ -755,7 +755,7 @@ html,body{margin:0;padding:0;background:#fff;}
       ? routingKeys.map((k) => ({
           dept: labelFor(k),
           items: mrbComments
-            .filter((c) => (c.stage || '').toLowerCase() === k)
+            .filter((c) => (c.stage || '').toLowerCase().replace(/[\s-]+/g, '_').replace(/_review$/, '') === k)
             .sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime()),
         }))
       : staticReviewRows;
