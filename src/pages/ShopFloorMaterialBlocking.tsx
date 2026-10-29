@@ -174,6 +174,9 @@ export default function ShopFloorMaterialBlocking() {
     if (blockQuantity > stockItem.availableQuantity) {
       newErrors.blockQuantity = `Block quantity cannot exceed available quantity (${stockItem.availableQuantity})`;
     }
+    if (!productionOrder.trim()) {
+      newErrors.productionOrder = 'Production Order is required';
+    }
     if (!blockReason) {
       newErrors.blockReason = 'Block reason is required';
     }
@@ -309,7 +312,7 @@ export default function ShopFloorMaterialBlocking() {
         rejected_quantity: 0,
         blocked_quantity: blockQuantity,
         uom: stockItem.uom,
-        production_order_number: productionOrder || `PRD-${format(new Date(), 'yyyy')}-${Math.floor(1000 + Math.random() * 9000)}`,
+        production_order_number: productionOrder.trim(),
         issued_quantity: blockQuantity,
         issue_identified_by: user?.email || 'Shop Floor User',
         issue_identified_date: new Date().toISOString(),
@@ -639,13 +642,17 @@ export default function ShopFloorMaterialBlocking() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="productionOrder">Production Order (Optional)</Label>
+                <Label htmlFor="productionOrder">Production Order <span className="text-destructive">*</span></Label>
                 <Input
                   id="productionOrder"
                   value={productionOrder}
                   onChange={(e) => setProductionOrder(e.target.value)}
-                  placeholder="e.g., PRD-2024-1234"
+                  placeholder="Enter Production Order"
+                  className={errors.productionOrder ? 'border-destructive' : ''}
                 />
+                {errors.productionOrder && (
+                  <p className="text-xs text-destructive">{errors.productionOrder}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="postingDate">Posting Date <span className="text-destructive">*</span></Label>

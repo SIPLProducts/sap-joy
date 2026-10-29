@@ -479,6 +479,14 @@ export default function CreateInwardInProcessMRB() {
 
   const handleSubmit = async () => {
     // Validation
+    if (!formData.productionOrderNo?.trim()) {
+      toast({
+        title: 'Validation Error',
+        description: 'Production Order is missing for this inspection lot',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (!formData.qualityDecision) {
       toast({
         title: 'Validation Error',
@@ -876,7 +884,7 @@ Quality Department`;
                 <Input value={formData.postingDate} readOnly className="bg-muted" />
               </div>
               <div className="space-y-2">
-                <Label className="text-muted-foreground">Production Order</Label>
+                <Label className="text-muted-foreground">Production Order <span className="text-destructive">*</span></Label>
                 <Input value={formData.productionOrderNo} readOnly className="bg-muted font-mono" />
               </div>
               <div className="space-y-2">
