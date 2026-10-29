@@ -768,6 +768,7 @@ html,body{margin:0;padding:0;background:#fff;}
     const Footer = ({ n }: { n: number }) => (
       <div className="ncr3-foot"><span>EG-QC-FT-25 REV 3</span><span>Page {n} of 2</span></div>
     );
+    const initComment = m?.quality_remarks || m?.defect_description || m?.issue_description || '';
     const Box = ({ on }: { on?: boolean }) => <td className="ncr3-cb"><span className={`ncr3-box${on ? ' on' : ''}`} /></td>;
     return (
       <div ref={printRef} className="mrb-form ncr3">
@@ -778,7 +779,7 @@ html,body{margin:0;padding:0;background:#fff;}
             <tbody>
               <Row2 l1="GRN No" v1={m?.grn_number} l2="NC Report No" v2={m?.mrb_number} />
               <Row2 l1="GRN Date" v1={formatDate(m?.grn_date)} l2="NC Report Date" v2={formatDate(m?.created_at)} />
-              <tr><td className="l">DC/INV No</td><td className="c">:</td><td className="v"></td><td className="l">WO No</td><td className="c">:</td><td className="v small" rowSpan={2} style={{ verticalAlign: 'top', whiteSpace: 'pre-wrap' }}>{m?.quality_remarks || m?.defect_description || m?.issue_description || ''}</td></tr>
+              <tr><td className="l">DC/INV No</td><td className="c">:</td><td className="v"></td><td className="l">WO No</td><td className="c">:</td><td className="v small" rowSpan={2} style={{ verticalAlign: 'top', whiteSpace: 'pre-wrap' }}>{initComment}</td></tr>
               <tr><td className="l">DC/INV Date</td><td className="c">:</td><td className="v"></td><td className="l">WO Date</td><td className="c">:</td></tr>
               <Row2 l1="Vendor Code" v1={m?.vendor_code} l2="PO No. & Date" v2={m?.po_number} />
               <Row2 l1="Vendor Name" v1={m?.vendor_name} l2="Item Code" v2={m?.material_number} />
@@ -793,12 +794,12 @@ html,body{margin:0;padding:0;background:#fff;}
             </tr></tbody>
           </table>
           <table className="ncr3-t ncr3-kv ncr3-gap">
-            <tbody><tr><td className="l" style={{ width: '20%' }}>Rejected QTY Sl Nos</td><td className="c" style={{ width: '3%' }}>:</td><td className="v">{D(m?.batch)}</td></tr></tbody>
+            <tbody><tr><td className="l" style={{ width: '20%' }}>Rejected QTY Sl Nos</td><td className="c" style={{ width: '3%' }}>:</td><td className="v">{D([m?.batch, initComment].filter(Boolean).join(' — '))}</td></tr></tbody>
           </table>
 
           <div className="ncr3-lbl">Non-Conformance details:</div>
           <div className="ncr3-area" style={{ height: '30mm' }}>
-            <div className="txt">{[m?.defect_code, m?.defect_description || m?.issue_description].filter(Boolean).join(' - ')}</div>
+            <div className="txt">{[m?.defect_code, m?.defect_description || m?.issue_description].filter(Boolean).join(' - ')}{initComment && <div style={{ marginTop: '1mm', whiteSpace: 'pre-wrap' }}>{initComment}</div>}</div>
             <div className="sig"><span style={{ width: '50%' }}>Initiator Name: {m?.issue_identified_by || approverNames.quality || ''}</span><span>Signature:</span></div>
           </div>
 
