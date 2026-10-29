@@ -403,7 +403,27 @@ const MRBPrint = () => {
     return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  const getDispositionChecked = (decision: string | null | undefined) => ({
+  // Quality Head's saved disposition, derived from latest QH review remark prefix
+  const qhDisposition: string | null = (() => {
+    const map: Record<string, string> = {
+      'accept under deviation': 'accept_under_deviation',
+      'return to supplier': 'return_to_supplier',
+      'rework': 'rework',
+      'sort': 'sort',
+      'scrap': 'scrap',
+      'others': 'others',
+    };
+    const qh = mrbComments.filter((c) => /quality[\s_-]*head/i.test(c.rawStage || ''));
+    for (let i = qh.length - 1; i >= 0; i--) {
+      const prefix = (qh[i].text || '').split(':')[0].trim().toLowerCase();
+      if (map[prefix]) return map[prefix];
+    }
+    return null;
+  })();
+
+  const getDispositionChecked = (decisionIn: string | null | undefined) => {
+    const decision = qhDisposition || decisionIn;
+    return {
     use_as_is: decision === 'use_as_is' || decision === 'accept' || decision === 'approved',
     sort: decision === 'sort',
     return_to_vendor: decision === 'return_to_vendor' || decision === 'return_to_supplier',
