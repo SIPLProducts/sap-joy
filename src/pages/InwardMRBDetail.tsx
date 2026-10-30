@@ -166,7 +166,7 @@ export default function InwardMRBDetail() {
   );
   // Only Quality Head selects the Action; other departments must enter Review Comments
   const isQualityHeadStep = (mrb.pending_with || userRole) === 'quality_head';
-  const QH_ACTIONS = ['accept', 'accept_under_deviation', 'return_to_supplier', 'rework', 'sort', 'scrap', 'others'];
+  const QH_ACTIONS = ['accept_under_deviation', 'return_to_supplier', 'rework', 'sort', 'scrap', 'others'];
   const displayStatusLabel = getWorkflowReviewLabel(mrb.status, mrb.pending_with, roleDisplayNames);
 
   const handleOpenApprovalDialog = () => {
@@ -650,7 +650,6 @@ export default function InwardMRBDetail() {
                       <SelectContent className="bg-popover border-border z-50">
                         {isQualityHeadStep ? (
                           <>
-                            <SelectItem value="accept">Accept</SelectItem>
                             <SelectItem value="accept_under_deviation">Accept under deviation</SelectItem>
                             <SelectItem value="return_to_supplier">Return to supplier</SelectItem>
                             <SelectItem value="rework">Rework</SelectItem>
