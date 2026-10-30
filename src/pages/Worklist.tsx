@@ -351,7 +351,8 @@ export default function Worklist() {
   );
 
   // Get approved, unsynced records for SAP unblock batch selection
-  const approvedRecords = sortedRecords.filter(mrb => mrb.status === 'approved' && mrb.sapStockUpdateStatus !== 'synced');
+  const isSyncAllowed = (mrb: { finalDecision: string | null }) => !mrb.finalDecision || mrb.finalDecision === 'approved' || ['accept', 'accept_under_deviation'].includes(mrb.finalDecision);
+  const approvedRecords = sortedRecords.filter(mrb => mrb.status === 'approved' && mrb.sapStockUpdateStatus !== 'synced' && isSyncAllowed(mrb));
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-GB', {
@@ -1281,7 +1282,7 @@ export default function Worklist() {
                       className={`border-b transition-colors hover:bg-muted/50 ${mrb.escalationLevel && mrb.escalationLevel !== 'none' ? 'bg-red-50/50' : ''} ${selectedIds.has(mrb.id) ? 'bg-primary/5' : ''}`}
                     >
                       <td className="p-3 align-middle">
-                        {canUnblockSAP && mrb.status === 'approved' && (
+                        {canUnblockSAP && mrb.status === 'approved' && isSyncAllowed(mrb) && (
                           <Checkbox
                             checked={selectedIds.has(mrb.id)}
                             onCheckedChange={() => toggleSelect(mrb.id)}
@@ -1396,7 +1397,9 @@ export default function Worklist() {
                               <CheckCircle2 className="h-4 w-4 text-green-600" />
                               SAP Synced
                             </div>
-                          ) : mrb.status === 'approved' && mrb.sapStockUpdateStatus !== 'synced' && canUnblockSAP ? (
+                          ) : mrb.status === 'approved' && mrb.sapStockUpdateStatus !== 'synced' && !isSyncAllowed(mrb) ? (
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">Stock stays blocked</span>
+) : mrb.status === 'approved' && mrb.sapStockUpdateStatus !== 'synced' && canUnblockSAP ? (
                             <Button 
                               variant="default" 
                               size="sm" 
