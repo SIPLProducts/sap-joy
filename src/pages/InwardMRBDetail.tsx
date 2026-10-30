@@ -671,6 +671,12 @@ export default function InwardMRBDetail() {
                     <p className="text-muted-foreground">Quality Head accepted this material. Review only — no dispatch details needed.</p>
                   </div>
                 )}
+                {mrb.pending_with === 'stores' && ['return_to_supplier', 'rework', 'sort', 'scrap', 'others'].includes(String((mrb as any).final_decision || '')) && (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                    <strong>Quality Head decision: {({ return_to_supplier: 'Return to supplier', rework: 'Rework', sort: 'Sort', scrap: 'Scrap', others: 'Others' } as Record<string, string>)[String((mrb as any).final_decision)]}</strong>
+                    <p className="text-muted-foreground">Stock remains BLOCKED in SAP – please process the physical action.</p>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label>Review Comments {!isQualityHeadStep && <span className="text-destructive">*</span>}</Label>
                   <Textarea
