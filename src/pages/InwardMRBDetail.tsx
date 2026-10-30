@@ -166,7 +166,7 @@ export default function InwardMRBDetail() {
   );
   // Only Quality Head selects the Action; other departments must enter Review Comments
   const isQualityHeadStep = (mrb.pending_with || userRole) === 'quality_head';
-  const QH_ACTIONS = ['accept_under_deviation', 'return_to_supplier', 'rework', 'sort', 'scrap', 'others'];
+  const QH_ACTIONS = ['accept', 'accept_under_deviation', 'return_to_supplier', 'rework', 'sort', 'scrap', 'others'];
   const displayStatusLabel = getWorkflowReviewLabel(mrb.status, mrb.pending_with, roleDisplayNames);
 
   const handleOpenApprovalDialog = () => {
@@ -216,7 +216,7 @@ export default function InwardMRBDetail() {
         if (isLastStep || !nextDept) {
           newStatus = 'approved';
           additionalUpdates.pending_with = null;
-          if (!QH_ACTIONS.includes(action)) additionalUpdates.final_decision = 'approved';
+          if (!QH_ACTIONS.includes(action) && !QH_ACTIONS.includes(String((mrb as any).final_decision || ''))) additionalUpdates.final_decision = 'approved';
           additionalUpdates.final_approved_by = user?.id || null;
           additionalUpdates.final_approved_at = new Date().toISOString();
         } else {
@@ -328,6 +328,7 @@ export default function InwardMRBDetail() {
 
   const getActionLabel = (action: string) => {
     const labels: Record<string, string> = {
+      'accept': 'Accept',
       'accept_under_deviation': 'Accept under deviation',
       'return_to_supplier': 'Return to supplier',
       'rework': 'Rework',
@@ -649,6 +650,7 @@ export default function InwardMRBDetail() {
                       <SelectContent className="bg-popover border-border z-50">
                         {isQualityHeadStep ? (
                           <>
+                            <SelectItem value="accept">Accept</SelectItem>
                             <SelectItem value="accept_under_deviation">Accept under deviation</SelectItem>
                             <SelectItem value="return_to_supplier">Return to supplier</SelectItem>
                             <SelectItem value="rework">Rework</SelectItem>
@@ -664,6 +666,12 @@ export default function InwardMRBDetail() {
                   </div>
                 </div>
 
+                {mrb.pending_with === 'stores' && ['accept', 'accept_under_deviation'].includes(String((mrb as any).final_decision || '')) && (
+                  <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+                    <strong>Quality Head decision: {(mrb as any).final_decision === 'accept' ? 'Accept' : 'Accept under deviation'}</strong>
+                    <p className="text-muted-foreground">Quality Head accepted this material. Review only — no dispatch details needed.</p>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label>Review Comments {!isQualityHeadStep && <span className="text-destructive">*</span>}</Label>
                   <Textarea
