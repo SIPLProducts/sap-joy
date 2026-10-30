@@ -406,6 +406,7 @@ const MRBPrint = () => {
   // Quality Head's saved disposition, derived from latest QH review remark prefix
   const qhDisposition: string | null = (() => {
     const map: Record<string, string> = {
+      'accept': 'accept',
       'accept under deviation': 'accept_under_deviation',
       'return to supplier': 'return_to_supplier',
       'rework': 'rework',
