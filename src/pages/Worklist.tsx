@@ -674,6 +674,10 @@ export default function Worklist() {
       // Find the MRB record to get material details
       const mrb = unifiedRecords.find(r => r.id === mrbId);
       if (!mrb) throw new Error('MRB record not found');
+      if (!isSyncAllowed(mrb)) {
+        toast({ title: 'Stock stays blocked', description: 'Quality Head disposition does not allow unblock.', variant: 'destructive' });
+        return;
+      }
 
       // Build request body from MRB data
       const requestBody = await buildUnblockRequestBody(mrb);
