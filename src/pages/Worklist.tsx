@@ -201,7 +201,7 @@ export default function Worklist() {
 
   // RBAC: SAP unblock access is limited to Master Admin, Admin, and Quality.
   const isMasterAdmin = profile?.email === MASTER_ADMIN_EMAIL || user?.email === MASTER_ADMIN_EMAIL;
-  const canUnblockSAP = isMasterAdmin || userRole === 'admin' || userRole === 'quality';
+  const canUnblockSAP = isMasterAdmin || userRole === 'admin' || userRole === 'quality' || userRole === 'quality_head';
 
   // Fetch sync history
   const fetchSyncHistory = async () => {
@@ -352,7 +352,9 @@ export default function Worklist() {
 
   // Get approved, unsynced records for SAP unblock batch selection
   const isSyncAllowed = (mrb: { finalDecision: string | null }) => !mrb.finalDecision || mrb.finalDecision === 'approved' || ['accept', 'accept_under_deviation'].includes(mrb.finalDecision);
-  const approvedRecords = sortedRecords.filter(mrb => mrb.status === 'approved' && mrb.sapStockUpdateStatus !== 'synced' && isSyncAllowed(mrb));
+  // Point 7: unblock becomes available as soon as Quality Head picks Accept / Accept under deviation
+  const isUnblockReady = (mrb: { status: string; finalDecision: string | null }) => mrb.status === 'approved' || ['accept', 'accept_under_deviation'].includes(mrb.finalDecision || '');
+  const approvedRecords = sortedRecords.filter(mrb => isUnblockReady(mrb) && mrb.sapStockUpdateStatus !== 'synced' && isSyncAllowed(mrb));
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-GB', {
@@ -1286,7 +1288,7 @@ export default function Worklist() {
                       className={`border-b transition-colors hover:bg-muted/50 ${mrb.escalationLevel && mrb.escalationLevel !== 'none' ? 'bg-red-50/50' : ''} ${selectedIds.has(mrb.id) ? 'bg-primary/5' : ''}`}
                     >
                       <td className="p-3 align-middle">
-                        {canUnblockSAP && mrb.status === 'approved' && isSyncAllowed(mrb) && (
+                        {canUnblockSAP && isUnblockReady(mrb) && mrb.sapStockUpdateStatus !== 'synced' && isSyncAllowed(mrb) && (
                           <Checkbox
                             checked={selectedIds.has(mrb.id)}
                             onCheckedChange={() => toggleSelect(mrb.id)}
@@ -1396,14 +1398,14 @@ export default function Worklist() {
                                   : 'Inspection Lot not yet assigned'}
                             </TooltipContent>
                           </Tooltip>
-                          {mrb.status === 'approved' && mrb.sapStockUpdateStatus === 'synced' ? (
+                          {mrb.sapStockUpdateStatus === 'synced' ? (
                             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-green-50 border border-green-200 text-green-700 text-xs font-semibold whitespace-nowrap">
                               <CheckCircle2 className="h-4 w-4 text-green-600" />
                               SAP Synced
                             </div>
                           ) : mrb.status === 'approved' && mrb.sapStockUpdateStatus !== 'synced' && !isSyncAllowed(mrb) ? (
                             <span className="text-xs text-muted-foreground whitespace-nowrap">Stock stays blocked</span>
-) : mrb.status === 'approved' && mrb.sapStockUpdateStatus !== 'synced' && canUnblockSAP ? (
+) : isUnblockReady(mrb) && mrb.sapStockUpdateStatus !== 'synced' && canUnblockSAP ? (
                             <Button 
                               variant="default" 
                               size="sm" 
