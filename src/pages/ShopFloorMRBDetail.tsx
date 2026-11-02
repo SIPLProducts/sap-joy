@@ -43,6 +43,8 @@ export default function ShopFloorMRBDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  const [storesRemarks, setStoresRemarks] = useState('');
+  
   const [reviewData, setReviewData] = useState({
     reviewComments: '',
     action: '',
@@ -116,10 +118,15 @@ export default function ShopFloorMRBDetail() {
   );
   // Only Quality Head selects the Action; other departments must enter Review Comments
   const isQualityHeadStep = (mrb.pending_with || userRole) === 'quality_head';
+  const isStoresActionStep = mrb.pending_with === 'stores' && ['return_to_supplier', 'rework', 'sort', 'scrap', 'others'].includes(String((mrb as any).final_decision || ''));
   const QH_ACTIONS = ['accept_under_deviation', 'return_to_supplier', 'rework', 'sort', 'scrap', 'others'];
   const displayStatusLabel = getWorkflowReviewLabel(mrb.status, mrb.pending_with, roleDisplayNames);
 
   const handleOpenApprovalDialog = () => {
+    if (isStoresActionStep && !storesRemarks.trim()) {
+      toast({ title: 'Validation Error', description: 'Stores Remarks are required', variant: 'destructive' });
+      return;
+    }
     if (!isQualityHeadStep && !reviewData.reviewComments.trim()) {
       toast({
         title: 'Validation Error',
@@ -147,6 +154,9 @@ export default function ShopFloorMRBDetail() {
 
     try {
       const action = isQualityHeadStep ? reviewData.action : 'forward';
+      const effectiveComments = isStoresActionStep
+        ? [storesRemarks.trim(), reviewData.reviewComments.trim()].filter(Boolean).join(' | ')
+        : reviewData.reviewComments;
       const workflowRouting = Array.isArray(mrb.workflow_routing) ? (mrb.workflow_routing as string[]) : [];
 
       const currentRoutingRole = mrb.pending_with || userRole || '';
@@ -226,13 +236,13 @@ export default function ShopFloorMRBDetail() {
 
       // Department-specific remarks
       if (userRole?.includes('quality')) {
-        additionalUpdates.quality_remarks = reviewData.reviewComments;
+        additionalUpdates.quality_remarks = effectiveComments;
       } else if (userRole?.includes('purchase')) {
-        additionalUpdates.purchase_remarks = reviewData.reviewComments;
+        additionalUpdates.purchase_remarks = effectiveComments;
       } else if (userRole?.includes('engineering')) {
-        additionalUpdates.engineering_remarks = reviewData.reviewComments;
+        additionalUpdates.engineering_remarks = effectiveComments;
       } else if (userRole === 'executive') {
-        additionalUpdates.final_remarks = reviewData.reviewComments;
+        additionalUpdates.final_remarks = effectiveComments;
       }
 
       const actionLabel = getActionLabel(action);
@@ -240,7 +250,7 @@ export default function ShopFloorMRBDetail() {
         mrb.id,
         newStatus,
         historyAction,
-        `${actionLabel}: ${reviewData.reviewComments || 'No comments'}`,
+        `${actionLabel}: ${effectiveComments || 'No comments'}`,
         additionalUpdates as any
       );
       
@@ -547,6 +557,18 @@ export default function ShopFloorMRBDetail() {
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {isStoresActionStep ? (
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Stores Remarks <span className="text-destructive">*</span></Label>
+                    <Textarea
+                      value={storesRemarks}
+                      onChange={(e) => setStoresRemarks(e.target.value)}
+                      placeholder="Enter DC No, Debit Note No, Reference No, etc."
+                      rows={3}
+                      className="bg-background resize-none"
+                    />
+                  </div>
+                  ) : (
                   <div className="space-y-2">
                     <Label>
                       Action {isQualityHeadStep && <span className="text-destructive">*</span>}
@@ -575,6 +597,7 @@ export default function ShopFloorMRBDetail() {
                       </SelectContent>
                     </Select>
                   </div>
+                  )}
                 </div>
 
                 {mrb.pending_with === 'stores' && ['accept', 'accept_under_deviation'].includes(String((mrb as any).final_decision || '')) && (
@@ -631,7 +654,7 @@ export default function ShopFloorMRBDetail() {
             </div>
             <Button 
               onClick={handleOpenApprovalDialog} 
-              disabled={isQualityHeadStep ? !reviewData.action : !reviewData.reviewComments.trim()}
+              disabled={isQualityHeadStep ? !reviewData.action : (!reviewData.reviewComments.trim() || (isStoresActionStep && !storesRemarks.trim()))}
               size="lg"
               className="min-w-[160px]"
             >

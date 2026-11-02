@@ -62,6 +62,8 @@ export default function InwardMRBDetail() {
     sales_item?: string | null;
   }>({});
   
+  const [storesRemarks, setStoresRemarks] = useState('');
+  
   const [reviewData, setReviewData] = useState({
     reviewComments: '',
     action: '',
@@ -166,10 +168,15 @@ export default function InwardMRBDetail() {
   );
   // Only Quality Head selects the Action; other departments must enter Review Comments
   const isQualityHeadStep = (mrb.pending_with || userRole) === 'quality_head';
+  const isStoresActionStep = mrb.pending_with === 'stores' && ['return_to_supplier', 'rework', 'sort', 'scrap', 'others'].includes(String((mrb as any).final_decision || ''));
   const QH_ACTIONS = ['accept_under_deviation', 'return_to_supplier', 'rework', 'sort', 'scrap', 'others'];
   const displayStatusLabel = getWorkflowReviewLabel(mrb.status, mrb.pending_with, roleDisplayNames);
 
   const handleOpenApprovalDialog = () => {
+    if (isStoresActionStep && !storesRemarks.trim()) {
+      toast({ title: 'Validation Error', description: 'Stores Remarks are required', variant: 'destructive' });
+      return;
+    }
     if (!isQualityHeadStep && !reviewData.reviewComments.trim()) {
       toast({
         title: 'Validation Error',
@@ -196,6 +203,9 @@ export default function InwardMRBDetail() {
 
     try {
       const action = isQualityHeadStep ? reviewData.action : 'forward';
+      const effectiveComments = isStoresActionStep
+        ? [storesRemarks.trim(), reviewData.reviewComments.trim()].filter(Boolean).join(' | ')
+        : reviewData.reviewComments;
       const workflowRouting = Array.isArray(mrb.workflow_routing) ? (mrb.workflow_routing as string[]) : [];
 
       // Resolve current step index using dynamic department maps (handles role variants like 'engineering' vs 'engineering_head')
@@ -274,24 +284,24 @@ export default function InwardMRBDetail() {
 
       // Department-specific remarks (always recorded)
       if (userRole === 'quality' || userRole === 'quality_head') {
-        additionalUpdates.quality_remarks = reviewData.reviewComments;
+        additionalUpdates.quality_remarks = effectiveComments;
         additionalUpdates.quality_approved_by = user?.id || null;
         additionalUpdates.quality_approved_at = new Date().toISOString();
       } else if (userRole === 'purchase' || userRole === 'purchase_head') {
-        additionalUpdates.purchase_remarks = reviewData.reviewComments;
+        additionalUpdates.purchase_remarks = effectiveComments;
         additionalUpdates.purchase_approved_by = user?.id || null;
         additionalUpdates.purchase_approved_at = new Date().toISOString();
         if (action === 'return_to_vendor') {
           additionalUpdates.purchase_action = 'return_to_vendor';
         }
       } else if (userRole === 'engineering' || userRole === 'engineering_head') {
-        additionalUpdates.engineering_remarks = reviewData.reviewComments;
+        additionalUpdates.engineering_remarks = effectiveComments;
         additionalUpdates.engineering_approved_by = user?.id || null;
         additionalUpdates.engineering_approved_at = new Date().toISOString();
       } else if (userRole === 'executive') {
-        additionalUpdates.final_remarks = reviewData.reviewComments;
+        additionalUpdates.final_remarks = effectiveComments;
       } else if (userRole === 'mrb_committee') {
-        additionalUpdates.mrb_committee_remarks = reviewData.reviewComments;
+        additionalUpdates.mrb_committee_remarks = effectiveComments;
         additionalUpdates.mrb_committee_decision = action;
         additionalUpdates.mrb_committee_approved_by = profile?.full_name || null;
         additionalUpdates.mrb_committee_approved_at = new Date().toISOString();
@@ -302,7 +312,7 @@ export default function InwardMRBDetail() {
         mrb.id,
         newStatus,
         historyAction,
-        `${actionLabel}: ${reviewData.reviewComments || 'No comments'}`,
+        `${actionLabel}: ${effectiveComments || 'No comments'}`,
         additionalUpdates as any
       );
 
@@ -635,6 +645,18 @@ export default function InwardMRBDetail() {
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {isStoresActionStep ? (
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Stores Remarks <span className="text-destructive">*</span></Label>
+                    <Textarea
+                      value={storesRemarks}
+                      onChange={(e) => setStoresRemarks(e.target.value)}
+                      placeholder="Enter DC No, Debit Note No, Reference No, etc."
+                      rows={3}
+                      className="bg-background resize-none"
+                    />
+                  </div>
+                  ) : (
                   <div className="space-y-2">
                     <Label>
                       Action {isQualityHeadStep && <span className="text-destructive">*</span>}
@@ -663,6 +685,7 @@ export default function InwardMRBDetail() {
                       </SelectContent>
                     </Select>
                   </div>
+                  )}
                 </div>
 
                 {mrb.pending_with === 'stores' && ['accept', 'accept_under_deviation'].includes(String((mrb as any).final_decision || '')) && (
@@ -719,7 +742,7 @@ export default function InwardMRBDetail() {
             </div>
             <Button 
               onClick={handleOpenApprovalDialog} 
-              disabled={isQualityHeadStep ? !reviewData.action : !reviewData.reviewComments.trim()}
+              disabled={isQualityHeadStep ? !reviewData.action : (!reviewData.reviewComments.trim() || (isStoresActionStep && !storesRemarks.trim()))}
               size="lg"
               className="min-w-[160px]"
             >
