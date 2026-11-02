@@ -36,7 +36,7 @@ import { AvailableStockRecord, shopFloorBlockReasons, shopFloorAttachmentCategor
 import { useDepartments } from '@/hooks/useDepartments';
 import { useDepartmentMap } from '@/hooks/useDepartmentMap';
 import { fetchPlantWorkflow } from '@/lib/workflowRouting';
-import { buildManualRouting, isLockedManualStep } from '@/lib/manualRoutingDefaults';
+import { buildManualRouting, isLockedManualStep, checkLockedRolesAvailable } from '@/lib/manualRoutingDefaults';
 import { invokeSapSync } from '@/lib/sapSyncClient';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -120,7 +120,7 @@ export default function ShopFloorMaterialBlocking() {
     const loadPlantWorkflow = async () => {
       const steps = await fetchPlantWorkflow(stockItem.plant);
       if (steps.length > 0) {
-        const deptSequence = steps.map((s) => s.department);
+        const deptSequence = buildManualRouting(steps.map((s) => s.department));
         const labels: Record<string, string> = {};
         steps.forEach((s) => { labels[s.department] = s.label; });
         setPredefinedRouting(deptSequence);
@@ -228,6 +228,9 @@ export default function ShopFloorMaterialBlocking() {
       toast.error('Please fix the validation errors');
       return;
     }
+
+    const lockedErr = await checkLockedRolesAvailable();
+    if (lockedErr) { toast.error(lockedErr); return; }
 
     setIsSubmitting(true);
 
