@@ -36,8 +36,9 @@ import { AvailableStockRecord, shopFloorBlockReasons, shopFloorAttachmentCategor
 import { useDepartments } from '@/hooks/useDepartments';
 import { useDepartmentMap } from '@/hooks/useDepartmentMap';
 import { fetchPlantWorkflow } from '@/lib/workflowRouting';
-import { buildManualRouting, isLockedManualStep } from '@/lib/manualRoutingDefaults';
+import { buildManualRouting, isLockedManualStep, checkLockedRolesAvailable } from '@/lib/manualRoutingDefaults';
 import { invokeSapSync } from '@/lib/sapSyncClient';
+import { AlertRecipientPicker, type AlertRecipientMap } from '@/components/mrb/AlertRecipientPicker';
 import type { Database } from '@/integrations/supabase/types';
 
 type AppRole = string;
@@ -81,6 +82,7 @@ export default function ShopFloorMaterialBlocking() {
   const [defectDescription, setDefectDescription] = useState('');
   const [nextReviewDepartments, setNextReviewDepartments] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<AttachmentUpload[]>([]);
+  const [alertRecipients, setAlertRecipients] = useState<AlertRecipientMap>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [createdMRBNumber, setCreatedMRBNumber] = useState('');
@@ -120,7 +122,7 @@ export default function ShopFloorMaterialBlocking() {
     const loadPlantWorkflow = async () => {
       const steps = await fetchPlantWorkflow(stockItem.plant);
       if (steps.length > 0) {
-        const deptSequence = steps.map((s) => s.department);
+        const deptSequence = buildManualRouting(steps.map((s) => s.department));
         const labels: Record<string, string> = {};
         steps.forEach((s) => { labels[s.department] = s.label; });
         setPredefinedRouting(deptSequence);
@@ -229,6 +231,9 @@ export default function ShopFloorMaterialBlocking() {
       return;
     }
 
+    const lockedErr = await checkLockedRolesAvailable();
+    if (lockedErr) { toast.error(lockedErr); return; }
+
     setIsSubmitting(true);
 
     try {
@@ -322,7 +327,7 @@ export default function ShopFloorMaterialBlocking() {
         immediate_block_required: true,
         storage_location: stockItem.storageLocation || null,
         batch: stockItem.batch || null,
-      } as any, nextReviewDepartments);
+      } as any, nextReviewDepartments, Object.fromEntries(Object.entries(alertRecipients).filter(([k]) => nextReviewDepartments.includes(k))));
 
       if (mrbResult) {
         // Update shop_floor_stock status to 'mrb_created'
@@ -501,7 +506,7 @@ export default function ShopFloorMaterialBlocking() {
               {poNumber && <p>• <strong>PO Number:</strong> {poNumber}</p>}
               {productionOrder && <p>• <strong>Production Order:</strong> {productionOrder}</p>}
               <p>• <strong>Routed to:</strong> {nextReviewDepartments.map(d => workflowDepartments.find(dept => dept.value === d)?.label || d).join(', ')}</p>
-              <p>• <strong>Email notification:</strong> Sent</p>
+              <p>• <strong>Email notification:</strong> Queued</p>
             </div>
             
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
@@ -892,6 +897,18 @@ export default function ShopFloorMaterialBlocking() {
             {errors.nextReviewDepartment && (
               <p className="text-xs text-destructive">{errors.nextReviewDepartment}</p>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <AlertRecipientPicker
+              departments={nextReviewDepartments}
+              plant={stockItem.plant}
+              getLabel={(k) => workflowDepartments.find(d => d.value === k)?.label || k}
+              value={alertRecipients}
+              onChange={setAlertRecipients}
+            />
           </CardContent>
         </Card>
 

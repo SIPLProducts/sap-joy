@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { mrbDetailPath } from '@/lib/mrbDetailPath';
 import { Link } from 'react-router-dom';
 import { format, parseISO, isWithinInterval, differenceInDays, subMonths } from 'date-fns';
 import { useMRB } from '@/contexts/MRBContext';
@@ -162,6 +163,7 @@ export default function PurchaseHeadDashboard() {
     return filteredMRBs.slice(0, 20).map(mrb => ({
       id: mrb.id,
       mrbNumber: mrb.mrb_number,
+      source: (mrb as any).source as string | undefined,
       vendorCode: mrb.vendor_code,
       vendorName: mrb.vendor_name,
       materialCode: mrb.material_number,
@@ -367,7 +369,7 @@ export default function PurchaseHeadDashboard() {
                       className={row.isRepeatVendor ? 'bg-yellow-500/10 hover:bg-yellow-500/15' : ''}
                     >
                       <TableCell>
-                        <Link to={`/mrb/${row.id}`} className="text-primary hover:underline font-medium">
+                        <Link to={mrbDetailPath(row.id, (row as any).source)} className="text-primary hover:underline font-medium">
                           {row.mrbNumber}
                         </Link>
                       </TableCell>

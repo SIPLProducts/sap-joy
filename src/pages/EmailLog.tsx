@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { mrbDetailPath } from '@/lib/mrbDetailPath';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,9 +21,9 @@ export default function EmailLog() {
     setLoading(true);
     const { data, error } = await supabase
       .from('email_logs')
-      .select('*')
+      .select('*, mrb_records(source)')
       .order('sent_at', { ascending: false });
-    if (data) setEmailLogs(data);
+    if (data) setEmailLogs(data as any);
     if (error) console.error('Error fetching email logs:', error);
     setLoading(false);
   };
@@ -111,7 +112,7 @@ export default function EmailLog() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Link to={`/mrb/${log.mrb_id}`} className="text-primary hover:underline font-medium">
+                        <Link to={mrbDetailPath(log.mrb_id, (log as any).mrb_records?.source)} className="text-primary hover:underline font-medium">
                           {log.mrb_number}
                         </Link>
                       </TableCell>

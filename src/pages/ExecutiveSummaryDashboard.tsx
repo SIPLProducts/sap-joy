@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { mrbDetailPath } from '@/lib/mrbDetailPath';
 import { Link, useNavigate } from 'react-router-dom';
 import { format, parseISO, isWithinInterval, differenceInDays, subMonths, getYear } from 'date-fns';
 import { useMRB } from '@/contexts/MRBContext';
@@ -173,6 +174,7 @@ export default function ExecutiveSummaryDashboard() {
       return {
         id: mrb.id,
         mrbNumber: mrb.mrb_number,
+        source: (mrb as any).source as string | undefined,
         plant: mrb.plant,
         materialCode: mrb.material_number,
         vendorName: mrb.vendor_name,
@@ -422,7 +424,7 @@ export default function ExecutiveSummaryDashboard() {
                       className={row.isSLABreached ? 'bg-destructive/10 hover:bg-destructive/15' : ''}
                     >
                       <TableCell>
-                        <Link to={`/mrb/${row.id}`} className="text-primary hover:underline font-medium">
+                        <Link to={mrbDetailPath(row.id, (row as any).source)} className="text-primary hover:underline font-medium">
                           {row.mrbNumber}
                         </Link>
                       </TableCell>

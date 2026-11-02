@@ -11,7 +11,21 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Shield, RefreshCw, ArrowDown, ArrowUp, Save, GitBranch } from 'lucide-react';
+import { Shield, RefreshCw, ArrowDown, ArrowUp, Save, GitBranch, Lock, AlertTriangle } from 'lucide-react';
+import { MANUAL_SECOND_LAST, MANUAL_LAST, isLockedManualStep } from '@/lib/manualRoutingDefaults';
+
+type Step = { role_key: string; name: string; workflow_step: number; is_active: boolean };
+/** Quality Head & Stores always enabled, Quality Head second-last, Stores last. */
+function enforceLockedSteps(list: Step[]): Step[] {
+  const middle = list.filter(s => !isLockedManualStep(s.role_key));
+  const qh = list.find(s => s.role_key === MANUAL_SECOND_LAST);
+  const st = list.find(s => s.role_key === MANUAL_LAST);
+  const out = [...middle];
+  if (qh) out.push({ ...qh, is_active: true });
+  if (st) out.push({ ...st, is_active: true });
+  out.forEach((s, i) => { s.workflow_step = i + 1; });
+  return out;
+}
 
 export default function WorkflowRoutingConfig() {
   const { userRole, profile } = useAuth();
@@ -30,6 +44,13 @@ export default function WorkflowRoutingConfig() {
       })),
     [departments]
   );
+  const missingLocked = useMemo(() => {
+    const keys = new Set(workflowRoles.map(r => r.role_key));
+    const out: string[] = [];
+    if (!keys.has(MANUAL_SECOND_LAST)) out.push('Quality Head');
+    if (!keys.has(MANUAL_LAST)) out.push('Stores');
+    return out;
+  }, [workflowRoles]);
   
   const [selectedPlant, setSelectedPlant] = useState<string>('');
 
@@ -89,8 +110,7 @@ export default function WorkflowRoutingConfig() {
       }
 
       // Re-number
-      ordered.forEach((s, i) => { s.workflow_step = i + 1; });
-      setSteps(ordered);
+      setSteps(enforceLockedSteps(ordered));
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
@@ -104,7 +124,7 @@ export default function WorkflowRoutingConfig() {
   }, [isAdmin, selectedPlant, workflowRoles.length]);
 
   const handleMoveUp = (index: number) => {
-    if (index === 0) return;
+    if (index === 0 || isLockedManualStep(steps[index].role_key) || isLockedManualStep(steps[index - 1].role_key)) return;
     const newSteps = [...steps];
     [newSteps[index - 1], newSteps[index]] = [newSteps[index], newSteps[index - 1]];
     newSteps.forEach((s, i) => { s.workflow_step = i + 1; });
@@ -113,7 +133,7 @@ export default function WorkflowRoutingConfig() {
   };
 
   const handleMoveDown = (index: number) => {
-    if (index >= steps.length - 1) return;
+    if (index >= steps.length - 1 || isLockedManualStep(steps[index].role_key) || isLockedManualStep(steps[index + 1].role_key)) return;
     const newSteps = [...steps];
     [newSteps[index], newSteps[index + 1]] = [newSteps[index + 1], newSteps[index]];
     newSteps.forEach((s, i) => { s.workflow_step = i + 1; });
@@ -122,6 +142,7 @@ export default function WorkflowRoutingConfig() {
   };
 
   const handleToggleActive = (index: number) => {
+    if (isLockedManualStep(steps[index].role_key)) return;
     const newSteps = [...steps];
     newSteps[index].is_active = !newSteps[index].is_active;
     setSteps(newSteps);
@@ -129,13 +150,17 @@ export default function WorkflowRoutingConfig() {
   };
 
   const handleSave = async () => {
+    if (missingLocked.length > 0) {
+      toast({ title: 'Cannot save', description: `${missingLocked.join(' and ')} role is missing, inactive or not workflow-enabled. Enable it in Role Management first.`, variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     try {
       // Delete existing config for this plant
       await supabase.from('plant_workflow_config').delete().eq('plant', selectedPlant);
 
       // Only save active steps
-      const activeSteps = steps.filter(s => s.is_active);
+      const activeSteps = enforceLockedSteps(steps.map(s => ({ ...s }))).filter(s => s.is_active);
       if (activeSteps.length > 0) {
         const rows = activeSteps.map((s, i) => ({
           plant: selectedPlant,
@@ -207,6 +232,13 @@ export default function WorkflowRoutingConfig() {
         </div>
       </div>
 
+      {missingLocked.length > 0 && !loading && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 flex items-center gap-2 text-sm text-destructive">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>{missingLocked.join(' and ')} role is missing, inactive or not workflow-enabled. Every workflow must end with Quality Head then Stores — enable it in Role Management. MRB creation is blocked until fixed.</span>
+        </div>
+      )}
+
       {hasChanges && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between">
           <span className="text-sm text-amber-800 font-medium">You have unsaved changes</span>
@@ -246,16 +278,18 @@ export default function WorkflowRoutingConfig() {
                 {steps.map((step, index) => (
                   <TableRow key={step.role_key} className={!step.is_active ? 'opacity-50' : ''}>
                     <TableCell className="font-mono font-bold text-primary">{step.workflow_step}</TableCell>
-                    <TableCell className="font-medium">{step.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <span className="inline-flex items-center gap-1">{step.name}{isLockedManualStep(step.role_key) && <Lock className="h-3 w-3 text-muted-foreground" />}</span>
+                    </TableCell>
                     <TableCell>
-                      <Switch checked={step.is_active} onCheckedChange={() => handleToggleActive(index)} />
+                      <Switch checked={step.is_active} disabled={isLockedManualStep(step.role_key)} onCheckedChange={() => handleToggleActive(index)} />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => handleMoveUp(index)} disabled={index === 0}>
+                        <Button variant="ghost" size="icon" onClick={() => handleMoveUp(index)} disabled={index === 0 || isLockedManualStep(step.role_key) || isLockedManualStep(steps[index - 1]?.role_key)}>
                           <ArrowUp className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleMoveDown(index)} disabled={index === steps.length - 1}>
+                        <Button variant="ghost" size="icon" onClick={() => handleMoveDown(index)} disabled={index === steps.length - 1 || isLockedManualStep(step.role_key) || isLockedManualStep(steps[index + 1]?.role_key)}>
                           <ArrowDown className="h-4 w-4" />
                         </Button>
                       </div>
