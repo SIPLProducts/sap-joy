@@ -82,7 +82,7 @@ export default async (req: Request) => {
 
       const userRole = roleData?.role || null
       const isMasterAdmin = userEmail === 'masteradmin@sharviinfotech.com'
-      if (roleError || (!isMasterAdmin && userRole !== 'admin' && userRole !== 'quality')) {
+      if (roleError || (!isMasterAdmin && userRole !== 'admin' && userRole !== 'quality' && userRole !== 'quality_head')) {
         return new Response(JSON.stringify({ success: false, error: 'Only Master Admin, Admin, or Quality can run SAP unblock.' }), {
           status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
