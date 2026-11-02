@@ -417,15 +417,18 @@ export default function InwardReport() {
       const result = await createBatchMRBs(selectedRecords);
 
       if (result.success) {
-        toast.success(`Successfully created ${result.createdCount} MRB(s)!`);
+        if (result.createdCount > 0) toast.success(`Successfully created ${result.createdCount} MRB(s)!`);
+        result.errors.forEach(msg => toast.error(msg));
         setSelectedIds(new Set());
-        // Update search results to reflect new status
+        // Update search results to reflect new status (only lots that actually got an MRB)
+        const createdLots = new Set(result.createdMRBs.map(m => m.inspection_lot));
         const updatedResults = searchResults.map(r => 
-          selectedIds.has(r.id) ? { ...r, status: 'mrb_created' as const } : r
+          selectedIds.has(r.id) && createdLots.has(r.inspectionLot) ? { ...r, status: 'mrb_created' as const } : r
         );
         setSearchResults(updatedResults);
       } else {
         toast.error(`Created ${result.createdCount} MRB(s) with ${result.errors.length} errors`);
+        result.errors.forEach(msg => toast.error(msg));
         console.error('Batch MRB errors:', result.errors);
       }
     } catch (error) {
