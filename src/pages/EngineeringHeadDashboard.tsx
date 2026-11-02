@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { mrbDetailPath } from '@/lib/mrbDetailPath';
 import { Link } from 'react-router-dom';
 import { format, parseISO, isWithinInterval, differenceInDays } from 'date-fns';
 import { useMRB } from '@/contexts/MRBContext';
@@ -143,6 +144,7 @@ export default function EngineeringHeadDashboard() {
       .map(mrb => ({
         id: mrb.id,
         mrbNumber: mrb.mrb_number,
+        source: (mrb as any).source as string | undefined,
         materialCode: mrb.material_number,
         defectDescription: mrb.defect_description || '-',
         engineeringDecision: mrb.engineering_decision || 'Pending',
@@ -340,7 +342,7 @@ export default function EngineeringHeadDashboard() {
                       className={row.escalated ? 'bg-destructive/10 hover:bg-destructive/15' : row.isSLABreached ? 'bg-yellow-500/10' : ''}
                     >
                       <TableCell>
-                        <Link to={`/mrb/${row.id}`} className="text-primary hover:underline font-medium">
+                        <Link to={mrbDetailPath(row.id, (row as any).source)} className="text-primary hover:underline font-medium">
                           {row.mrbNumber}
                         </Link>
                       </TableCell>

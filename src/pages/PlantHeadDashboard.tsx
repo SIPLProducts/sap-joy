@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { mrbDetailPath } from '@/lib/mrbDetailPath';
 import { Link } from 'react-router-dom';
 import { format, parseISO, isWithinInterval, differenceInDays } from 'date-fns';
 import { useMRB } from '@/contexts/MRBContext';
@@ -137,6 +138,7 @@ export default function PlantHeadDashboard() {
     return filteredMRBs.slice(0, 20).map(mrb => ({
       id: mrb.id,
       mrbNumber: mrb.mrb_number,
+      source: (mrb as any).source as string | undefined,
       materialCode: mrb.material_number,
       blockedQuantity: mrb.blocked_quantity,
       status: mrb.status,
@@ -343,7 +345,7 @@ export default function PlantHeadDashboard() {
                       className={row.isSLABreached ? 'bg-destructive/10 hover:bg-destructive/15' : ''}
                     >
                       <TableCell>
-                        <Link to={`/mrb/${row.id}`} className="text-primary hover:underline font-medium">
+                        <Link to={mrbDetailPath(row.id, (row as any).source)} className="text-primary hover:underline font-medium">
                           {row.mrbNumber}
                         </Link>
                       </TableCell>
