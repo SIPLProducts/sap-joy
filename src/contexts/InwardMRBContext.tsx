@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeSapSync } from '@/lib/sapSyncClient';
+import { fetchPlantWorkflow } from '@/lib/workflowRouting';
+import { buildManualRouting, checkLockedRolesAvailable } from '@/lib/manualRoutingDefaults';
+import { fetchDepartmentMaps } from '@/hooks/useDepartmentMap';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVisiblePlants } from '@/hooks/useVisiblePlants';
 import type { Database } from '@/integrations/supabase/types';
@@ -427,8 +430,36 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
         return result;
       }
 
+      // Quality Head and Stores must exist so no MRB gets stuck pending with nobody
+      const lockedErr = await checkLockedRolesAvailable();
+      if (lockedErr) {
+        result.success = false;
+        result.errors.push(lockedErr);
+        return result;
+      }
+
+      // Predefined routing per plant (normalised: ... -> Quality Head -> Stores)
+      const deptMaps = await fetchDepartmentMaps();
+      const routingByPlant: Record<string, string[] | null> = {};
+      for (const plantCode of Array.from(new Set(validRecords.map(r => r.plant)))) {
+        const steps = await fetchPlantWorkflow(plantCode);
+        routingByPlant[plantCode] = steps.length > 0 ? buildManualRouting(steps.map(s => s.department)) : null;
+      }
+      const reportedNoWorkflow = new Set<string>();
+
       // Create MRBs one by one to ensure proper numbering
       for (const record of validRecords) {
+        const plantRouting = routingByPlant[record.plant];
+        if (!plantRouting) {
+          if (!reportedNoWorkflow.has(record.plant)) {
+            reportedNoWorkflow.add(record.plant);
+            result.errors.push(`No predefined workflow for plant ${record.plant}. Please create this MRB individually.`);
+          }
+          continue;
+        }
+        const firstStep = plantRouting[0];
+        const stepPendingWith = deptMaps.deptToRole[firstStep] || firstStep;
+        const stepStatus = (deptMaps.deptToStatus[firstStep] || 'quality_review') as Database['public']['Enums']['mrb_status'];
         try {
           const mrbNumber = `${prefix}${String(nextNumber).padStart(4, '0')}`;
           
@@ -436,7 +467,8 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
             mrb_number: mrbNumber,
             source: 'quality_inspection',
             created_by: user.id,
-            status: initialStatus,
+            status: stepStatus,
+            workflow_routing: plantRouting as any,
             plant: record.plant,
             material_number: record.materialCode,
             material_description: record.materialDescription,
@@ -452,7 +484,7 @@ export function InwardMRBProvider({ children }: { children: ReactNode }) {
             batch: record.batch || null,
             storage_location: record.storageLocation || null,
             defect_description: record.blockReason || null,
-            pending_with: initialPendingWith as string
+            pending_with: stepPendingWith as string
           };
 
           const { data: createdMRB, error } = await supabase
