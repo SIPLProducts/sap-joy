@@ -566,7 +566,7 @@ html,body{margin:0;padding:0;background:#fff;}
   const InwardNCRReport = () => {
     const m = selectedMRB;
     const checked = getDispositionChecked(m?.final_decision || m?.engineering_decision);
-    const isClosed = m?.status === 'closed' || m?.status === 'approved';
+    const isClosed = (m?.final_decision === 'accept_under_deviation' && m?.status !== 'closed') ? m?.sap_stock_update_status === 'synced' : (m?.status === 'closed' || m?.status === 'approved');
     const ncrStatus = m?.closure_status || (isClosed ? 'close' : 'open');
     const isOpen = ncrStatus !== 'close' && !isClosed;
 
@@ -758,7 +758,7 @@ html,body{margin:0;padding:0;background:#fff;}
   const UnifiedNCRReport = () => {
     const m = selectedMRB;
     const checked = getDispositionChecked(m?.final_decision || m?.engineering_decision);
-    const isClosed = m?.status === 'closed' || m?.status === 'approved' || m?.closure_status === 'close' || m?.closure_status === 'closed';
+    const isClosed = (m?.final_decision === 'accept_under_deviation' && m?.status !== 'closed') ? m?.sap_stock_update_status === 'synced' : (m?.status === 'closed' || m?.status === 'approved' || m?.closure_status === 'close' || m?.closure_status === 'closed');
     const commentsFor = (keys: string[]) =>
       mrbComments.filter((c) => keys.some((k) => (c.stage || '').toLowerCase().includes(k)));
     const staticReviewRows = [
