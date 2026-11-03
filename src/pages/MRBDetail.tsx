@@ -306,7 +306,7 @@ export default function MRBDetail() {
                     placeholder="Enter quality remarks..." 
                   />
                 </div>
-                {canEdit('quality') && mrb.status === 'quality_review' && (
+                {!hasRouting && canEdit('quality') && mrb.status === 'quality_review' && (
                   <div className="flex gap-2">
                     <Button onClick={() => handleSaveRemarks('quality')} variant="outline">Save Remarks</Button>
                     <Button onClick={() => handleOpenApprovalDialog('approve', 'Quality')}>Approve & Forward</Button>
@@ -341,7 +341,7 @@ export default function MRBDetail() {
                     placeholder="Enter purchase remarks..." 
                   />
                 </div>
-                {canEdit('purchase') && mrb.status === 'purchase_review' && (
+                {!hasRouting && canEdit('purchase') && mrb.status === 'purchase_review' && (
                   <div className="flex gap-2">
                     <Button onClick={() => handleSaveRemarks('purchase')} variant="outline">Save Remarks</Button>
                     <Button onClick={() => handleOpenApprovalDialog('approve', 'Purchase')}>Approve & Forward</Button>
@@ -392,7 +392,7 @@ export default function MRBDetail() {
                     placeholder="Enter engineering remarks..." 
                   />
                 </div>
-                {canEdit('engineering') && mrb.status === 'engineering_review' && (
+                {!hasRouting && canEdit('engineering') && mrb.status === 'engineering_review' && (
                   <div className="flex gap-2">
                     <Button onClick={() => handleSaveRemarks('engineering')} variant="outline">Save Remarks</Button>
                     <Button onClick={() => handleOpenApprovalDialog('approve', 'Engineering')}>Approve & Forward</Button>
@@ -427,7 +427,7 @@ export default function MRBDetail() {
                     placeholder="Enter final remarks..." 
                   />
                 </div>
-                {canEdit('final_approval') && mrb.status === 'final_approval' && (
+                {!hasRouting && canEdit('final_approval') && mrb.status === 'final_approval' && (
                   <div className="flex gap-2">
                     <Button onClick={() => handleSaveRemarks('final')} variant="outline">Save Remarks</Button>
                     <Button onClick={() => handleOpenApprovalDialog('approve', 'Final')}>Final Approve</Button>

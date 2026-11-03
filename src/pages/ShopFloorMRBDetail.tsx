@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Send, History, CheckCircle, Loader2, Factory, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -43,7 +44,14 @@ export default function ShopFloorMRBDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [storesRemarks, setStoresRemarks] = useState('');
+  const [storesDcNo, setStoresDcNo] = useState('');
+  const [storesDebitNo, setStoresDebitNo] = useState('');
+  const [storesRefNo, setStoresRefNo] = useState('');
+  const storesRemarks = [
+    storesDcNo.trim() && `DC No: ${storesDcNo.trim()}`,
+    storesDebitNo.trim() && `Debit Note No: ${storesDebitNo.trim()}`,
+    storesRefNo.trim() && `Reference No: ${storesRefNo.trim()}`,
+  ].filter(Boolean).join(' | ');
   
   const [reviewData, setReviewData] = useState({
     reviewComments: '',
@@ -124,10 +132,10 @@ export default function ShopFloorMRBDetail() {
 
   const handleOpenApprovalDialog = () => {
     if (isStoresActionStep && !storesRemarks.trim()) {
-      toast({ title: 'Validation Error', description: 'Stores Remarks are required', variant: 'destructive' });
+      toast({ title: 'Validation Error', description: 'Enter at least one of DC No, Debit Note No or Reference No', variant: 'destructive' });
       return;
     }
-    if (!isQualityHeadStep && !reviewData.reviewComments.trim()) {
+    if (!isQualityHeadStep && !isStoresActionStep && !reviewData.reviewComments.trim()) {
       toast({
         title: 'Validation Error',
         description: 'Review Comments are required',
@@ -232,6 +240,16 @@ export default function ShopFloorMRBDetail() {
           additionalUpdates.pending_with = deptToRole[nextDept] || nextDept;
           historyAction = action === 'approve_with_deviation' ? 'forwarded' : 'returned';
         }
+      }
+
+      // Accept under deviation by Quality Head finalizes the MRB (Stores view-only)
+      if (isQualityHeadStep && action === 'accept_under_deviation') {
+        newStatus = 'approved';
+        additionalUpdates.pending_with = null;
+        additionalUpdates.final_decision = 'accept_under_deviation';
+        additionalUpdates.final_approved_by = (profile as any)?.user_id || null;
+        additionalUpdates.final_approved_at = new Date().toISOString();
+        historyAction = 'approved';
       }
 
       // Department-specific remarks
@@ -559,14 +577,12 @@ export default function ShopFloorMRBDetail() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {isStoresActionStep ? (
                   <div className="space-y-2 md:col-span-2">
-                    <Label>Stores Remarks <span className="text-destructive">*</span></Label>
-                    <Textarea
-                      value={storesRemarks}
-                      onChange={(e) => setStoresRemarks(e.target.value)}
-                      placeholder="Enter DC No, Debit Note No, Reference No, etc."
-                      rows={3}
-                      className="bg-background resize-none"
-                    />
+                    <Label>Stores Details <span className="text-destructive">*</span> <span className="text-xs text-muted-foreground">(at least one)</span></Label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <Input value={storesDcNo} onChange={(e) => setStoresDcNo(e.target.value)} placeholder="DC No" className="bg-background" />
+                      <Input value={storesDebitNo} onChange={(e) => setStoresDebitNo(e.target.value)} placeholder="Debit Note No" className="bg-background" />
+                      <Input value={storesRefNo} onChange={(e) => setStoresRefNo(e.target.value)} placeholder="Reference No" className="bg-background" />
+                    </div>
                   </div>
                   ) : (
                   <div className="space-y-2">
@@ -613,7 +629,7 @@ export default function ShopFloorMRBDetail() {
                   </div>
                 )}
                 <div className="space-y-2">
-                  <Label>Review Comments {!isQualityHeadStep && <span className="text-destructive">*</span>}</Label>
+                  <Label>Review Comments {!isQualityHeadStep && !isStoresActionStep && <span className="text-destructive">*</span>}</Label>
                   <Textarea
                     value={reviewData.reviewComments}
                     onChange={(e) => setReviewData({ ...reviewData, reviewComments: e.target.value })}
@@ -654,7 +670,7 @@ export default function ShopFloorMRBDetail() {
             </div>
             <Button 
               onClick={handleOpenApprovalDialog} 
-              disabled={isQualityHeadStep ? !reviewData.action : (!reviewData.reviewComments.trim() || (isStoresActionStep && !storesRemarks.trim()))}
+              disabled={isQualityHeadStep ? !reviewData.action : (isStoresActionStep ? !storesRemarks.trim() : !reviewData.reviewComments.trim())}
               size="lg"
               className="min-w-[160px]"
             >
