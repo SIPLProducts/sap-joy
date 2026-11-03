@@ -697,6 +697,7 @@ export default function Worklist() {
         config_id: sap343ConfigId,
         verify_config_id: sapMb52ConfigId || undefined,
         request_body: requestBody,
+        mrb_id: mrbId,
       });
 
       const result = response.data;
@@ -839,6 +840,7 @@ export default function Worklist() {
           config_id: sap343ConfigId,
           verify_config_id: sapMb52ConfigId || undefined,
           request_body: requestBody,
+          mrb_id: mrb.id,
         });
 
         const result = response.data;
