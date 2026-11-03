@@ -1,0 +1,3 @@
+CREATE POLICY "QH accept-deviation can update SAP status" ON public.mrb_records FOR UPDATE TO authenticated
+USING (final_decision = 'accept_under_deviation' AND (public.has_role(auth.uid(),'quality_head') OR public.has_role(auth.uid(),'quality') OR public.has_role(auth.uid(),'admin')))
+WITH CHECK (final_decision = 'accept_under_deviation' AND (public.has_role(auth.uid(),'quality_head') OR public.has_role(auth.uid(),'quality') OR public.has_role(auth.uid(),'admin')));

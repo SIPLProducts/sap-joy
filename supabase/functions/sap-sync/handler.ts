@@ -635,6 +635,15 @@ export default async (req: Request) => {
           }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
+        // Persist synced status server-side so RLS on the client can never block it
+        if (body?.mrb_id && typeof body.mrb_id === 'string') {
+          const { error: mrbUpdErr } = await supabase
+            .from('mrb_records')
+            .update({ sap_stock_update_status: 'synced' })
+            .eq('id', body.mrb_id)
+          if (mrbUpdErr) console.error('Failed to mark MRB synced:', mrbUpdErr.message)
+        }
+
         return new Response(JSON.stringify({
           success: true,
           already_unblocked: alreadyUnblocked,

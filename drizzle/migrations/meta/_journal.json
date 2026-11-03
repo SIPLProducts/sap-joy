@@ -8,6 +8,13 @@
       "when": 1793018014740,
       "tag": "0000_mrb_alert_recipients",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793680806848,
+      "tag": "0001_qh_accept_deviation_update_policy",
+      "breakpoints": true
     }
   ]
 }
