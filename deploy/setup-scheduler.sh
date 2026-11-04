@@ -64,6 +64,19 @@ if [ -n "$DB_URL" ]; then
         \$\$
       );
     " 2>/dev/null && echo "  ✓ pg_cron job created" || echo "  ⚠ pg_cron not available — standalone scheduler will handle this"
+    psql "$DB_URL" -c "
+      SELECT cron.schedule(
+        'mrb-pending-reminders-daily',
+        '30 3 * * *',
+        \$\$
+        SELECT net.http_post(
+          url := '${SUPA_URL}/functions/v1/mrb-pending-reminders',
+          headers := '{\"Content-Type\": \"application/json\", \"Authorization\": \"Bearer ${ANON_KEY}\"}'::jsonb,
+          body := '{\"source\": \"pg_cron\"}'::jsonb
+        ) AS request_id;
+        \$\$
+      );
+    " 2>/dev/null && echo "  ✓ Daily reminder job created" || echo "  ⚠ Could not create daily reminder job"
   else
     echo "  ⚠ Missing ANON_KEY or SUPABASE_URL — skipping pg_cron"
   fi

@@ -642,6 +642,11 @@ export default async (req: Request) => {
             .update({ sap_stock_update_status: 'synced' })
             .eq('id', body.mrb_id)
           if (mrbUpdErr) console.error('Failed to mark MRB synced:', mrbUpdErr.message)
+          // Accept under deviation: clear pending department once SAP unblock succeeds
+          await supabase.from('mrb_records')
+            .update({ pending_with: null })
+            .eq('id', body.mrb_id)
+            .eq('final_decision', 'accept_under_deviation')
         }
 
         return new Response(JSON.stringify({

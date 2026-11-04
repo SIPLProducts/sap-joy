@@ -227,6 +227,8 @@ export default function MRBDetail() {
     );
   }
 
+  const hasRouting = Array.isArray(mrb.workflow_routing) && (mrb.workflow_routing as unknown[]).length > 0;
+
   const displayStatusLabel = getWorkflowReviewLabel(mrb.status, mrb.pending_with, roleDisplayNames);
 
   const formatDate = (dateString: string | null) => {
