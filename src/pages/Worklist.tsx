@@ -713,7 +713,8 @@ export default function Worklist() {
         closure_status: 'completed',
         closed_at: new Date().toISOString(),
         closed_by: user?.id,
-      });
+        ...(mrb.finalDecision === 'accept_under_deviation' ? { status: 'approved', pending_with: null } : {}),
+      } as any);
 
       if (!dbUpdated) {
         throw new Error('SAP unblock confirmed, but application status update failed. Please refresh and try again.');
@@ -853,7 +854,8 @@ export default function Worklist() {
           closure_status: 'completed',
           closed_at: new Date().toISOString(),
           closed_by: user?.id,
-        });
+          ...(mrb.finalDecision === 'accept_under_deviation' ? { status: 'approved', pending_with: null } : {}),
+        } as any);
 
         if (!dbUpdated) {
           throw new Error('SAP unblock confirmed, but application status update failed.');

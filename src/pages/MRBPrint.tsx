@@ -944,7 +944,7 @@ html,body{margin:0;padding:0;background:#fff;}
           <table className="ncr3-t ncr3-disp">
             <colgroup><col style={{ width: '5%' }} /><col style={{ width: '45%' }} /><col style={{ width: '5%' }} /><col /></colgroup>
             <tbody>
-              <tr><Box on={checked.accept_deviation || checked.use_as_is} /><td>Accept under deviation</td><Box on={checked.return_to_vendor} /><td>Return to spplier</td></tr>
+              <tr><Box on={checked.accept_deviation || checked.use_as_is} /><td>Accept under deviation</td><Box on={checked.return_to_vendor} /><td>Return to supplier</td></tr>
               <tr><Box on={checked.rework} /><td>Rework</td><Box on={checked.sort} /><td>Sort</td></tr>
               <tr><Box on={checked.scrap} /><td>Scrap</td><Box on={checked.others} /><td>Others</td></tr>
             </tbody>
