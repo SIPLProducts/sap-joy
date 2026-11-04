@@ -71,6 +71,13 @@ if [ -d "$FUNC_VOLUME_DIR" ]; then
 fi
 mkdir -p "$FUNC_VOLUME_DIR"
 
+# Copy shared helpers (not a standalone function)
+if [ -d "$FUNCTIONS_SRC/_shared" ]; then
+  mkdir -p "$FUNC_VOLUME_DIR/_shared"
+  cp -r "$FUNCTIONS_SRC/_shared/." "$FUNC_VOLUME_DIR/_shared/"
+  echo "  ✓ Copied _shared helpers"
+fi
+
 for func_name in "${FUNCTIONS[@]}"; do
   mkdir -p "$FUNC_VOLUME_DIR/$func_name"
 
