@@ -359,6 +359,12 @@ export default function ShopFloorMRBDetail() {
 
       {/* Content */}
       <div className="p-6 space-y-6 flex-1 pb-6">
+        {String((mrb as any).final_decision || '') === 'accept_under_deviation' && (
+          <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+            <strong>Quality Head decision: Accept under deviation</strong>
+            <p className="text-muted-foreground">Stores: view only — no dispatch details needed.</p>
+          </div>
+        )}
         {/* Workflow Progress Indicator */}
         <WorkflowProgressIndicator 
           currentStatus={mrb.status} 
