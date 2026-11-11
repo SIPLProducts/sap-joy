@@ -868,6 +868,17 @@ html,body{margin:0;padding:0;background:#fff;}
     const Footer = ({ n }: { n: number }) => (
       <div className="ncr3-foot"><span>EG-QC-FT-25 REV 3</span><span>Page {n} of 2</span></div>
     );
+    const pos = (v: any) => { const n = Number(v); return v !== null && v !== undefined && v !== '' && !isNaN(n) && n > 0 ? n : null; };
+    const mm: any = m || {};
+    const recvQty = pos(mm.total_quantity) ?? pos(mm.blocked_quantity);
+    const rejQty = pos(mm.rejected_quantity) ?? pos(mm.final_rejected_quantity) ?? pos(mm.blocked_quantity);
+    const accQty = pos(mm.accepted_quantity) ?? pos(mm.final_approved_quantity) ?? (recvQty != null ? Math.max(0, recvQty - (rejQty || 0)) : null);
+    const grnDateV = mm.grn_date || mm.posting_date || mm.inspection_date;
+    const dcInvNo = mm.delivery_challan_no || mm.dc_invoice_no || mm.xblnr || mm.stores_dc_no || '';
+    const dcInvDate = mm.dc_invoice_date || mm.delivery_challan_date || grnDateV;
+    const poNoDate = [mm.po_number, mm.po_date ? formatDate(mm.po_date) : ''].filter(Boolean).join(' & ');
+    const creatorName = (mrbComments || []).find((c) => /creat/i.test(`${c.rawStage || ''} ${c.stage || ''}`) && c.author)?.author;
+    const initiatorName = creatorName || mm.issue_identified_by || approverNames.quality || '';
     const initComment = m?.quality_remarks || m?.defect_description || m?.issue_description || '';
     const Box = ({ on }: { on?: boolean }) => <td className="ncr3-cb"><span className={`ncr3-box${on ? ' on' : ''}`} /></td>;
     return (
@@ -878,19 +889,19 @@ html,body{margin:0;padding:0;background:#fff;}
             <colgroup><col style={{ width: '17%' }} /><col style={{ width: '3%' }} /><col style={{ width: '17%' }} /><col style={{ width: '17%' }} /><col style={{ width: '3%' }} /><col /></colgroup>
             <tbody>
               <Row2 l1="GRN No" v1={m?.grn_number} l2="NC Report No" v2={m?.mrb_number} />
-              <Row2 l1="GRN Date" v1={formatDate(m?.grn_date)} l2="NC Report Date" v2={formatDate(m?.created_at)} />
-              <tr><td className="l">DC/INV No</td><td className="c">:</td><td className="v"></td><td className="l">WO No</td><td className="c">:</td><td className="v">{D(m?.production_order_number)}</td></tr>
-              <tr><td className="l">DC/INV Date</td><td className="c">:</td><td className="v"></td><td className="l">WO Date</td><td className="c">:</td><td className="v">{m?.production_order_number ? formatDate(m?.created_at) : D(null)}</td></tr>
-              <Row2 l1="Vendor Code" v1={m?.vendor_code} l2="PO No. & Date" v2={m?.po_number} />
+              <Row2 l1="GRN Date" v1={grnDateV ? formatDate(grnDateV) : ''} l2="NC Report Date" v2={formatDate(m?.created_at)} />
+              <tr><td className="l">DC/INV No</td><td className="c">:</td><td className="v">{D(dcInvNo)}</td><td className="l">WO No</td><td className="c">:</td><td className="v">{D(m?.production_order_number)}</td></tr>
+              <tr><td className="l">DC/INV Date</td><td className="c">:</td><td className="v">{dcInvDate ? formatDate(dcInvDate) : ''}</td><td className="l">WO Date</td><td className="c">:</td><td className="v">{m?.production_order_number ? formatDate(m?.created_at) : D(null)}</td></tr>
+              <Row2 l1="Vendor Code" v1={m?.vendor_code} l2="PO No. & Date" v2={poNoDate} />
               <Row2 l1="Vendor Name" v1={m?.vendor_name} l2="Item Code" v2={m?.material_number} />
               <tr><td className="l">Item Description</td><td className="c">:</td><td className="v" colSpan={4}>{D(m?.material_description)}</td></tr>
             </tbody>
           </table>
           <table className="ncr3-t ncr3-kv ncr3-gap">
             <tbody><tr>
-              <td className="l">Received QTY</td><td className="c">:</td><td className="v">{D(m?.total_quantity)}</td>
-              <td className="l">Accepted QTY</td><td className="c">:</td><td className="v">{D(m?.accepted_quantity ?? m?.final_approved_quantity)}</td>
-              <td className="l">Rejected QTY</td><td className="c">:</td><td className="v">{D(m?.rejected_quantity ?? m?.final_rejected_quantity ?? m?.blocked_quantity)}</td>
+              <td className="l">Received QTY</td><td className="c">:</td><td className="v">{D(recvQty ?? m?.total_quantity)}</td>
+              <td className="l">Accepted QTY</td><td className="c">:</td><td className="v">{D(accQty ?? m?.accepted_quantity)}</td>
+              <td className="l">Rejected QTY</td><td className="c">:</td><td className="v">{D(rejQty ?? m?.rejected_quantity)}</td>
             </tr></tbody>
           </table>
           <table className="ncr3-t ncr3-kv ncr3-gap">
@@ -905,7 +916,7 @@ html,body{margin:0;padding:0;background:#fff;}
               const showCode = !!code && !ic.toLowerCase().includes(code.toLowerCase());
               return <div className="txt" style={{ whiteSpace: 'pre-wrap' }}>{[showCode ? code : '', ic].filter(Boolean).join(' - ')}</div>;
             })()}
-            <div className="sig"><span style={{ width: '50%' }}>Initiator Name: {m?.issue_identified_by || approverNames.quality || ''}</span><span>Signature:</span></div>
+            <div className="sig"><span style={{ width: '50%' }}>Initiator Name: {initiatorName}</span><span>Signature:</span></div>
           </div>
 
           {selectedMRB?.source === 'shop_floor' && (() => {
