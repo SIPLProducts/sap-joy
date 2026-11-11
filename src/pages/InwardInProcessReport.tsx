@@ -57,7 +57,7 @@ export default function InwardReport() {
   const { extraFields } = useExtraDynamicFields('zmrb_inward_report');
 
   // Role-based permissions
-  const canCreateMRB = userRole && ['quality', 'quality_head', 'admin', 'superadmin'].includes(userRole);
+  const canCreateMRB = !!userRole; // Point 6: all departments can create MRBs
   
   const canEditQuantity = userRole && ['quality', 'quality_head', 'admin', 'superadmin'].includes(userRole);
   const [hasSearched, setHasSearched] = useState(false);
