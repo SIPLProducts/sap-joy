@@ -1714,6 +1714,7 @@ export type Database = {
         Args: { _screen_key: string; _user_id: string }
         Returns: boolean
       }
+      is_app_user: { Args: { _user_id: string }; Returns: boolean }
       record_failed_login: { Args: { _user_id: string }; Returns: Json }
       record_password_change: {
         Args: { _password_hash: string; _user_id: string }
