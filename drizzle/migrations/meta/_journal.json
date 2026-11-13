@@ -15,6 +15,13 @@
       "when": 1793680806848,
       "tag": "0001_qh_accept_deviation_update_policy",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794545487856,
+      "tag": "0002_tighten_rls_app_users",
+      "breakpoints": true
     }
   ]
 }
