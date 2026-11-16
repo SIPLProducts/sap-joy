@@ -716,9 +716,13 @@ export default function Worklist() {
         ...(mrb.finalDecision === 'accept_under_deviation' ? { status: 'approved', pending_with: null } : {}),
       } as any);
 
-      if (!dbUpdated) {
+      if (!dbUpdated && !result?.db_finalized) {
         throw new Error('SAP unblock confirmed, but application status update failed. Please refresh and try again.');
       }
+
+      // Hide the Unblock button immediately and reload the list
+      setUnifiedRecords?.((prev: any[]) => prev.map(r => r.id === mrbId ? { ...r, sapStockUpdateStatus: 'synced', closureStatus: 'completed' } : r));
+      fetchMRBRecords?.();
 
       // Log sync history with SAP response
       await logSyncHistory(mrbId, mrbNumber, 'single', 'success');

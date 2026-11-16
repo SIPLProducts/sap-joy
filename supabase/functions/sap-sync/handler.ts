@@ -636,12 +636,24 @@ export default async (req: Request) => {
         }
 
         // Persist synced status server-side so RLS on the client can never block it
+        let dbFinalized = false
         if (body?.mrb_id && typeof body.mrb_id === 'string') {
-          const { error: mrbUpdErr } = await supabase
+          const { data: updRows, error: mrbUpdErr } = await supabase
             .from('mrb_records')
-            .update({ sap_stock_update_status: 'synced' })
+            .update({
+              sap_stock_update_status: 'synced',
+              closure_status: 'completed',
+              closed_at: new Date().toISOString(),
+              closed_by: userData.user.id,
+            })
             .eq('id', body.mrb_id)
+            .select('id')
           if (mrbUpdErr) console.error('Failed to mark MRB synced:', mrbUpdErr.message)
+          dbFinalized = !mrbUpdErr && (updRows?.length ?? 0) > 0
+          await supabase.from('mrb_records')
+            .update({ status: 'approved' })
+            .eq('id', body.mrb_id)
+            .eq('final_decision', 'accept_under_deviation')
           // Accept under deviation: clear pending department once SAP unblock succeeds
           await supabase.from('mrb_records')
             .update({ pending_with: null })
@@ -651,6 +663,7 @@ export default async (req: Request) => {
 
         return new Response(JSON.stringify({
           success: true,
+          db_finalized: dbFinalized,
           already_unblocked: alreadyUnblocked,
           verified_unblocked: verifiedUnblocked,
           sap_response: responseData,
