@@ -127,7 +127,7 @@ interface SAPSyncHistoryEntry {
 
 export default function Worklist() {
   const navigate = useNavigate();
-  const { mrbRecords, isLoading, updateMRB } = useMRBDatabase();
+  const { mrbRecords, isLoading, updateMRB, fetchMRBRecords } = useMRBDatabase();
   const { toast } = useToast();
   const { userRole, user, profile, isAllPlantsView, selectedPlants } = useAuth();
   const { departments } = useDepartments();
@@ -721,8 +721,7 @@ export default function Worklist() {
       }
 
       // Hide the Unblock button immediately and reload the list
-      setUnifiedRecords?.((prev: any[]) => prev.map(r => r.id === mrbId ? { ...r, sapStockUpdateStatus: 'synced', closureStatus: 'completed' } : r));
-      fetchMRBRecords?.();
+      await fetchMRBRecords();
 
       // Log sync history with SAP response
       await logSyncHistory(mrbId, mrbNumber, 'single', 'success');
