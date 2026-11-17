@@ -29,6 +29,13 @@
       "when": 1794898743345,
       "tag": "0003_add_po_dc_invoice_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794899104575,
+      "tag": "0004_secure_add_dynamic_column",
+      "breakpoints": true
     }
   ]
 }
