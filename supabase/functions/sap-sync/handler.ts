@@ -1511,6 +1511,7 @@ async function mapAndInsertData(
       'batch', 'uom', 'blocked_quantity', 'transaction_quantity', 'status', 'block_reason',
       'vendor_code', 'vendor_name', 'po_number', 'po_item_number', 'grn_number', 'uploaded_by', 'upload_batch_id',
       'inspection_date', 'posting_date', 'grn_item_no', 'grn_date',
+      'po_date', 'dc_invoice_no', 'dc_invoice_date',
     ]),
     zmrb_inward_report: new Set([
       'inspection_lot', 'material_code', 'material_description', 'plant', 'storage_location',
@@ -1551,6 +1552,9 @@ async function mapAndInsertData(
       grn_number: 'grn_number',
       qals_prueflos: 'inspection_lot', inspection_date: 'inspection_date', posting_date: 'posting_date',
       zeile: 'grn_item_no', bldat: 'grn_date', grn_item_no: 'grn_item_no', grn_date: 'grn_date',
+      bedat: 'po_date', po_date: 'po_date', dcnumber: 'dc_invoice_no', invoice: 'dc_invoice_no',
+      dc_invoice_no: 'dc_invoice_no', dc_date: 'dc_invoice_date', in_date: 'dc_invoice_date',
+      dc_invoice_date: 'dc_invoice_date',
     },
     zmrb_inward_report: {
       matnr: 'material_code', material: 'material_code', maktx: 'material_description',
