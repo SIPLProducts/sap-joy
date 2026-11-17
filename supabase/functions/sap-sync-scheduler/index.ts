@@ -918,7 +918,7 @@ async function mapAndInsertData(
       'inspection_lot', 'material_code', 'material_description', 'plant', 'storage_location',
       'batch', 'uom', 'blocked_quantity', 'transaction_quantity', 'status', 'block_reason',
       'vendor_code', 'vendor_name', 'po_number', 'po_item_number', 'grn_number', 'uploaded_by', 'upload_batch_id',
-      'inspection_date', 'posting_date', 'grn_item_no', 'grn_date',
+      'inspection_date', 'posting_date', 'grn_item_no', 'grn_date', 'po_date','dc_invoice_no','dc_invoice_date',
     ]),
     materials: new Set(['material_number', 'description', 'uom', 'category']),
     vendors: new Set(['code', 'name', 'contact_email', 'contact_phone', 'address', 'is_active']),
@@ -930,7 +930,7 @@ async function mapAndInsertData(
     'grn_number','grn_item_no','grn_date','inspection_date','posting_date',
     'production_order_no','work_center','order_type','confirmation_no',
     'customer_code','customer_name','sales_order','sales_item',
-    'uploaded_by','upload_batch_id','source',
+    'uploaded_by','upload_batch_id','source', 'po_date','dc_invoice_no','dc_invoice_date',
   ])
 
   // Alias maps matching manual sync exactly
@@ -955,6 +955,8 @@ async function mapAndInsertData(
       grn_number: 'grn_number',
       qals_prueflos: 'inspection_lot', inspection_date: 'inspection_date', posting_date: 'posting_date',
       zeile: 'grn_item_no', bldat: 'grn_date', grn_item_no: 'grn_item_no', grn_date: 'grn_date',
+      bedat: 'po_date', dcnumber: 'dc_invoice_no', invoice: 'dc_invoice_no', dc_date: 'dc_invoice_date', in_date: 'dc_invoice_date', po_date: 'po_date', dc_invoice_no: 'dc_invoice_no', dc_invoice_date: 'dc_invoice_date',
+    
     },
     materials: {
       material: 'material_number', matnr: 'material_number',
@@ -976,6 +978,8 @@ async function mapAndInsertData(
     aufnr: 'production_order_no', arbpl: 'work_center', auart: 'order_type',
     rueck: 'confirmation_no', kunnr: 'customer_code', name1_cust: 'customer_name',
     vbeln: 'sales_order', posnr: 'sales_item',
+    bedat: 'po_date', dcnumber: 'dc_invoice_no', invoice: 'dc_invoice_no', dc_date: 'dc_invoice_date', in_date: 'dc_invoice_date', po_date: 'po_date', dc_invoice_no: 'dc_invoice_no', dc_invoice_date: 'dc_invoice_date',
+    
   }
 
   const requiredByTable: Record<string, string[]> = {

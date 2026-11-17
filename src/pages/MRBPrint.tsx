@@ -285,6 +285,14 @@ const MRBPrint = () => {
   const [selectedMRB, setSelectedMRB] = useState<MRBRecord | null>(null);
   const [approverNames, setApproverNames] = useState<ApproverInfo>({});
   const [mrbComments, setMrbComments] = useState<MRBComment[]>([]);
+  const [lotExtra, setLotExtra] = useState<{ po_date?: string | null; dc_invoice_no?: string | null; dc_invoice_date?: string | null }>({});
+  useEffect(() => {
+    const lot = (selectedMRB as any)?.inspection_lot;
+    setLotExtra({});
+    if (!lot) return;
+    supabase.from('inward_inspection_lots').select('po_date, dc_invoice_no, dc_invoice_date').eq('inspection_lot', lot).limit(1).maybeSingle()
+      .then(({ data }) => { if (data) setLotExtra(data as any); });
+  }, [selectedMRB]);
   const { activePlant, activePlants, activePlantsKey } = useActivePlant();
 
   const [showPreview, setShowPreview] = useState(false);
@@ -400,6 +408,7 @@ const MRBPrint = () => {
 
   const formatDate = (d: string | null | undefined) => {
     if (!d) return '';
+    if (/^\d{8}$/.test(String(d))) { const s = String(d); if (s === '00000000') return ''; d = `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`; }
     return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
@@ -869,7 +878,10 @@ html,body{margin:0;padding:0;background:#fff;}
       <div className="ncr3-foot"><span>EG-QC-FT-25 REV 3</span><span>Page {n} of 2</span></div>
     );
     const pos = (v: any) => { const n = Number(v); return v !== null && v !== undefined && v !== '' && !isNaN(n) && n > 0 ? n : null; };
-    const mm: any = m || {};
+    const mm: any = { ...(m || {}) };
+    if (!mm.po_date && lotExtra.po_date) mm.po_date = lotExtra.po_date;
+    if (!mm.dc_invoice_no && lotExtra.dc_invoice_no) mm.dc_invoice_no = lotExtra.dc_invoice_no;
+    if (!mm.dc_invoice_date && lotExtra.dc_invoice_date) mm.dc_invoice_date = lotExtra.dc_invoice_date;
     const recvQty = pos(mm.total_quantity) ?? pos(mm.blocked_quantity);
     const rejQty = pos(mm.rejected_quantity) ?? pos(mm.final_rejected_quantity) ?? pos(mm.blocked_quantity);
     const accQty = pos(mm.accepted_quantity) ?? pos(mm.final_approved_quantity) ?? (recvQty != null ? Math.max(0, recvQty - (rejQty || 0)) : null);

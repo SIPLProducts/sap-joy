@@ -1,0 +1,2 @@
+ALTER TABLE public.inward_inspection_lots ADD COLUMN IF NOT EXISTS po_date text, ADD COLUMN IF NOT EXISTS dc_invoice_no text, ADD COLUMN IF NOT EXISTS dc_invoice_date text;
+ALTER TABLE public.mrb_records ADD COLUMN IF NOT EXISTS po_date text, ADD COLUMN IF NOT EXISTS dc_invoice_no text, ADD COLUMN IF NOT EXISTS dc_invoice_date text;

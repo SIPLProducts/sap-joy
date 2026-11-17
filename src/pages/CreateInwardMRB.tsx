@@ -546,6 +546,11 @@ export default function CreateInwardMRB() {
         grn_number: formData.grnNumber || null,
         grn_item_number: formData.grnItemNumber || null,
         grn_date: formData.grnDate || null,
+        ...({
+          po_date: (inspectionLot as any)?._raw?.po_date || null,
+          dc_invoice_no: (inspectionLot as any)?._raw?.dc_invoice_no || null,
+          dc_invoice_date: (inspectionLot as any)?._raw?.dc_invoice_date || null,
+        } as any),
         batch: formData.batch || null,
         storage_location: formData.storageLocation || null,
         total_quantity: formData.transactionQuantity,

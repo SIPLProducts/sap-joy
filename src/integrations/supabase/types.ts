@@ -205,6 +205,8 @@ export type Database = {
           block_reason: string | null
           blocked_quantity: number
           created_at: string
+          dc_invoice_date: string | null
+          dc_invoice_no: string | null
           grn_date: string | null
           grn_item_no: string | null
           grn_number: string | null
@@ -214,6 +216,7 @@ export type Database = {
           material_code: string
           material_description: string | null
           plant: string
+          po_date: string | null
           po_item_number: string | null
           po_number: string | null
           posting_date: string | null
@@ -232,6 +235,8 @@ export type Database = {
           block_reason?: string | null
           blocked_quantity?: number
           created_at?: string
+          dc_invoice_date?: string | null
+          dc_invoice_no?: string | null
           grn_date?: string | null
           grn_item_no?: string | null
           grn_number?: string | null
@@ -241,6 +246,7 @@ export type Database = {
           material_code: string
           material_description?: string | null
           plant: string
+          po_date?: string | null
           po_item_number?: string | null
           po_number?: string | null
           posting_date?: string | null
@@ -259,6 +265,8 @@ export type Database = {
           block_reason?: string | null
           blocked_quantity?: number
           created_at?: string
+          dc_invoice_date?: string | null
+          dc_invoice_no?: string | null
           grn_date?: string | null
           grn_item_no?: string | null
           grn_number?: string | null
@@ -268,6 +276,7 @@ export type Database = {
           material_code?: string
           material_description?: string | null
           plant?: string
+          po_date?: string | null
           po_item_number?: string | null
           po_number?: string | null
           posting_date?: string | null
@@ -435,6 +444,8 @@ export type Database = {
           closure_status: string | null
           created_at: string
           created_by: string | null
+          dc_invoice_date: string | null
+          dc_invoice_no: string | null
           defect_category: Database["public"]["Enums"]["defect_category"] | null
           defect_code: string | null
           defect_description: string | null
@@ -481,6 +492,7 @@ export type Database = {
           pending_with: string | null
           plant: string
           plant_id: string | null
+          po_date: string | null
           po_number: string | null
           production_order_number: string | null
           purchase_action: string | null
@@ -522,6 +534,8 @@ export type Database = {
           closure_status?: string | null
           created_at?: string
           created_by?: string | null
+          dc_invoice_date?: string | null
+          dc_invoice_no?: string | null
           defect_category?:
             | Database["public"]["Enums"]["defect_category"]
             | null
@@ -570,6 +584,7 @@ export type Database = {
           pending_with?: string | null
           plant: string
           plant_id?: string | null
+          po_date?: string | null
           po_number?: string | null
           production_order_number?: string | null
           purchase_action?: string | null
@@ -611,6 +626,8 @@ export type Database = {
           closure_status?: string | null
           created_at?: string
           created_by?: string | null
+          dc_invoice_date?: string | null
+          dc_invoice_no?: string | null
           defect_category?:
             | Database["public"]["Enums"]["defect_category"]
             | null
@@ -659,6 +676,7 @@ export type Database = {
           pending_with?: string | null
           plant?: string
           plant_id?: string | null
+          po_date?: string | null
           po_number?: string | null
           production_order_number?: string | null
           purchase_action?: string | null
