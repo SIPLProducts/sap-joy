@@ -884,9 +884,12 @@ html,body{margin:0;padding:0;background:#fff;}
     if (!mm.po_date && lotExtra.po_date) mm.po_date = lotExtra.po_date;
     if (!mm.dc_invoice_no && lotExtra.dc_invoice_no) mm.dc_invoice_no = lotExtra.dc_invoice_no;
     if (!mm.dc_invoice_date && lotExtra.dc_invoice_date) mm.dc_invoice_date = lotExtra.dc_invoice_date;
-    const recvQty = pos(mm.total_quantity) ?? pos(mm.blocked_quantity);
-    const rejQty = pos(mm.rejected_quantity) ?? pos(mm.final_rejected_quantity) ?? pos(mm.blocked_quantity);
-    const accQty = pos(mm.accepted_quantity) ?? pos(mm.final_approved_quantity) ?? (recvQty != null ? Math.max(0, recvQty - (rejQty || 0)) : null);
+    // Received = total MRB qty at creation; Accepted = qty synced (unblocked) to SAP; Rejected = Received - Accepted
+    const recvQty = pos(mm.total_quantity) ?? pos(mm.blocked_quantity) ?? 0;
+    const isSapSynced = mm.sap_stock_update_status === 'synced';
+    const syncedQty = isSapSynced ? (pos(mm.accepted_quantity) ?? pos(mm.final_approved_quantity) ?? pos(mm.blocked_quantity) ?? recvQty) : 0;
+    const accQty = Math.min(recvQty, syncedQty);
+    const rejQty = Math.max(0, recvQty - accQty);
     const grnDateV = mm.grn_date || mm.posting_date || mm.inspection_date;
     const dcInvNo = mm.delivery_challan_no || mm.dc_invoice_no || mm.xblnr || mm.stores_dc_no || '';
     const dcInvDate = mm.dc_invoice_date || mm.delivery_challan_date || grnDateV;
@@ -913,9 +916,9 @@ html,body{margin:0;padding:0;background:#fff;}
           </table>
           <table className="ncr3-t ncr3-kv ncr3-gap">
             <tbody><tr>
-              <td className="l">Received QTY</td><td className="c">:</td><td className="v">{D(recvQty ?? m?.total_quantity)}</td>
-              <td className="l">Accepted QTY</td><td className="c">:</td><td className="v">{D(accQty ?? m?.accepted_quantity)}</td>
-              <td className="l">Rejected QTY</td><td className="c">:</td><td className="v">{D(rejQty ?? m?.rejected_quantity)}</td>
+              <td className="l">Received QTY</td><td className="c">:</td><td className="v">{D(recvQty)}</td>
+              <td className="l">Accepted QTY</td><td className="c">:</td><td className="v">{D(accQty)}</td>
+              <td className="l">Rejected QTY</td><td className="c">:</td><td className="v">{D(rejQty)}</td>
             </tr></tbody>
           </table>
           <table className="ncr3-t ncr3-kv ncr3-gap">
