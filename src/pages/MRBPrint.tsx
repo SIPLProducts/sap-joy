@@ -354,6 +354,7 @@ const MRBPrint = () => {
         mrb.purchase_approved_by,
         mrb.engineering_approved_by,
         mrb.final_approved_by,
+        (mrb as any).created_by,
         ...commentRows.map((h) => h.performed_by),
       ].filter(Boolean) as string[];
 
@@ -369,6 +370,7 @@ const MRBPrint = () => {
         names.purchase = profileMap.get(mrb.purchase_approved_by || '') || '';
         names.engineering = profileMap.get(mrb.engineering_approved_by || '') || '';
         names.final = profileMap.get(mrb.final_approved_by || '') || '';
+        (names as any).initiator = profileMap.get((mrb as any).created_by || '') || '';
       }
       names.committee = mrb.mrb_committee_approved_by || '';
       setApproverNames(names);
@@ -890,8 +892,8 @@ html,body{margin:0;padding:0;background:#fff;}
     const dcInvDate = mm.dc_invoice_date || mm.delivery_challan_date || grnDateV;
     const poNoDate = [mm.po_number, mm.po_date ? formatDate(mm.po_date) : ''].filter(Boolean).join(' & ');
     const creatorName = (mrbComments || []).find((c) => /creat/i.test(`${c.rawStage || ''} ${c.stage || ''}`) && c.author)?.author;
-    const initiatorName = creatorName || mm.issue_identified_by || approverNames.quality || '';
-    const initComment = m?.quality_remarks || m?.defect_description || m?.issue_description || '';
+    const initiatorName = (approverNames as any).initiator || creatorName || mm.issue_identified_by || '';
+    const initComment = m?.defect_description || m?.issue_description || '';
     const Box = ({ on }: { on?: boolean }) => <td className="ncr3-cb"><span className={`ncr3-box${on ? ' on' : ''}`} /></td>;
     return (
       <div ref={printRef} className="mrb-form ncr3">
