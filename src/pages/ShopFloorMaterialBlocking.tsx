@@ -312,7 +312,7 @@ export default function ShopFloorMaterialBlocking() {
         grn_item_number: stockItem.grnItem || null,
         grn_date: stockItem.grnDate || null,
         po_number: poNumber || null,
-        total_quantity: blockQuantity,
+        total_quantity: stockItem.availableQuantity || blockQuantity,
         accepted_quantity: 0,
         rejected_quantity: 0,
         blocked_quantity: blockQuantity,
