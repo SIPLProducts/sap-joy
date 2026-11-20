@@ -36,6 +36,13 @@
       "when": 1794899104575,
       "tag": "0004_secure_add_dynamic_column",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795149278459,
+      "tag": "0005_restrict_add_dynamic_column_to_server",
+      "breakpoints": true
     }
   ]
 }

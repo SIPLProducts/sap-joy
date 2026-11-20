@@ -144,11 +144,17 @@ export function SAPApiFieldsDialog({ config, isOpen, onClose }: Props) {
         if (f.map_to_table && f.map_to_column && f.map_to_column.trim()) {
           const colType = mapFieldTypeToDbType(f.field_type);
           try {
-            await supabase.rpc('add_dynamic_column', {
-              _table_name: f.map_to_table,
-              _column_name: f.map_to_column.trim().toLowerCase(),
-              _column_type: colType,
+            const { data: colRes, error: colInvokeErr } = await supabase.functions.invoke('sap-sync', {
+              body: {
+                action: 'ensure_column',
+                table_name: f.map_to_table,
+                column_name: f.map_to_column.trim().toLowerCase(),
+                column_type: colType,
+              },
             });
+            if (colInvokeErr || colRes?.ok === false) {
+              throw new Error(colRes?.error || colInvokeErr?.message || 'Could not add column');
+            }
           } catch (colErr: any) {
             // Column may already exist — that's fine
             console.log(`Column ${f.map_to_column} on ${f.map_to_table}: ${colErr.message || 'already exists'}`);

@@ -89,6 +89,44 @@ export default async (req: Request) => {
       }
     }
 
+    // ENSURE DYNAMIC COLUMN (SAP field mappings) — server-side only.
+    // add_dynamic_column is not executable from the browser; authorize here first.
+    if (action === 'ensure_column') {
+      const json = (payload: unknown) => new Response(JSON.stringify(payload), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+      const isMasterAdmin = userEmail === 'masteradmin@sharviinfotech.com'
+      let allowed = isMasterAdmin
+      if (!allowed) {
+        const [{ data: isAdmin }, { data: hasScreen }] = await Promise.all([
+          supabase.rpc('has_role', { _user_id: userData.user.id, _role: 'admin' }),
+          supabase.rpc('has_screen_access', { _user_id: userData.user.id, _screen_key: 'sap_api_settings' }),
+        ])
+        allowed = isAdmin === true || hasScreen === true
+      }
+      if (!allowed) {
+        return json({ ok: false, error: 'Not authorized to add columns' })
+      }
+      const tableName = String((body as any)?.table_name ?? '')
+      const columnName = String((body as any)?.column_name ?? '').trim().toLowerCase()
+      const columnType = String((body as any)?.column_type ?? 'text')
+      const allowedTables = ['shop_floor_stock', 'inward_inspection_lots', 'materials', 'vendors']
+      const allowedTypes = ['text', 'numeric', 'integer', 'boolean', 'date', 'timestamptz', 'jsonb']
+      if (!allowedTables.includes(tableName) || !/^[a-z_][a-z0-9_]{0,62}$/.test(columnName) || !allowedTypes.includes(columnType)) {
+        return json({ ok: false, error: 'Invalid table, column name or column type' })
+      }
+      const { error: colErr } = await supabase.rpc('add_dynamic_column', {
+        _table_name: tableName,
+        _column_name: columnName,
+        _column_type: columnType,
+      })
+      if (colErr) {
+        console.error('ensure_column failed:', colErr.message)
+        return json({ ok: false, error: 'Could not add column' })
+      }
+      return json({ ok: true, data: { table: tableName, column: columnName } })
+    }
+
     // Fetch the SAP config
     const { data: config, error: configError } = await supabase
       .from('sap_api_config')
